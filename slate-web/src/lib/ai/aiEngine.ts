@@ -168,7 +168,10 @@ function userContent(text: string, imageDataUrl?: string): Content[] {
 }
 
 function getServerEndpoint(path: string): string {
-  const publicAppOrigin = (import.meta.env?.VITE_PUBLIC_APP_URL || "").trim().replace(/\/$/, "");
+  const publicAppOrigin = (
+    import.meta.env?.VITE_PUBLIC_APP_URL ||
+    "https://siegingprism-canvas-slate-web.workers.dev"
+  ).trim().replace(/\/$/, "");
   const isCapacitor =
     typeof window !== "undefined" &&
     (window.location.protocol === "capacitor:" ||

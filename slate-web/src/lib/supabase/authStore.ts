@@ -17,14 +17,26 @@ interface AuthState {
   checkSession: () => Promise<User | null>;
 }
 
-function getAuthRedirectUrl(path = ""): string {
-  if (typeof window === "undefined") return "";
-  const publicAppOrigin = (import.meta.env?.VITE_PUBLIC_APP_URL || "").trim().replace(/\/$/, "");
-  const isCapacitor =
+function isCapacitorPlatform(): boolean {
+  if (typeof window === "undefined") return false;
+  return (
     window.location.protocol === "capacitor:" ||
     window.location.hostname === "localhost" ||
-    window.location.hostname === "127.0.0.1";
-  const base = isCapacitor && publicAppOrigin ? publicAppOrigin : window.location.origin;
+    window.location.hostname === "127.0.0.1"
+  );
+}
+
+function getAuthRedirectUrl(path = ""): string {
+  if (typeof window === "undefined") return "";
+  const isCapacitor = isCapacitorPlatform();
+
+  if (isCapacitor) {
+    const clean = path.replace(/^\//, "");
+    return clean ? `com.slate.whiteboard://${clean}` : "com.slate.whiteboard://auth-callback";
+  }
+
+  const publicAppOrigin = (import.meta.env?.VITE_PUBLIC_APP_URL || "").trim().replace(/\/$/, "");
+  const base = publicAppOrigin || window.location.origin;
   return path ? `${base}${path.startsWith("/") ? path : `/${path}`}` : base;
 }
 
@@ -75,6 +87,23 @@ export const useAuth = create<AuthState>((set, get) => ({
     const supabase = getSupabase();
     if (!supabase) return { error: new Error("Supabase is not configured") };
     try {
+      if (isCapacitorPlatform()) {
+        const { Browser } = await import("@capacitor/browser");
+        const redirectTo = "com.slate.whiteboard://auth-callback";
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: {
+            redirectTo,
+            skipBrowserRedirect: true,
+          },
+        });
+        if (error) return { error };
+        if (data?.url) {
+          await Browser.open({ url: data.url, windowName: "_system" });
+        }
+        return { error: null };
+      }
+
       const redirectTo = getAuthRedirectUrl();
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
@@ -191,5 +220,57 @@ if (typeof window !== "undefined") {
     });
   } else {
     useAuth.setState({ user: null, session: null, loading: false, initialized: true });
+  }
+
+  // Handle deep link intents on Android / Capacitor (com.slate.whiteboard:// & slate://)
+  if (isCapacitorPlatform()) {
+    import("@capacitor/app")
+      .then(({ App }) => {
+        App.addListener("appUrlOpen", async (event) => {
+          try {
+            const { Browser } = await import("@capacitor/browser");
+            await Browser.close().catch(() => {});
+          } catch {}
+
+          const rawUrl = event.url || "";
+          if (rawUrl.includes("com.slate.whiteboard") || rawUrl.includes("slate://")) {
+            const normalized = rawUrl
+              .replace(/^com\.slate\.whiteboard:\/\//, "https://slate.local/")
+              .replace(/^slate:\/\//, "https://slate.local/");
+
+            try {
+              const parsed = new URL(normalized);
+              const hash = parsed.hash.replace(/^#/, "");
+              const searchParams = new URLSearchParams(parsed.search);
+              const hashParams = new URLSearchParams(hash);
+
+              const accessToken = hashParams.get("access_token") || searchParams.get("access_token");
+              const refreshToken = hashParams.get("refresh_token") || searchParams.get("refresh_token");
+              const code = searchParams.get("code") || hashParams.get("code");
+              const type = hashParams.get("type") || searchParams.get("type");
+
+              if (parsed.pathname.includes("reset-password") || type === "recovery") {
+                window.location.href = `/reset-password${parsed.search}${parsed.hash}`;
+                return;
+              }
+
+              const sb = getSupabase();
+              if (sb) {
+                if (accessToken && refreshToken) {
+                  await sb.auth.setSession({
+                    access_token: accessToken,
+                    refresh_token: refreshToken,
+                  });
+                } else if (code) {
+                  await sb.auth.exchangeCodeForSession(code);
+                }
+              }
+            } catch (e) {
+              console.warn("Failed to process app deep link URL:", e);
+            }
+          }
+        });
+      })
+      .catch(() => {});
   }
 }

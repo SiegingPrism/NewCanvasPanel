@@ -187,5 +187,39 @@ describe("shapeRecognition", () => {
       expect(result.rotation).toBeUndefined();
     }
   });
+
+  it("recognizes a diamond (rhombus) as 'diamond' and NOT as a rotated rect", () => {
+    // Upright diamond: top (100, 20), right (180, 100), bottom (100, 180), left (20, 100)
+    const corners = [
+      { x: 100, y: 20 },
+      { x: 180, y: 100 },
+      { x: 100, y: 180 },
+      { x: 20, y: 100 },
+    ];
+    const pts = polyline(corners);
+    const result = recognizeShape(pts, "#000000", 2);
+    expect(result).not.toBeNull();
+    expect(result?.kind).toBe("shape");
+    if (result && result.kind === "shape") {
+      expect(result.shape).toBe("diamond");
+    }
+  });
+
+  it("recognizes a single-stroke arrow drawn continuously (shaft + return barb) without lifting pen", () => {
+    // Shaft from (20, 60) to (200, 60), then single return barb to (160, 80)
+    const shaft = interpolate({ x: 20, y: 60 }, { x: 200, y: 60 }, 30);
+    const barb = interpolate({ x: 200, y: 60 }, { x: 160, y: 80 }, 12);
+    const pts = [...shaft, ...barb.slice(1)];
+    const result = recognizeShape(pts, "#000000", 2);
+    expect(result).not.toBeNull();
+    expect(result?.kind).toBe("shape");
+    if (result && result.kind === "shape") {
+      expect(result.shape).toBe("arrow");
+      expect(result.x).toBe(20);
+      expect(result.y).toBe(60);
+      expect(result.w).toBe(180);
+      expect(result.h).toBe(0);
+    }
+  });
 });
 
