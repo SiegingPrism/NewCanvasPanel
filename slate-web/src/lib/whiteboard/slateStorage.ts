@@ -525,6 +525,66 @@ export async function deleteBoardFromStorage(boardId: string): Promise<void> {
   }
 }
 
+/**
+ * Save per-board chat messages to IndexedDB (with localStorage backup)
+ */
+export async function saveBoardChat(boardId: string, messages: unknown[]): Promise<void> {
+  if (typeof window === "undefined" || !boardId) return;
+  try {
+    localStorage.setItem(`slate_chat_${boardId}`, JSON.stringify(messages));
+    const db = await openDB();
+    const tx = db.transaction(STORE_META, "readwrite");
+    const store = tx.objectStore(STORE_META);
+    store.put(messages, `chat_${boardId}`);
+  } catch (err) {
+    console.warn("[SlateStorage] Failed to save chat history:", err);
+  }
+}
+
+/**
+ * Load per-board chat messages from IndexedDB (with localStorage fallback)
+ */
+export async function loadBoardChat<T = any>(boardId: string): Promise<T[]> {
+  if (typeof window === "undefined" || !boardId) return [];
+  try {
+    const db = await openDB();
+    const result = await new Promise<any>((resolve) => {
+      const tx = db.transaction(STORE_META, "readonly");
+      const store = tx.objectStore(STORE_META);
+      const req = store.get(`chat_${boardId}`);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => resolve(null);
+    });
+    if (Array.isArray(result) && result.length > 0) return result;
+  } catch {
+    /* fallback to localStorage */
+  }
+  try {
+    const fromLs = localStorage.getItem(`slate_chat_${boardId}`);
+    if (fromLs) {
+      const parsed = JSON.parse(fromLs);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch {}
+  return [];
+}
+
+/**
+ * Clear chat history for a board
+ */
+export async function clearBoardChat(boardId: string): Promise<void> {
+  if (typeof window === "undefined" || !boardId) return;
+  try {
+    localStorage.removeItem(`slate_chat_${boardId}`);
+    const db = await openDB();
+    const tx = db.transaction(STORE_META, "readwrite");
+    const store = tx.objectStore(STORE_META);
+    store.delete(`chat_${boardId}`);
+  } catch {
+    /* ignore */
+  }
+}
+
 // Platform lifecycle listeners & persistent storage registration
 if (typeof window !== "undefined") {
   // Request persistent storage so Android / Chromium does not evict data under space pressure

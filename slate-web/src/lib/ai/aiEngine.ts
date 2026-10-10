@@ -60,6 +60,22 @@ export interface MathSolveResult {
   xRange?: [number, number];
   yRange?: [number, number];
   title?: string;
+  verified?: boolean;
+}
+
+export interface WorkStepCheck {
+  stepNumber: number;
+  stepText: string;
+  isCorrect: boolean;
+  feedback: string;
+  correction?: string;
+}
+
+export interface CheckWorkResult {
+  overallCorrect: boolean;
+  mistakeStepIndex: number | null;
+  summary: string;
+  steps: WorkStepCheck[];
 }
 
 export interface NoteSummary {
@@ -88,6 +104,9 @@ export interface ChatMessage {
 
 export interface ChatSource {
   title: string;
+  url?: string;
+  id?: string;
+  sourceType?: "note" | "board" | "flashcard";
 }
 
 // ---------------------------------------------------------------------------
@@ -149,6 +168,8 @@ interface CallOptions {
   schema?: Record<string, unknown>;
   temperature?: number;
   maxOutputTokens?: number;
+  thinkingBudget?: number;
+  model?: string;
   signal?: AbortSignal;
   timeoutMs?: number;
 }
@@ -229,6 +250,9 @@ function buildBody(contents: Content[], opts: CallOptions) {
     temperature: opts.temperature ?? 0.4,
   };
   if (opts.maxOutputTokens) generationConfig.maxOutputTokens = opts.maxOutputTokens;
+  if (typeof opts.thinkingBudget === "number") {
+    generationConfig.thinkingConfig = { thinkingBudget: opts.thinkingBudget };
+  }
   if (opts.json) {
     generationConfig.responseMimeType = "application/json";
     if (opts.schema) generationConfig.responseSchema = opts.schema;
@@ -340,10 +364,63 @@ function extractText(json: any): string {
   return text;
 }
 
+async function readSSEStream(
+  body: ReadableStream<Uint8Array>,
+  onText: (full: string) => void,
+): Promise<string> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let full = "";
+
+  const handleLine = (line: string) => {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("data:")) return;
+    const payload = trimmed.slice(5).trim();
+    if (!payload || payload === "[DONE]") return;
+    let json: unknown;
+    try {
+      json = JSON.parse(payload);
+    } catch {
+      return;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if ((json as any)?.error) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      throw new AIError("server", `AI error: ${(json as any).error.message || "stream failed"}`);
+    }
+    const piece = extractText(json);
+    if (piece) {
+      full += piece;
+      onText(full);
+    }
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let nl = buffer.indexOf("\n");
+    while (nl !== -1) {
+      handleLine(buffer.slice(0, nl));
+      buffer = buffer.slice(nl + 1);
+      nl = buffer.indexOf("\n");
+    }
+  }
+  buffer += decoder.decode();
+  if (buffer) handleLine(buffer);
+
+  if (!full.trim()) {
+    throw new AIError("bad_response", "The AI returned an empty answer. Please try again.");
+  }
+  return full;
+}
+
 /** One-shot request with resilient fallback models. */
 async function callGemini(contents: Content[], opts: CallOptions = {}): Promise<string> {
   const authConfig = getAuthOrKey();
   const timeoutLimit = computeTimeoutLimit(contents, opts, 15000);
+  const requestedModel = opts.model || GEMINI_MODEL;
 
   // If user has no personal key, route request through the server AI proxy
   if (authConfig.type === "serverProxy") {
@@ -361,7 +438,7 @@ async function callGemini(contents: Content[], opts: CallOptions = {}): Promise<
           contents: built.contents,
           generationConfig: built.generationConfig,
           systemInstruction: built.systemInstruction,
-          model: GEMINI_MODEL,
+          model: requestedModel,
         }),
         signal: t.signal,
       });
@@ -403,7 +480,7 @@ async function callGemini(contents: Content[], opts: CallOptions = {}): Promise<
 
   // Direct client request when user configured personal key
   const key = authConfig.key;
-  const modelsToTry = [GEMINI_MODEL, ...FALLBACK_MODELS.filter((m) => m !== GEMINI_MODEL)];
+  const modelsToTry = [requestedModel, ...FALLBACK_MODELS.filter((m) => m !== requestedModel)];
   const body = JSON.stringify(buildBody(contents, opts));
   let lastErr: unknown;
 
@@ -477,15 +554,83 @@ async function streamGemini(
 ): Promise<string> {
   const authConfig = getAuthOrKey();
   const timeoutLimit = computeTimeoutLimit(contents, opts, 25000);
+  const preferredModel = opts.model || GEMINI_MODEL;
 
   if (authConfig.type === "serverProxy") {
-    const text = await callGemini(contents, opts);
-    opts.onText(text);
-    return text;
+    const url = getServerEndpoint("/api/ai");
+    const t = withTimeout(opts.signal, timeoutLimit);
+    let full = "";
+    try {
+      const built = buildBody(contents, opts);
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authConfig.token}`,
+        },
+        body: JSON.stringify({
+          contents: built.contents,
+          generationConfig: built.generationConfig,
+          systemInstruction: built.systemInstruction,
+          model: preferredModel,
+          stream: true,
+        }),
+        signal: t.signal,
+      });
+
+      if (!res.ok) {
+        let errorMsg = "";
+        try {
+          const j = await res.json();
+          errorMsg = j?.error || "";
+        } catch {}
+        if (res.status === 429) {
+          throw new AIError("quota", errorMsg || "Daily AI usage limit reached. Your limit resets tomorrow.");
+        }
+        if (res.status === 401) {
+          throw new AIError("no_key", errorMsg || "Sign in required to use cloud AI services.");
+        }
+        if (res.status === 503) {
+          throw new AIError("no_key", errorMsg || "AI quota service is temporarily unavailable.");
+        }
+        throw new AIError("server", errorMsg || `AI server error (${res.status}). Please try again.`);
+      }
+
+      if (!res.body) {
+        throw new AIError("bad_response", "The AI returned an empty response. Please try again.");
+      }
+
+      const contentType = res.headers.get("content-type") || "";
+      if (contentType.includes("text/event-stream")) {
+        full = await readSSEStream(res.body, (cur) => {
+          full = cur;
+          opts.onText(cur);
+        });
+        return full;
+      } else {
+        const data = await res.json();
+        const text = extractText(data).trim();
+        if (!text) {
+          throw new AIError("bad_response", "The AI returned an empty answer. Please try again.");
+        }
+        opts.onText(text);
+        return text;
+      }
+    } catch (err) {
+      if (err instanceof AIError) throw err;
+      if (err instanceof Error && err.name === "AbortError" && !t.didTimeout()) {
+        throw new AIError("aborted", "Request cancelled.");
+      }
+      const aiErr = networkError(err, t.didTimeout());
+      (aiErr as AIError & { partialText?: string }).partialText = full;
+      throw aiErr;
+    } finally {
+      t.done();
+    }
   }
 
   const key = authConfig.key;
-  const modelsToTry = [GEMINI_MODEL, ...FALLBACK_MODELS.filter((m) => m !== GEMINI_MODEL)];
+  const modelsToTry = [preferredModel, ...FALLBACK_MODELS.filter((m) => m !== preferredModel)];
   let lastErr: unknown;
 
   for (const model of modelsToTry) {
@@ -513,49 +658,10 @@ async function streamGemini(
       if (!res.body)
         throw new AIError("bad_response", "The AI returned an empty answer. Please try again.");
 
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      const handleLine = (line: string) => {
-        const trimmed = line.trim();
-        if (!trimmed.startsWith("data:")) return;
-        const payload = trimmed.slice(5).trim();
-        if (!payload || payload === "[DONE]") return;
-        let json: unknown;
-        try {
-          json = JSON.parse(payload);
-        } catch {
-          return;
-        }
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        if ((json as any)?.error) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          throw new AIError("server", `AI error: ${(json as any).error.message || "stream failed"}`);
-        }
-        const piece = extractText(json);
-        if (piece) {
-          full += piece;
-          opts.onText(full);
-        }
-      };
-
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        let nl = buffer.indexOf("\n");
-        while (nl !== -1) {
-          handleLine(buffer.slice(0, nl));
-          buffer = buffer.slice(nl + 1);
-          nl = buffer.indexOf("\n");
-        }
-      }
-      buffer += decoder.decode();
-      if (buffer) handleLine(buffer);
-
-      if (!full.trim())
-        throw new AIError("bad_response", "The AI returned an empty answer. Please try again.");
+      full = await readSSEStream(res.body, (cur) => {
+        full = cur;
+        opts.onText(cur);
+      });
       return full;
     } catch (err) {
       const aiErr = networkError(err, t.didTimeout());
@@ -763,6 +869,30 @@ const STUDY_PLAN_SCHEMA = {
   required: ["title", "dailyRoutine", "phases"],
 };
 
+const CHECK_WORK_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    overallCorrect: { type: "BOOLEAN" },
+    mistakeStepIndex: { type: "INTEGER", nullable: true },
+    summary: S.string,
+    steps: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          stepNumber: { type: "INTEGER" },
+          stepText: S.string,
+          isCorrect: { type: "BOOLEAN" },
+          feedback: S.string,
+          correction: { type: "STRING", nullable: true },
+        },
+        required: ["stepNumber", "stepText", "isCorrect", "feedback"],
+      },
+    },
+  },
+  required: ["overallCorrect", "summary", "steps"],
+};
+
 // ---------------------------------------------------------------------------
 // Prompts
 // ---------------------------------------------------------------------------
@@ -790,6 +920,73 @@ Respond only with JSON matching the schema:
 - yRange: [min, max] range appropriate for the curve.
 - title: concise descriptive topic title (e.g. "Quadratic Equation", "Linear System", "Right Triangle Trigonometry", "Definite Integral").`;
 
+const CHECK_WORK_SYSTEM = `You are an expert mathematics and science tutor meticulously checking a student's handwritten or typed work step-by-step.
+Your goal is to verify every single step from the problem statement down to the conclusion, identify whether the overall solution is correct, and point out the EXACT step and line where the very first error occurred.
+
+Respond only with JSON matching the schema:
+- overallCorrect: true if and only if EVERY step and final answer is mathematically and logically sound.
+- mistakeStepIndex: the 1-based index (e.g. 1, 2, 3...) of the FIRST line containing an error, or null if all steps are correct.
+- summary: constructive, supportive feedback summarizing what went right and exactly what caused the misconception.
+- steps: an array of step objects:
+  - stepNumber: 1-based index of the step
+  - stepText: the equation or mathematical statement in that step
+  - isCorrect: boolean (true if this step is mathematically valid)
+  - feedback: precise explanation of why it is valid, or the exact error (e.g. "Arithmetic mistake: 3 * 7 = 21, not 24" or "Sign error: forgot to negate inside parentheses")
+  - correction: the correct expression that should have been written if isCorrect is false.`;
+
+/**
+ * Deterministically plugs candidate roots back into the equation AST using safeMath.
+ * Returns true if roots satisfy within numerical tolerance, false if they violate it,
+ * or undefined if the equation cannot be verified symbolically/numerically.
+ */
+function verifyRootsWithSafeMath(
+  problemLatex: string,
+  solutionText: string,
+): boolean | undefined {
+  try {
+    const clean = problemLatex
+      .replace(/\$\$/g, "")
+      .replace(/\$/g, "")
+      .replace(/\\left|\\right/g, "")
+      .replace(/\\cdot/g, "*")
+      .replace(/\\times/g, "*")
+      .replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, "($1)/($2)")
+      .trim();
+
+    const eqParts = clean.split("=");
+    if (eqParts.length !== 2) return undefined;
+
+    const left = eqParts[0].trim();
+    const right = eqParts[1].trim();
+    if (!left || !right) return undefined;
+
+    const diffExpr = `(${left}) - (${right})`;
+    const fn = compileMathFunction(diffExpr);
+
+    // Extract potential numeric roots (e.g. "x = 2, -2", "x = 4", "3.5")
+    const matches = solutionText.match(/-?\d+(?:\.\d+)?/g);
+    if (!matches || matches.length === 0) return undefined;
+
+    const roots = matches.map(Number).filter((n) => !isNaN(n));
+    if (roots.length === 0) return undefined;
+
+    let allSatisfy = true;
+    let evalCount = 0;
+    for (const r of roots) {
+      const val = fn(r);
+      if (val === null || isNaN(val)) return undefined;
+      evalCount++;
+      if (Math.abs(val) > 0.05) {
+        allSatisfy = false;
+        break;
+      }
+    }
+    return evalCount > 0 ? allSatisfy : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Engine
 // ---------------------------------------------------------------------------
@@ -803,7 +1000,13 @@ export class AIEngine {
   // ---- Chat (streaming) ----
   static async chat(
     history: ChatMessage[],
-    opts: { contextText?: string; onText: (fullText: string) => void; signal?: AbortSignal },
+    opts: {
+      contextText?: string;
+      imageDataUrl?: string;
+      hintMode?: boolean;
+      onText: (fullText: string) => void;
+      signal?: AbortSignal;
+    },
   ): Promise<{ text: string; sources: ChatSource[] }> {
     const turns = history.filter((m) => m.content.trim()).slice(-20);
     const last = turns[turns.length - 1];
@@ -818,6 +1021,9 @@ export class AIEngine {
         notesContext = chunks.map((c, i) => `[${i + 1}] ${c.source}\n${c.text}`).join("\n\n");
         sources = chunks.map((c) => ({
           title: c.source.replace(/^(NOTE|BOARD|FLASHCARD):\s*/i, ""),
+          url: c.url,
+          id: c.id,
+          sourceType: c.sourceType,
         }));
       }
     } catch {
@@ -825,6 +1031,18 @@ export class AIEngine {
     }
 
     let system = TUTOR_SYSTEM;
+    if (opts.hintMode) {
+      system += `\n\n[HINT MODE ACTIVE]:
+- The user has requested hints instead of full solutions. DO NOT reveal the final solution, boxed answer, or full steps.
+- Instead, guide the user Socratically: ask a targeted question about the current step, point to a principle/formula, or give a gentle progressive clue.
+- Keep your hints concise (1-3 sentences) so the student has space to think and respond.`;
+    }
+    if (opts.imageDataUrl) {
+      system += `\n\n[WHITEBOARD / SELECTION VISUAL SNAPSHOT ATTACHED]:
+- An image of the user's whiteboard or active selection is attached.
+- Inspect this image directly to understand the user's diagrams, handwriting, graphs, geometry, equations, or sketches.
+- Answer questions like "what's wrong with my diagram?", "explain this graph", "did I solve this right?", or "what is this shape?".`;
+    }
     if (opts.contextText?.trim()) {
       system += `\n\nThe user selected this content on their whiteboard. Treat it as the main subject when relevant:\n"""\n${opts.contextText.trim().slice(0, 4000)}\n"""`;
     }
@@ -832,14 +1050,23 @@ export class AIEngine {
       system += `\n\nPossibly relevant excerpts from the user's own notes and boards (use only if they help; mention the source title when you use one):\n${notesContext}`;
     }
 
-    const contents: Content[] = turns.map((m) => ({
-      role: m.role === "assistant" ? "model" : "user",
-      parts: [{ text: m.content }],
-    }));
+    const contents: Content[] = turns.map((m, idx) => {
+      const isLastTurn = idx === turns.length - 1;
+      const parts: Part[] = [];
+      if (isLastTurn && opts.imageDataUrl) {
+        parts.push(imagePart(opts.imageDataUrl));
+      }
+      parts.push({ text: m.content });
+      return {
+        role: m.role === "assistant" ? "model" : "user",
+        parts,
+      };
+    });
 
     const text = await streamGemini(contents, {
       system,
       temperature: 0.6,
+      model: "gemini-3.5-flash",
       signal: opts.signal,
       onText: opts.onText,
     });
@@ -856,7 +1083,56 @@ export class AIEngine {
     const system = contextText?.trim()
       ? `${TUTOR_SYSTEM}\n\nSelected whiteboard content:\n"""\n${contextText.trim().slice(0, 4000)}\n"""`
       : TUTOR_SYSTEM;
-    return callGemini(userContent(prompt, imageDataUrl), { system, temperature: 0.6 });
+    return callGemini(userContent(prompt, imageDataUrl), { system, temperature: 0.6, model: "gemini-3.5-flash" });
+  }
+
+  // ---- Check My Work (step-by-step verification) ----
+  static async checkWork(
+    problemOrText?: string,
+    imageDataUrl?: string,
+  ): Promise<CheckWorkResult> {
+    const text = problemOrText?.trim() || "";
+    if (!text && !imageDataUrl) {
+      throw new AIError("bad_input", "Select your handwritten solution or provide problem text first.");
+    }
+
+    const prompt = text
+      ? `Check this student solution step-by-step:\n"""\n${text}\n"""${
+          imageDataUrl ? "\n(The image contains the handwritten solution on the board.)" : ""
+        }`
+      : "Carefully inspect and check the student's handwritten work in this image step-by-step.";
+
+    const raw = await callGemini(userContent(prompt, imageDataUrl), {
+      system: CHECK_WORK_SYSTEM,
+      json: true,
+      schema: CHECK_WORK_SCHEMA,
+      temperature: 0.1,
+      model: "gemini-3.5-flash",
+    });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const p = parseJSON<any>(raw);
+    const steps: WorkStepCheck[] = Array.isArray(p.steps)
+      ? p.steps.map((s: any, idx: number) => ({
+          stepNumber: typeof s.stepNumber === "number" ? s.stepNumber : idx + 1,
+          stepText: str(s.stepText),
+          isCorrect: Boolean(s.isCorrect),
+          feedback: str(s.feedback),
+          correction: s.correction ? str(s.correction) : undefined,
+        }))
+      : [];
+
+    const hasWrongStep = steps.some((s) => !s.isCorrect);
+    const firstWrongIdx = steps.findIndex((s) => !s.isCorrect);
+    const mistakeStepIndex = hasWrongStep ? firstWrongIdx + 1 : null;
+    const overallCorrect = Boolean(p.overallCorrect) && !hasWrongStep;
+
+    return {
+      overallCorrect,
+      mistakeStepIndex,
+      summary: str(p.summary) || (overallCorrect ? "All steps are correct! Great work." : "There is an error in your solution."),
+      steps,
+    };
   }
 
   // ---- Handwriting → text ----
@@ -867,7 +1143,7 @@ export class AIEngine {
         "Transcribe all handwritten text in this image exactly as written, keeping line breaks. Write any math in plain text (e.g. x^2 + 3x = 5). Output only the transcription. If there is no readable writing, output exactly: [unreadable]",
         imageDataUrl,
       ),
-      { temperature: 0 },
+      { temperature: 0, model: "gemini-3.5-flash-lite", thinkingBudget: 0 },
     );
     const clean = text.replace(/^```\w*\s*|```$/g, "").trim();
     if (!clean || /^\[unreadable\]$/i.test(clean)) {
@@ -887,7 +1163,7 @@ export class AIEngine {
         "Convert the handwritten math in this image to LaTeX. Output only the LaTeX expression, without $ signs, code fences or explanation. If there is no math, output exactly: [none]",
         imageDataUrl,
       ),
-      { temperature: 0 },
+      { temperature: 0, model: "gemini-3.5-flash-lite", thinkingBudget: 0 },
     );
     const latex = text
       .replace(/^```\w*\s*|```$/g, "")
@@ -900,24 +1176,32 @@ export class AIEngine {
   }
 
   // ---- Math solver (typed formula and/or handwriting image) ----
-  static async solveMath(formula?: string, imageDataUrl?: string): Promise<MathSolveResult> {
+  static async solveMath(
+    formula?: string,
+    imageDataUrl?: string,
+    opts?: { hintOnly?: boolean },
+  ): Promise<MathSolveResult> {
     const typed = formula?.trim() || "";
     if (!typed && !imageDataUrl)
       throw new AIError("bad_input", "Enter or select a math problem first.");
+    const hintNotice = opts?.hintOnly
+      ? "\n[HINT REQUESTED: Provide guiding steps/hints without revealing the final boxed solution]."
+      : "";
     const prompt = typed
-      ? `Solve this problem: ${typed}${imageDataUrl ? "\n(The image shows the same problem as written on the board.)" : ""}`
-      : "Solve the math problem written in this image.";
+      ? `Solve this problem: ${typed}${imageDataUrl ? "\n(The image shows the same problem as written on the board.)" : ""}${hintNotice}`
+      : `Solve the math problem written in this image.${hintNotice}`;
 
     const raw = await callGemini(userContent(prompt, imageDataUrl), {
       system: MATH_SYSTEM,
       json: true,
       schema: MATH_SCHEMA,
       temperature: 0.1,
+      model: "gemini-3.5-flash",
     });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const p = parseJSON<any>(raw);
-    const solution = str(p.solution).replace(/^=\s*/, "");
-    const steps = strList(p.steps);
+    let solution = str(p.solution).replace(/^=\s*/, "");
+    let steps = strList(p.steps);
     if (!solution)
       throw new AIError(
         "bad_response",
@@ -925,6 +1209,37 @@ export class AIEngine {
       );
 
     const xRange = range(p.xRange, [-6, 6]);
+    let verified = verifyRootsWithSafeMath(str(p.latex) || typed, solution);
+
+    // If verification failed, prompt the AI once more to re-check its calculation
+    if (verified === false && !opts?.hintOnly) {
+      try {
+        const retryRaw = await callGemini(
+          userContent(
+            `${prompt}\n\nNote: Substituting the proposed roots (${solution}) into the equation failed verification. Please re-solve carefully, double-check every step and verify your roots.`,
+            imageDataUrl,
+          ),
+          {
+            system: MATH_SYSTEM,
+            json: true,
+            schema: MATH_SCHEMA,
+            temperature: 0.1,
+            model: "gemini-3.5-flash",
+          },
+        );
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const retryP = parseJSON<any>(retryRaw);
+        const retrySol = str(retryP.solution).replace(/^=\s*/, "");
+        if (retrySol) {
+          solution = retrySol;
+          steps = strList(retryP.steps);
+          verified = verifyRootsWithSafeMath(str(retryP.latex) || typed, solution);
+        }
+      } catch {
+        /* keep original result */
+      }
+    }
+
     return {
       latex: str(p.latex) || typed,
       solution,
@@ -933,6 +1248,7 @@ export class AIEngine {
       xRange,
       yRange: range(p.yRange, [-5, 8]),
       title: str(p.title) || undefined,
+      verified,
     };
   }
 
@@ -1035,6 +1351,10 @@ ${content.slice(0, 60000)}`,
     };
   }
 
+  static async summarize(text: string, title = "Selection"): Promise<NoteSummary> {
+    return this.summarizeNote(title, [text]);
+  }
+
   // ---- Quiz ----
   static async generateQuiz(content: string, title?: string, count = 5): Promise<QuizQuestion[]> {
     if (content.trim().length < 20)
@@ -1091,7 +1411,7 @@ front: a short question or term. back: a concise, correct answer (max ~30 words)
 MATERIAL:
 ${content.slice(0, 60000)}`,
       ),
-      { system: JSON_SYSTEM, json: true, schema: FLASHCARD_SCHEMA, temperature: 0.3 },
+      { system: JSON_SYSTEM, json: true, schema: FLASHCARD_SCHEMA, temperature: 0.3, model: "gemini-3.5-flash-lite", thinkingBudget: 0 },
     );
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const parsed = parseJSON<any[]>(raw);

@@ -27,7 +27,7 @@ import {
   CATEGORY_COLORS,
   type ChemicalElement,
 } from "@/lib/whiteboard/periodicTableData";
-import { recognizeShape, isPointInPolygon } from "@/lib/whiteboard/shapeRecognition";
+import { recognizeShape, recognizeMultiStrokeArrow, isPointInPolygon } from "@/lib/whiteboard/shapeRecognition";
 import {
   Copy,
   Trash2,
@@ -57,10 +57,14 @@ import {
   Calculator,
   Wand2,
   GitBranch,
+  CheckCircle2,
+  AlertCircle,
+  FileText,
+  BookOpen,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { AIEngine, aiErrorMessage } from "@/lib/ai/aiEngine";
+import { AIEngine, aiErrorMessage, type CheckWorkResult } from "@/lib/ai/aiEngine";
 import { compileMathFunction } from "@/lib/whiteboard/safeMath";
 import type { MindMapNode } from "@/lib/ai/aiEngine";
 import { renderMathSolutionCard } from "@/lib/whiteboard/renderMathSolutionImage";
@@ -113,6 +117,7 @@ export function WhiteboardCanvas({
   const page = pages.find((p) => p.id === activePageId) ||
     pages[0] || { id: "default", objects: [], background: "white" as const };
   const [dpr, setDpr] = useState(1);
+  const [checkWorkModal, setCheckWorkModal] = useState<CheckWorkResult | null>(null);
   const lastTapRef = useRef<{ time: number; x: number; y: number } | null>(null);
 
   // Keep cameraRef and pageRef synced so event listeners always access latest state without re-binding
@@ -4829,6 +4834,18 @@ export function WhiteboardCanvas({
         shapeToCommit = recognizeShape(d.points, color, size);
       }
 
+      if (!shapeToCommit && (autoSnapEnabled || tool === "shape") && d.points.length >= 4) {
+        const lastObj = page.objects[page.objects.length - 1];
+        if (lastObj && "points" in lastObj && Array.isArray((lastObj as any).points)) {
+          const multiArrow = recognizeMultiStrokeArrow([(lastObj as any).points, d.points], color, size);
+          if (multiArrow) {
+            deleteObject(lastObj.id);
+            commitShape(multiArrow);
+            return;
+          }
+        }
+      }
+
       if (shapeToCommit) {
         commitShape(shapeToCommit);
         return;
@@ -5174,6 +5191,117 @@ export function WhiteboardCanvas({
     return details?.dataUrl || null;
   }
 
+  // Expose global snapshot capture helper for AISheet
+  useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (window as any).__slateCaptureSnapshot = (selectionOnly?: boolean): string | null => {
+      const targetIds = selectedIds.length > 0 ? selectedIds : selectedId ? [selectedId] : [];
+      if (selectionOnly && targetIds.length > 0) {
+        return exportSelectedRegionAsImage(targetIds);
+      }
+      const targetObjects = page.objects;
+      if (targetObjects.length === 0) return null;
+      let minX = Infinity;
+      let minY = Infinity;
+      let maxX = -Infinity;
+      let maxY = -Infinity;
+      for (const obj of targetObjects) {
+        const ob = objectBounds(obj);
+        minX = Math.min(minX, ob.x);
+        minY = Math.min(minY, ob.y);
+        maxX = Math.max(maxX, ob.x + ob.w);
+        maxY = Math.max(maxY, ob.y + ob.h);
+      }
+      if (!isFinite(minX)) return null;
+      const pad = 24;
+      const w = Math.max(80, maxX - minX + pad * 2);
+      const h = Math.max(80, maxY - minY + pad * 2);
+      const offCanvas = document.createElement("canvas");
+      offCanvas.width = Math.min(1600, Math.max(300, Math.round(w)));
+      offCanvas.height = Math.min(1600, Math.max(300, Math.round(h)));
+      const offCtx = offCanvas.getContext("2d");
+      if (!offCtx) return null;
+      offCtx.scale(offCanvas.width / w, offCanvas.height / h);
+      offCtx.fillStyle = "#ffffff";
+      offCtx.fillRect(0, 0, w, h);
+      offCtx.translate(-minX + pad, -minY + pad);
+      for (const obj of targetObjects) {
+        drawObject(offCtx, obj, false);
+      }
+      return offCanvas.toDataURL("image/png");
+    };
+    return () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      delete (window as any).__slateCaptureSnapshot;
+    };
+  }, [page, selectedIds, selectedId]);
+
+  async function handleCheckWorkSelection() {
+    const targetIds = selectedIds.length > 0 ? selectedIds : selectedId ? [selectedId] : [];
+    if (targetIds.length === 0) return;
+    const img = exportSelectedRegionAsImage(targetIds);
+    const selectedObjects = page.objects.filter((o) => targetIds.includes(o.id));
+    let textHint = "";
+    for (const obj of selectedObjects) {
+      if (obj.kind === "formula") textHint = obj.latex;
+      else if (obj.kind === "text" || obj.kind === "sticky") textHint = obj.text;
+    }
+    const toastId = toast.loading("Checking your work step-by-step...");
+    try {
+      const res = await AIEngine.checkWork(textHint || undefined, img || undefined);
+      toast.dismiss(toastId);
+      setCheckWorkModal(res);
+    } catch (err) {
+      toast.dismiss(toastId);
+      toast.error(`${aiErrorMessage(err)} Your ink was kept.`);
+    }
+  }
+
+  async function handleSummarizeSelection() {
+    const targetIds = selectedIds.length > 0 ? selectedIds : selectedId ? [selectedId] : [];
+    if (targetIds.length === 0) return;
+    const selectedObjects = page.objects.filter((o) => targetIds.includes(o.id));
+    let text = "";
+    for (const obj of selectedObjects) {
+      if (obj.kind === "text" || obj.kind === "sticky") text += (text ? "\n" : "") + obj.text;
+      else if (obj.kind === "formula") text += (text ? "\n" : "") + obj.latex;
+    }
+    const img = exportSelectedRegionAsImage(targetIds);
+    const toastId = toast.loading("Summarizing selection...");
+    try {
+      if (!text.trim() && img) {
+        text = await AIEngine.transcribeHandwriting(img);
+      }
+      if (!text.trim()) {
+        toast.dismiss(toastId);
+        toast.error("Please select text or writing to summarize.");
+        return;
+      }
+      const summary = await AIEngine.summarize(text, "Selection Summary");
+      toast.dismiss(toastId);
+
+      const bounds = selectionBounds;
+      const x = bounds ? bounds.x + bounds.w + 24 : 400;
+      const y = bounds ? bounds.y : 300;
+      const keyPointsText = (summary.keyPoints || []).map((p: string) => `• ${p}`).join("\n");
+      addObject({
+        id: uid(),
+        kind: "sticky",
+        x,
+        y,
+        w: 280,
+        h: 220,
+        text: `📌 Summary:\n${summary.overview}\n\nKey Points:\n${keyPointsText}${summary.takeaway ? `\n\n💡 ${summary.takeaway}` : ""}`,
+        color: "#fef08a",
+      });
+      pushHistory();
+      toast.success("Summary added as a sticky note!");
+    } catch (err) {
+      toast.dismiss(toastId);
+      toast.error(`${aiErrorMessage(err)} Your ink was kept.`);
+    }
+  }
+
   async function handleConvertHandwritingToText() {
     const targetIds = selectedIds.length > 0 ? selectedIds : selectedId ? [selectedId] : [];
     if (targetIds.length === 0) return;
@@ -5501,6 +5629,24 @@ export function WhiteboardCanvas({
     if (strokeObjs.length === 0) {
       toast.info("Select drawn ink strokes to beautify into crisp shapes.");
       return;
+    }
+
+    if (strokeObjs.length >= 2) {
+      const multiArrow = recognizeMultiStrokeArrow(
+        strokeObjs.map((s) => s.points),
+        strokeObjs[0].color,
+        strokeObjs[0].size,
+      );
+      if (multiArrow) {
+        strokeObjs.forEach((s) => deleteObject(s.id));
+        addObject({
+          ...multiArrow,
+          id: uid(),
+        });
+        pushHistory();
+        toast.success("Beautified strokes into a clean arrow!");
+        return;
+      }
     }
 
     let beautifiedCount = 0;
@@ -6004,80 +6150,118 @@ export function WhiteboardCanvas({
         </div>
       )}
 
-      {/* Floating Action Bar for Selection (Single & Multi Selection) */}
+      {/* Floating Action Bar for Selection (Unified Menu) */}
       {clampedSelectionPos && (
         <div
-          className="pointer-events-auto absolute flex -translate-x-1/2 -translate-y-full items-center gap-1 rounded-full bg-card/95 px-2.5 py-1.5 shadow-xl ring-1 ring-border backdrop-blur z-20"
+          className="pointer-events-auto absolute flex -translate-x-1/2 -translate-y-full items-center gap-1 rounded-full bg-card/95 px-2.5 py-1.5 shadow-xl ring-1 ring-border backdrop-blur z-20 max-w-[95vw] overflow-x-auto scrollbar-none"
           style={{ left: clampedSelectionPos.x, top: clampedSelectionPos.y }}
         >
-          <div className="flex items-center gap-1 text-xs font-semibold text-primary px-1.5 border-r border-border">
+          <div className="flex items-center gap-1 text-xs font-semibold text-primary px-1.5 border-r border-border shrink-0">
             <span>{targetSelectionIds.length}</span> {targetSelectionIds.length === 1 ? "item" : "items"}
           </div>
 
-          {/* 1. Solve Math & Plot */}
+          {/* 1. Explain */}
+          {onOpenAI && (
+            <button
+              onClick={() => onOpenAI()}
+              title="Explain selection with AI"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium hover:bg-sky-500/10 text-sky-600 dark:text-sky-400 transition shrink-0"
+            >
+              <Wand2 className="h-3.5 w-3.5" />
+              <span>Explain</span>
+            </button>
+          )}
+
+          {/* 2. Solve */}
           <button
             onClick={handleSolveAndPlotMath}
-            title="Solve Math & Plot 2D Function"
-            className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-purple-500/10 text-purple-600 transition"
+            title="Solve Math & Plot Graph"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium hover:bg-purple-500/10 text-purple-600 dark:text-purple-400 transition shrink-0"
           >
-            <Calculator className="h-4 w-4" />
+            <Calculator className="h-3.5 w-3.5" />
+            <span>Solve</span>
           </button>
 
-          {/* 2. Handwriting → Math Formula (LaTeX) */}
+          {/* 3. Check Work */}
           <button
-            onClick={handleConvertMath}
-            title="Convert Handwriting → Math Formula (LaTeX)"
-            className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-violet-500/10 text-violet-500 transition"
+            onClick={handleCheckWorkSelection}
+            title="Check my work step-by-step"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium hover:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 transition shrink-0"
           >
-            <Sigma className="h-4 w-4" />
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            <span>Check</span>
           </button>
 
-          {/* 3. Handwriting → Text */}
+          {/* 4. To Text */}
           <button
             onClick={handleConvertHandwritingToText}
             title="Convert Handwriting → Text"
-            className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-primary/10 text-primary transition"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium hover:bg-primary/10 text-primary transition shrink-0"
           >
-            <Type className="h-4 w-4" />
+            <Type className="h-3.5 w-3.5" />
+            <span>To text</span>
           </button>
 
-          {/* 3. Clean Up Sketch / Beautify */}
-          <button
-            onClick={handleBeautifySketch}
-            title="Clean Up Sketch → Geometric Vector Shape"
-            className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-amber-500/10 text-amber-500 transition"
-          >
-            <Sparkles className="h-4 w-4" />
-          </button>
-
-          {/* 4. Mind-Map from Selection */}
-          <button
-            onClick={handleGenerateMindMapFromSelection}
-            title="Generate Concept Mind-Map"
-            className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-indigo-500/10 text-indigo-500 transition"
-          >
-            <GitBranch className="h-4 w-4" />
-          </button>
-
-          {/* 5. Create Flashcards */}
+          {/* 5. Flashcards */}
           <button
             onClick={handleCreateFlashcardsFromSelection}
             title="Create Study Flashcards"
-            className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-emerald-500/10 text-emerald-500 transition"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium hover:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 transition shrink-0"
           >
-            <Layers className="h-4 w-4" />
+            <Layers className="h-3.5 w-3.5" />
+            <span>Flashcards</span>
           </button>
 
-          {/* 6. Diagram → Flowchart */}
+          {/* 6. Summarise */}
+          <button
+            onClick={handleSummarizeSelection}
+            title="Summarise Selection to Sticky Note"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium hover:bg-amber-500/10 text-amber-600 dark:text-amber-400 transition shrink-0"
+          >
+            <FileText className="h-3.5 w-3.5" />
+            <span>Summarise</span>
+          </button>
+
+          <div className="h-4 w-px bg-border mx-0.5 shrink-0" />
+
+          {/* Secondary tools in compact icon buttons */}
+          {/* Formula LaTeX */}
+          <button
+            onClick={handleConvertMath}
+            title="Convert to Math Formula (LaTeX)"
+            className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-violet-500/10 text-violet-500 transition shrink-0"
+          >
+            <Sigma className="h-3.5 w-3.5" />
+          </button>
+
+          {/* Beautify */}
+          <button
+            onClick={handleBeautifySketch}
+            title="Clean Up Sketch → Geometric Vector Shape"
+            className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-amber-500/10 text-amber-500 transition shrink-0"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+          </button>
+
+          {/* Mind-Map */}
+          <button
+            onClick={handleGenerateMindMapFromSelection}
+            title="Generate Concept Mind-Map"
+            className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-indigo-500/10 text-indigo-500 transition shrink-0"
+          >
+            <GitBranch className="h-3.5 w-3.5" />
+          </button>
+
+          {/* Diagram Flowchart */}
           <button
             onClick={handleConvertDiagram}
             title="Convert to Structured Flowchart"
-            className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-teal-500/10 text-teal-500 transition"
+            className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-teal-500/10 text-teal-500 transition shrink-0"
           >
-            <Workflow className="h-4 w-4" />
+            <Workflow className="h-3.5 w-3.5" />
           </button>
 
-          {/* 7. Conceal with Study Tape */}
+          {/* Study Tape */}
           <button
             onClick={() => {
               const bounds = selectionBounds;
@@ -6099,44 +6283,36 @@ export function WhiteboardCanvas({
               toast.success("Masked with Study Tape!");
             }}
             title="Conceal with Study Tape"
-            className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-orange-500/10 text-orange-500 transition"
+            className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-orange-500/10 text-orange-500 transition shrink-0"
           >
-            <EyeOff className="h-4 w-4" />
+            <EyeOff className="h-3.5 w-3.5" />
           </button>
 
-          {/* 8. Ask AI Sheet */}
-          {onOpenAI && (
-            <button
-              onClick={() => onOpenAI()}
-              title="Ask AI Assistant about Selection"
-              className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-sky-500/10 text-sky-500 transition"
-            >
-              <Wand2 className="h-4 w-4" />
-            </button>
-          )}
+          <div className="h-4 w-px bg-border mx-0.5 shrink-0" />
 
-          <div className="h-4 w-px bg-border mx-0.5" />
-
+          {/* Duplicate */}
           <button
             onClick={() => {
               duplicateSelected();
               pushHistory();
             }}
             title="Duplicate"
-            className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-accent text-foreground transition"
+            className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-accent text-foreground transition shrink-0"
           >
-            <Copy className="h-4 w-4" />
+            <Copy className="h-3.5 w-3.5" />
           </button>
-          <div className="relative">
+
+          {/* Recolor */}
+          <div className="relative shrink-0">
             <button
               onClick={() => setRecolorPickerOpen(!recolorPickerOpen)}
               title="Recolor"
-              className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-accent text-foreground transition"
+              className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-accent text-foreground transition"
             >
-              <Palette className="h-4 w-4" />
+              <Palette className="h-3.5 w-3.5" />
             </button>
             {recolorPickerOpen && (
-              <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 flex gap-1 p-2 rounded-xl bg-card shadow-xl ring-1 ring-border">
+              <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 flex gap-1 p-2 rounded-xl bg-card shadow-xl ring-1 ring-border z-30">
                 {PALETTE.slice(0, 7).map((c) => (
                   <button
                     key={c}
@@ -6152,15 +6328,17 @@ export function WhiteboardCanvas({
               </div>
             )}
           </div>
+
+          {/* Delete */}
           <button
             onClick={() => {
               deleteSelected();
               pushHistory();
             }}
             title="Delete"
-            className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-destructive/10 text-destructive transition"
+            className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-destructive/10 text-destructive transition shrink-0"
           >
-            <Trash2 className="h-4 w-4" />
+            <Trash2 className="h-3.5 w-3.5" />
           </button>
         </div>
       )}
@@ -6279,6 +6457,152 @@ export function WhiteboardCanvas({
               }
             }}
           />
+        </div>
+      )}
+
+      {/* Check My Work Modal */}
+      {checkWorkModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="relative w-full max-w-lg max-h-[85vh] flex flex-col rounded-2xl bg-card border border-border shadow-2xl overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-border px-5 py-4 bg-muted/30">
+              <div className="flex items-center gap-2.5">
+                <div
+                  className={cn(
+                    "flex h-9 w-9 items-center justify-center rounded-xl",
+                    checkWorkModal.overallCorrect
+                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                      : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                  )}
+                >
+                  {checkWorkModal.overallCorrect ? (
+                    <CheckCircle2 className="h-5 w-5" />
+                  ) : (
+                    <AlertCircle className="h-5 w-5" />
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-foreground">Work Verification</h3>
+                  <p className="text-xs text-muted-foreground">
+                    {checkWorkModal.overallCorrect
+                      ? "All steps verified correct 🎉"
+                      : checkWorkModal.mistakeStepIndex !== null
+                      ? `Mistake identified at Step ${(checkWorkModal.mistakeStepIndex ?? 0) + 1}`
+                      : "Review recommended"}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setCheckWorkModal(null)}
+                className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-4 text-sm">
+              <div className="rounded-xl bg-muted/40 p-3.5 border border-border/60">
+                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-1">
+                  Summary
+                </p>
+                <p className="text-foreground leading-relaxed">{checkWorkModal.summary}</p>
+              </div>
+
+              {/* Steps */}
+              {checkWorkModal.steps && checkWorkModal.steps.length > 0 && (
+                <div className="space-y-2.5">
+                  <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    Step-by-Step Breakdown
+                  </p>
+                  <div className="space-y-2">
+                    {checkWorkModal.steps.map((st) => (
+                      <div
+                        key={st.stepNumber}
+                        className={cn(
+                          "rounded-xl p-3 border text-xs space-y-1.5 transition",
+                          st.isCorrect
+                            ? "bg-card border-border/80"
+                            : "bg-amber-500/5 dark:bg-amber-950/20 border-amber-500/30"
+                        )}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-foreground">
+                            Step {st.stepNumber}
+                          </span>
+                          <span
+                            className={cn(
+                              "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium",
+                              st.isCorrect
+                                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                                : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                            )}
+                          >
+                            {st.isCorrect ? (
+                              <>
+                                <Check className="h-3 w-3" /> Correct
+                              </>
+                            ) : (
+                              <>
+                                <AlertCircle className="h-3 w-3" /> Needs Attention
+                              </>
+                            )}
+                          </span>
+                        </div>
+                        {st.stepText && (
+                          <div className="font-mono text-xs bg-muted/60 px-2 py-1 rounded text-foreground/90">
+                            {st.stepText}
+                          </div>
+                        )}
+                        <p className="text-muted-foreground">{st.feedback}</p>
+                        {st.correction && (
+                          <div className="rounded bg-emerald-500/10 px-2 py-1 text-emerald-700 dark:text-emerald-300 font-mono text-[11px]">
+                            💡 Correct: {st.correction}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between border-t border-border px-5 py-3 bg-muted/20">
+              <button
+                onClick={() => {
+                  const bounds = selectionBounds;
+                  const x = bounds ? bounds.x + bounds.w + 24 : 400;
+                  const y = bounds ? bounds.y : 300;
+                  const stepText = checkWorkModal.steps
+                    .map((s) => `${s.isCorrect ? "✅" : "⚠️"} Step ${s.stepNumber}: ${s.stepText || s.feedback}${s.correction ? ` (Fix: ${s.correction})` : ""}`)
+                    .join("\n");
+                  addObject({
+                    id: uid(),
+                    kind: "sticky",
+                    x,
+                    y,
+                    w: 280,
+                    h: 220,
+                    text: `📝 Work Feedback:\n${checkWorkModal.summary}\n\n${stepText}`,
+                    color: checkWorkModal.overallCorrect ? "#bbf7d0" : "#fef08a",
+                  });
+                  pushHistory();
+                  toast.success("Feedback inserted as sticky note!");
+                  setCheckWorkModal(null);
+                }}
+                className="text-xs font-medium text-primary hover:underline"
+              >
+                Insert Sticky Note on Board
+              </button>
+              <button
+                onClick={() => setCheckWorkModal(null)}
+                className="rounded-lg bg-primary px-4 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition"
+              >
+                Done
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -15,6 +15,8 @@ export interface RAGChunk {
   source: string;
   text: string;
   score: number;
+  url?: string;
+  sourceType?: "note" | "board" | "flashcard";
 }
 
 const STOP_WORDS = new Set([
@@ -308,6 +310,8 @@ export function retrieveRAGContext(query: string, topK = 3): RAGChunk[] {
       source: `${m.sourceType.toUpperCase()}: ${m.title}`,
       text: m.snippet,
       score: m.score,
+      url: m.url,
+      sourceType: m.sourceType,
     }));
 }
 

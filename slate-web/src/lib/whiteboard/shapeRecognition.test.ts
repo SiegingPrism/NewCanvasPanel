@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { recognizeShape } from "./shapeRecognition";
+import { recognizeShape, recognizeMultiStrokeArrow } from "./shapeRecognition";
 
 function interpolate(p1: { x: number; y: number }, p2: { x: number; y: number }, steps = 15) {
   const pts = [];
@@ -219,6 +219,47 @@ describe("shapeRecognition", () => {
       expect(result.y).toBe(60);
       expect(result.w).toBe(180);
       expect(result.h).toBe(0);
+    }
+  });
+
+  it("recognizes a multi-stroke arrow (separate shaft stroke + V-shaped arrowhead stroke)", () => {
+    // Stroke 1: shaft line from (50, 100) to (250, 100)
+    const shaft = interpolate({ x: 50, y: 100 }, { x: 250, y: 100 }, 30);
+    // Stroke 2: chevron arrowhead > at (250, 100): wing1 (220, 80) -> apex (250, 100) -> wing2 (220, 120)
+    const chevronWing1 = interpolate({ x: 220, y: 80 }, { x: 250, y: 100 }, 10);
+    const chevronWing2 = interpolate({ x: 250, y: 100 }, { x: 220, y: 120 }, 10);
+    const chevron = [...chevronWing1, ...chevronWing2.slice(1)];
+
+    const result = recognizeMultiStrokeArrow([shaft, chevron], "#1e293b", 3);
+    expect(result).not.toBeNull();
+    expect(result?.kind).toBe("shape");
+    if (result && result.kind === "shape") {
+      expect(result.shape).toBe("arrow");
+      expect(result.x).toBe(50);
+      expect(result.y).toBe(100);
+      expect(result.w).toBe(200);
+      expect(result.h).toBe(0);
+    }
+
+    // Also works when chevron is drawn before shaft (reversed order of strokes)
+    const reverseOrderResult = recognizeMultiStrokeArrow([chevron, shaft], "#1e293b", 3);
+    expect(reverseOrderResult).not.toBeNull();
+    expect(reverseOrderResult?.shape).toBe("arrow");
+  });
+
+  it("recognizes a multi-stroke arrow with 3 strokes (shaft + 2 separate barb lines)", () => {
+    const shaft = interpolate({ x: 0, y: 0 }, { x: 100, y: 100 }, 25);
+    const barb1 = interpolate({ x: 100, y: 100 }, { x: 70, y: 95 }, 8);
+    const barb2 = interpolate({ x: 100, y: 100 }, { x: 95, y: 70 }, 8);
+
+    const result = recognizeMultiStrokeArrow([shaft, barb1, barb2], "#ef4444", 2);
+    expect(result).not.toBeNull();
+    expect(result?.shape).toBe("arrow");
+    if (result && result.kind === "shape") {
+      expect(result.x).toBe(0);
+      expect(result.y).toBe(0);
+      expect(result.w).toBe(100);
+      expect(result.h).toBe(100);
     }
   });
 });

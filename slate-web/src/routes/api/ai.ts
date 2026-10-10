@@ -164,6 +164,7 @@ export const Route = createFileRoute("/api/ai")({
             generationConfig?: any;
             systemInstruction?: any;
             model?: string;
+            stream?: boolean;
           };
 
           try {
@@ -198,7 +199,10 @@ export const Route = createFileRoute("/api/ai")({
             maxOutputTokens: cappedTokens,
           };
 
-          const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+          const isStreaming = Boolean(body.stream);
+          const geminiUrl = isStreaming
+            ? `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse`
+            : `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
           const payload = {
             contents: body.contents,
@@ -216,10 +220,14 @@ export const Route = createFileRoute("/api/ai")({
             body: JSON.stringify(payload),
           });
 
-          const geminiData = await geminiRes.json();
-
           if (!geminiRes.ok) {
-            const errorMsg = geminiData?.error?.message || `Gemini error ${geminiRes.status}`;
+            let errorMsg = `Gemini error ${geminiRes.status}`;
+            try {
+              const geminiData = await geminiRes.json();
+              if (geminiData?.error?.message) {
+                errorMsg = geminiData.error.message;
+              }
+            } catch {}
             return new Response(
               JSON.stringify({ error: errorMsg }),
               {
@@ -229,6 +237,19 @@ export const Route = createFileRoute("/api/ai")({
             );
           }
 
+          if (isStreaming) {
+            return new Response(geminiRes.body, {
+              status: 200,
+              headers: {
+                ...CORS_HEADERS,
+                "Content-Type": "text/event-stream; charset=utf-8",
+                "Cache-Control": "no-cache",
+                "X-Daily-Remaining": String(remaining),
+              },
+            });
+          }
+
+          const geminiData = await geminiRes.json();
           return new Response(JSON.stringify(geminiData), {
             status: 200,
             headers: {
