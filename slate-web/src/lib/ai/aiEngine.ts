@@ -10,6 +10,7 @@
  * caller receives an `AIError` and shows its message, and nothing on the board is changed.
  */
 import { useAISettings } from "./aiSettingsStore";
+import { useAuth } from "@/lib/supabase/authStore";
 import { retrieveRAGContext } from "./localRAG";
 import { compileMathFunction } from "@/lib/whiteboard/safeMath";
 
@@ -166,16 +167,59 @@ function userContent(text: string, imageDataUrl?: string): Content[] {
   return [{ role: "user", parts }];
 }
 
-function ensureReady(): string {
+function getServerEndpoint(path: string): string {
+  const publicAppOrigin = (import.meta.env?.VITE_PUBLIC_APP_URL || "").trim().replace(/\/$/, "");
+  const isCapacitor =
+    typeof window !== "undefined" &&
+    (window.location.protocol === "capacitor:" ||
+      window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1");
+  if (isCapacitor && publicAppOrigin) {
+    return `${publicAppOrigin}${path}`;
+  }
+  return path;
+}
+
+function getAuthOrKey(): { type: "userKey"; key: string } | { type: "serverProxy"; token: string } {
   if (typeof navigator !== "undefined" && navigator.onLine === false) {
     throw new AIError("offline", "You're offline. Connect to the internet to use AI.");
   }
   const key = useAISettings.getState().getApiKey();
-  if (!key) {
-    throw new AIError("no_key", "AI isn't set up yet. Add a Gemini API key in AI Settings.");
+  if (key) {
+    return { type: "userKey", key };
   }
-  return key;
+
+  const session = useAuth.getState().session;
+  if (session?.access_token) {
+    return { type: "serverProxy", token: session.access_token };
+  }
+
+  throw new AIError(
+    "no_key",
+    "Sign in to use AI for free, or add your own Gemini API key in AI Settings.",
+  );
 }
+
+function computeTimeoutLimit(contents: Content[], opts: CallOptions, defaultShort = 15000): number {
+  if (opts.timeoutMs) return opts.timeoutMs;
+  const hasImage = contents.some((c) => c.parts.some((p) => "inlineData" in p));
+  const totalTextLength = contents.reduce(
+    (sum, c) => sum + c.parts.reduce((pSum, p) => pSum + ("text" in p ? p.text.length : 0), 0),
+    0,
+  );
+  // Keep 15s for short requests and use ~60s for image and long-document/quiz requests
+  if (hasImage || totalTextLength > 400) {
+    return 60000;
+  }
+  return defaultShort;
+}
+
+function ensureReady(): string {
+  const auth = getAuthOrKey();
+  if (auth.type === "userKey") return auth.key;
+  return "proxy";
+}
+
 
 function buildBody(contents: Content[], opts: CallOptions) {
   const generationConfig: Record<string, unknown> = {
@@ -295,13 +339,70 @@ function extractText(json: any): string {
 
 /** One-shot request with resilient fallback models. */
 async function callGemini(contents: Content[], opts: CallOptions = {}): Promise<string> {
-  const key = ensureReady();
+  const authConfig = getAuthOrKey();
+  const timeoutLimit = computeTimeoutLimit(contents, opts, 15000);
+
+  // If user has no personal key, route request through the server AI proxy
+  if (authConfig.type === "serverProxy") {
+    const url = getServerEndpoint("/api/ai");
+    const t = withTimeout(opts.signal, timeoutLimit);
+    try {
+      const built = buildBody(contents, opts);
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authConfig.token}`,
+        },
+        body: JSON.stringify({
+          contents: built.contents,
+          generationConfig: built.generationConfig,
+          systemInstruction: built.systemInstruction,
+          model: GEMINI_MODEL,
+        }),
+        signal: t.signal,
+      });
+
+      if (!res.ok) {
+        let errorMsg = "";
+        try {
+          const j = await res.json();
+          errorMsg = j?.error || "";
+        } catch {}
+        if (res.status === 429) {
+          throw new AIError("quota", errorMsg || "Daily AI usage limit reached. Your limit resets tomorrow.");
+        }
+        if (res.status === 401) {
+          throw new AIError("no_key", errorMsg || "Sign in required to use cloud AI services.");
+        }
+        if (res.status === 503) {
+          throw new AIError("no_key", errorMsg || "Server AI key is not configured. Add a Gemini API key in AI Settings.");
+        }
+        throw new AIError("server", errorMsg || `AI server error (${res.status}). Please try again.`);
+      }
+
+      const data = await res.json();
+      const text = extractText(data).trim();
+      if (!text) {
+        throw new AIError("bad_response", "The AI returned an empty answer. Please try again.");
+      }
+      return text;
+    } catch (err) {
+      if (err instanceof AIError) throw err;
+      if (err instanceof Error && err.name === "AbortError" && !t.didTimeout()) {
+        throw new AIError("aborted", "Request cancelled.");
+      }
+      throw networkError(err, t.didTimeout());
+    } finally {
+      t.done();
+    }
+  }
+
+  // Direct client request when user configured personal key
+  const key = authConfig.key;
   const modelsToTry = [GEMINI_MODEL, ...FALLBACK_MODELS.filter((m) => m !== GEMINI_MODEL)];
   const body = JSON.stringify(buildBody(contents, opts));
   let lastErr: unknown;
-
-  // Set tight, responsive timeout (default 15 seconds) so stalled connections fail fast
-  const timeoutLimit = opts.timeoutMs ?? 15000;
 
   for (const model of modelsToTry) {
     const url = `${API_BASE}/models/${model}:generateContent`;
@@ -371,10 +472,18 @@ async function streamGemini(
   contents: Content[],
   opts: CallOptions & { onText: (fullText: string) => void },
 ): Promise<string> {
-  const key = ensureReady();
+  const authConfig = getAuthOrKey();
+  const timeoutLimit = computeTimeoutLimit(contents, opts, 25000);
+
+  if (authConfig.type === "serverProxy") {
+    const text = await callGemini(contents, opts);
+    opts.onText(text);
+    return text;
+  }
+
+  const key = authConfig.key;
   const modelsToTry = [GEMINI_MODEL, ...FALLBACK_MODELS.filter((m) => m !== GEMINI_MODEL)];
   let lastErr: unknown;
-  const timeoutLimit = opts.timeoutMs ?? 25000;
 
   for (const model of modelsToTry) {
     const url = `${API_BASE}/models/${model}:streamGenerateContent?alt=sse`;
@@ -426,6 +535,7 @@ async function streamGemini(
           opts.onText(full);
         }
       };
+
 
       while (true) {
         const { done, value } = await reader.read();

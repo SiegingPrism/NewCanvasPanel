@@ -84,6 +84,7 @@ type NotesActions = {
   deleteBlock: (noteId: string, blockId: string) => void;
   moveBlock: (noteId: string, fromIndex: number, toIndex: number) => void;
   syncWithCloud: () => Promise<void>;
+  clearOnSignOut: () => void;
 };
 
 function loadStorage(): { notes: Record<string, Note>; noteOrder: string[] } {
@@ -335,9 +336,15 @@ export const useNotes = create<NotesState & NotesActions>((set, get) => {
 
     syncWithCloud: async () => {
       try {
+        const s = get();
+        // 1. Upload existing local notes upon sign-in
+        for (const note of Object.values(s.notes)) {
+          syncNoteToSupabase(note).catch(() => {});
+        }
+
+        // 2. Fetch cloud notes and merge
         const cloudNotes = await fetchNotesFromSupabase();
         if (!cloudNotes || !cloudNotes.length) return;
-        const s = get();
         const mergedNotes = { ...s.notes };
         const mergedNoteOrder = [...s.noteOrder];
 
@@ -369,6 +376,11 @@ export const useNotes = create<NotesState & NotesActions>((set, get) => {
       } catch (err) {
         console.warn("[Notes] Cloud sync failed:", err);
       }
+    },
+
+    clearOnSignOut: () => {
+      saveStorage({}, []);
+      set({ notes: {}, noteOrder: [], activeNoteId: null });
     },
   };
 });

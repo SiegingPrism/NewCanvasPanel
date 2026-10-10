@@ -17,6 +17,7 @@ import { Route as NoteNoteIdRouteImport } from './routes/note.$noteId'
 import { Route as BoardBoardIdRouteImport } from './routes/board.$boardId'
 import { Route as ApiVisionRouteImport } from './routes/api/vision'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
+import { Route as ApiAiRouteImport } from './routes/api/ai'
 
 const NotesRoute = NotesRouteImport.update({
   id: '/notes',
@@ -58,12 +59,18 @@ const ApiChatRoute = ApiChatRouteImport.update({
   path: '/api/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAiRoute = ApiAiRouteImport.update({
+  id: '/api/ai',
+  path: '/api/ai',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/learn': typeof LearnRoute
   '/library': typeof LibraryRoute
   '/notes': typeof NotesRoute
+  '/api/ai': typeof ApiAiRoute
   '/api/chat': typeof ApiChatRoute
   '/api/vision': typeof ApiVisionRoute
   '/board/$boardId': typeof BoardBoardIdRoute
@@ -74,6 +81,7 @@ export interface FileRoutesByTo {
   '/learn': typeof LearnRoute
   '/library': typeof LibraryRoute
   '/notes': typeof NotesRoute
+  '/api/ai': typeof ApiAiRoute
   '/api/chat': typeof ApiChatRoute
   '/api/vision': typeof ApiVisionRoute
   '/board/$boardId': typeof BoardBoardIdRoute
@@ -85,6 +93,7 @@ export interface FileRoutesById {
   '/learn': typeof LearnRoute
   '/library': typeof LibraryRoute
   '/notes': typeof NotesRoute
+  '/api/ai': typeof ApiAiRoute
   '/api/chat': typeof ApiChatRoute
   '/api/vision': typeof ApiVisionRoute
   '/board/$boardId': typeof BoardBoardIdRoute
@@ -97,6 +106,7 @@ export interface FileRouteTypes {
     | '/learn'
     | '/library'
     | '/notes'
+    | '/api/ai'
     | '/api/chat'
     | '/api/vision'
     | '/board/$boardId'
@@ -107,6 +117,7 @@ export interface FileRouteTypes {
     | '/learn'
     | '/library'
     | '/notes'
+    | '/api/ai'
     | '/api/chat'
     | '/api/vision'
     | '/board/$boardId'
@@ -117,6 +128,7 @@ export interface FileRouteTypes {
     | '/learn'
     | '/library'
     | '/notes'
+    | '/api/ai'
     | '/api/chat'
     | '/api/vision'
     | '/board/$boardId'
@@ -128,6 +140,7 @@ export interface RootRouteChildren {
   LearnRoute: typeof LearnRoute
   LibraryRoute: typeof LibraryRoute
   NotesRoute: typeof NotesRoute
+  ApiAiRoute: typeof ApiAiRoute
   ApiChatRoute: typeof ApiChatRoute
   ApiVisionRoute: typeof ApiVisionRoute
   BoardBoardIdRoute: typeof BoardBoardIdRoute
@@ -192,6 +205,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiChatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/ai': {
+      id: '/api/ai'
+      path: '/api/ai'
+      fullPath: '/api/ai'
+      preLoaderRoute: typeof ApiAiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -200,6 +220,7 @@ const rootRouteChildren: RootRouteChildren = {
   LearnRoute: LearnRoute,
   LibraryRoute: LibraryRoute,
   NotesRoute: NotesRoute,
+  ApiAiRoute: ApiAiRoute,
   ApiChatRoute: ApiChatRoute,
   ApiVisionRoute: ApiVisionRoute,
   BoardBoardIdRoute: BoardBoardIdRoute,

@@ -33,6 +33,7 @@ import {
   Compass,
   LayoutGrid,
   Cloud,
+  ShieldCheck,
 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -232,12 +233,23 @@ export function TopBar({
   }
 
   async function shareQR() {
+    const currentUser = useAuth.getState().user;
+    if (!currentUser) {
+      toast.error("Please sign in to share boards to the cloud.", { id: "share-qr" });
+      setAuthOpen(true);
+      return;
+    }
+
     try {
       const activeMeta = activeBoardId ? boards[activeBoardId] : null;
       if (activeMeta) {
         toast.loading("Syncing board to cloud for sharing...", { id: "share-qr" });
-        await syncBoardToSupabase(activeMeta, pages, undefined, true);
-        toast.success("Board synced to cloud!", { id: "share-qr" });
+        const ok = await syncBoardToSupabase(activeMeta, pages, undefined, true);
+        if (!ok) {
+          toast.error("Could not sync board to cloud. Please try again.", { id: "share-qr" });
+          return;
+        }
+        toast.success("Board shared to cloud!", { id: "share-qr" });
       }
 
       const publicAppOrigin = (import.meta.env.VITE_PUBLIC_APP_URL || "").trim().replace(/\/$/, "");
@@ -655,20 +667,26 @@ export function TopBar({
           </button>
           <button
             className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-accent text-foreground transition"
-            onClick={async () => {
+            onClick={() => {
               setMenuOpen(false);
-              if (!user) {
-                setAuthOpen(true);
-                toast.info("Sign in to sync your boards privately to the cloud.");
-                return;
-              }
-              toast.info("Syncing whiteboard with your private cloud account...");
-              await syncWithCloud();
-              toast.success("Whiteboard synced securely to your account");
+              shareQR();
             }}
           >
-            <Cloud className={cn("h-3.5 w-3.5", user ? "text-emerald-500" : "text-blue-500")} />
-            <span>{user ? "Sync with Cloud" : "Sign In & Cloud Sync"}</span>
+            <QrCode className="h-3.5 w-3.5 text-emerald-500" />
+            <span>Share Board (QR Code)</span>
+          </button>
+
+          <div className="h-px w-full bg-border/60 my-1" />
+
+          <button
+            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-accent text-foreground transition"
+            onClick={() => {
+              setMenuOpen(false);
+              setAuthOpen(true);
+            }}
+          >
+            <ShieldCheck className={cn("h-3.5 w-3.5", user ? "text-emerald-500" : "text-primary")} />
+            <span>{user ? "Account & Cloud Sync" : "Sign In to Slate"}</span>
           </button>
         </PopoverContent>
       </Popover>

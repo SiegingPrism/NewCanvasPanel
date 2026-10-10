@@ -163,6 +163,16 @@ function countCorners(points: Point[], isClosed = false): { count: number; corne
   return { count: corners.length, corners };
 }
 
+function extractQuadCorners(points: Point[], cornerPts: Point[], maxSpan: number): Point[] | null {
+  if (cornerPts.length === 4) return cornerPts;
+  for (const eps of [0.03, 0.045, 0.06, 0.08, 0.1]) {
+    const r = rdp(points, Math.max(6, maxSpan * eps));
+    const unique = r.slice(0, -1);
+    if (unique.length === 4) return unique;
+  }
+  return null;
+}
+
 // ---- Main Shape Recognizer ----
 export function recognizeShape(
   rawPoints: Point[],
@@ -359,13 +369,18 @@ export function recognizeShape(
     };
   }
 
+  const quadCorners = extractQuadCorners(points, cornerPts, maxSpan);
+  const isTiltedRect = Boolean(quadCorners && isRectangleAngles(quadCorners));
+  const hasQuad = corners === 4 || rdpCount === 4 || isTiltedRect;
+
   // ----------------------------------------------------
   // F. Check TRIANGLES: Right Triangle vs General Triangle
   // ----------------------------------------------------
   if (
-    corners === 3 ||
-    rdpCount === 3 ||
-    (cornerElongation > 1.95 && normRectDev > 0.06 && ellipseDev > 0.2)
+    !hasQuad &&
+    (corners === 3 ||
+      rdpCount === 3 ||
+      (cornerElongation > 1.95 && normRectDev > 0.06 && ellipseDev > 0.2))
   ) {
     // Resolve 3 vertices first
     let triVertices: Point[] | undefined = cornerPts.length === 3 ? cornerPts : undefined;
@@ -405,7 +420,7 @@ export function recognizeShape(
   // ----------------------------------------------------
   // G. Check DIAMOND (rhombus: 4 corners near edge centers)
   // ----------------------------------------------------
-  if (normRectDev >= 0.075 && cornerElongation >= 1.25) {
+  if (!isTiltedRect && normRectDev >= 0.075 && cornerElongation >= 1.25) {
     if (detectDiamond(points, minX, maxX, minY, maxY, cx, cy)) {
       return {
         kind: "shape",
@@ -429,12 +444,14 @@ export function recognizeShape(
         ? cornerPts
         : [];
   const isPentagon =
+    !isTiltedRect &&
     (rdpCount === 5 || corners === 5) &&
     (isPentagonLike(fivePoints) || (solidity > 0.85 && normRectDev >= 0.09 && !isRectangleAngles(fivePoints)));
 
   const isRectangle =
     !isPentagon &&
-    ((normRectDev < 0.08 && cornerElongation > 1.2 && corners <= 4) ||
+    (isTiltedRect ||
+      (normRectDev < 0.08 && cornerElongation > 1.2 && corners <= 4) ||
       (corners === 4 && normRectDev < 0.13) ||
       (rdpCount === 4 && normRectDev < 0.13) ||
       ((corners === 5 || rdpCount === 5) && normRectDev < 0.10 && isRectangleAngles(fivePoints)) ||
@@ -449,13 +466,16 @@ export function recognizeShape(
     let finalY = isSquare ? cy - finalH / 2 : minY;
 
     let rotation: number | undefined;
-    if (cornerPts.length === 4) {
-      const angle = Math.atan2(cornerPts[1].y - cornerPts[0].y, cornerPts[1].x - cornerPts[0].x);
+    const ptsForAngle = (cornerPts.length === 4 ? cornerPts : quadCorners) || [];
+    if (ptsForAngle.length >= 2) {
+      const angle = Math.atan2(ptsForAngle[1].y - ptsForAngle[0].y, ptsForAngle[1].x - ptsForAngle[0].x);
       // Mathematical positive modulo in JavaScript
       const mod = (n: number, m: number) => ((n % m) + m) % m;
       let normA = mod(angle + Math.PI / 4, Math.PI / 2) - Math.PI / 4;
 
-      if (Math.abs(normA) > 0.08) {
+      // Snap anything under about 8° (~0.14 rad) to 0°
+      const snapThreshold = 8 * (Math.PI / 180);
+      if (Math.abs(normA) >= snapThreshold) {
         rotation = normA;
 
         // Project stroke points along rotated principal axes to compute unrotated width and height
@@ -899,19 +919,25 @@ function detectArrow(points: Point[], color: string, size: number): Omit<ShapeSt
   let barbFound = false;
   let barbIndex = -1;
 
+  // Real barbs must be angled roughly 15°–60° off the line (0.26 to 1.05 radians)
+  const minBarbAngle = 15 * (Math.PI / 180);
+  const maxBarbAngle = 60 * (Math.PI / 180);
+
   for (let i = n - 2; i >= Math.max(2, n - 25); i--) {
     const d = Math.hypot(points[i].x - tip.x, points[i].y - tip.y);
     if (d >= minBarb && d <= maxBarb) {
       const vBarb = { x: points[i].x - tip.x, y: points[i].y - tip.y };
       const vShaft = { x: points[0].x - tip.x, y: points[0].y - tip.y };
-      const dot =
-        (vBarb.x * vShaft.x + vBarb.y * vShaft.y) /
-        (Math.hypot(vBarb.x, vBarb.y) * Math.hypot(vShaft.x, vShaft.y) || 1);
-      const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
-      if (angle < Math.PI / 3) {
-        barbFound = true;
-        barbIndex = i;
-        break;
+      const magBarb = Math.hypot(vBarb.x, vBarb.y);
+      const magShaft = Math.hypot(vShaft.x, vShaft.y);
+      if (magBarb > 1e-4 && magShaft > 1e-4) {
+        const dot = (vBarb.x * vShaft.x + vBarb.y * vShaft.y) / (magBarb * magShaft);
+        const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
+        if (angle >= minBarbAngle && angle <= maxBarbAngle) {
+          barbFound = true;
+          barbIndex = i;
+          break;
+        }
       }
     }
   }

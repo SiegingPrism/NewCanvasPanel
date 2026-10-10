@@ -109,6 +109,7 @@ type Actions = {
   clearRecentAI: () => void;
   // Supabase Cloud Sync
   syncWithCloud: () => Promise<void>;
+  clearOnSignOut: () => void;
 };
 
 type State = WhiteboardState & PersistShape & { activeBoardId: string | null; hydrated: boolean };
@@ -730,14 +731,24 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
 
     syncWithCloud: async () => {
       try {
+        const s = get();
+        const deletedIds = getDeletedBoardIds();
+
+        // 1. Upload existing local boards to user's Supabase cloud account upon sign-in
+        for (const [id, meta] of Object.entries(s.boards)) {
+          if (deletedIds.has(id)) continue;
+          const bData = s.boardData[id];
+          const pages = bData?.pages || [emptyPage()];
+          syncBoardToSupabase(meta, pages).catch(() => {});
+        }
+
+        // 2. Fetch cloud boards and merge
         const cloudBoards = await fetchBoardsFromSupabase();
         if (!cloudBoards || !cloudBoards.length) return;
-        const s = get();
         const mergedBoards = { ...s.boards };
         const mergedBoardData = { ...s.boardData };
         const mergedBoardOrder = [...s.boardOrder];
 
-        const deletedIds = getDeletedBoardIds();
         for (const cb of cloudBoards) {
           if (deletedIds.has(cb.id)) {
             // Board was deleted locally, do not resurrect! Clean up from cloud
@@ -780,6 +791,41 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
       } catch (err) {
         console.warn("[Whiteboard] Cloud sync failed:", err);
       }
+    },
+
+    clearOnSignOut: () => {
+      const freshId = uid();
+      const freshPage = emptyPage();
+      const initialBoards = {
+        [freshId]: {
+          id: freshId,
+          title: "Untitled board",
+          tags: [],
+          folderId: null,
+          favorite: false,
+          archived: false,
+          createdAt: nowMs(),
+          updatedAt: nowMs(),
+        },
+      };
+      const initialBoardData = {
+        [freshId]: {
+          pages: [freshPage],
+          activePageId: freshPage.id,
+        },
+      };
+      const next: State = {
+        ...get(),
+        boards: initialBoards,
+        boardData: initialBoardData,
+        boardOrder: [freshId],
+        activeBoardId: freshId,
+        pages: [freshPage],
+        activePageId: freshPage.id,
+        recentAI: [],
+      };
+      persistMeta(next);
+      set(next);
     },
   };
 });

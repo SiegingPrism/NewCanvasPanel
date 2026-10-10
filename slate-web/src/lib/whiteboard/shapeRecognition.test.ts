@@ -103,4 +103,89 @@ describe("shapeRecognition", () => {
       expect(result.shape).toBe("right-triangle");
     }
   });
+
+  it("recognizes a straight line as 'line' and NOT 'arrow' or 'double-arrow'", () => {
+    // 20 points in a straight line from (10, 10) to (180, 10)
+    const pts = interpolate({ x: 10, y: 10 }, { x: 180, y: 10 }, 25);
+    const result = recognizeShape(pts, "#000000", 2);
+    expect(result).not.toBeNull();
+    expect(result?.kind).toBe("shape");
+    if (result && result.kind === "shape") {
+      expect(result.shape).toBe("line");
+    }
+  });
+
+  it("recognizes an arrow with an angled barb as 'arrow'", () => {
+    // Shaft from (10, 50) to (180, 50), then barb angled at ~30° from (180, 50) to (150, 70)
+    const shaft = interpolate({ x: 10, y: 50 }, { x: 180, y: 50 }, 25);
+    const barb = interpolate({ x: 180, y: 50 }, { x: 150, y: 70 }, 10);
+    const pts = [...shaft, ...barb.slice(1)];
+    const result = recognizeShape(pts, "#000000", 2);
+    expect(result).not.toBeNull();
+    expect(result?.kind).toBe("shape");
+    if (result && result.kind === "shape") {
+      expect(result.shape).toBe("arrow");
+    }
+  });
+
+  it("recognizes a tilted rectangle as 'rect' with rotation and NOT as a triangle", () => {
+    // 140 x 70 rectangle rotated by 30°
+    const angle = (30 * Math.PI) / 180;
+    const hw = 70;
+    const hh = 35;
+    const cx = 150;
+    const cy = 150;
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    const unrotated = [
+      { x: -hw, y: -hh },
+      { x: hw, y: -hh },
+      { x: hw, y: hh },
+      { x: -hw, y: hh },
+    ];
+    const corners = unrotated.map((p) => ({
+      x: cx + p.x * cos - p.y * sin,
+      y: cy + p.x * sin + p.y * cos,
+    }));
+    const pts = polyline(corners);
+    const result = recognizeShape(pts, "#000000", 2);
+    expect(result).not.toBeNull();
+    expect(result?.kind).toBe("shape");
+    if (result && result.kind === "shape") {
+      expect(result.shape).toBe("rect");
+      expect(result.rotation).toBeDefined();
+      expect(Math.abs(result.rotation!)).toBeGreaterThan(0.2); // ~30° (0.52 rad)
+    }
+  });
+
+  it("snaps a slightly tilted rectangle (< 8°) to 0° rotation", () => {
+    // 140 x 70 rectangle rotated by 5° (less than 8° threshold)
+    const angle = (5 * Math.PI) / 180;
+    const hw = 70;
+    const hh = 35;
+    const cx = 150;
+    const cy = 150;
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    const unrotated = [
+      { x: -hw, y: -hh },
+      { x: hw, y: -hh },
+      { x: hw, y: hh },
+      { x: -hw, y: hh },
+    ];
+    const corners = unrotated.map((p) => ({
+      x: cx + p.x * cos - p.y * sin,
+      y: cy + p.x * sin + p.y * cos,
+    }));
+    const pts = polyline(corners);
+    const result = recognizeShape(pts, "#000000", 2);
+    expect(result).not.toBeNull();
+    expect(result?.kind).toBe("shape");
+    if (result && result.kind === "shape") {
+      expect(result.shape).toBe("rect");
+      // Snapped to 0° -> rotation is undefined
+      expect(result.rotation).toBeUndefined();
+    }
+  });
 });
+

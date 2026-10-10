@@ -1,0 +1,112 @@
+-- ==============================================================================
+-- SLATE MIGRATION: SECURE ROW LEVEL SECURITY & PUBLIC BOARDS
+-- Run this migration in the Supabase Dashboard SQL Editor (https://supabase.com/dashboard/project/ksjcuwkvxisiaubljbtj/sql)
+-- ==============================================================================
+
+-- 1. ADD IS_PUBLIC COLUMN TO BOARDS
+ALTER TABLE public.boards ADD COLUMN IF NOT EXISTS is_public BOOLEAN DEFAULT FALSE;
+
+-- Create an index on is_public for fast shared board lookups
+CREATE INDEX IF NOT EXISTS idx_boards_is_public ON public.boards (is_public);
+CREATE INDEX IF NOT EXISTS idx_boards_user_id ON public.boards (user_id);
+CREATE INDEX IF NOT EXISTS idx_notes_user_id ON public.notes (user_id);
+CREATE INDEX IF NOT EXISTS idx_study_decks_user_id ON public.study_decks (user_id);
+
+-- 2. PURGE OLD UNOWNED ORPHAN ROWS
+DELETE FROM public.boards WHERE user_id IS NULL;
+DELETE FROM public.notes WHERE user_id IS NULL;
+DELETE FROM public.study_decks WHERE user_id IS NULL;
+
+-- 3. DROP INSECURE LEGACY POLICIES
+DROP POLICY IF EXISTS "Users can manage own boards" ON public.boards;
+DROP POLICY IF EXISTS "Allow users to read own or public boards" ON public.boards;
+DROP POLICY IF EXISTS "Allow owner to insert boards" ON public.boards;
+DROP POLICY IF EXISTS "Allow owner to update boards" ON public.boards;
+DROP POLICY IF EXISTS "Allow owner to delete boards" ON public.boards;
+
+DROP POLICY IF EXISTS "Users can manage own notes" ON public.notes;
+DROP POLICY IF EXISTS "Allow owner to read notes" ON public.notes;
+DROP POLICY IF EXISTS "Allow owner to insert notes" ON public.notes;
+DROP POLICY IF EXISTS "Allow owner to update notes" ON public.notes;
+DROP POLICY IF EXISTS "Allow owner to delete notes" ON public.notes;
+
+DROP POLICY IF EXISTS "Users can manage own study decks" ON public.study_decks;
+DROP POLICY IF EXISTS "Allow owner to read study decks" ON public.study_decks;
+DROP POLICY IF EXISTS "Allow owner to insert study decks" ON public.study_decks;
+DROP POLICY IF EXISTS "Allow owner to update study decks" ON public.study_decks;
+DROP POLICY IF EXISTS "Allow owner to delete study decks" ON public.study_decks;
+
+-- 4. BOARDS POLICIES (OWNER-ONLY WRITES, OWNER OR IS_PUBLIC READS)
+-- Anyone can view a board if it is explicitly marked is_public = true, or if they own it
+CREATE POLICY "Allow users to read own or public boards" ON public.boards
+    FOR SELECT
+    USING (auth.uid() = user_id OR is_public = TRUE);
+
+-- Only authenticated board owners can create boards
+CREATE POLICY "Allow owner to insert boards" ON public.boards
+    FOR INSERT
+    WITH CHECK (auth.uid() = user_id);
+
+-- Only the owner can update their board (prevent public viewers from editing shared boards)
+CREATE POLICY "Allow owner to update boards" ON public.boards
+    FOR UPDATE
+    USING (auth.uid() = user_id)
+    WITH CHECK (auth.uid() = user_id);
+
+-- Only the owner can delete their board
+CREATE POLICY "Allow owner to delete boards" ON public.boards
+    FOR DELETE
+    USING (auth.uid() = user_id);
+
+-- 5. NOTES POLICIES (STRICT OWNER-ONLY)
+CREATE POLICY "Allow owner to read notes" ON public.notes
+    FOR SELECT
+    USING (auth.uid() = user_id);
+
+CREATE POLICY "Allow owner to insert notes" ON public.notes
+    FOR INSERT
+    WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Allow owner to update notes" ON public.notes
+    FOR UPDATE
+    USING (auth.uid() = user_id)
+    WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Allow owner to delete notes" ON public.notes
+    FOR DELETE
+    USING (auth.uid() = user_id);
+
+-- 6. STUDY DECKS POLICIES (STRICT OWNER-ONLY)
+CREATE POLICY "Allow owner to read study decks" ON public.study_decks
+    FOR SELECT
+    USING (auth.uid() = user_id);
+
+CREATE POLICY "Allow owner to insert study decks" ON public.study_decks
+    FOR INSERT
+    WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Allow owner to update study decks" ON public.study_decks
+    FOR UPDATE
+    USING (auth.uid() = user_id)
+    WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Allow owner to delete study decks" ON public.study_decks
+    FOR DELETE
+    USING (auth.uid() = user_id);
+
+-- 7. USER ACCOUNT & DATA DELETION RPC (GOOGLE PLAY STORE REQUIREMENT)
+-- Authenticated users can invoke this to permanently purge their account and all data
+CREATE OR REPLACE FUNCTION delete_user_account()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+    DELETE FROM public.boards WHERE user_id = auth.uid();
+    DELETE FROM public.notes WHERE user_id = auth.uid();
+    DELETE FROM public.study_decks WHERE user_id = auth.uid();
+    DELETE FROM auth.users WHERE id = auth.uid();
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION delete_user_account() TO authenticated;

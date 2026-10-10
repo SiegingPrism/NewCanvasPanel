@@ -132,4 +132,30 @@ describe("AIEngine (online-only)", () => {
     expect(text).toBe("Hello!");
     expect(seen.at(-1)).toBe("Hello!");
   });
+
+  it("routes through server proxy when user has no personal key but has Supabase session", async () => {
+    const { useAuth } = await import("@/lib/supabase/authStore");
+    useAISettings.setState({ geminiKey: "", getApiKey: () => "" });
+    useAuth.setState({
+      session: {
+        access_token: "mock-supabase-token",
+        user: { id: "user-123" } as any,
+      } as any,
+    });
+
+    const fetchMock = vi.fn().mockResolvedValue(geminiResponse("Proxy response"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await AIEngine.askAssistant("help me with math");
+    expect(result).toBe("Proxy response");
+    expect(fetchMock).toHaveBeenCalled();
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(String(url)).toContain("/api/ai");
+    expect((init.headers as Record<string, string>)["Authorization"]).toBe("Bearer mock-supabase-token");
+
+    // Clean up
+    useAuth.setState({ session: null, user: null });
+    useAISettings.setState({ getApiKey: () => useAISettings.getState().geminiKey });
+  });
 });
+

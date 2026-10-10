@@ -10,6 +10,7 @@ export interface CloudBoardRecord {
   thumbnail?: string;
   folder_id?: string | null;
   is_starred: boolean;
+  is_public?: boolean;
   background?: string;
   pages: Page[];
   created_at?: string;
@@ -51,15 +52,16 @@ export async function syncBoardToSupabase(
   const supabase = getSupabase();
   if (!supabase) return false;
 
-  // Cloud sync requires sign-in to protect user data from being public
+  // Cloud sync and sharing strictly require sign-in to protect user data from being unowned or public
   const userId = await getAuthUserId();
-  if (!userId && !isPublicShare) {
+  if (!userId) {
     return false;
   }
 
   try {
     const payload: any = {
       id: meta.id,
+      user_id: userId,
       title: meta.title || "Untitled Board",
       folder_id: meta.folderId,
       is_starred: Boolean(meta.favorite),
@@ -69,8 +71,8 @@ export async function syncBoardToSupabase(
       updated_at: new Date().toISOString(),
     };
 
-    if (userId) {
-      payload.user_id = userId;
+    if (isPublicShare) {
+      payload.is_public = true;
     }
 
     const { error } = await supabase.from("boards").upsert(payload, { onConflict: "id" });
@@ -316,3 +318,31 @@ export async function fetchStudyDecksFromSupabase(): Promise<any[]> {
     return [];
   }
 }
+
+// ---------------------------------------------------------------------------
+// ACCOUNT & DATA DELETION (Google Play compliance)
+// ---------------------------------------------------------------------------
+
+export async function deleteAccountAndAllData(): Promise<{ success: boolean; error?: string }> {
+  const supabase = getSupabase();
+  if (!supabase) return { success: false, error: "Database not configured" };
+
+  try {
+    const userId = await getAuthUserId();
+    // Try stored procedure first
+    const { error: rpcErr } = await supabase.rpc("delete_user_account");
+    if (rpcErr) {
+      console.warn("delete_user_account RPC failed, fallback to client delete:", rpcErr.message);
+      if (userId) {
+        await supabase.from("boards").delete().eq("user_id", userId);
+        await supabase.from("notes").delete().eq("user_id", userId);
+        await supabase.from("study_decks").delete().eq("user_id", userId);
+      }
+    }
+    await supabase.auth.signOut();
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Failed to delete account" };
+  }
+}
+
