@@ -532,118 +532,123 @@ function Dashboard() {
               </Button>
             </div>
           ) : (
-            <div className="space-y-3">
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {filteredBoards.map((b) => {
-                  const folderObj = folders.find((f) => f.id === b.folderId);
-                  return (
-                    <div
-                      key={b.id}
-                      className="group relative flex flex-col justify-between rounded-2xl border bg-card p-4 shadow-2xs transition hover:border-primary/60 hover:shadow-md"
-                    >
-                      <div>
-                        <div className="flex items-start justify-between gap-2">
+            <div className="space-y-2">
+              <div className="max-h-[272px] overflow-y-auto pr-1 scrollbar-thin">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {filteredBoards.map((b) => {
+                    const folderObj = folders.find((f) => f.id === b.folderId);
+                    return (
+                      <div
+                        key={b.id}
+                        className="group relative flex flex-col justify-between rounded-2xl border bg-card p-4 shadow-2xs transition hover:border-primary/60 hover:shadow-md"
+                      >
+                        <div>
+                          <div className="flex items-start justify-between gap-2">
+                            <Link
+                              to="/board/$boardId"
+                              params={{ boardId: b.id }}
+                              className="font-semibold text-foreground text-sm hover:underline line-clamp-1"
+                            >
+                              {b.title}
+                            </Link>
+                            {/* Star Favorite Toggle */}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                toggleFavorite(b.id);
+                              }}
+                              className="shrink-0 p-1 rounded-lg hover:bg-muted text-muted-foreground transition active:scale-90"
+                              title={b.favorite ? "Unstar board" : "Star board"}
+                            >
+                              <Star
+                                className={`h-4 w-4 ${
+                                  b.favorite
+                                    ? "fill-amber-400 text-amber-400"
+                                    : "text-muted-foreground/60 hover:text-foreground"
+                                }`}
+                              />
+                            </button>
+                          </div>
+
+                          {/* Folder & Tags Bar */}
+                          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                            {/* Folder Picker Popover */}
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button
+                                  type="button"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-primary/10 text-primary hover:bg-primary/20 transition"
+                                >
+                                  <Folder className="h-3 w-3" />
+                                  <span className="truncate max-w-[90px]">{folderObj ? folderObj.name : "No folder"}</span>
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent align="start" className="w-48 p-2">
+                                <div className="text-[11px] font-semibold text-muted-foreground px-2 py-1 uppercase tracking-wider">
+                                  Move to folder
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setBoardFolder(b.id, null)}
+                                  className="w-full flex items-center justify-between px-2 py-1.5 rounded-md text-xs hover:bg-accent text-left"
+                                >
+                                  <span>None</span>
+                                  {!b.folderId && <Check className="h-3.5 w-3.5 text-primary" />}
+                                </button>
+                                {folders.map((f) => (
+                                  <button
+                                    key={f.id}
+                                    type="button"
+                                    onClick={() => setBoardFolder(b.id, f.id)}
+                                    className="w-full flex items-center justify-between px-2 py-1.5 rounded-md text-xs hover:bg-accent text-left"
+                                  >
+                                    <span className="truncate">{f.name}</span>
+                                    {b.folderId === f.id && <Check className="h-3.5 w-3.5 text-primary" />}
+                                  </button>
+                                ))}
+                              </PopoverContent>
+                            </Popover>
+
+                            {b.tags.slice(0, 2).map((t) => (
+                              <span
+                                key={t}
+                                className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-muted text-muted-foreground"
+                              >
+                                <Tag className="h-2.5 w-2.5" /> {t}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="mt-4 flex items-center justify-between border-t border-border/50 pt-2.5 text-xs text-muted-foreground">
+                          <span className="text-[11px]">{relTime(b.updatedAt)}</span>
                           <Link
                             to="/board/$boardId"
                             params={{ boardId: b.id }}
-                            className="font-semibold text-foreground text-sm hover:underline line-clamp-1"
+                            className="inline-flex items-center gap-1 font-semibold text-primary hover:underline text-xs"
                           >
-                            {b.title}
+                            Open <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
                           </Link>
-                          {/* Star Favorite Toggle */}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              toggleFavorite(b.id);
-                            }}
-                            className="shrink-0 p-1 rounded-lg hover:bg-muted text-muted-foreground transition active:scale-90"
-                            title={b.favorite ? "Unstar board" : "Star board"}
-                          >
-                            <Star
-                              className={`h-4 w-4 ${
-                                b.favorite
-                                  ? "fill-amber-400 text-amber-400"
-                                  : "text-muted-foreground/60 hover:text-foreground"
-                              }`}
-                            />
-                          </button>
-                        </div>
-
-                        {/* Folder & Tags Bar */}
-                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                          {/* Folder Picker Popover */}
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <button
-                                type="button"
-                                onClick={(e) => e.stopPropagation()}
-                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-primary/10 text-primary hover:bg-primary/20 transition"
-                              >
-                                <Folder className="h-3 w-3" />
-                                <span className="truncate max-w-[90px]">{folderObj ? folderObj.name : "No folder"}</span>
-                              </button>
-                            </PopoverTrigger>
-                            <PopoverContent align="start" className="w-48 p-2">
-                              <div className="text-[11px] font-semibold text-muted-foreground px-2 py-1 uppercase tracking-wider">
-                                Move to folder
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => setBoardFolder(b.id, null)}
-                                className="w-full flex items-center justify-between px-2 py-1.5 rounded-md text-xs hover:bg-accent text-left"
-                              >
-                                <span>None</span>
-                                {!b.folderId && <Check className="h-3.5 w-3.5 text-primary" />}
-                              </button>
-                              {folders.map((f) => (
-                                <button
-                                  key={f.id}
-                                  type="button"
-                                  onClick={() => setBoardFolder(b.id, f.id)}
-                                  className="w-full flex items-center justify-between px-2 py-1.5 rounded-md text-xs hover:bg-accent text-left"
-                                >
-                                  <span className="truncate">{f.name}</span>
-                                  {b.folderId === f.id && <Check className="h-3.5 w-3.5 text-primary" />}
-                                </button>
-                              ))}
-                            </PopoverContent>
-                          </Popover>
-
-                          {b.tags.slice(0, 2).map((t) => (
-                            <span
-                              key={t}
-                              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-muted text-muted-foreground"
-                            >
-                              <Tag className="h-2.5 w-2.5" /> {t}
-                            </span>
-                          ))}
                         </div>
                       </div>
-
-                      <div className="mt-4 flex items-center justify-between border-t border-border/50 pt-2.5 text-xs text-muted-foreground">
-                        <span className="text-[11px]">{relTime(b.updatedAt)}</span>
-                        <Link
-                          to="/board/$boardId"
-                          params={{ boardId: b.id }}
-                          className="inline-flex items-center gap-1 font-semibold text-primary hover:underline text-xs"
-                        >
-                          Open <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
-                        </Link>
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
 
-              {filteredBoards.length > 6 && (
-                <div className="mt-2 text-center pt-1">
+              {filteredBoards.length > 2 && (
+                <div className="flex items-center justify-between px-1 pt-1 text-xs text-muted-foreground">
+                  <span className="text-[11px]">
+                    Showing 2 of {filteredBoards.length} boards • Scroll to view more
+                  </span>
                   <Link
                     to="/library"
-                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline px-3 py-1.5 rounded-lg bg-primary/5 hover:bg-primary/10 transition"
+                    className="inline-flex items-center gap-1 font-semibold text-primary hover:underline text-xs"
                   >
-                    View all {allBoards.length} boards in Library <ArrowRight className="h-3.5 w-3.5" />
+                    View all in Library <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
                 </div>
               )}
