@@ -356,7 +356,7 @@ function Dashboard() {
         )}
 
         {/* Quick Actions (with New Note and Learning Hub restored) */}
-        <section>
+        <section className="isolate">
           <SectionHeader title="Quick actions" />
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <QuickCard
@@ -398,8 +398,8 @@ function Dashboard() {
           </div>
         </section>
 
-        {/* My Boards & Folders (Organization & Starred Favorites) - Scrollable list */}
-        <section className="space-y-4">
+        {/* My Boards & Folders (Organization & Starred Favorites) */}
+        <section className="isolate space-y-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
               <SectionHeader
@@ -513,7 +513,7 @@ function Dashboard() {
             })}
           </div>
 
-          {/* Scrollable Boards Grid (Showing 3-4 visible initially, scroll to reveal rest) */}
+          {/* Boards Grid */}
           {filteredBoards.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-border p-8 text-center bg-card/50">
               <p className="text-sm font-semibold text-foreground">No boards found</p>
@@ -532,8 +532,8 @@ function Dashboard() {
               </Button>
             </div>
           ) : (
-            <div className="relative">
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 max-h-[360px] overflow-y-auto pr-1 sm:pr-2 overscroll-contain rounded-2xl">
+            <div className="space-y-3">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {filteredBoards.map((b) => {
                   const folderObj = folders.find((f) => f.id === b.folderId);
                   return (
@@ -637,37 +637,50 @@ function Dashboard() {
                 })}
               </div>
 
-              {filteredBoards.length > 3 && (
-                <div className="mt-2 text-center">
-                  <span className="text-[11px] text-muted-foreground">
-                    Showing {Math.min(3, filteredBoards.length)} of {filteredBoards.length} boards • Scroll inside box to view more
-                  </span>
+              {filteredBoards.length > 6 && (
+                <div className="mt-2 text-center pt-1">
+                  <Link
+                    to="/library"
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline px-3 py-1.5 rounded-lg bg-primary/5 hover:bg-primary/10 transition"
+                  >
+                    View all {allBoards.length} boards in Library <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
                 </div>
               )}
             </div>
           )}
         </section>
 
-        {/* Recent AI Creations */}
-        <section className="pb-16">
-          <SectionHeader title="Recent AI creations" icon={<Wand2 className="h-4 w-4" />} />
+        {/* Recent AI Creations - Scrollable, max 2 items */}
+        <section className="isolate pb-16">
+          <SectionHeader
+            title="Recent AI creations"
+            icon={<Wand2 className="h-4 w-4" />}
+            action={
+              recentAI.length > 0 ? (
+                <span className="text-xs text-muted-foreground font-medium">
+                  {Math.min(2, recentAI.length)} of {recentAI.length}
+                </span>
+              ) : undefined
+            }
+          />
           {recentAI.length === 0 ? (
             <EmptyState
               title="Nothing here yet"
               subtitle="Ask the AI assistant inside a board and your prompts will appear here."
             />
           ) : (
-            <div className="space-y-2">
-              {recentAI.slice(0, 6).map((r) => (
-                <div key={r.id} className="rounded-xl border bg-card p-4">
+            <div className="max-h-[220px] overflow-y-auto space-y-2.5 pr-1 scrollbar-thin overscroll-contain rounded-xl">
+              {recentAI.slice(0, 2).map((r) => (
+                <div key={r.id} className="rounded-xl border bg-card p-4 transition hover:border-primary/50 shadow-2xs">
                   <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-medium">{r.prompt}</div>
-                      <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-semibold text-foreground">{r.prompt}</div>
+                      <div className="mt-1 line-clamp-3 text-xs text-muted-foreground whitespace-pre-wrap">
                         {r.response}
                       </div>
                     </div>
-                    <div className="shrink-0 text-xs text-muted-foreground">
+                    <div className="shrink-0 text-[11px] text-muted-foreground">
                       {relTime(r.createdAt)}
                     </div>
                   </div>
@@ -675,7 +688,7 @@ function Dashboard() {
                     <Link
                       to="/board/$boardId"
                       params={{ boardId: r.boardId }}
-                      className="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                      className="mt-2.5 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
                     >
                       Open {boards[r.boardId].title} <ArrowRight className="h-3 w-3" />
                     </Link>
