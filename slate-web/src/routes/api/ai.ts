@@ -13,29 +13,9 @@ const CORS_HEADERS = {
 
 // Strict model whitelist and parameter boundaries
 const ALLOWED_MODELS = new Set(["gemini-3.5-flash", "gemini-3.5-flash-lite"]);
-const MAX_ALLOWED_OUTPUT_TOKENS = 4096;
+const MAX_ALLOWED_OUTPUT_TOKENS = 8192; // Raised to 8,192 to prevent reasoning tokens from truncating long quizzes / lesson plans
 const MAX_PAYLOAD_BYTES = 5 * 1024 * 1024; // 5 MB max payload
 const DAILY_REQUEST_LIMIT = 50;
-
-// Daily in-memory fallback quota tracking per user (if Supabase RPC migration is pending)
-const userUsageMap = new Map<string, { count: number; date: string }>();
-
-function checkUserQuota(userId: string): { allowed: boolean; remaining: number } {
-  const today = new Date().toISOString().slice(0, 10);
-  const userRecord = userUsageMap.get(userId);
-
-  if (!userRecord || userRecord.date !== today) {
-    userUsageMap.set(userId, { count: 1, date: today });
-    return { allowed: true, remaining: DAILY_REQUEST_LIMIT - 1 };
-  }
-
-  if (userRecord.count >= DAILY_REQUEST_LIMIT) {
-    return { allowed: false, remaining: 0 };
-  }
-
-  userRecord.count++;
-  return { allowed: true, remaining: DAILY_REQUEST_LIMIT - userRecord.count };
-}
 
 export const Route = createFileRoute("/api/ai")({
   server: {
@@ -103,48 +83,30 @@ export const Route = createFileRoute("/api/ai")({
             );
           }
 
-          const userId = userData.user.id;
-
-          // 2. Check and atomically increment daily quota in Supabase (with in-memory fallback)
+          // 2. Atomically increment daily quota in Supabase.
+          // In production, we fail closed (return 503) if the database RPC is unavailable.
           let remaining = DAILY_REQUEST_LIMIT;
           try {
             const { data: usageData, error: rpcError } = await supabase.rpc("increment_ai_usage", {
               p_daily_limit: DAILY_REQUEST_LIMIT,
             });
 
-            if (!rpcError && usageData && typeof usageData === "object") {
-              const usage = usageData as { allowed?: boolean; remaining?: number };
-              if (usage.allowed === false) {
-                return new Response(
-                  JSON.stringify({
-                    error: `Daily AI usage limit reached (${DAILY_REQUEST_LIMIT} requests/day). Quota resets tomorrow.`,
-                  }),
-                  {
-                    status: 429,
-                    headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-                  }
-                );
-              }
-              remaining = typeof usage.remaining === "number" ? usage.remaining : 0;
-            } else {
-              // Fallback to in-memory quota tracking
-              const quota = checkUserQuota(userId);
-              if (!quota.allowed) {
-                return new Response(
-                  JSON.stringify({
-                    error: `Daily AI usage limit reached (${DAILY_REQUEST_LIMIT} requests/day). Quota resets tomorrow.`,
-                  }),
-                  {
-                    status: 429,
-                    headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-                  }
-                );
-              }
-              remaining = quota.remaining;
+            if (rpcError || !usageData || typeof usageData !== "object") {
+              console.error("Supabase increment_ai_usage RPC error:", rpcError);
+              return new Response(
+                JSON.stringify({
+                  error:
+                    "AI quota service is temporarily unavailable. Please ensure database migrations have been executed in Supabase.",
+                }),
+                {
+                  status: 503,
+                  headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+                }
+              );
             }
-          } catch {
-            const quota = checkUserQuota(userId);
-            if (!quota.allowed) {
+
+            const usage = usageData as { allowed?: boolean; remaining?: number };
+            if (usage.allowed === false) {
               return new Response(
                 JSON.stringify({
                   error: `Daily AI usage limit reached (${DAILY_REQUEST_LIMIT} requests/day). Quota resets tomorrow.`,
@@ -155,7 +117,19 @@ export const Route = createFileRoute("/api/ai")({
                 }
               );
             }
-            remaining = quota.remaining;
+            remaining = typeof usage.remaining === "number" ? usage.remaining : 0;
+          } catch (err: any) {
+            console.error("Quota check failed:", err);
+            return new Response(
+              JSON.stringify({
+                error:
+                  "AI quota service is temporarily unavailable. Please ensure database migrations have been executed in Supabase.",
+              }),
+              {
+                status: 503,
+                headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+              }
+            );
           }
 
           // 3. Obtain server-side secret Gemini API key
@@ -212,7 +186,7 @@ export const Route = createFileRoute("/api/ai")({
           const requestedModel = body.model?.trim() || "gemini-3.5-flash";
           const model = ALLOWED_MODELS.has(requestedModel) ? requestedModel : "gemini-3.5-flash";
 
-          // Enforce maxOutputTokens cap (<= 4096)
+          // Enforce maxOutputTokens cap (<= 8192)
           const requestedTokens =
             typeof body.generationConfig?.maxOutputTokens === "number"
               ? body.generationConfig.maxOutputTokens

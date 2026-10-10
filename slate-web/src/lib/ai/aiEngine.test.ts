@@ -157,5 +157,29 @@ describe("AIEngine (online-only)", () => {
     useAuth.setState({ session: null, user: null });
     useAISettings.setState({ getApiKey: () => useAISettings.getState().geminiKey });
   });
+
+  it("handles long-document quiz generation cleanly without truncation", async () => {
+    const longDocument =
+      "Photosynthesis is the biological process used by plants, algae, and certain bacteria to convert light energy into chemical energy stored in glucose molecules. ".repeat(
+        100,
+      );
+    const mockQuestions = Array.from({ length: 10 }, (_, i) => ({
+      question: `Question ${i + 1} regarding the biochemical mechanisms of photosynthesis?`,
+      options: [
+        "Photolysis of water",
+        "Calvin cycle fixation",
+        "ATP synthase rotation",
+        "Chlorophyll excitation",
+      ],
+      answerIndex: 1,
+      explanation: `Detailed explanation for question ${i + 1} describing carbon fixation in chloroplasts.`,
+    }));
+
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(geminiResponse(JSON.stringify(mockQuestions))));
+    const out = await AIEngine.generateQuiz(longDocument, "Cellular Biology", 10);
+    expect(out).toHaveLength(10);
+    expect(out[0].options).toHaveLength(4);
+    expect(out[0].explanation).toBeDefined();
+  });
 });
 
