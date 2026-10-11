@@ -1045,6 +1045,21 @@ export function renderMathSolutionCard(opts: MathSolutionCardOptions): RenderedS
   ctx.font = "11px system-ui, sans-serif";
   ctx.fillText("Verified Algebraic Derivation & Visual Analysis", padding + 14, headerY + 36);
 
+  // Drag to move badge on top right of the banner
+  const moveText = "✥ Drag to move";
+  ctx.font = "bold 10px system-ui, sans-serif";
+  const mw = ctx.measureText(moveText).width + 16;
+  const mx = padding + contentW - mw - 10;
+  const my = headerY + 11;
+  ctx.fillStyle = "rgba(255, 255, 255, 0.22)";
+  roundRect(ctx, mx, my, mw, 24, 12);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.fillStyle = "#ffffff";
+  ctx.fillText(moveText, mx + 8, my + 16);
+
   let renderY = headerY + 46 + 12;
 
   // 3. Problem Statement Box

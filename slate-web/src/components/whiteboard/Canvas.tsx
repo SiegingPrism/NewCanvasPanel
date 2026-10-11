@@ -1590,7 +1590,15 @@ export function WhiteboardCanvas({
       }
     } else if (s.shape === "circle") {
       ctx.beginPath();
-      ctx.ellipse(x + w / 2, y + h / 2, Math.abs(w / 2), Math.abs(h / 2), 0, 0, Math.PI * 2);
+      ctx.ellipse(
+        x + w / 2,
+        y + h / 2,
+        Math.abs(w / 2),
+        Math.abs(h / 2),
+        s.rotation ?? 0,
+        0,
+        Math.PI * 2,
+      );
       ctx.stroke();
     } else if (s.shape === "ellipse") {
       drawEllipseShape(ctx, x, y, w, h);
@@ -4213,6 +4221,23 @@ export function WhiteboardCanvas({
     return { x: minX - padX, y: minY - padY, w: Math.max(16, w), h: Math.max(16, h) };
   }
 
+  function isAiAnswerObject(obj: CanvasObject | null | undefined): boolean {
+    if (!obj) return false;
+    if ((obj as any).isAiAnswer === true) return true;
+    if (obj.kind === "image" && typeof (obj as any).src === "string") {
+      const src = (obj as any).src;
+      if (
+        src.includes("STEP-BY-STEP MATH SOLUTION") ||
+        src.includes("Slate AI") ||
+        src.includes("FINAL ANSWER")
+      ) {
+        return true;
+      }
+    }
+    if ((obj as any).label === "AI" || (obj as any).label === "AI Solution") return true;
+    return false;
+  }
+
   function drawSelection(ctx: CanvasRenderingContext2D, obj: CanvasObject) {
     const b = objectBounds(obj);
     ctx.save();
@@ -4234,6 +4259,32 @@ export function WhiteboardCanvas({
     ] as const) {
       ctx.fillRect(cx - handleSize / 2, cy - handleSize / 2, handleSize, handleSize);
       ctx.strokeRect(cx - handleSize / 2, cy - handleSize / 2, handleSize, handleSize);
+    }
+
+    // Prominent Drag to Move handle badge for AI-generated answers
+    if (isAiAnswerObject(obj)) {
+      const pillW = 148 / camera.zoom;
+      const pillH = 26 / camera.zoom;
+      const pillX = b.x + (b.w - pillW) / 2;
+      const pillY = b.y - pillH - 8 / camera.zoom;
+
+      ctx.fillStyle = "#4f46e5";
+      ctx.beginPath();
+      if (typeof (ctx as any).roundRect === "function") {
+        (ctx as any).roundRect(pillX, pillY, pillW, pillH, 13 / camera.zoom);
+      } else {
+        ctx.rect(pillX, pillY, pillW, pillH);
+      }
+      ctx.fill();
+      ctx.strokeStyle = "#818cf8";
+      ctx.lineWidth = 1.5 / camera.zoom;
+      ctx.stroke();
+
+      ctx.fillStyle = "#ffffff";
+      ctx.font = `bold ${11 / camera.zoom}px system-ui, sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("✥ Drag to move", pillX + pillW / 2, pillY + pillH / 2);
     }
     ctx.restore();
   }
@@ -4275,7 +4326,8 @@ export function WhiteboardCanvas({
     for (let i = page.objects.length - 1; i >= 0; i--) {
       const obj = page.objects[i];
       const b = objectBounds(obj);
-      if (pt.x >= b.x && pt.x <= b.x + b.w && pt.y >= b.y && pt.y <= b.y + b.h) {
+      const topOffset = isAiAnswerObject(obj) ? 36 / camera.zoom : 0;
+      if (pt.x >= b.x && pt.x <= b.x + b.w && pt.y >= b.y - topOffset && pt.y <= b.y + b.h) {
         return obj;
       }
     }
@@ -4364,6 +4416,34 @@ export function WhiteboardCanvas({
     // Pan
     if (e.button === 1 || tool === "pan") {
       panRef.current = { x: sx, y: sy, cam: { ...camera } };
+      return;
+    }
+
+    // Check multi-selection bounding box hit (allow moving multi-selection even if tool was drawing)
+    const multiBounds = getMultiSelectionBounds();
+    if (
+      multiBounds &&
+      selectedIds.length > 1 &&
+      w.x >= multiBounds.x &&
+      w.x <= multiBounds.x + multiBounds.w &&
+      w.y >= multiBounds.y &&
+      w.y <= multiBounds.y + multiBounds.h
+    ) {
+      if (tool !== "select") setTool("select");
+      multiDragRef.current = { start: w, initialCamera: { ...camera } };
+      return;
+    }
+
+    // Direct Move for AI Answers:
+    // If user touches or drags an AI generated answer (or its move handle),
+    // allow them to move it immediately without drawing strokes over it!
+    const hitAi = hitTest(w);
+    if (hitAi && isAiAnswerObject(hitAi)) {
+      if (tool !== "select") setTool("select");
+      setSelected(hitAi.id);
+      setSelectedIds([]);
+      const handle = getHandleAt(w, hitAi);
+      dragRef.current = { id: hitAi.id, handle, start: w, obj: structuredClone(hitAi) };
       return;
     }
 
@@ -5339,8 +5419,9 @@ export function WhiteboardCanvas({
       const x = bounds ? bounds.x + bounds.w + 24 : 400;
       const y = bounds ? bounds.y : 300;
       const keyPointsText = (summary.keyPoints || []).map((p: string) => `• ${p}`).join("\n");
+      const stickyId = uid();
       addObject({
-        id: uid(),
+        id: stickyId,
         kind: "sticky",
         x,
         y,
@@ -5348,9 +5429,13 @@ export function WhiteboardCanvas({
         h: 220,
         text: `📌 Summary:\n${summary.overview}\n\nKey Points:\n${keyPointsText}${summary.takeaway ? `\n\n💡 ${summary.takeaway}` : ""}`,
         color: "#fef08a",
+        isAiAnswer: true,
       });
       pushHistory();
-      toast.success("Summary added as a sticky note!");
+      setTool("select");
+      setSelected(stickyId);
+      setSelectedIds([]);
+      toast.success("Summary added! Drag to move it anywhere.", { icon: "✨" });
     } catch (err) {
       toast.dismiss(toastId);
       toast.error(`${aiErrorMessage(err)} Your ink was kept.`);
@@ -5375,8 +5460,9 @@ export function WhiteboardCanvas({
       }
 
       deleteSelected();
+      const textId = uid();
       addObject({
-        id: uid(),
+        id: textId,
         kind: "text",
         x: cx,
         y: cy,
@@ -5385,9 +5471,13 @@ export function WhiteboardCanvas({
         text: text.trim(),
         color: "#0f172a",
         fontSize: 18,
+        isAiAnswer: true,
       });
       pushHistory();
-      toast.success("Converted to editable text!");
+      setTool("select");
+      setSelected(textId);
+      setSelectedIds([]);
+      toast.success("Converted to text! Drag to move it anywhere.", { icon: "✨" });
     } catch (err) {
       toast.error(`${aiErrorMessage(err)} Your ink was kept.`);
     }
@@ -5411,17 +5501,22 @@ export function WhiteboardCanvas({
       }
 
       deleteSelected();
+      const formulaId = uid();
       addObject({
-        id: uid(),
+        id: formulaId,
         kind: "formula",
         x: cx,
         y: cy,
         w: 280,
         h: 110,
         latex: latex.trim(),
+        isAiAnswer: true,
       });
       pushHistory();
-      toast.success("Converted to math formula!");
+      setTool("select");
+      setSelected(formulaId);
+      setSelectedIds([]);
+      toast.success("Converted to math formula! Drag to move.", { icon: "✨" });
     } catch (err) {
       toast.error(`${aiErrorMessage(err)} Your ink was kept.`);
     }
@@ -5490,13 +5585,15 @@ export function WhiteboardCanvas({
         y: insertY,
         w: solutionCard.width,
         h: solutionCard.height,
+        isAiAnswer: true,
       });
 
       // Interactive 2D GraphObject right next to the solution card if plottable
+      let createdGraphId: string | null = null;
       if (res.graphableFn) {
-        const graphId = uid();
+        createdGraphId = uid();
         addObject({
-          id: graphId,
+          id: createdGraphId,
           kind: "graph",
           x: insertX + solutionCard.width + 24,
           y: insertY,
@@ -5509,14 +5606,22 @@ export function WhiteboardCanvas({
           yMax: res.yRange?.[1] ?? 8,
           color: "#38bdf8",
           title: res.title || `Plot: ${res.latex}`,
+          isAiAnswer: true,
         });
-        toast.success("Solved, explained & 2D graph plotted on canvas!");
+        toast.success("Solved & 2D graph plotted! Drag to position anywhere.", { icon: "✨" });
       } else {
-        toast.success("Math solved with step-by-step reasoning!");
+        toast.success("Math solved! Drag to place the answer wherever you want.", { icon: "✨" });
       }
 
       pushHistory();
-      setSelected(solutionImageId);
+      setTool("select");
+      if (createdGraphId) {
+        setSelectedIds([solutionImageId, createdGraphId]);
+        setSelected(solutionImageId);
+      } else {
+        setSelected(solutionImageId);
+        setSelectedIds([]);
+      }
     } catch (err) {
       toast.error(`${aiErrorMessage(err)} Your ink was kept.`);
     }
@@ -5640,13 +5745,15 @@ export function WhiteboardCanvas({
         y: insertY,
         w: solutionCard.width,
         h: solutionCard.height,
+        isAiAnswer: true,
       });
 
       // If plottable interactive graph, add graph alongside
+      let createdGraphId: string | null = null;
       if (res.graphableFn) {
-        const graphId = uid();
+        createdGraphId = uid();
         addObject({
-          id: graphId,
+          id: createdGraphId,
           kind: "graph",
           x: insertX + solutionCard.width + 24,
           y: insertY,
@@ -5659,12 +5766,20 @@ export function WhiteboardCanvas({
           yMax: res.yRange?.[1] ?? 8,
           color: "#06b6d4",
           title: res.title || `Plot: ${res.latex}`,
+          isAiAnswer: true,
         });
       }
 
       pushHistory();
-      setSelected(solutionImageId);
-      toast.success(`Calculated: ${formatLatexForDisplay(res.solution)}`);
+      setTool("select");
+      if (createdGraphId) {
+        setSelectedIds([solutionImageId, createdGraphId]);
+        setSelected(solutionImageId);
+      } else {
+        setSelected(solutionImageId);
+        setSelectedIds([]);
+      }
+      toast.success(`Calculated: ${formatLatexForDisplay(res.solution)} • Drag to position`, { icon: "✨" });
     } catch (err) {
       toast.dismiss(solveToastId);
       console.error(err);

@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { AIEngine, AIError, aiErrorMessage, verifyRootsWithSafeMath, parseCandidateRoots } from "./aiEngine";
+import {
+  AIEngine,
+  AIError,
+  aiErrorMessage,
+  verifyRootsWithSafeMath,
+  parseCandidateRoots,
+} from "./aiEngine";
 import { useAISettings } from "./aiSettingsStore";
 
 function geminiResponse(text: string) {
@@ -34,12 +40,14 @@ describe("AIEngine (online-only)", () => {
   });
 
   it("maps HTTP 429 to a friendly quota error and does not retry", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({ error: { message: "Quota", status: "RESOURCE_EXHAUSTED" } }),
-        { status: 429 },
-      ),
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify({ error: { message: "Quota", status: "RESOURCE_EXHAUSTED" } }),
+          { status: 429 },
+        ),
+      );
     vi.stubGlobal("fetch", fetchMock);
     const err = await AIEngine.askAssistant("hi").catch((e) => e);
     expect(err).toBeInstanceOf(AIError);
@@ -51,19 +59,17 @@ describe("AIEngine (online-only)", () => {
   it("maps a rejected key to invalid_key", async () => {
     vi.stubGlobal(
       "fetch",
-      vi
-        .fn()
-        .mockResolvedValue(
-          new Response(
-            JSON.stringify({
-              error: {
-                message: "API key not valid. Please pass a valid API key.",
-                status: "INVALID_ARGUMENT",
-              },
-            }),
-            { status: 400 },
-          ),
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            error: {
+              message: "API key not valid. Please pass a valid API key.",
+              status: "INVALID_ARGUMENT",
+            },
+          }),
+          { status: 400 },
         ),
+      ),
     );
     await expect(AIEngine.askAssistant("hi")).rejects.toMatchObject({ code: "invalid_key" });
   });
@@ -151,7 +157,9 @@ describe("AIEngine (online-only)", () => {
     expect(fetchMock).toHaveBeenCalled();
     const [url, init] = fetchMock.mock.calls[0];
     expect(String(url)).toContain("/api/ai");
-    expect((init.headers as Record<string, string>)["Authorization"]).toBe("Bearer mock-supabase-token");
+    expect((init.headers as Record<string, string>)["Authorization"]).toBe(
+      "Bearer mock-supabase-token",
+    );
 
     // Clean up
     useAuth.setState({ session: null, user: null });
@@ -175,7 +183,10 @@ describe("AIEngine (online-only)", () => {
       explanation: `Detailed explanation for question ${i + 1} describing carbon fixation in chloroplasts.`,
     }));
 
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(geminiResponse(JSON.stringify(mockQuestions))));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(geminiResponse(JSON.stringify(mockQuestions))),
+    );
     const out = await AIEngine.generateQuiz(longDocument, "Cellular Biology", 10);
     expect(out).toHaveLength(10);
     expect(out[0].options).toHaveLength(4);
@@ -222,3 +233,102 @@ describe("AIEngine (online-only)", () => {
   });
 });
 
+describe("AIEngine speed settings", () => {
+  beforeEach(() => {
+    useAISettings.setState({ geminiKey: "test-key" });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("sets an explicit thinking level (Gemini 3 defaults to slow 'high')", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(geminiResponse("Hello"));
+    vi.stubGlobal("fetch", fetchMock);
+    await AIEngine.askAssistant("hi");
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.generationConfig.thinkingConfig).toEqual({ thinkingLevel: "low" });
+  });
+
+  it("uses a deeper thinking level for math solving", async () => {
+    const res = {
+      latex: "2x = 4",
+      solution: "x = 2",
+      steps: ["Divide by 2: x = 2"],
+      graphableFn: null,
+    };
+    const fetchMock = vi.fn().mockResolvedValue(geminiResponse(JSON.stringify(res)));
+    vi.stubGlobal("fetch", fetchMock);
+    await AIEngine.solveMath("2x = 4");
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.generationConfig.thinkingConfig).toEqual({ thinkingLevel: "medium" });
+  });
+
+  it("retries without thinkingConfig if the API rejects it", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            error: {
+              message:
+                "Invalid JSON payload: Unknown name \"thinkingLevel\" at 'generation_config.thinking_config'",
+              status: "INVALID_ARGUMENT",
+            },
+          }),
+          { status: 400 },
+        ),
+      )
+      .mockResolvedValue(geminiResponse("Hello"));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(AIEngine.askAssistant("hi")).resolves.toBe("Hello");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const retryBody = JSON.parse(fetchMock.mock.calls[1][1].body);
+    expect(retryBody.generationConfig.thinkingConfig).toBeUndefined();
+  });
+
+  it("does not cut off a long streamed answer that keeps sending text", async () => {
+    vi.useFakeTimers();
+    const enc = new TextEncoder();
+    const chunk = (t: string) =>
+      enc.encode(`data: {"candidates":[{"content":{"parts":[{"text":"${t}"}]}}]}\n\n`);
+    const body = new ReadableStream({
+      async start(c) {
+        // 8 chunks, 10 s apart = 80 s total, far longer than the 25 s stream timeout.
+        for (let i = 0; i < 8; i++) {
+          c.enqueue(chunk(`p${i} `));
+          await new Promise((r) => setTimeout(r, 10000));
+        }
+        c.close();
+      },
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(body, { status: 200 })));
+    const p = AIEngine.chat([{ role: "user", content: "write a long lesson plan" }], {
+      onText: () => {},
+    });
+    await vi.advanceTimersByTimeAsync(90000);
+    const { text } = await p;
+    expect(text).toBe("p0 p1 p2 p3 p4 p5 p6 p7 ");
+  });
+
+  it("does not restart on a backup model after a timeout", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn().mockImplementation(
+      (_u: string, init: RequestInit) =>
+        new Promise((_, reject) => {
+          const fail = () => reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
+          if (init.signal?.aborted) fail();
+          else init.signal?.addEventListener("abort", fail);
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const p = AIEngine.chat([{ role: "user", content: "hi" }], { onText: () => {} }).catch(
+      (e) => e,
+    );
+    await vi.advanceTimersByTimeAsync(130000);
+    const err = await p;
+    expect(err.code).toBe("timeout");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});

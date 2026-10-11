@@ -26,6 +26,7 @@ import {
   ThumbsDown,
   X,
   ExternalLink,
+  Move,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useWhiteboard } from "@/lib/whiteboard/store";
@@ -139,6 +140,10 @@ export function AISheet({
   const pushHistory = useWhiteboard((s) => s.pushHistory);
   const pages = useWhiteboard((s) => s.pages);
   const activePageId = useWhiteboard((s) => s.activePageId);
+  const setTool = useWhiteboard((s) => s.setTool);
+  const setSelected = useWhiteboard((s) => s.setSelected);
+  const setSelectedIds = useWhiteboard((s) => s.setSelectedIds);
+  const camera = useWhiteboard((s) => s.camera);
 
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
@@ -188,9 +193,14 @@ export function AISheet({
   useEffect(() => () => abortRef.current?.abort(), []);
 
   function getInsertionCoords() {
+    const screenW = typeof window !== "undefined" ? window.innerWidth : 800;
+    const screenH = typeof window !== "undefined" ? window.innerHeight : 600;
     const p = pages.find((page) => page.id === activePageId) || pages[0];
-    const offset = p ? (p.objects.length % 8) * 24 : 0;
-    return { x: 380 + offset, y: 280 + offset };
+    const offset = p ? (p.objects.length % 6) * 20 : 0;
+    return {
+      x: (screenW / 2 - camera.x) / camera.zoom - 130 + offset,
+      y: (screenH / 2 - camera.y) / camera.zoom - 100 + offset,
+    };
   }
 
   function handleAttachSnapshot() {
@@ -210,10 +220,51 @@ export function AISheet({
     toast.success(type === "up" ? "Thanks for your feedback!" : "Feedback recorded. We'll improve this.");
   }
 
+  function handlePlaceAnswerOnBoard(content: string) {
+    const newId = uid();
+    const formula = extractFormula(content);
+    const { x, y } = getInsertionCoords();
+
+    if (formula) {
+      addObject({
+        id: newId,
+        kind: "formula",
+        x,
+        y,
+        w: 300,
+        h: 120,
+        latex: formula,
+        label: "AI Solution",
+        isAiAnswer: true,
+      });
+    } else {
+      addObject({
+        id: newId,
+        kind: "sticky",
+        x,
+        y,
+        w: 300,
+        h: 220,
+        text: `🤖 AI Answer:\n\n${toPlainText(content).slice(0, 800)}`,
+        color: "#dbeafe",
+        isAiAnswer: true,
+      });
+    }
+    pushHistory();
+    setTool("select");
+    setSelected(newId);
+    setSelectedIds([]);
+    onOpenChange(false);
+    toast.success("AI answer placed on board! Drag to move it where you want.", {
+      icon: "✨",
+    });
+  }
+
   function handleAddSticky(content: string) {
+    const id = uid();
     const { x, y } = getInsertionCoords();
     addObject({
-      id: uid(),
+      id,
       kind: "sticky",
       x,
       y,
@@ -221,15 +272,21 @@ export function AISheet({
       h: 200,
       text: toPlainText(content).slice(0, 600),
       color: "#fef08a",
+      isAiAnswer: true,
     });
     pushHistory();
-    toast.success("Added to the board as a sticky note");
+    setTool("select");
+    setSelected(id);
+    setSelectedIds([]);
+    onOpenChange(false);
+    toast.success("Added to the board! Drag to move it where you want.", { icon: "✨" });
   }
 
   function handleAddFlashcard(content: string, question: string) {
+    const id = uid();
     const { x, y } = getInsertionCoords();
     addObject({
-      id: uid(),
+      id,
       kind: "flashcard",
       x,
       y,
@@ -238,15 +295,21 @@ export function AISheet({
       front: question.slice(0, 140),
       back: toPlainText(content).slice(0, 300),
       flipped: false,
+      isAiAnswer: true,
     });
     pushHistory();
-    toast.success("Added to the board as a flashcard");
+    setTool("select");
+    setSelected(id);
+    setSelectedIds([]);
+    onOpenChange(false);
+    toast.success("Flashcard added to board! Drag to move it where you want.", { icon: "✨" });
   }
 
   function handleInsertMath(latex: string) {
+    const id = uid();
     const { x, y } = getInsertionCoords();
     addObject({
-      id: uid(),
+      id,
       kind: "formula",
       x,
       y,
@@ -254,9 +317,14 @@ export function AISheet({
       h: 110,
       latex,
       label: "AI",
+      isAiAnswer: true,
     });
     pushHistory();
-    toast.success("Formula added to the board");
+    setTool("select");
+    setSelected(id);
+    setSelectedIds([]);
+    onOpenChange(false);
+    toast.success("Formula added to board! Drag to move it where you want.", { icon: "✨" });
   }
 
   async function handleCopy(id: string, content: string) {
@@ -577,6 +645,14 @@ export function AISheet({
 
                       {m.content && !streaming && (
                         <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-border/60 pt-2 text-xs">
+                          <button
+                            onClick={() => handlePlaceAnswerOnBoard(m.content)}
+                            className="inline-flex items-center gap-1 rounded-md bg-primary/10 text-primary px-2 py-1 font-semibold hover:bg-primary/20 transition shadow-xs"
+                            title="Place answer directly on the whiteboard so you can move and position it anywhere"
+                          >
+                            <Move className="h-3.5 w-3.5" />
+                            Place on Board
+                          </button>
                           <button
                             onClick={() => handleAddSticky(m.content)}
                             className="inline-flex items-center gap-1 rounded-md bg-accent/60 px-2 py-1 font-medium text-foreground hover:bg-accent transition"

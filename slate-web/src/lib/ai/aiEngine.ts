@@ -161,6 +161,15 @@ const FALLBACK_MODELS: string[] = ["gemini-3.5-flash", "gemini-3.5-flash-lite"];
 type Part = { text: string } | { inlineData: { mimeType: string; data: string } };
 type Content = { role: "user" | "model"; parts: Part[] };
 
+type ThinkingLevel = "minimal" | "low" | "medium" | "high";
+
+/** Set to true if the API ever rejects thinkingConfig, so we stop sending it. */
+let thinkingConfigUnsupported = false;
+
+function isThinkingConfigError(status: number, message: string): boolean {
+  return status === 400 && /thinking/i.test(message) && !thinkingConfigUnsupported;
+}
+
 interface CallOptions {
   system?: string;
   /** Ask Gemini for JSON output (optionally constrained by a response schema). */
@@ -168,7 +177,11 @@ interface CallOptions {
   schema?: Record<string, unknown>;
   temperature?: number;
   maxOutputTokens?: number;
-  thinkingBudget?: number;
+  /**
+   * Gemini 3 reasoning depth. Gemini 3 defaults to "high", which is slow to start answering,
+   * so every request sets a level explicitly (default "low").
+   */
+  thinkingLevel?: ThinkingLevel;
   model?: string;
   signal?: AbortSignal;
   timeoutMs?: number;
@@ -190,9 +203,10 @@ function userContent(text: string, imageDataUrl?: string): Content[] {
 
 function getServerEndpoint(path: string): string {
   const publicAppOrigin = (
-    import.meta.env?.VITE_PUBLIC_APP_URL ||
-    "https://siegingprism-canvas-slate-web.workers.dev"
-  ).trim().replace(/\/$/, "");
+    import.meta.env?.VITE_PUBLIC_APP_URL || "https://siegingprism-canvas-slate-web.workers.dev"
+  )
+    .trim()
+    .replace(/\/$/, "");
   const isCapacitor =
     typeof window !== "undefined" &&
     (window.location.protocol === "capacitor:" ||
@@ -244,14 +258,13 @@ function ensureReady(): string {
   return "proxy";
 }
 
-
 function buildBody(contents: Content[], opts: CallOptions) {
   const generationConfig: Record<string, unknown> = {
     temperature: opts.temperature ?? 0.4,
   };
   if (opts.maxOutputTokens) generationConfig.maxOutputTokens = opts.maxOutputTokens;
-  if (typeof opts.thinkingBudget === "number") {
-    generationConfig.thinkingConfig = { thinkingBudget: opts.thinkingBudget };
+  if (!thinkingConfigUnsupported) {
+    generationConfig.thinkingConfig = { thinkingLevel: opts.thinkingLevel ?? "low" };
   }
   if (opts.json) {
     generationConfig.responseMimeType = "application/json";
@@ -308,7 +321,7 @@ async function toAIError(res: Response): Promise<AIError> {
 function withTimeout(signal: AbortSignal | undefined, timeoutMs: number) {
   const controller = new AbortController();
   let timedOut = false;
-  const timer = setTimeout(() => {
+  let timer = setTimeout(() => {
     timedOut = true;
     controller.abort();
   }, timeoutMs);
@@ -320,6 +333,15 @@ function withTimeout(signal: AbortSignal | undefined, timeoutMs: number) {
   return {
     signal: controller.signal,
     didTimeout: () => timedOut,
+    /** Restart the countdown (used while a stream is still sending text). */
+    reset: () => {
+      if (timedOut) return;
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+      }, timeoutMs);
+    },
     done: () => {
       clearTimeout(timer);
       signal?.removeEventListener("abort", onAbort);
@@ -367,6 +389,7 @@ function extractText(json: any): string {
 async function readSSEStream(
   body: ReadableStream<Uint8Array>,
   onText: (full: string) => void,
+  onChunk?: () => void,
 ): Promise<string> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
@@ -399,6 +422,7 @@ async function readSSEStream(
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
+    onChunk?.();
     buffer += decoder.decode(value, { stream: true });
     let nl = buffer.indexOf("\n");
     while (nl !== -1) {
@@ -450,15 +474,29 @@ async function callGemini(contents: Content[], opts: CallOptions = {}): Promise<
           errorMsg = j?.error || "";
         } catch {}
         if (res.status === 429) {
-          throw new AIError("quota", errorMsg || "Daily AI usage limit reached. Your limit resets tomorrow.");
+          throw new AIError(
+            "quota",
+            errorMsg || "Daily AI usage limit reached. Your limit resets tomorrow.",
+          );
         }
         if (res.status === 401) {
           throw new AIError("no_key", errorMsg || "Sign in required to use cloud AI services.");
         }
         if (res.status === 503) {
-          throw new AIError("no_key", errorMsg || "Server AI key is not configured. Add a Gemini API key in AI Settings.");
+          throw new AIError(
+            "no_key",
+            errorMsg || "Server AI key is not configured. Add a Gemini API key in AI Settings.",
+          );
         }
-        throw new AIError("server", errorMsg || `AI server error (${res.status}). Please try again.`);
+        if (isThinkingConfigError(res.status, errorMsg)) {
+          thinkingConfigUnsupported = true;
+          t.done();
+          return callGemini(contents, opts);
+        }
+        throw new AIError(
+          "server",
+          errorMsg || `AI server error (${res.status}). Please try again.`,
+        );
       }
 
       const data = await res.json();
@@ -498,6 +536,11 @@ async function callGemini(contents: Content[], opts: CallOptions = {}): Promise<
 
       if (!res.ok) {
         const err = await toAIError(res);
+        if (isThinkingConfigError(res.status, err.message)) {
+          thinkingConfigUnsupported = true;
+          t.done();
+          return callGemini(contents, opts);
+        }
         // Quota/rate-limit, invalid key, or client errors must abort immediately without trying other models
         if (err.code === "quota" || err.code === "invalid_key" || res.status === 429) {
           throw err;
@@ -585,7 +628,10 @@ async function streamGemini(
           errorMsg = j?.error || "";
         } catch {}
         if (res.status === 429) {
-          throw new AIError("quota", errorMsg || "Daily AI usage limit reached. Your limit resets tomorrow.");
+          throw new AIError(
+            "quota",
+            errorMsg || "Daily AI usage limit reached. Your limit resets tomorrow.",
+          );
         }
         if (res.status === 401) {
           throw new AIError("no_key", errorMsg || "Sign in required to use cloud AI services.");
@@ -593,7 +639,15 @@ async function streamGemini(
         if (res.status === 503) {
           throw new AIError("no_key", errorMsg || "AI quota service is temporarily unavailable.");
         }
-        throw new AIError("server", errorMsg || `AI server error (${res.status}). Please try again.`);
+        if (isThinkingConfigError(res.status, errorMsg)) {
+          thinkingConfigUnsupported = true;
+          t.done();
+          return streamGemini(contents, opts);
+        }
+        throw new AIError(
+          "server",
+          errorMsg || `AI server error (${res.status}). Please try again.`,
+        );
       }
 
       if (!res.body) {
@@ -602,10 +656,14 @@ async function streamGemini(
 
       const contentType = res.headers.get("content-type") || "";
       if (contentType.includes("text/event-stream")) {
-        full = await readSSEStream(res.body, (cur) => {
-          full = cur;
-          opts.onText(cur);
-        });
+        full = await readSSEStream(
+          res.body,
+          (cur) => {
+            full = cur;
+            opts.onText(cur);
+          },
+          t.reset,
+        );
         return full;
       } else {
         const data = await res.json();
@@ -646,6 +704,11 @@ async function streamGemini(
       });
       if (!res.ok) {
         const err = await toAIError(res);
+        if (isThinkingConfigError(res.status, err.message)) {
+          thinkingConfigUnsupported = true;
+          t.done();
+          return streamGemini(contents, opts);
+        }
         if (err.code === "quota" || err.code === "invalid_key" || res.status === 429) {
           throw err;
         }
@@ -658,15 +721,34 @@ async function streamGemini(
       if (!res.body)
         throw new AIError("bad_response", "The AI returned an empty answer. Please try again.");
 
-      full = await readSSEStream(res.body, (cur) => {
-        full = cur;
-        opts.onText(cur);
-      });
+      full = await readSSEStream(
+        res.body,
+        (cur) => {
+          full = cur;
+          opts.onText(cur);
+        },
+        t.reset,
+      );
       return full;
     } catch (err) {
       const aiErr = networkError(err, t.didTimeout());
       (aiErr as AIError & { partialText?: string }).partialText = full;
-      if (full.length > 0) throw aiErr;
+      // Don't restart on another model after text arrived, a timeout, a user stop, or a non-retryable error.
+      if (
+        full.length > 0 ||
+        [
+          "timeout",
+          "aborted",
+          "quota",
+          "invalid_key",
+          "no_key",
+          "offline",
+          "blocked",
+          "bad_input",
+        ].includes(aiErr.code)
+      ) {
+        throw aiErr;
+      }
       lastErr = aiErr;
     } finally {
       t.done();
@@ -1003,7 +1085,10 @@ export function parseCandidateRoots(solutionText: string): number[] | null {
   text = text.replace(/\\lor|\\land/g, ",");
   text = text.replace(/;/g, ",");
 
-  const rawParts = text.split(",").map((p) => p.trim()).filter(Boolean);
+  const rawParts = text
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean);
   if (rawParts.length === 0) return null;
 
   const expressionsToEvaluate: string[] = [];
@@ -1198,17 +1283,21 @@ export class AIEngine {
     const system = contextText?.trim()
       ? `${TUTOR_SYSTEM}\n\nSelected whiteboard content:\n"""\n${contextText.trim().slice(0, 4000)}\n"""`
       : TUTOR_SYSTEM;
-    return callGemini(userContent(prompt, imageDataUrl), { system, temperature: 0.6, model: "gemini-3.5-flash" });
+    return callGemini(userContent(prompt, imageDataUrl), {
+      system,
+      temperature: 0.6,
+      model: "gemini-3.5-flash",
+    });
   }
 
   // ---- Check My Work (step-by-step verification) ----
-  static async checkWork(
-    problemOrText?: string,
-    imageDataUrl?: string,
-  ): Promise<CheckWorkResult> {
+  static async checkWork(problemOrText?: string, imageDataUrl?: string): Promise<CheckWorkResult> {
     const text = problemOrText?.trim() || "";
     if (!text && !imageDataUrl) {
-      throw new AIError("bad_input", "Select your handwritten solution or provide problem text first.");
+      throw new AIError(
+        "bad_input",
+        "Select your handwritten solution or provide problem text first.",
+      );
     }
 
     const prompt = text
@@ -1219,6 +1308,7 @@ export class AIEngine {
 
     const raw = await callGemini(userContent(prompt, imageDataUrl), {
       system: CHECK_WORK_SYSTEM,
+      thinkingLevel: "medium",
       json: true,
       schema: CHECK_WORK_SCHEMA,
       temperature: 0.1,
@@ -1245,7 +1335,11 @@ export class AIEngine {
     return {
       overallCorrect,
       mistakeStepIndex,
-      summary: str(p.summary) || (overallCorrect ? "All steps are correct! Great work." : "There is an error in your solution."),
+      summary:
+        str(p.summary) ||
+        (overallCorrect
+          ? "All steps are correct! Great work."
+          : "There is an error in your solution."),
       steps,
     };
   }
@@ -1258,7 +1352,7 @@ export class AIEngine {
         "Transcribe all handwritten text in this image exactly as written, keeping line breaks. Write any math in plain text (e.g. x^2 + 3x = 5). Output only the transcription. If there is no readable writing, output exactly: [unreadable]",
         imageDataUrl,
       ),
-      { temperature: 0, model: "gemini-3.5-flash-lite", thinkingBudget: 0 },
+      { temperature: 0, model: "gemini-3.5-flash-lite", thinkingLevel: "minimal" },
     );
     const clean = text.replace(/^```\w*\s*|```$/g, "").trim();
     if (!clean || /^\[unreadable\]$/i.test(clean)) {
@@ -1278,7 +1372,7 @@ export class AIEngine {
         "Convert the handwritten math in this image to LaTeX. Output only the LaTeX expression, without $ signs, code fences or explanation. If there is no math, output exactly: [none]",
         imageDataUrl,
       ),
-      { temperature: 0, model: "gemini-3.5-flash-lite", thinkingBudget: 0 },
+      { temperature: 0, model: "gemini-3.5-flash-lite", thinkingLevel: "minimal" },
     );
     const latex = text
       .replace(/^```\w*\s*|```$/g, "")
@@ -1308,6 +1402,7 @@ export class AIEngine {
 
     const raw = await callGemini(userContent(prompt, imageDataUrl), {
       system: MATH_SYSTEM,
+      thinkingLevel: "medium",
       json: true,
       schema: MATH_SCHEMA,
       temperature: 0.1,
@@ -1336,6 +1431,7 @@ export class AIEngine {
           ),
           {
             system: MATH_SYSTEM,
+            thinkingLevel: "medium",
             json: true,
             schema: MATH_SCHEMA,
             temperature: 0.1,
@@ -1526,7 +1622,14 @@ front: a short question or term. back: a concise, correct answer (max ~30 words)
 MATERIAL:
 ${content.slice(0, 60000)}`,
       ),
-      { system: JSON_SYSTEM, json: true, schema: FLASHCARD_SCHEMA, temperature: 0.3, model: "gemini-3.5-flash-lite", thinkingBudget: 0 },
+      {
+        system: JSON_SYSTEM,
+        json: true,
+        schema: FLASHCARD_SCHEMA,
+        temperature: 0.3,
+        model: "gemini-3.5-flash-lite",
+        thinkingLevel: "minimal",
+      },
     );
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const parsed = parseJSON<any[]>(raw);

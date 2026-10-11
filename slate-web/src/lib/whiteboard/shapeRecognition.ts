@@ -1,4 +1,5 @@
 import type { Point, ShapeStroke } from "./types";
+import { fitClosedShape, fitRoundShape, looksRound } from "./shapeFit";
 
 // ---- Arc-Length Resampling ----
 export function resampleStroke(points: Point[], n = 64): Point[] {
@@ -236,7 +237,17 @@ export function recognizeShape(
   }
 
   // ----------------------------------------------------
-  // CLOSED STROKES: Feature Extraction
+  // CLOSED STROKES: model fitting first
+  // ----------------------------------------------------
+  // Pick the simplest shape (triangle, 4-gon, pentagon, hexagon, ellipse) that actually traces
+  // the stroke. This handles wobbly, overshooting and not-quite-closed hand-drawn strokes.
+  const fitted = fitClosedShape(rawPoints, color, size);
+  if (fitted) return fitted;
+  // A round stroke with no real corners must never fall through to the rectangle rules below.
+  if (looksRound(rawPoints)) return fitRoundShape(rawPoints, color, size);
+
+  // ----------------------------------------------------
+  // CLOSED STROKES: Feature Extraction (special shapes: heart, star, cloud, cross, …)
   // ----------------------------------------------------
   const { count: corners, corners: cornerPts } = countCorners(points, isClosed);
 

@@ -126,6 +126,7 @@ export type TextObject = {
   color: string;
   fontSize: number;
   bg?: string;
+  isAiAnswer?: boolean;
 };
 
 export type ImageObject = {
@@ -136,6 +137,7 @@ export type ImageObject = {
   w: number;
   h: number;
   src: string;
+  isAiAnswer?: boolean;
 };
 
 export type StickyNoteObject = {
@@ -147,6 +149,7 @@ export type StickyNoteObject = {
   h: number;
   text: string;
   color: string;
+  isAiAnswer?: boolean;
 };
 
 export type FlashcardObject = {
@@ -160,6 +163,7 @@ export type FlashcardObject = {
   back: string;
   flipped?: boolean;
   color?: string;
+  isAiAnswer?: boolean;
 };
 
 export type QuizObject = {
@@ -199,6 +203,7 @@ export type FormulaObject = {
   latex: string;
   label?: string;
   color?: string;
+  isAiAnswer?: boolean;
 };
 
 export type DiagramNodeObject = {
@@ -254,6 +259,7 @@ export type GraphObject = {
   yMax: number;
   color: string;
   title?: string;
+  isAiAnswer?: boolean;
 };
 
 export type FrameObject = {
