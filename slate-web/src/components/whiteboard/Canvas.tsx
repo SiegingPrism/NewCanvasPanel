@@ -225,16 +225,74 @@ export function WhiteboardCanvas({
   }, [isPresenting, onPresentationChange]);
 
   useEffect(() => {
-    const handleFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+    const handleFsChange = () => {
+      const doc = document as any;
+      setIsFullscreen(
+        !!(
+          doc.fullscreenElement ||
+          doc.webkitFullscreenElement ||
+          doc.mozFullScreenElement ||
+          doc.msFullscreenElement
+        ),
+      );
+    };
     document.addEventListener("fullscreenchange", handleFsChange);
-    return () => document.removeEventListener("fullscreenchange", handleFsChange);
+    document.addEventListener("webkitfullscreenchange", handleFsChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFsChange);
+      document.removeEventListener("webkitfullscreenchange", handleFsChange);
+    };
   }, []);
 
   const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
+    const doc = document as any;
+    const docEl = document.documentElement as any;
+    const isFs = !!(
+      doc.fullscreenElement ||
+      doc.webkitFullscreenElement ||
+      doc.mozFullScreenElement ||
+      doc.msFullscreenElement
+    );
+    if (!isFs) {
+      const req =
+        docEl.requestFullscreen ||
+        docEl.webkitRequestFullscreen ||
+        docEl.mozRequestFullScreen ||
+        docEl.msRequestFullscreen;
+      if (req) {
+        try {
+          const p = req.call(docEl);
+          if (p && typeof p.then === "function") {
+            p.then(() => setIsFullscreen(true)).catch(() => setIsFullscreen(true));
+          } else {
+            setIsFullscreen(true);
+          }
+        } catch {
+          setIsFullscreen(true);
+        }
+      } else {
+        setIsFullscreen(true);
+      }
     } else {
-      document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
+      const exit =
+        doc.exitFullscreen ||
+        doc.webkitExitFullscreen ||
+        doc.mozCancelFullScreen ||
+        doc.msExitFullscreen;
+      if (exit) {
+        try {
+          const p = exit.call(doc);
+          if (p && typeof p.then === "function") {
+            p.then(() => setIsFullscreen(false)).catch(() => setIsFullscreen(false));
+          } else {
+            setIsFullscreen(false);
+          }
+        } catch {
+          setIsFullscreen(false);
+        }
+      } else {
+        setIsFullscreen(false);
+      }
     }
   };
 

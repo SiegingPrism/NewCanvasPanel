@@ -407,7 +407,7 @@ function LearningHubPage() {
       {/* Header */}
       <header className="sticky top-0 z-10 border-b bg-background/80 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <Link
               to="/"
               className="grid h-8 w-8 place-items-center rounded-lg hover:bg-accent text-foreground transition"
@@ -415,9 +415,16 @@ function LearningHubPage() {
             >
               <ArrowLeft className="h-4 w-4" />
             </Link>
-            <h1 className="flex items-center gap-2 font-semibold text-lg text-foreground">
-              <GraduationCap className="h-5 w-5 text-primary" /> Learning Hub
-            </h1>
+            <Link to="/" className="flex items-center gap-2 group">
+              <img
+                src="/sti-logo.png"
+                alt="Slate"
+                className="h-7 w-7 rounded-lg object-cover ring-1 ring-border/50 shrink-0"
+              />
+              <h1 className="flex items-center gap-2 font-semibold text-lg text-foreground">
+                <GraduationCap className="h-5 w-5 text-primary" /> Learning Hub
+              </h1>
+            </Link>
           </div>
         </div>
       </header>

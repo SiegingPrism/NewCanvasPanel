@@ -308,7 +308,7 @@ export function TopBar({
 
   return (
     <div className="pointer-events-auto flex items-center gap-0.5 sm:gap-1.5 rounded-full bg-card px-2 py-1 sm:px-3 sm:py-1.5 shadow-lg ring-1 ring-border max-w-[calc(100vw-16px)]">
-      {/* Back to Dashboard */}
+      {/* Back to Dashboard & App Logo */}
       <Link
         to="/"
         className={iconBtn}
@@ -317,11 +317,22 @@ export function TopBar({
         <ArrowLeft className={iconSize} />
       </Link>
 
-      {boardTitle && (
-        <span className="hidden max-w-[140px] truncate text-xs font-semibold text-foreground/80 md:block px-1">
-          {boardTitle}
-        </span>
-      )}
+      <Link
+        to="/"
+        className="flex items-center gap-1.5 shrink-0 px-1 hover:opacity-85 transition"
+        title="Slate Dashboard"
+      >
+        <img
+          src="/sti-logo.png"
+          alt="Slate Logo"
+          className="h-5 w-5 sm:h-6 sm:w-6 rounded-md object-cover ring-1 ring-border/50 shrink-0"
+        />
+        {boardTitle && (
+          <span className="hidden max-w-[120px] truncate text-xs font-semibold text-foreground/80 md:block">
+            {boardTitle}
+          </span>
+        )}
+      </Link>
 
       <div className="h-3.5 sm:h-4 w-px bg-border/60 mx-0.5 shrink-0" />
 
