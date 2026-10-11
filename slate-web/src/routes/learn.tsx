@@ -138,6 +138,91 @@ const STARTER_QUIZZES: QuizGroup[] = [
   },
 ];
 
+function extractCardsFromNote(note: {
+  id: string;
+  title: string;
+  blocks: Array<{ id: string; type: string; content: string }>;
+}): FlashcardItem[] {
+  const cards: FlashcardItem[] = [];
+  let inFlashcardSection = false;
+
+  for (const b of note.blocks) {
+    const text = b.content.trim();
+    if (!text) continue;
+
+    if (b.type === "h1" || b.type === "h2" || b.type === "h3") {
+      inFlashcardSection = /flashcard|vocab|key term|concept|definition/i.test(text);
+      continue;
+    }
+
+    // Pattern 1: Q: ... A: ... or Front: ... Back: ...
+    const qaMatch = text.match(/(?:^|\n)(?:Q|Question|Front):\s*([^\n]+)[\s\S]*?(?:A|Answer|Back):\s*([^\n]+)/i);
+    if (qaMatch) {
+      cards.push({
+        key: `note:${note.id}:${b.id}`,
+        front: qaMatch[1].trim(),
+        back: qaMatch[2].trim(),
+      });
+      continue;
+    }
+
+    // Pattern 2: Callout or bullet in flashcard section with "term - definition" or "term: definition"
+    if (inFlashcardSection && (b.type === "bullet" || b.type === "callout" || b.type === "text")) {
+      const parts = text.split(/\s*[-—:]\s*/);
+      if (parts.length >= 2 && parts[0].length < 100 && parts[1].length > 1) {
+        cards.push({
+          key: `note:${note.id}:${b.id}`,
+          front: parts[0].trim(),
+          back: parts.slice(1).join(" - ").trim(),
+        });
+      }
+    }
+  }
+
+  return cards;
+}
+
+function extractQuizzesFromNote(note: {
+  id: string;
+  title: string;
+  blocks: Array<{ id: string; type: string; content: string }>;
+}): QuizItem[] {
+  const quizzes: QuizItem[] = [];
+
+  for (const b of note.blocks) {
+    const text = b.content.trim();
+    if (!text) continue;
+
+    const qMatch = text.match(/(?:Question|Q):\s*([^\n]+)/i);
+    const ansMatch = text.match(/Answer:\s*([A-D0-9])/i);
+
+    if (qMatch) {
+      const question = qMatch[1].trim();
+      const lines = text.split("\n").map((l) => l.trim());
+      const optionLines = lines.filter((l) => /^[A-D\d][\)\.]\s+/i.test(l));
+      if (optionLines.length >= 2) {
+        const options = optionLines.map((l) => l.replace(/^[A-D\d][\)\.]\s+/i, "").trim());
+        let answerIndex = 0;
+        if (ansMatch) {
+          const letter = ansMatch[1].toUpperCase();
+          if (/[A-D]/.test(letter)) {
+            answerIndex = letter.charCodeAt(0) - 65;
+          } else {
+            answerIndex = Math.max(0, parseInt(letter, 10) - 1);
+          }
+        }
+        quizzes.push({
+          question,
+          options,
+          answerIndex: Math.min(options.length - 1, Math.max(0, answerIndex)),
+        });
+      }
+    }
+  }
+
+  return quizzes;
+}
+
 function LearningHubPage() {
   const navigate = useNavigate();
   const [mounted, setMounted] = useState(false);
@@ -148,7 +233,7 @@ function LearningHubPage() {
 
   const { boards, boardOrder, boardData } = useWhiteboard();
   const { progress, attempts, activity, reviewCard, recordQuizAttempt } = useLearn();
-  const { createNote, addBlock } = useNotes();
+  const { notes, noteOrder, createNote, addBlock } = useNotes();
 
   const [activeDeck, setActiveDeck] = useState<Deck | null>(null);
   const [studyCardIndex, setStudyCardIndex] = useState(0);
@@ -171,13 +256,14 @@ function LearningHubPage() {
   } | null>(null);
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
 
-  // Collect custom decks from whiteboards
+  // Collect custom decks from whiteboards and notes
   const { decks, quizzes } = useMemo(() => {
     if (!mounted) return { decks: STARTER_DECKS, quizzes: STARTER_QUIZZES };
 
     const customDecks: Deck[] = [];
     const customQuizzes: QuizGroup[] = [];
 
+    // 1. From whiteboards
     for (const id of boardOrder) {
       const b = boards[id];
       const bd = boardData[id];
@@ -215,11 +301,37 @@ function LearningHubPage() {
       }
     }
 
+    // 2. From notes
+    for (const noteId of noteOrder) {
+      const n = notes[noteId];
+      if (!n || n.archived) continue;
+
+      const nCards = extractCardsFromNote(n);
+      if (nCards.length > 0) {
+        const dueCount = nCards.filter((c) => isCardDue(progress[c.key])).length;
+        customDecks.push({
+          boardId: `note-${n.id}`,
+          title: `${n.title || "Untitled Note"} (Notes)`,
+          cards: nCards,
+          due: dueCount,
+        });
+      }
+
+      const nQuizzes = extractQuizzesFromNote(n);
+      if (nQuizzes.length > 0) {
+        customQuizzes.push({
+          boardId: `note-${n.id}`,
+          title: `${n.title || "Untitled Note"} (Notes)`,
+          questions: nQuizzes,
+        });
+      }
+    }
+
     return {
       decks: customDecks.length > 0 ? customDecks : STARTER_DECKS,
       quizzes: customQuizzes.length > 0 ? customQuizzes : STARTER_QUIZZES,
     };
-  }, [mounted, boards, boardOrder, boardData, progress]);
+  }, [mounted, boards, boardOrder, boardData, notes, noteOrder, progress]);
 
   // High-level stats
   const stats = useMemo(() => {

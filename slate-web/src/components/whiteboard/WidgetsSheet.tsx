@@ -384,8 +384,8 @@ export function WidgetsSheet({
                     <ImagePlus className="h-5 w-5" />
                   </span>
                   <div>
-                    <div className="text-xs font-semibold leading-tight">Image Search</div>
-                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Online photos</div>
+                    <div className="text-xs font-semibold leading-tight">Science Images</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Wikimedia gallery</div>
                   </div>
                 </button>
                 <button
@@ -438,29 +438,42 @@ export function WidgetsSheet({
           </div>
         </SheetContent>
       </Sheet>
-      <WidgetTutorialDialog
-        open={tutorialOpen}
-        onOpenChange={setTutorialOpen}
-        onSelectAction={handleTutorialAction}
-      />
-      <MathFormulaDialog open={mathDialogOpen} onOpenChange={setMathDialogOpen} />
-      <ImageSearchDialog open={imageSearchOpen} onOpenChange={setImageSearchOpen} />
-      <TableDialog open={tableDialogOpen} onOpenChange={setTableDialogOpen} />
-      <PeriodicTableDialog
-        open={periodicOpen}
-        onOpenChange={(v) => {
-          setPeriodicOpen(v);
-          if (!v) setInspectElementNum(undefined);
-        }}
-        onInsertElement={handleInsertElement}
-        onInsertWholeTable={handleInsertWholePeriodicTable}
-        initialElementNumber={inspectElementNum}
-      />
-      <FlashcardsDialog
-        open={flashcardsOpen}
-        onOpenChange={setFlashcardsOpen}
-        onInsertCard={handleInsertCard}
-      />
+      {tutorialOpen && (
+        <WidgetTutorialDialog
+          open={tutorialOpen}
+          onOpenChange={(v) => {
+            setTutorialOpen(v);
+            if (!v) {
+              try {
+                localStorage.setItem("slate_widget_tutorial_dismissed", "true");
+              } catch (e) {}
+            }
+          }}
+          onSelectAction={handleTutorialAction}
+        />
+      )}
+      {mathDialogOpen && <MathFormulaDialog open={mathDialogOpen} onOpenChange={setMathDialogOpen} />}
+      {imageSearchOpen && <ImageSearchDialog open={imageSearchOpen} onOpenChange={setImageSearchOpen} />}
+      {tableDialogOpen && <TableDialog open={tableDialogOpen} onOpenChange={setTableDialogOpen} />}
+      {periodicOpen && (
+        <PeriodicTableDialog
+          open={periodicOpen}
+          onOpenChange={(v) => {
+            setPeriodicOpen(v);
+            if (!v) setInspectElementNum(undefined);
+          }}
+          onInsertElement={handleInsertElement}
+          onInsertWholeTable={handleInsertWholePeriodicTable}
+          initialElementNumber={inspectElementNum}
+        />
+      )}
+      {flashcardsOpen && (
+        <FlashcardsDialog
+          open={flashcardsOpen}
+          onOpenChange={setFlashcardsOpen}
+          onInsertCard={handleInsertCard}
+        />
+      )}
     </>
   );
 }
@@ -487,9 +500,17 @@ export function useWidgetLauncher() {
     Array<{ id: string; kind: WidgetKind; x: number; y: number }>
   >([]);
   function launch(kind: WidgetKind) {
+    const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
+    const screenW = typeof window !== "undefined" ? window.innerWidth : 400;
+    const defaultX = isMobile
+      ? Math.max(8, Math.round((screenW - 320) / 2))
+      : 120 + (openWidgets.length % 5) * 30;
+    const defaultY = isMobile
+      ? 80 + (openWidgets.length % 4) * 20
+      : 120 + (openWidgets.length % 5) * 30;
     setOpenWidgets((w) => [
       ...w,
-      { id: uid(), kind, x: 120 + w.length * 30, y: 120 + w.length * 30 },
+      { id: uid(), kind, x: defaultX, y: defaultY },
     ]);
   }
   function close(id: string) {

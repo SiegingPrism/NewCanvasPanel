@@ -166,14 +166,14 @@ export const WIDGET_GUIDE_ITEMS: WidgetGuideItem[] = [
   {
     id: "image-search",
     kind: "image-search",
-    label: "Image Search",
+    label: "Science Image Library",
     category: "Canvas Tools",
     icon: ImagePlus,
     color: "text-pink-500",
     bgColor: "bg-pink-500/15",
-    summary: "Search royalty-free stock diagrams, photos, and visual illustrations online.",
-    howToUse: "Drop diagrams, anatomy illustrations, or visual aids straight onto your canvas.",
-    actionLabel: "Search Images",
+    summary: "High-resolution diagrams and Wikimedia images ready for canvas insertion.",
+    howToUse: "Drop science diagrams, anatomy illustrations, or visual aids straight onto your canvas.",
+    actionLabel: "Browse Library",
   },
   {
     id: "ruler",
@@ -263,16 +263,23 @@ export function WidgetTutorialDialog({
   }, [tab, search]);
 
   const handleClose = () => {
-    if (dontShowAgain) {
+    try {
+      localStorage.setItem("slate_widget_tutorial_dismissed", "true");
+    } catch (e) {}
+    onOpenChange(false);
+  };
+
+  const handleOpenChange = (v: boolean) => {
+    if (!v) {
       try {
         localStorage.setItem("slate_widget_tutorial_dismissed", "true");
       } catch (e) {}
     }
-    onOpenChange(false);
+    onOpenChange(v);
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-2xl max-h-[88vh] flex flex-col p-0 overflow-hidden rounded-2xl shadow-2xl border border-border bg-card">
         {/* Header */}
         <div className="p-4 sm:p-5 border-b border-border bg-muted/30">

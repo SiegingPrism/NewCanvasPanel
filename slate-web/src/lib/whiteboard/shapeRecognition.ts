@@ -934,6 +934,14 @@ function detectLine(
   const chordLen = Math.hypot(dx, dy);
   if (chordLen < 16) return null;
 
+  // 1. Path-length test: reject if path is >12% longer than the straight distance (e.g. cursive "mmm", waves, zigzags)
+  let pathLength = 0;
+  for (let i = 1; i < points.length; i++) {
+    pathLength += Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
+  }
+  if (pathLength / chordLen > 1.12) return null;
+
+  // 2. Maximum deviation from chord
   let maxDeviation = 0;
   for (const p of points) {
     const dist = Math.abs(dy * p.x - dx * p.y + last.x * first.y - last.y * first.x) / chordLen;
@@ -941,6 +949,22 @@ function detectLine(
   }
 
   if (maxDeviation / chordLen > 0.14) return null;
+
+  // 3. Repeated zero-crossings test: reject if path oscillates across the chord >= 3 times
+  let signCrossings = 0;
+  let lastSign = 0;
+  const deadband = Math.max(1.5, chordLen * 0.02);
+  for (const p of points) {
+    const signedDist = (dy * p.x - dx * p.y + last.x * first.y - last.y * first.x) / chordLen;
+    if (Math.abs(signedDist) > deadband) {
+      const sign = signedDist > 0 ? 1 : -1;
+      if (lastSign !== 0 && sign !== lastSign) {
+        signCrossings++;
+      }
+      lastSign = sign;
+    }
+  }
+  if (signCrossings >= 3) return null;
 
   return {
     kind: "shape",
@@ -1005,7 +1029,8 @@ function hasBarbAtEnd(points: Point[]): {
   const dot = (vShaftRev.x * vBarb.x + vShaftRev.y * vBarb.y) / (shaftLen * barbLen);
   const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
 
-  if (angle < 10 * (Math.PI / 180) || angle > 80 * (Math.PI / 180)) return null;
+  // Cap barb angle at 55° (0.96 rad) to reject check marks (~60°-75°) while keeping true arrows (~20°-45°)
+  if (angle < 10 * (Math.PI / 180) || angle > 55 * (Math.PI / 180)) return null;
 
   return { pStart, pTip, shaftDx, shaftDy };
 }

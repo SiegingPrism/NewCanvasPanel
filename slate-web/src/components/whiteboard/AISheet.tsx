@@ -31,6 +31,7 @@ import {
 import { toast } from "sonner";
 import { useWhiteboard } from "@/lib/whiteboard/store";
 import { useAISettings } from "@/lib/ai/aiSettingsStore";
+import { useAuth } from "@/lib/supabase/authStore";
 import { AIEngine, AIError, aiErrorMessage, type ChatSource } from "@/lib/ai/aiEngine";
 import { saveBoardChat, loadBoardChat, clearBoardChat } from "@/lib/whiteboard/slateStorage";
 import { captureCanvasSnapshot } from "@/lib/whiteboard/canvasSnapshot";
@@ -129,11 +130,15 @@ export function AISheet({
   onOpenChange,
   contextText,
   boardId,
+  initialPrompt,
+  initialSnapshot,
 }: {
   open: boolean;
   onOpenChange: (b: boolean) => void;
   contextText?: string;
   boardId?: string;
+  initialPrompt?: string;
+  initialSnapshot?: string;
 }) {
   const addRecentAI = useWhiteboard((s) => s.addRecentAI);
   const addObject = useWhiteboard((s) => s.addObject);
@@ -156,7 +161,10 @@ export function AISheet({
   const abortRef = useRef<AbortController | null>(null);
   const isLoadedRef = useRef(false);
   const online = useOnlineStatus();
-  const configured = useAISettings((s) => Boolean(s.getApiKey()));
+  const hasAuth = useAuth((s) => Boolean(s.session?.access_token));
+  const configured = useAISettings((s) => Boolean(s.getApiKey())) || hasAuth;
+
+  const hasTriggeredPromptRef = useRef<string | null>(null);
 
   // 1. Load per-board chat history from IndexedDB
   useEffect(() => {
@@ -413,6 +421,34 @@ export function AISheet({
     }
   }
 
+  // Auto-trigger explanation or prefilled prompt when opening AI Sheet with an initial prompt
+  useEffect(() => {
+    if (!open) {
+      hasTriggeredPromptRef.current = null;
+      return;
+    }
+    if (open && initialSnapshot && !attachedSnapshot) {
+      setAttachedSnapshot(initialSnapshot);
+    }
+    if (
+      open &&
+      initialPrompt &&
+      isLoadedRef.current &&
+      hasTriggeredPromptRef.current !== initialPrompt
+    ) {
+      hasTriggeredPromptRef.current = initialPrompt;
+      const snap = initialSnapshot || attachedSnapshot;
+      setAttachedSnapshot(null);
+      const history = messages.filter(
+        (m) => !(m.role === "assistant" && (m.error || !m.content.trim())),
+      );
+      void runChat(
+        [...history, { id: uid(), role: "user", content: initialPrompt, imageDataUrl: snap || undefined }],
+        snap,
+      );
+    }
+  }, [open, initialPrompt, initialSnapshot, isLoadedRef.current]);
+
   const canSend = online && configured && !loading && input.trim().length > 0;
 
   return (
@@ -506,7 +542,7 @@ export function AISheet({
         {online && !configured && (
           <div className="flex items-center gap-2 border-b bg-amber-500/10 px-4 py-2 text-xs text-amber-700 dark:text-amber-300">
             <AlertCircle className="h-4 w-4 shrink-0" />
-            AI isn't set up yet. Add a Gemini API key in AI Settings.
+            AI isn't set up yet. Sign in or add a personal Gemini key in AI Settings.
           </div>
         )}
 

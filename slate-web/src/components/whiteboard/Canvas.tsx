@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo, useLayoutEffect } from "react";
 import { useWhiteboard } from "@/lib/whiteboard/store";
 import type {
   CanvasObject,
@@ -77,11 +77,29 @@ function uid() {
 
 type Handle = { type: "move" } | { type: "resize"; corner: "nw" | "ne" | "sw" | "se" };
 
+/** Pop every saved state (restore() on an empty stack is a no-op). */
+function unwindContext(ctx: CanvasRenderingContext2D) {
+  for (let i = 0; i < 64; i++) ctx.restore();
+}
+
+/** Fully reset a 2D context: transform, clip, save stack, styles. */
+function resetContext(ctx: CanvasRenderingContext2D) {
+  const anyCtx = ctx as CanvasRenderingContext2D & { reset?: () => void };
+  if (typeof anyCtx.reset === "function") {
+    anyCtx.reset();
+  } else {
+    unwindContext(ctx);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = "source-over";
+  }
+}
+
 export function WhiteboardCanvas({
   onOpenAI,
   onPresentationChange,
 }: {
-  onOpenAI?: (context?: string) => void;
+  onOpenAI?: (opts?: { contextText?: string; snapshot?: string; prompt?: string }) => void;
   onPresentationChange?: (presenting: boolean) => void;
 } = {}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -126,6 +144,37 @@ export function WhiteboardCanvas({
   useEffect(() => {
     cameraRef.current = camera;
   }, [camera]);
+
+  const panRafRef = useRef<number | null>(null);
+  const pendingCameraRef = useRef<{ x: number; y: number; zoom: number } | null>(null);
+
+  const applyCameraThrottled = useCallback(
+    (nextCam: { x: number; y: number; zoom: number }) => {
+      pendingCameraRef.current = nextCam;
+      cameraRef.current = nextCam;
+      if (panRafRef.current === null) {
+        panRafRef.current = requestAnimationFrame(() => {
+          panRafRef.current = null;
+          if (pendingCameraRef.current) {
+            setCamera(pendingCameraRef.current);
+            pendingCameraRef.current = null;
+          }
+        });
+      }
+    },
+    [setCamera]
+  );
+
+  const flushCameraUpdate = useCallback(() => {
+    if (panRafRef.current !== null) {
+      cancelAnimationFrame(panRafRef.current);
+      panRafRef.current = null;
+    }
+    if (pendingCameraRef.current) {
+      setCamera(pendingCameraRef.current);
+      pendingCameraRef.current = null;
+    }
+  }, [setCamera]);
 
   const pageRef = useRef(page);
   useEffect(() => {
@@ -202,6 +251,19 @@ export function WhiteboardCanvas({
   const [editingText, setEditingText] = useState<{ id: string } | null>(null);
   const [editingTextValue, setEditingTextValue] = useState<string>("");
   const [recolorPickerOpen, setRecolorPickerOpen] = useState(false);
+
+  // Floating Action Bar measurement for screen clamping
+  const actionBarRef = useRef<HTMLDivElement>(null);
+  const [actionBarSize, setActionBarSize] = useState<{ w: number; h: number }>({ w: 880, h: 44 });
+
+  useLayoutEffect(() => {
+    if (actionBarRef.current) {
+      const rect = actionBarRef.current.getBoundingClientRect();
+      if (rect.width > 0 && (Math.abs(rect.width - actionBarSize.w) > 4 || Math.abs(rect.height - actionBarSize.h) > 4)) {
+        setActionBarSize({ w: rect.width, h: rect.height });
+      }
+    }
+  });
 
   // Focus textarea when text editing starts
   useEffect(() => {
@@ -804,11 +866,12 @@ export function WhiteboardCanvas({
         const newX = curSx - wx * targetZoom;
         const newY = curSy - wy * targetZoom;
 
-        setCamera({ x: newX, y: newY, zoom: targetZoom });
+        applyCameraThrottled({ x: newX, y: newY, zoom: targetZoom });
       }
     };
 
     const onTouchEnd = (e: TouchEvent) => {
+      flushCameraUpdate();
       if (e.touches.length < 2) {
         isPinching = false;
         startDist = 0;
@@ -950,20 +1013,34 @@ export function WhiteboardCanvas({
     return segments;
   }
 
+  const drawErrorIdsRef = useRef<Set<string>>(new Set());
+  function reportDrawError(obj: CanvasObject, err: unknown) {
+    if (drawErrorIdsRef.current.has(obj.id)) return;
+    drawErrorIdsRef.current.add(obj.id);
+    console.error(`[Slate] Failed to draw ${obj.kind} ${obj.id}`, err, obj);
+  }
+
   const redraw = useCallback(() => {
     const c = canvasRef.current;
     if (!c) return;
     const ctx = c.getContext("2d")!;
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    // Start every frame from a pristine context. clearRect alone does not undo a
+    // clip / save-stack left behind by an earlier frame, and a leaked clip makes
+    // the next frames repaint only part of the board (leaving "ghost" copies).
+    resetContext(ctx);
     ctx.clearRect(0, 0, c.width, c.height);
     ctx.scale(dpr, dpr);
 
     // Background
     drawBackground(ctx, c.width / dpr, c.height / dpr, page.background);
 
+    const applyCamera = () => {
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.translate(camera.x, camera.y);
+      ctx.scale(camera.zoom, camera.zoom);
+    };
     ctx.save();
-    ctx.translate(camera.x, camera.y);
-    ctx.scale(camera.zoom, camera.zoom);
+    applyCamera();
 
     // World viewport boundaries with safety padding for smooth panning
     const screenW = c.width / dpr;
@@ -986,7 +1063,16 @@ export function WhiteboardCanvas({
         : page.objects;
     for (const obj of objectsToDraw) {
       if (selectedSet.has(obj.id) || isObjectInViewport(obj, viewLeft, viewTop, viewRight, viewBottom)) {
-        drawObject(ctx, obj, selectedSet.has(obj.id));
+        try {
+          drawObject(ctx, obj, selectedSet.has(obj.id));
+        } catch (err) {
+          // One malformed object (e.g. saved by an older app version) must never
+          // break the whole frame: unwind whatever state it left and keep going.
+          reportDrawError(obj, err);
+          unwindContext(ctx);
+          ctx.save();
+          applyCamera();
+        }
       }
     }
     // Multi-selection bounding box overlay
@@ -3638,11 +3724,29 @@ export function WhiteboardCanvas({
     let img = imageCache.current.get(o.src);
     if (!img) {
       img = new Image();
+      if (!o.src.startsWith("data:")) {
+        img.crossOrigin = "anonymous";
+      }
       img.src = o.src;
       img.onload = () => redraw();
+      img.onerror = () => {
+        // Fallback without crossOrigin if remote server strictly rejects CORS headers
+        if (img && img.crossOrigin === "anonymous") {
+          const fallback = new Image();
+          fallback.src = o.src;
+          fallback.onload = () => redraw();
+          imageCache.current.set(o.src, fallback);
+        }
+      };
       imageCache.current.set(o.src, img);
     }
-    if (img.complete) ctx.drawImage(img, o.x, o.y, o.w, o.h);
+    if (img.complete && img.naturalWidth > 0) {
+      try {
+        ctx.drawImage(img, o.x, o.y, o.w, o.h);
+      } catch (err) {
+        console.warn("[Slate] Image render error:", err);
+      }
+    }
   }
 
   function wrapText(ctx: CanvasRenderingContext2D, text: string, maxW: number) {
@@ -4489,6 +4593,19 @@ export function WhiteboardCanvas({
     return { type: "move" };
   }
 
+  // Drag moves fire far more often than the screen refreshes on phones;
+  // repaint at most once per frame.
+  const redrawRafRef = useRef<number | null>(null);
+  const latestRedrawRef = useRef(redraw);
+  latestRedrawRef.current = redraw;
+  function scheduleRedraw() {
+    if (redrawRafRef.current !== null) return;
+    redrawRafRef.current = requestAnimationFrame(() => {
+      redrawRafRef.current = null;
+      latestRedrawRef.current();
+    });
+  }
+
   // ---- Pointer events with Stylus Palm Rejection & Multi-touch ----
   function onPointerDown(e: React.PointerEvent<HTMLCanvasElement>) {
     if (wasPinchingRef.current) return;
@@ -4513,6 +4630,7 @@ export function WhiteboardCanvas({
         redraw();
       }
       panRef.current = null;
+      flushCameraUpdate();
       if (drawingRef.current) {
         if (drawingRef.current.holdTimer) clearTimeout(drawingRef.current.holdTimer);
         drawingRef.current = null;
@@ -4609,8 +4727,7 @@ export function WhiteboardCanvas({
 
     if (targetCard) {
       if (tool !== "select") setTool("select");
-      setSelected(targetCard.id); // also sets selectedIds = [id]
-      setSelectedIds([]);
+      setSelected(targetCard.id); // also sets selectedIds = [id] — don't clear it afterwards
       const handle = isPointOnCardDragHandle(w, targetCard)
         ? { type: "move" as const }
         : getHandleAt(w, targetCard);
@@ -4807,7 +4924,7 @@ export function WhiteboardCanvas({
     const ptWithMeta: Point = { x: w.x, y: w.y, p: e.pressure || 0.5, t: Date.now() };
 
     if (panRef.current) {
-      setCamera({
+      applyCameraThrottled({
         x: panRef.current.cam.x + (sx - panRef.current.x),
         y: panRef.current.cam.y + (sy - panRef.current.y),
         zoom: camera.zoom,
@@ -4831,7 +4948,7 @@ export function WhiteboardCanvas({
         }
       }
       dragPreviewRef.current = preview;
-      redraw();
+      scheduleRedraw();
       return;
     }
 
@@ -4882,7 +4999,7 @@ export function WhiteboardCanvas({
           }
         }
         dragPreviewRef.current = new Map([[d.id, target]]);
-        redraw();
+        scheduleRedraw();
       }
       return;
     }
@@ -5116,6 +5233,7 @@ export function WhiteboardCanvas({
     }
 
     panRef.current = null;
+    flushCameraUpdate();
 
     if (multiDragRef.current || dragRef.current) {
       const preview = dragPreviewRef.current;
@@ -5286,7 +5404,10 @@ export function WhiteboardCanvas({
     const overlay = overlayRef.current;
     if (!overlay) return;
     const ctx = overlay.getContext("2d");
-    if (ctx) ctx.clearRect(0, 0, overlay.width, overlay.height);
+    if (ctx) {
+      resetContext(ctx);
+      ctx.clearRect(0, 0, overlay.width, overlay.height);
+    }
   }
 
   function fadeLaser() {
@@ -5326,7 +5447,7 @@ export function WhiteboardCanvas({
     const overlay = overlayRef.current;
     if (!overlay) return;
     const ctx = overlay.getContext("2d")!;
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    resetContext(ctx);
     ctx.clearRect(0, 0, overlay.width, overlay.height);
     ctx.scale(dpr, dpr);
     ctx.save();
@@ -5435,9 +5556,9 @@ export function WhiteboardCanvas({
       const newZoom = Math.min(5, Math.max(0.15, camera.zoom * factor));
       const wx = (sx - camera.x) / camera.zoom;
       const wy = (sy - camera.y) / camera.zoom;
-      setCamera({ x: sx - wx * newZoom, y: sy - wy * newZoom, zoom: newZoom });
+      applyCameraThrottled({ x: sx - wx * newZoom, y: sy - wy * newZoom, zoom: newZoom });
     } else {
-      setCamera({ x: camera.x - e.deltaX, y: camera.y - e.deltaY, zoom: camera.zoom });
+      applyCameraThrottled({ x: camera.x - e.deltaX, y: camera.y - e.deltaY, zoom: camera.zoom });
     }
   }
 
@@ -5454,10 +5575,21 @@ export function WhiteboardCanvas({
   const selectionScreenPos = selectionScreenPosRaw
     ? { x: selectionScreenPosRaw.x, y: selectionScreenPosRaw.y - barLift }
     : null;
+  const barW = Math.min(window.innerWidth - 24, actionBarSize.w || 880);
+  const barH = actionBarSize.h || 44;
+  const halfW = barW / 2;
+  const isPhone = window.innerWidth < 640;
+  // Zoom bar sits at bottom-20 (approx 80px + 36px height = 116px from bottom) on phones. Keep at least 132px clear from bottom.
+  const maxY = isPhone ? window.innerHeight - 132 : window.innerHeight - 76;
+  const minY = 68 + barH;
+
   const clampedSelectionPos = selectionScreenPos
     ? {
-        x: Math.max(160, Math.min(window.innerWidth - 160, selectionScreenPos.x)),
-        y: Math.max(68, selectionScreenPos.y),
+        x:
+          window.innerWidth <= barW + 24
+            ? window.innerWidth / 2
+            : Math.max(halfW + 12, Math.min(window.innerWidth - halfW - 12, selectionScreenPos.x)),
+        y: Math.max(minY, Math.min(maxY, selectionScreenPos.y)),
       }
     : null;
 
@@ -5742,6 +5874,32 @@ export function WhiteboardCanvas({
     } catch (err) {
       toast.error(`${aiErrorMessage(err)} Your ink was kept.`);
     }
+  }
+
+  function handleExplainSelection() {
+    const targetIds = selectedIds.length > 0 ? selectedIds : selectedId ? [selectedId] : [];
+    if (targetIds.length === 0) {
+      onOpenAI?.();
+      return;
+    }
+
+    const selectedObjects = page.objects.filter((o) => targetIds.includes(o.id));
+    let textHint = "";
+    for (const obj of selectedObjects) {
+      if (obj.kind === "formula") textHint += (textHint ? "\n" : "") + obj.latex;
+      else if (obj.kind === "text" || obj.kind === "sticky") textHint += (textHint ? "\n" : "") + obj.text;
+    }
+
+    const img = exportSelectedRegionAsImage(targetIds);
+    const prompt = textHint
+      ? `Explain this selection: "${textHint.slice(0, 120)}"`
+      : "Explain what is shown in this selected drawing/diagram.";
+
+    onOpenAI?.({
+      contextText: textHint || undefined,
+      snapshot: img || undefined,
+      prompt,
+    });
   }
 
   async function handleSolveAndPlotMath() {
@@ -6547,6 +6705,7 @@ export function WhiteboardCanvas({
       {/* Floating Action Bar for Selection (Unified Menu) */}
       {clampedSelectionPos && (
         <div
+          ref={actionBarRef}
           className="pointer-events-auto absolute flex -translate-x-1/2 -translate-y-full items-center gap-1 rounded-full bg-card/95 px-2.5 py-1.5 shadow-xl ring-1 ring-border backdrop-blur z-20 max-w-[95vw] overflow-x-auto scrollbar-none"
           style={{ left: clampedSelectionPos.x, top: clampedSelectionPos.y }}
         >
@@ -6557,7 +6716,7 @@ export function WhiteboardCanvas({
           {/* 1. Explain */}
           {onOpenAI && (
             <button
-              onClick={() => onOpenAI()}
+              onClick={handleExplainSelection}
               title="Explain selection with AI"
               className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium hover:bg-sky-500/10 text-sky-600 dark:text-sky-400 transition shrink-0"
             >
@@ -6881,7 +7040,7 @@ export function WhiteboardCanvas({
                     {checkWorkModal.overallCorrect
                       ? "All steps verified correct 🎉"
                       : checkWorkModal.mistakeStepIndex !== null
-                      ? `Mistake identified at Step ${(checkWorkModal.mistakeStepIndex ?? 0) + 1}`
+                      ? `Mistake identified at Step ${checkWorkModal.mistakeStepIndex}`
                       : "Review recommended"}
                   </p>
                 </div>

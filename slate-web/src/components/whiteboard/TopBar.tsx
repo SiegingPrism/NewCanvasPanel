@@ -211,26 +211,42 @@ export function TopBar({
 
   function exportPNG() {
     const c = document.querySelector<HTMLCanvasElement>("canvas");
-    if (!c) return;
-    const link = document.createElement("a");
-    link.download = `whiteboard-${pad2(idx + 1)}.png`;
-    link.href = c.toDataURL("image/png");
-    link.click();
-    toast.success("PNG exported");
+    if (!c) {
+      toast.error("Could not find whiteboard canvas to export.");
+      return;
+    }
+    try {
+      const link = document.createElement("a");
+      link.download = `whiteboard-${pad2(idx + 1)}.png`;
+      link.href = c.toDataURL("image/png");
+      link.click();
+      toast.success("PNG exported");
+    } catch (err) {
+      console.error("[Slate] Export PNG failed:", err);
+      toast.error("Export PNG failed. A remote image on the board may be blocking export.");
+    }
   }
 
   function exportPDF() {
     const c = document.querySelector<HTMLCanvasElement>("canvas");
-    if (!c) return;
-    const img = c.toDataURL("image/png");
-    const pdf = new jsPDF({
-      orientation: c.width > c.height ? "landscape" : "portrait",
-      unit: "px",
-      format: [c.width, c.height],
-    });
-    pdf.addImage(img, "PNG", 0, 0, c.width, c.height);
-    pdf.save(`whiteboard-${pad2(idx + 1)}.pdf`);
-    toast.success("PDF exported");
+    if (!c) {
+      toast.error("Could not find whiteboard canvas to export.");
+      return;
+    }
+    try {
+      const img = c.toDataURL("image/png");
+      const pdf = new jsPDF({
+        orientation: c.width > c.height ? "landscape" : "portrait",
+        unit: "px",
+        format: [c.width, c.height],
+      });
+      pdf.addImage(img, "PNG", 0, 0, c.width, c.height);
+      pdf.save(`whiteboard-${pad2(idx + 1)}.pdf`);
+      toast.success("PDF exported");
+    } catch (err) {
+      console.error("[Slate] Export PDF failed:", err);
+      toast.error("Export PDF failed. A remote image on the board may be blocking export.");
+    }
   }
 
   async function shareQR() {
@@ -829,29 +845,35 @@ export function TopBar({
       </Dialog>
 
       {/* AI Settings Dialog */}
-      <AISettingsDialog open={aiSettingsOpen} onOpenChange={setAiSettingsOpen} />
+      {aiSettingsOpen && <AISettingsDialog open={aiSettingsOpen} onOpenChange={setAiSettingsOpen} />}
 
       {/* PDF & Document Intelligence Dialog */}
-      <DocumentViewerDialog
-        open={docViewerOpen}
-        onOpenChange={setDocViewerOpen}
-        boardId={page.id}
-      />
+      {docViewerOpen && (
+        <DocumentViewerDialog
+          open={docViewerOpen}
+          onOpenChange={setDocViewerOpen}
+          boardId={page.id}
+        />
+      )}
 
       {/* Math Formula Dialog */}
-      <MathFormulaDialog
-        open={mathFormulaOpen}
-        onOpenChange={setMathFormulaOpen}
-      />
+      {mathFormulaOpen && (
+        <MathFormulaDialog
+          open={mathFormulaOpen}
+          onOpenChange={setMathFormulaOpen}
+        />
+      )}
 
       {/* Feature Guide & Tutorial Tour */}
-      <FeatureTourDialog
-        open={tourOpen}
-        onOpenChange={setTourOpen}
-      />
+      {tourOpen && (
+        <FeatureTourDialog
+          open={tourOpen}
+          onOpenChange={setTourOpen}
+        />
+      )}
 
       {/* Account & Cloud Sync Dialog */}
-      <AuthDialog open={authOpen} onOpenChange={setAuthOpen} />
+      {authOpen && <AuthDialog open={authOpen} onOpenChange={setAuthOpen} />}
     </div>
   );
 }

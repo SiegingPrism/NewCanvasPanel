@@ -35,11 +35,10 @@ const htmlContent = `<!DOCTYPE html>
   ${routesJs ? `<link rel="modulepreload" href="/assets/${routesJs}" />` : ""}
 </head>
 <body class="bg-background text-foreground antialiased overscroll-none select-none">
-  <div id="root"></div>
   <script class="$tsr" id="$tsr-stream-barrier">
     (self.$R=self.$R||{})["tsr"]=[];
     self.$_TSR={h(){this.hydrated=!0,this.c()},e(){this.streamEnded=!0,this.c()},c(){this.hydrated&&this.streamEnded&&(delete self.$_TSR,delete self.$R.tsr)},p(e){this.initialized?e():this.buffer.push(e)},buffer:[]};
-    $_TSR.router=($R=>$R[0]={manifest:$R[1]={routes:$R[2]={__root__:$R[3]={preloads:$R[4]=[${[indexJs, rolldownJs, storeJs, jsxJs].filter(Boolean).map(f => `"/assets/${f}"`).join(",")}],scripts:$R[5]=[$R[6]={attrs:$R[7]={type:"module",async:!0,src:"/assets/${indexJs}"}}]},"/":$R[8]={preloads:$R[9]=[${routesJs ? `"/assets/${routesJs}"` : ""}]}}},matches:$R[10]=[$R[11]={i:"__root__ ",u:Date.now(),s:"success",ssr:!0}],lastMatchId:" "})($R["tsr"]);
+    $_TSR.router=($R=>$R[0]={manifest:$R[1]={routes:$R[2]={__root__:$R[3]={preloads:$R[4]=[${[indexJs, rolldownJs, storeJs, jsxJs].filter(Boolean).map(f => `"/assets/${f}"`).join(",")}],scripts:$R[5]=[$R[6]={attrs:$R[7]={type:"module",async:!0,src:"/assets/${indexJs}"}}]},"/":$R[8]={preloads:$R[9]=[${routesJs ? `"/assets/${routesJs}"` : ""}]}}},matches:$R[10]=[$R[11]={i:"__root__ ",u:Date.now(),s:"success",ssr:!1}],lastMatchId:" "})($R["tsr"]);
     $_TSR.e();
     document.currentScript.remove();
   </script>

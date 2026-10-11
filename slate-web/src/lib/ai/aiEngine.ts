@@ -1192,9 +1192,12 @@ export function verifyRootsWithSafeMath(
 // ---------------------------------------------------------------------------
 
 export class AIEngine {
-  /** True when a Gemini key is configured (built-in or user-provided). */
+  /** True when a Gemini key is configured or user is signed in to use free cloud AI. */
   static isConfigured(): boolean {
-    return Boolean(useAISettings.getState().getApiKey());
+    return (
+      Boolean(useAISettings.getState().getApiKey()) ||
+      Boolean(useAuth.getState().session?.access_token)
+    );
   }
 
   // ---- Chat (streaming) ----

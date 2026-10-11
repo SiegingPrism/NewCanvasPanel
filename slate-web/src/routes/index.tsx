@@ -101,12 +101,18 @@ function Dashboard() {
     return list;
   }, [allBoards, activeFolderId, boardSearch]);
 
-  function openNew(templateKey?: TemplateKey, folderId?: string | null) {
+  function openNew(templateKey?: TemplateKey, folderId?: string | null, openAi = false) {
     const id = createBoard({
       templateKey,
       folderId: folderId ?? (activeFolderId !== "all" && activeFolderId !== "starred" ? activeFolderId : null),
     });
-    navigate({ to: "/board/$boardId", params: { boardId: id } });
+    navigate({
+      to: "/board/$boardId",
+      params: { boardId: id },
+    });
+    if (openAi && typeof window !== "undefined") {
+      window.history.replaceState(null, "", `/board/${id}?ai=1`);
+    }
   }
 
   function handleCreateFolder(e: React.FormEvent) {
@@ -278,6 +284,36 @@ function Dashboard() {
                     </div>
                   </div>
                 </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setMobileMenuOpen(false);
+                    if (!user) {
+                      setAuthOpen(true);
+                      toast.info("Sign in to sync your boards privately to the cloud.");
+                      return;
+                    }
+                    toast.info("Syncing boards & notes with your cloud account...");
+                    await syncWithCloud();
+                    toast.success("Cloud database sync complete!");
+                  }}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-foreground hover:bg-accent transition"
+                >
+                  <div
+                    className={cn(
+                      "grid h-8 w-8 place-items-center rounded-lg",
+                      user ? "bg-emerald-500/10 text-emerald-500" : "bg-blue-500/10 text-blue-500",
+                    )}
+                  >
+                    <Cloud className="h-4 w-4" />
+                  </div>
+                  <div className="text-left">
+                    <div className="font-semibold">{user ? "Cloud Sync" : "Sign In / Sync"}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {user ? "Sync boards & notes to your cloud account" : "Back up and sync boards across devices"}
+                    </div>
+                  </div>
+                </button>
               </div>
 
               <div className="pt-2 border-t border-border">
@@ -375,7 +411,7 @@ function Dashboard() {
               icon={<Sparkles className="h-5 w-5" />}
               title="AI-assisted board"
               subtitle="Start blank and open the AI helper"
-              onClick={() => openNew("blank")}
+              onClick={() => openNew("blank", null, true)}
             />
             <QuickCard
               icon={<FileText className="h-5 w-5" />}

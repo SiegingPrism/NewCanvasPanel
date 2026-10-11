@@ -262,5 +262,46 @@ describe("shapeRecognition", () => {
       expect(result.h).toBe(100);
     }
   });
+
+  it("does NOT turn cursive 'mmm' handwriting into a line", () => {
+    // Cursive "mmm" oscillating up and down across y=50 from x=10 to x=100
+    const pts = [];
+    for (let x = 10; x <= 100; x += 2) {
+      const y = 50 + 6 * Math.sin(((x - 10) / 15) * Math.PI * 2);
+      pts.push({ x, y });
+    }
+    const result = recognizeShape(pts, "#000000", 2);
+    // Should be rejected (not recognized as a straight line)
+    expect(result).toBeNull();
+  });
+
+  it("does NOT turn a zigzag or wave into a straight line", () => {
+    // Sharp zigzag oscillating between y=40 and y=60
+    const corners = [
+      { x: 10, y: 50 },
+      { x: 30, y: 40 },
+      { x: 50, y: 60 },
+      { x: 70, y: 40 },
+      { x: 90, y: 60 },
+      { x: 110, y: 50 },
+    ];
+    const pts = [];
+    for (let i = 0; i < corners.length - 1; i++) {
+      pts.push(...interpolate(corners[i], corners[i + 1], 8));
+    }
+    const result = recognizeShape(pts, "#000000", 2);
+    expect(result).toBeNull();
+  });
+
+  it("does NOT turn a check mark into an arrow", () => {
+    // Check mark: downstroke from (20, 30) to (40, 60), then upstroke to (80, 10)
+    // The angle between stroke segments is ~70°-80°, which should NOT trigger an arrow barb
+    const downstroke = interpolate({ x: 20, y: 30 }, { x: 40, y: 60 }, 12);
+    const upstroke = interpolate({ x: 40, y: 60 }, { x: 80, y: 10 }, 15);
+    const pts = [...downstroke, ...upstroke.slice(1)];
+    const result = recognizeShape(pts, "#000000", 2);
+    // Should NOT be recognized as arrow
+    expect(result?.shape).not.toBe("arrow");
+  });
 });
 

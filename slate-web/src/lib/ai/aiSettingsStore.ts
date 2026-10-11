@@ -22,23 +22,6 @@ interface AISettingsState {
 const STORAGE_KEY = "slate_ai_settings_v2";
 const LEGACY_STORAGE_KEY = "slate_ai_settings_v1";
 
-const DEFAULT_GEMINI_API_KEY =
-  typeof atob === "function"
-    ? atob("QVEuQWI4Uk42TFVfc05BNHNmcEg4d1pRRHZGcno2ZWlRak5xTm5YV01uTmExU3NlWjU0c3c=")
-    : typeof Buffer !== "undefined"
-      ? Buffer.from("QVEuQWI4Uk42TFVfc05BNHNmcEg4d1pRRHZGcno2ZWlRak5xTm5YV01uTmExU3NlWjU0c3c=", "base64").toString("utf-8")
-      : "";
-
-function builtInKey(): string {
-  try {
-    const plain = (import.meta.env?.VITE_GEMINI_API_KEY as string | undefined)?.trim();
-    if (plain) return plain;
-  } catch {
-    /* ignore */
-  }
-  return DEFAULT_GEMINI_API_KEY;
-}
-
 function loadUserKey(): string {
   if (typeof window === "undefined") return "";
   try {
@@ -51,7 +34,7 @@ function loadUserKey(): string {
       const parsed = JSON.parse(legacy);
       const key = String(parsed?.geminiKey || "").trim();
       localStorage.removeItem(LEGACY_STORAGE_KEY);
-      if (key && key !== builtInKey()) {
+      if (key) {
         localStorage.setItem(STORAGE_KEY, JSON.stringify({ geminiKey: key }));
         return key;
       }
@@ -73,6 +56,6 @@ export const useAISettings = create<AISettingsState>((set, get) => ({
       /* ignore */
     }
   },
-  getApiKey: () => get().geminiKey || builtInKey(),
-  hasBuiltInKey: () => Boolean(builtInKey()),
+  getApiKey: () => get().geminiKey,
+  hasBuiltInKey: () => false,
 }));

@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAISettings } from "@/lib/ai/aiSettingsStore";
+import { useAuth } from "@/lib/supabase/authStore";
 import { GEMINI_MODEL } from "@/lib/ai/aiEngine";
 import { Key, Sparkles, CheckCircle2, Wifi } from "lucide-react";
 import { toast } from "sonner";
@@ -22,7 +23,7 @@ export function AISettingsDialog({
 }) {
   const geminiKey = useAISettings((s) => s.geminiKey);
   const setGeminiKey = useAISettings((s) => s.setGeminiKey);
-  const hasBuiltInKey = useAISettings((s) => s.hasBuiltInKey());
+  const user = useAuth((s) => s.user);
 
   const [tempKey, setTempKey] = useState(geminiKey);
 
@@ -36,8 +37,9 @@ export function AISettingsDialog({
     onOpenChange(false);
   }
 
-  const usingBuiltIn = !tempKey.trim() && hasBuiltInKey;
-  const notConfigured = !tempKey.trim() && !hasBuiltInKey;
+  const hasPersonalKey = Boolean(tempKey.trim());
+  const usingCloudProxy = !hasPersonalKey && Boolean(user);
+  const notConfigured = !hasPersonalKey && !usingCloudProxy;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -68,11 +70,7 @@ export function AISettingsDialog({
             <div className="relative">
               <Input
                 type="password"
-                placeholder={
-                  hasBuiltInKey
-                    ? "Leave blank to use Slate's built-in AI"
-                    : "Paste your Gemini API key"
-                }
+                placeholder="Paste your Gemini API key (AI Studio)"
                 value={tempKey}
                 onChange={(e) => setTempKey(e.target.value)}
                 className="pr-8 text-xs font-mono"
@@ -95,11 +93,11 @@ export function AISettingsDialog({
           >
             <Wifi className="h-4 w-4 shrink-0 mt-0.5" />
             <span>
-              {notConfigured
-                ? "No API key is configured yet, so AI features are turned off. Add a key above."
-                : usingBuiltIn
-                  ? "Using Slate's built-in AI. AI features need an internet connection."
-                  : "Using your personal key. AI features need an internet connection."}
+              {hasPersonalKey
+                ? "Using your personal Gemini API key. AI features need an internet connection."
+                : usingCloudProxy
+                  ? "Using Slate cloud AI with your account. Add a key above to use your own quota."
+                  : "Sign in with Google/Email or paste a Gemini API key above to use AI features."}
             </span>
           </div>
         </div>
