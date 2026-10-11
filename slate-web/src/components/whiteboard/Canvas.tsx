@@ -982,8 +982,6 @@ export function WhiteboardCanvas({
         drawObject(ctx, obj, selectedSet.has(obj.id));
       }
     }
-    ctx.restore();
-
     // Multi-selection bounding box overlay
     if (selectedSet.size > 1) {
       drawMultiSelectionBox(
@@ -991,6 +989,7 @@ export function WhiteboardCanvas({
         page.objects.filter((o) => selectedSet.has(o.id)),
       );
     }
+    ctx.restore();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [camera, dpr, page, selectedId, selectedIds]);
 
@@ -3433,6 +3432,19 @@ export function WhiteboardCanvas({
     ctx.font = "bold 9px system-ui, sans-serif";
     ctx.fillText(o.label ? o.label.toUpperCase() : "MATH FORMULA", o.x + 18, o.y + 24);
 
+    // Top drag handle badge on the right
+    ctx.fillStyle = "rgba(139, 92, 246, 0.12)";
+    roundRect(ctx, o.x + o.w - 105, o.y + 10, 95, 20, 10);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(139, 92, 246, 0.4)";
+    ctx.lineWidth = 1;
+    roundRect(ctx, o.x + o.w - 105, o.y + 10, 95, 20, 10);
+    ctx.stroke();
+
+    ctx.fillStyle = accentColor;
+    ctx.font = "bold 9px system-ui, sans-serif";
+    ctx.fillText("✥ Drag to move", o.x + o.w - 95, o.y + 23);
+
     ctx.fillStyle = "#0f172a";
     ctx.font = "italic 16px 'Cambria Math', 'STIX Two Math', 'Times New Roman', serif";
     const cleanFormula = formatLatexForDisplay(o.latex);
@@ -4224,25 +4236,78 @@ export function WhiteboardCanvas({
   function isAiAnswerObject(obj: CanvasObject | null | undefined): boolean {
     if (!obj) return false;
     if ((obj as any).isAiAnswer === true) return true;
+    if (obj.kind === "formula") return true;
     if (obj.kind === "image" && typeof (obj as any).src === "string") {
       const src = (obj as any).src;
       if (
         src.includes("STEP-BY-STEP MATH SOLUTION") ||
         src.includes("Slate AI") ||
-        src.includes("FINAL ANSWER")
+        src.includes("FINAL ANSWER") ||
+        src.includes("AI SOLUTION") ||
+        src.includes("Drag to move")
       ) {
         return true;
       }
     }
-    if ((obj as any).label === "AI" || (obj as any).label === "AI Solution") return true;
+    if (
+      (obj as any).label === "AI" ||
+      (obj as any).label === "AI Solution" ||
+      (obj as any).label === "MATH FORMULA"
+    ) {
+      return true;
+    }
     return false;
+  }
+
+  function isPointNearStroke(pt: Point, stroke: StrokeBase, threshold: number): boolean {
+    const pts = stroke.points;
+    if (!pts || pts.length === 0) return false;
+    const threshSq = threshold * threshold;
+    if (pts.length === 1) {
+      const dx = pt.x - pts[0].x;
+      const dy = pt.y - pts[0].y;
+      return dx * dx + dy * dy <= threshSq;
+    }
+    for (let i = 0; i < pts.length - 1; i++) {
+      if (distToSegmentSq(pt, pts[i], pts[i + 1]) <= threshSq) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function findDraggableCardAt(pt: Point): CanvasObject | null {
+    const pad = 12 / camera.zoom;
+    const topPad = 46 / camera.zoom;
+    for (let i = page.objects.length - 1; i >= 0; i--) {
+      const obj = page.objects[i];
+      if (
+        !isAiAnswerObject(obj) &&
+        obj.kind !== "formula" &&
+        obj.kind !== "sticky" &&
+        obj.kind !== "flashcard" &&
+        obj.kind !== "image" &&
+        obj.kind !== "graph"
+      ) {
+        continue;
+      }
+      const b = objectBounds(obj);
+      if (
+        pt.x >= b.x - pad &&
+        pt.x <= b.x + b.w + pad &&
+        pt.y >= b.y - topPad &&
+        pt.y <= b.y + b.h + pad
+      ) {
+        return obj;
+      }
+    }
+    return null;
   }
 
   function drawSelection(ctx: CanvasRenderingContext2D, obj: CanvasObject) {
     const b = objectBounds(obj);
     ctx.save();
-    ctx.translate(camera.x, camera.y);
-    ctx.scale(camera.zoom, camera.zoom);
+    // Context is already translated & scaled to world coordinates by camera in redraw()
     ctx.strokeStyle = "#3b82f6";
     ctx.lineWidth = 1.5 / camera.zoom;
     ctx.setLineDash([6 / camera.zoom, 4 / camera.zoom]);
@@ -4261,7 +4326,7 @@ export function WhiteboardCanvas({
       ctx.strokeRect(cx - handleSize / 2, cy - handleSize / 2, handleSize, handleSize);
     }
 
-    // Prominent Drag to Move handle badge for AI-generated answers
+    // Prominent Drag to Move handle badge for AI-generated answers and formulas
     if (isAiAnswerObject(obj)) {
       const pillW = 148 / camera.zoom;
       const pillH = 26 / camera.zoom;
@@ -4298,8 +4363,6 @@ export function WhiteboardCanvas({
     const maxY = Math.max(...boxes.map((b) => b.y + b.h));
 
     ctx.save();
-    ctx.translate(camera.x, camera.y);
-    ctx.scale(camera.zoom, camera.zoom);
     ctx.strokeStyle = "#6366f1";
     ctx.lineWidth = 2 / camera.zoom;
     ctx.setLineDash([8 / camera.zoom, 4 / camera.zoom]);
@@ -4326,8 +4389,15 @@ export function WhiteboardCanvas({
     for (let i = page.objects.length - 1; i >= 0; i--) {
       const obj = page.objects[i];
       const b = objectBounds(obj);
-      const topOffset = isAiAnswerObject(obj) ? 36 / camera.zoom : 0;
+      const topOffset = isAiAnswerObject(obj) ? 44 / camera.zoom : 0;
       if (pt.x >= b.x && pt.x <= b.x + b.w && pt.y >= b.y - topOffset && pt.y <= b.y + b.h) {
+        if ("points" in obj && Array.isArray((obj as any).points)) {
+          const strokeSize = (obj as any).size || 4;
+          const thresh = Math.max(14, strokeSize * 1.5) / camera.zoom;
+          if (!isPointNearStroke(pt, obj as StrokeBase, thresh)) {
+            continue;
+          }
+        }
         return obj;
       }
     }
@@ -4336,7 +4406,7 @@ export function WhiteboardCanvas({
 
   function getHandleAt(pt: Point, obj: CanvasObject): Handle {
     const b = objectBounds(obj);
-    const h = 12 / camera.zoom;
+    const h = 14 / camera.zoom;
     const corners: Array<[number, number, "nw" | "ne" | "sw" | "se"]> = [
       [b.x, b.y, "nw"],
       [b.x + b.w, b.y, "ne"],
@@ -4373,15 +4443,6 @@ export function WhiteboardCanvas({
       return;
     }
 
-    // Only set pointer capture for mouse or stylus. NEVER capture touch pointer!
-    if (e.pointerType !== "touch") {
-      try {
-        (e.target as HTMLElement).setPointerCapture(e.pointerId);
-      } catch {
-        // Pointer capture can fail if pointer is released or unsupported; safely ignore.
-      }
-    }
-
     const rect = canvasRef.current!.getBoundingClientRect();
     const sx = e.clientX - rect.left;
     const sy = e.clientY - rect.top;
@@ -4413,13 +4474,7 @@ export function WhiteboardCanvas({
       lastTapRef.current = { time: now, x: e.clientX, y: e.clientY };
     }
 
-    // Pan
-    if (e.button === 1 || tool === "pan") {
-      panRef.current = { x: sx, y: sy, cam: { ...camera } };
-      return;
-    }
-
-    // Check multi-selection bounding box hit (allow moving multi-selection even if tool was drawing)
+    // 1. Check multi-selection bounding box hit (allow moving multi-selection even if tool was drawing/panning)
     const multiBounds = getMultiSelectionBounds();
     if (
       multiBounds &&
@@ -4431,19 +4486,35 @@ export function WhiteboardCanvas({
     ) {
       if (tool !== "select") setTool("select");
       multiDragRef.current = { start: w, initialCamera: { ...camera } };
+      try {
+        (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      } catch {}
       return;
     }
 
-    // Direct Move for AI Answers:
-    // If user touches or drags an AI generated answer (or its move handle),
-    // allow them to move it immediately without drawing strokes over it!
-    const hitAi = hitTest(w);
-    if (hitAi && isAiAnswerObject(hitAi)) {
+    // 2. Direct Move for AI Answers & Draggable Cards:
+    // If user touches or drags an AI generated answer, formula, or card,
+    // immediately allow them to move it anywhere without drawing strokes over it!
+    const targetCard = findDraggableCardAt(w);
+    if (targetCard) {
       if (tool !== "select") setTool("select");
-      setSelected(hitAi.id);
+      setSelected(targetCard.id);
       setSelectedIds([]);
-      const handle = getHandleAt(w, hitAi);
-      dragRef.current = { id: hitAi.id, handle, start: w, obj: structuredClone(hitAi) };
+      const handle = getHandleAt(w, targetCard);
+      dragRef.current = { id: targetCard.id, handle, start: w, obj: structuredClone(targetCard) };
+      try {
+        (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      } catch {}
+      redraw();
+      return;
+    }
+
+    // 3. Pan
+    if (e.button === 1 || tool === "pan") {
+      panRef.current = { x: sx, y: sy, cam: { ...camera } };
+      try {
+        (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      } catch {}
       return;
     }
 
@@ -4634,8 +4705,18 @@ export function WhiteboardCanvas({
     if (multiDragRef.current) {
       const dx = w.x - multiDragRef.current.start.x;
       const dy = w.y - multiDragRef.current.start.y;
-      moveSelected(dx, dy);
+      for (const obj of page.objects) {
+        if (selectedIds.includes(obj.id)) {
+          if ("points" in obj) {
+            obj.points = obj.points.map((p) => ({ ...p, x: p.x + dx, y: p.y + dy }));
+          } else {
+            obj.x += dx;
+            obj.y += dy;
+          }
+        }
+      }
       multiDragRef.current.start = w;
+      redraw();
       return;
     }
 
@@ -4644,47 +4725,48 @@ export function WhiteboardCanvas({
       const dx = w.x - d.start.x;
       const dy = w.y - d.start.y;
       const orig = d.obj;
-      if (d.handle.type === "move") {
-        if ("points" in orig) {
-          updateObject(d.id, {
-            points: orig.points.map((p) => ({ ...p, x: p.x + dx, y: p.y + dy })),
-          } as Partial<CanvasObject>);
+      const target = page.objects.find((o) => o.id === d.id);
+      if (target) {
+        if (d.handle.type === "move") {
+          if ("points" in orig && "points" in target) {
+            target.points = orig.points.map((p) => ({ ...p, x: p.x + dx, y: p.y + dy }));
+          } else if (!("points" in orig) && !("points" in target)) {
+            target.x = orig.x + dx;
+            target.y = orig.y + dy;
+          }
         } else {
-          updateObject(d.id, { x: orig.x + dx, y: orig.y + dy } as Partial<CanvasObject>);
+          if (!("points" in orig) && !("points" in target)) {
+            let nx = orig.x,
+              ny = orig.y,
+              nw = orig.w,
+              nh = orig.h;
+            if (d.handle.corner === "se") {
+              nw = orig.w + dx;
+              nh = orig.h + dy;
+            }
+            if (d.handle.corner === "ne") {
+              ny = orig.y + dy;
+              nw = orig.w + dx;
+              nh = orig.h - dy;
+            }
+            if (d.handle.corner === "sw") {
+              nx = orig.x + dx;
+              nw = orig.w - dx;
+              nh = orig.h + dy;
+            }
+            if (d.handle.corner === "nw") {
+              nx = orig.x + dx;
+              ny = orig.y + dy;
+              nw = orig.w - dx;
+              nh = orig.h - dy;
+            }
+            target.x = nx;
+            target.y = ny;
+            target.w = Math.max(20, nw);
+            target.h = Math.max(20, nh);
+          }
         }
-      } else {
-        if (!("points" in orig)) {
-          let nx = orig.x,
-            ny = orig.y,
-            nw = orig.w,
-            nh = orig.h;
-          if (d.handle.corner === "se") {
-            nw = orig.w + dx;
-            nh = orig.h + dy;
-          }
-          if (d.handle.corner === "ne") {
-            ny = orig.y + dy;
-            nw = orig.w + dx;
-            nh = orig.h - dy;
-          }
-          if (d.handle.corner === "sw") {
-            nx = orig.x + dx;
-            nw = orig.w - dx;
-            nh = orig.h + dy;
-          }
-          if (d.handle.corner === "nw") {
-            nx = orig.x + dx;
-            ny = orig.y + dy;
-            nw = orig.w - dx;
-            nh = orig.h - dy;
-          }
-          updateObject(d.id, {
-            x: nx,
-            y: ny,
-            w: Math.max(20, nw),
-            h: Math.max(20, nh),
-          } as Partial<CanvasObject>);
-        }
+        redraw();
       }
       return;
     }
@@ -4899,6 +4981,9 @@ export function WhiteboardCanvas({
 
   function onPointerUp(e: React.PointerEvent<HTMLCanvasElement>) {
     touchMapRef.current.delete(e.pointerId);
+    if (touchMapRef.current.size === 0) {
+      wasPinchingRef.current = false;
+    }
     if (wasPinchingRef.current || touchMapRef.current.size >= 1) {
       if (drawingRef.current) {
         if (drawingRef.current.holdTimer) clearTimeout(drawingRef.current.holdTimer);
@@ -4915,9 +5000,33 @@ export function WhiteboardCanvas({
     }
 
     panRef.current = null;
-    multiDragRef.current = null;
+
+    if (multiDragRef.current) {
+      const selectedSet = new Set(selectedIds);
+      for (const obj of page.objects) {
+        if (selectedSet.has(obj.id)) {
+          if ("points" in obj) {
+            updateObject(obj.id, { points: obj.points } as Partial<CanvasObject>);
+          } else {
+            updateObject(obj.id, { x: obj.x, y: obj.y } as Partial<CanvasObject>);
+          }
+        }
+      }
+      pushHistory();
+      multiDragRef.current = null;
+      return;
+    }
 
     if (dragRef.current) {
+      const d = dragRef.current;
+      const target = page.objects.find((o) => o.id === d.id);
+      if (target) {
+        if ("points" in target) {
+          updateObject(d.id, { points: target.points } as Partial<CanvasObject>);
+        } else {
+          updateObject(d.id, { x: target.x, y: target.y, w: target.w, h: target.h } as Partial<CanvasObject>);
+        }
+      }
       pushHistory();
       dragRef.current = null;
       return;
