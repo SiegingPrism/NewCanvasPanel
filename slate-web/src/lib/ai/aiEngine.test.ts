@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { AIEngine, AIError, aiErrorMessage } from "./aiEngine";
+import { AIEngine, AIError, aiErrorMessage, verifyRootsWithSafeMath, parseCandidateRoots } from "./aiEngine";
 import { useAISettings } from "./aiSettingsStore";
 
 function geminiResponse(text: string) {
@@ -180,6 +180,45 @@ describe("AIEngine (online-only)", () => {
     expect(out).toHaveLength(10);
     expect(out[0].options).toHaveLength(4);
     expect(out[0].explanation).toBeDefined();
+  });
+
+  describe("Math answer verification", () => {
+    it("parses fractions like x = \\frac{3}{2} and verifies correctly without false failure", () => {
+      const roots = parseCandidateRoots("x = \\frac{3}{2}");
+      expect(roots).toEqual([1.5]);
+      expect(verifyRootsWithSafeMath("2x - 3 = 0", "x = \\frac{3}{2}")).toBe(true);
+    });
+
+    it("parses square roots and ± / \\pm like ±√2 and \\pm\\sqrt{2}", () => {
+      const roots = parseCandidateRoots("x = \\pm\\sqrt{2}");
+      expect(roots).toBeDefined();
+      expect(roots).toHaveLength(2);
+      expect(roots![0]).toBeCloseTo(1.4142, 3);
+      expect(roots![1]).toBeCloseTo(-1.4142, 3);
+      expect(verifyRootsWithSafeMath("x^2 - 2 = 0", "x = \\pm\\sqrt{2}")).toBe(true);
+      expect(verifyRootsWithSafeMath("x^2 - 2 = 0", "±√2")).toBe(true);
+    });
+
+    it("parses complex expressions like 1 ± √2 and verifies against quadratic", () => {
+      const roots = parseCandidateRoots("1 \\pm \\sqrt{2}");
+      expect(roots).toHaveLength(2);
+      expect(roots![0]).toBeCloseTo(2.4142, 3);
+      expect(roots![1]).toBeCloseTo(-0.4142, 3);
+      expect(verifyRootsWithSafeMath("x^2 - 2x - 1 = 0", "1 \\pm \\sqrt{2}")).toBe(true);
+    });
+
+    it("treats periodic families like π/6 + 2kπ as can't check (undefined), never false", () => {
+      expect(parseCandidateRoots("\\pi/6 + 2k\\pi")).toBeNull();
+      expect(verifyRootsWithSafeMath("\\sin(x) = 1/2", "\\pi/6 + 2k\\pi")).toBeUndefined();
+      expect(verifyRootsWithSafeMath("y = \\cos(x)", "x = \\pi/2 + k\\pi")).toBeUndefined();
+    });
+
+    it("correctly identifies genuinely wrong roots as false", () => {
+      // 5 violates x^2 = 9
+      expect(verifyRootsWithSafeMath("x^2 = 9", "x = 5")).toBe(false);
+      // x = 1 violates 2x - 3 = 0
+      expect(verifyRootsWithSafeMath("2x - 3 = 0", "x = 1")).toBe(false);
+    });
   });
 });
 

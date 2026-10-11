@@ -54,6 +54,7 @@ import { extractBoardSearchStrings } from "@/lib/ai/localRAG";
 import type { MindMapNodeObject } from "@/lib/whiteboard/types";
 
 import { TEMPLATES } from "@/lib/whiteboard/templates";
+import { captureCanvasSnapshot } from "@/lib/whiteboard/canvasSnapshot";
 
 function uid() {
   return Math.random().toString(36).slice(2, 10);
@@ -123,7 +124,7 @@ export function TopBar({
   async function handleExplainBoard() {
     const c = document.querySelector<HTMLCanvasElement>("canvas");
     if (!c) return;
-    const img = c.toDataURL("image/png");
+    const img = captureCanvasSnapshot(false) || c.toDataURL("image/jpeg", 0.85);
     setExplainSnapshot(img);
     setExplainDialogOpen(true);
     setExplainLoading(true);

@@ -83,53 +83,30 @@ export const Route = createFileRoute("/api/ai")({
             );
           }
 
-          // 2. Atomically increment daily quota in Supabase.
-          // In production, we fail closed (return 503) if the database RPC is unavailable.
-          let remaining = DAILY_REQUEST_LIMIT;
+          // 2. Pre-check daily quota without incrementing (reject fast if already at limit)
           try {
-            const { data: usageData, error: rpcError } = await supabase.rpc("increment_ai_usage", {
-              p_daily_limit: DAILY_REQUEST_LIMIT,
-            });
+            const today = new Date().toISOString().split("T")[0];
+            const { data: existingUsage, error: selectErr } = await supabase
+              .from("ai_usage")
+              .select("request_count")
+              .eq("usage_date", today)
+              .maybeSingle();
 
-            if (rpcError || !usageData || typeof usageData !== "object") {
-              console.error("Supabase increment_ai_usage RPC error:", rpcError);
-              return new Response(
-                JSON.stringify({
-                  error:
-                    "AI quota service is temporarily unavailable. Please ensure database migrations have been executed in Supabase.",
-                }),
-                {
-                  status: 503,
-                  headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-                }
-              );
-            }
-
-            const usage = usageData as { allowed?: boolean; remaining?: number };
-            if (usage.allowed === false) {
-              return new Response(
-                JSON.stringify({
-                  error: `Daily AI usage limit reached (${DAILY_REQUEST_LIMIT} requests/day). Quota resets tomorrow.`,
-                }),
-                {
-                  status: 429,
-                  headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-                }
-              );
-            }
-            remaining = typeof usage.remaining === "number" ? usage.remaining : 0;
-          } catch (err: any) {
-            console.error("Quota check failed:", err);
-            return new Response(
-              JSON.stringify({
-                error:
-                  "AI quota service is temporarily unavailable. Please ensure database migrations have been executed in Supabase.",
-              }),
-              {
-                status: 503,
-                headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+            if (!selectErr && existingUsage && typeof existingUsage.request_count === "number") {
+              if (existingUsage.request_count >= DAILY_REQUEST_LIMIT) {
+                return new Response(
+                  JSON.stringify({
+                    error: `Daily AI usage limit reached (${DAILY_REQUEST_LIMIT} requests/day). Quota resets tomorrow.`,
+                  }),
+                  {
+                    status: 429,
+                    headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+                  }
+                );
               }
-            );
+            }
+          } catch {
+            /* proceed to Gemini and check on increment */
           }
 
           // 3. Obtain server-side secret Gemini API key
@@ -235,6 +212,23 @@ export const Route = createFileRoute("/api/ai")({
                 headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
               }
             );
+          }
+
+          // 6. Gemini succeeded: count request toward daily limit only after success
+          let remaining = DAILY_REQUEST_LIMIT - 1;
+          try {
+            const { data: usageData, error: rpcError } = await supabase.rpc("increment_ai_usage", {
+              p_daily_limit: DAILY_REQUEST_LIMIT,
+            });
+
+            if (!rpcError && usageData && typeof usageData === "object") {
+              const usage = usageData as { allowed?: boolean; remaining?: number };
+              if (typeof usage.remaining === "number") {
+                remaining = usage.remaining;
+              }
+            }
+          } catch (err) {
+            console.warn("Failed to record AI usage after successful Gemini call:", err);
           }
 
           if (isStreaming) {

@@ -32,6 +32,7 @@ import { useWhiteboard } from "@/lib/whiteboard/store";
 import { useAISettings } from "@/lib/ai/aiSettingsStore";
 import { AIEngine, AIError, aiErrorMessage, type ChatSource } from "@/lib/ai/aiEngine";
 import { saveBoardChat, loadBoardChat, clearBoardChat } from "@/lib/whiteboard/slateStorage";
+import { captureCanvasSnapshot } from "@/lib/whiteboard/canvasSnapshot";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
@@ -45,6 +46,8 @@ type Msg = {
   sources?: ChatSource[];
   feedback?: "up" | "down";
   imageDataUrl?: string;
+  hasSnapshot?: boolean;
+  verified?: boolean;
 };
 
 const QUICK = [
@@ -168,10 +171,13 @@ export function AISheet({
     };
   }, [boardId]);
 
-  // 2. Persist per-board chat history to IndexedDB whenever messages change
+  // 2. Persist per-board chat history to IndexedDB (debounced by ~1000ms so streamed chunks don't spam writes)
   useEffect(() => {
     if (!boardId || !isLoadedRef.current) return;
-    saveBoardChat(boardId, messages);
+    const timer = setTimeout(() => {
+      saveBoardChat(boardId, messages);
+    }, 1000);
+    return () => clearTimeout(timer);
   }, [boardId, messages]);
 
   useEffect(() => {
@@ -188,18 +194,12 @@ export function AISheet({
   }
 
   function handleAttachSnapshot() {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const captureFn = (window as any).__slateCaptureSnapshot;
-    if (typeof captureFn === "function") {
-      const snap = captureFn(Boolean(contextText));
-      if (snap) {
-        setAttachedSnapshot(snap);
-        toast.success(contextText ? "Selection snapshot attached!" : "Board snapshot attached!");
-      } else {
-        toast.info("No content on the board to capture yet.");
-      }
+    const snap = captureCanvasSnapshot(Boolean(contextText));
+    if (snap) {
+      setAttachedSnapshot(snap);
+      toast.success(contextText ? "Selection snapshot attached!" : "Board snapshot attached!");
     } else {
-      toast.info("Could not capture board snapshot.");
+      toast.info("No content on the board to capture yet.");
     }
   }
 
@@ -507,10 +507,23 @@ export function AISheet({
                           />
                         </div>
                       )}
+                      {!m.imageDataUrl && m.hasSnapshot && (
+                        <div className="mb-2 inline-flex items-center gap-1.5 rounded bg-white/20 px-2 py-0.5 text-[11px] font-medium text-white/90">
+                          <Camera className="h-3 w-3" />
+                          <span>Board snapshot attached</span>
+                        </div>
+                      )}
                       <div className="whitespace-pre-wrap leading-relaxed">{m.content}</div>
                     </div>
                   ) : (
                     <>
+                      {m.verified && (
+                        <div className="mb-2 inline-flex items-center gap-1 rounded bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                          <Check className="h-3 w-3 text-emerald-500" />
+                          <span>Verified</span>
+                        </div>
+                      )}
+
                       {m.content && (
                         <div className={MD_CLASS}>
                           <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>

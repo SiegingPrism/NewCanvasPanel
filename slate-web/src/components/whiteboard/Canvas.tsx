@@ -69,6 +69,7 @@ import { compileMathFunction } from "@/lib/whiteboard/safeMath";
 import type { MindMapNode } from "@/lib/ai/aiEngine";
 import { renderMathSolutionCard } from "@/lib/whiteboard/renderMathSolutionImage";
 import { formatLatexForDisplay } from "@/lib/whiteboard/mathTypesetting";
+import { registerCanvasSnapshotCapture } from "@/lib/whiteboard/canvasSnapshot";
 
 function uid() {
   return Math.random().toString(36).slice(2, 10);
@@ -5176,7 +5177,7 @@ export function WhiteboardCanvas({
     }
 
     return {
-      dataUrl: offscreen.toDataURL("image/png"),
+      dataUrl: offscreen.toDataURL("image/jpeg", 0.85),
       scale,
       pad,
       minX,
@@ -5191,10 +5192,9 @@ export function WhiteboardCanvas({
     return details?.dataUrl || null;
   }
 
-  // Expose global snapshot capture helper for AISheet
+  // Register snapshot capture helper with canvasSnapshot module
   useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (window as any).__slateCaptureSnapshot = (selectionOnly?: boolean): string | null => {
+    const unregister = registerCanvasSnapshotCapture((selectionOnly?: boolean): string | null => {
       const targetIds = selectedIds.length > 0 ? selectedIds : selectedId ? [selectedId] : [];
       if (selectionOnly && targetIds.length > 0) {
         return exportSelectedRegionAsImage(targetIds);
@@ -5228,12 +5228,9 @@ export function WhiteboardCanvas({
       for (const obj of targetObjects) {
         drawObject(offCtx, obj, false);
       }
-      return offCanvas.toDataURL("image/png");
-    };
-    return () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      delete (window as any).__slateCaptureSnapshot;
-    };
+      return offCanvas.toDataURL("image/jpeg", 0.85);
+    });
+    return unregister;
   }, [page, selectedIds, selectedId]);
 
   async function handleCheckWorkSelection() {
@@ -5423,6 +5420,7 @@ export function WhiteboardCanvas({
         graphableFn: res.graphableFn,
         xRange: res.xRange,
         yRange: res.yRange,
+        verified: res.verified,
       });
 
       const solutionImageId = uid();
@@ -5542,7 +5540,7 @@ export function WhiteboardCanvas({
       for (const obj of targetObjects) {
         drawObject(offCtx, obj, false);
       }
-      imgDataUrl = offCanvas.toDataURL("image/png");
+      imgDataUrl = offCanvas.toDataURL("image/jpeg", 0.85);
     }
 
     try {

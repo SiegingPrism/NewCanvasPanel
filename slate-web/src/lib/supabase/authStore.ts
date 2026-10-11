@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { User, Session } from "@supabase/supabase-js";
 import { getSupabase } from "./client";
 import { deleteAccountAndAllData } from "./dbService";
+import { clearAllBoardChats } from "@/lib/whiteboard/slateStorage";
 
 interface AuthState {
   user: User | null;
@@ -141,6 +142,11 @@ export const useAuth = create<AuthState>((set, get) => ({
       if (!res.success) {
         return { error: new Error(res.error || "Failed to delete account") };
       }
+      try {
+        await clearAllBoardChats();
+      } catch {
+        /* ignore */
+      }
       set({ user: null, session: null, loading: false });
       return { error: null };
     } catch (err: any) {
@@ -154,6 +160,11 @@ export const useAuth = create<AuthState>((set, get) => ({
       try {
         await supabase.auth.signOut();
       } catch {}
+    }
+    try {
+      await clearAllBoardChats();
+    } catch {
+      /* ignore */
     }
     set({ user: null, session: null, loading: false });
   },

@@ -115,6 +115,7 @@ export function MathFormulaDialog({
         graphableFn: res.graphableFn,
         xRange: res.xRange,
         yRange: res.yRange,
+        verified: res.verified,
       });
 
       const solutionImageId = uid();

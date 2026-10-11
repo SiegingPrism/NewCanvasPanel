@@ -935,25 +935,133 @@ Respond only with JSON matching the schema:
   - correction: the correct expression that should have been written if isCorrect is false.`;
 
 /**
+ * Normalizes LaTeX math strings into expressions compileMathFunction can evaluate.
+ * Turns \frac{a}{b} -> ((a)/(b)), \sqrt{a} -> sqrt(a), \pi -> pi, etc.
+ */
+export function cleanLatexForSafeMath(latex: string): string {
+  let s = latex
+    .replace(/\$\$/g, "")
+    .replace(/\$/g, "")
+    .replace(/\\left|\\right/g, "")
+    .replace(/\\cdot/g, "*")
+    .replace(/\\times/g, "*")
+    .replace(/\\pi\b/g, "pi")
+    .replace(/π/g, "pi")
+    .replace(/\\sqrt\[3\]\{([^}]+)\}/g, "cbrt($1)")
+    .replace(/\\sqrt\{([^}]+)\}/g, "sqrt($1)")
+    .replace(/√\{([^}]+)\}/g, "sqrt($1)")
+    .replace(/√(\d+)/g, "sqrt($1)")
+    .replace(/\\text\{[^}]*\}/g, " ")
+    .replace(/\\quad|\\qquad|\\enspace|\\,|\\;|\\!/g, " ")
+    .trim();
+
+  // Convert all \frac{a}{b} instances into ((a)/(b))
+  while (/\\frac\{([^}]+)\}\{([^}]+)\}/.test(s)) {
+    s = s.replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, "(($1)/($2))");
+  }
+
+  return s;
+}
+
+/**
+ * Attempts to parse finite numerical candidate roots from solutionText.
+ * Handles:
+ * - Plain numbers: "x = 3", "-2.5", "4"
+ * - Fractions: "x = \frac{3}{2}", "3/2"
+ * - Roots & ±: "±√2", "\pm\sqrt{2}", "1 \pm \sqrt{2}"
+ * - Comma / 'or' separated lists: "x = 2, -2", "x = 1 or x = 3"
+ *
+ * Returns:
+ * - number[] if finite roots were cleanly parsed and evaluated
+ * - null if periodic/parametric (e.g. k, n\pi, 2k\pi, k \in \mathbb{Z}), inequalities, or unparseable.
+ */
+export function parseCandidateRoots(solutionText: string): number[] | null {
+  if (!solutionText || !solutionText.trim()) return null;
+
+  let text = solutionText.trim();
+
+  // Strip boxed or dollar formatting
+  text = text.replace(/\\boxed\{([^}]+)\}/g, "$1");
+  text = text.replace(/\$\$/g, "").replace(/\$/g, "");
+
+  // 1. Detect periodic, parametric, interval or inequality solutions
+  // (e.g. \pi/6 + 2k\pi, k \in \mathbb{Z}, n \in Z, x > 3, [0, \infty), etc.)
+  if (
+    /\b[knm]\b/i.test(text) ||
+    /\b(periodic|infinite|all real|no solution|\dots|\.\.\.)/i.test(text) ||
+    /\\in\b|\\mathbb|\\forall|\\cup|\\cap|\\le|\\ge|[<>]/.test(text) ||
+    /\\pm\s*\\infty|±\s*∞/i.test(text)
+  ) {
+    return null;
+  }
+
+  // 2. Remove leading variable assignments like "x =", "x \approx", "y =", "x_1 =", etc.
+  text = text.replace(/^[a-z](?:_\d+)?\s*(?:=|\\approx|≈)\s*/i, "");
+
+  // 3. Normalize separators (commas, semicolons, "or", "\lor", "and")
+  text = text.replace(/\b(?:or|and)\b/gi, ",");
+  text = text.replace(/\\lor|\\land/g, ",");
+  text = text.replace(/;/g, ",");
+
+  const rawParts = text.split(",").map((p) => p.trim()).filter(Boolean);
+  if (rawParts.length === 0) return null;
+
+  const expressionsToEvaluate: string[] = [];
+
+  for (const part of rawParts) {
+    const cleanPart = part.replace(/^[a-z](?:_\d+)?\s*(?:=|\\approx|≈)\s*/i, "").trim();
+    if (!cleanPart) continue;
+
+    // Expand \pm or ±
+    if (/\\pm|\\mp|±|∓/.test(cleanPart)) {
+      const plusExpr = cleanPart.replace(/\\pm|\\mp|±|∓/g, "+");
+      const minusExpr = cleanPart.replace(/\\pm|\\mp|±|∓/g, "-");
+      expressionsToEvaluate.push(plusExpr, minusExpr);
+    } else {
+      expressionsToEvaluate.push(cleanPart);
+    }
+  }
+
+  if (expressionsToEvaluate.length === 0) return null;
+
+  const roots: number[] = [];
+  for (const expr of expressionsToEvaluate) {
+    const cleaned = cleanLatexForSafeMath(expr);
+
+    // If the expression still contains unsupported variables other than functions/constants
+    const stripped = cleaned.replace(/\b(sqrt|cbrt|sin|cos|tan|pi|abs|exp|ln|log)\b/g, "");
+    if (/[a-df-oq-uw-z]/i.test(stripped)) {
+      return null;
+    }
+
+    try {
+      const fn = compileMathFunction(cleaned);
+      const val = fn(0);
+      if (val === null || typeof val !== "number" || isNaN(val) || !isFinite(val)) {
+        return null;
+      }
+      roots.push(val);
+    } catch {
+      return null;
+    }
+  }
+
+  return roots.length > 0 ? roots : null;
+}
+
+/**
  * Deterministically plugs candidate roots back into the equation AST using safeMath.
  * Returns true if roots satisfy within numerical tolerance, false if they violate it,
  * or undefined if the equation cannot be verified symbolically/numerically.
  */
-function verifyRootsWithSafeMath(
+export function verifyRootsWithSafeMath(
   problemLatex: string,
   solutionText: string,
 ): boolean | undefined {
   try {
-    const clean = problemLatex
-      .replace(/\$\$/g, "")
-      .replace(/\$/g, "")
-      .replace(/\\left|\\right/g, "")
-      .replace(/\\cdot/g, "*")
-      .replace(/\\times/g, "*")
-      .replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, "($1)/($2)")
-      .trim();
+    const cleanProblem = cleanLatexForSafeMath(problemLatex);
 
-    const eqParts = clean.split("=");
+    const eqParts = cleanProblem.split("=");
     if (eqParts.length !== 2) return undefined;
 
     const left = eqParts[0].trim();
@@ -961,27 +1069,34 @@ function verifyRootsWithSafeMath(
     if (!left || !right) return undefined;
 
     const diffExpr = `(${left}) - (${right})`;
-    const fn = compileMathFunction(diffExpr);
+    let fn: (x: number) => number | null;
+    try {
+      fn = compileMathFunction(diffExpr);
+    } catch {
+      return undefined;
+    }
 
-    // Extract potential numeric roots (e.g. "x = 2, -2", "x = 4", "3.5")
-    const matches = solutionText.match(/-?\d+(?:\.\d+)?/g);
-    if (!matches || matches.length === 0) return undefined;
+    // Extract potential numeric roots (e.g. x = \frac{3}{2}, \pm\sqrt{2}, 1 \pm \sqrt{2}, etc.)
+    const roots = parseCandidateRoots(solutionText);
+    if (!roots || roots.length === 0) {
+      // Periodic, parametric, or non-numeric expression: cannot check -> return undefined
+      return undefined;
+    }
 
-    const roots = matches.map(Number).filter((n) => !isNaN(n));
-    if (roots.length === 0) return undefined;
-
-    let allSatisfy = true;
     let evalCount = 0;
     for (const r of roots) {
       const val = fn(r);
-      if (val === null || isNaN(val)) return undefined;
+      if (val === null || typeof val !== "number" || isNaN(val) || !isFinite(val)) {
+        return undefined; // Evaluation failed (domain error or divide by zero) -> can't check
+      }
       evalCount++;
-      if (Math.abs(val) > 0.05) {
-        allSatisfy = false;
-        break;
+      // Check if root satisfies diffExpr within float tolerance
+      if (Math.abs(val) > 0.08) {
+        return false; // Definitely violates equation
       }
     }
-    return evalCount > 0 ? allSatisfy : undefined;
+
+    return evalCount > 0 ? true : undefined;
   } catch {
     return undefined;
   }
