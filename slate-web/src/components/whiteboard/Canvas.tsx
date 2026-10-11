@@ -178,7 +178,11 @@ export function WhiteboardCanvas({
   const multiDragRef = useRef<{
     start: Point;
     initialCamera: typeof camera;
+    originals: Map<string, CanvasObject>;
   } | null>(null);
+  // Live positions while dragging. Rendered by redraw() and committed to the
+  // store on pointer-up, so store objects are never mutated in place.
+  const dragPreviewRef = useRef<Map<string, CanvasObject> | null>(null);
 
   // Lasso polygon
   const lassoRef = useRef<Point[] | null>(null);
@@ -974,9 +978,12 @@ export function WhiteboardCanvas({
     const selectedSet = new Set(
       selectedIds.length > 0 ? selectedIds : selectedId ? [selectedId] : [],
     );
+    const preview = dragPreviewRef.current;
     const objectsToDraw = eraserSessionRef.current?.active
       ? eraserSessionRef.current.objects
-      : page.objects;
+      : preview && preview.size > 0
+        ? page.objects.map((o) => preview.get(o.id) ?? o)
+        : page.objects;
     for (const obj of objectsToDraw) {
       if (selectedSet.has(obj.id) || isObjectInViewport(obj, viewLeft, viewTop, viewRight, viewBottom)) {
         drawObject(ctx, obj, selectedSet.has(obj.id));
@@ -986,7 +993,7 @@ export function WhiteboardCanvas({
     if (selectedSet.size > 1) {
       drawMultiSelectionBox(
         ctx,
-        page.objects.filter((o) => selectedSet.has(o.id)),
+        objectsToDraw.filter((o) => selectedSet.has(o.id)),
       );
     }
     ctx.restore();
@@ -4304,6 +4311,69 @@ export function WhiteboardCanvas({
     return null;
   }
 
+  /** True when pt is on the drag handle badge or top header bar of a card. */
+  function isPointOnCardDragHandle(pt: Point, obj: CanvasObject): boolean {
+    if (
+      !isAiAnswerObject(obj) &&
+      obj.kind !== "formula" &&
+      obj.kind !== "sticky" &&
+      obj.kind !== "flashcard"
+    ) {
+      return false;
+    }
+    const b = objectBounds(obj);
+    const slop = 10 / camera.zoom;
+
+    // 1. Top floating pill badge (drawn above the card when selected)
+    const pillW = 148 / camera.zoom;
+    const pillH = 28 / camera.zoom;
+    const pillX = b.x + (b.w - pillW) / 2;
+    const pillY = b.y - pillH - 8 / camera.zoom;
+    if (
+      pt.x >= pillX - slop &&
+      pt.x <= pillX + pillW + slop &&
+      pt.y >= pillY - slop &&
+      pt.y <= pillY + pillH + slop
+    ) {
+      return true;
+    }
+
+    // 2. Embedded drag handle on the right side of the card header (e.g. "✥ Drag to move" in drawFormula)
+    const embW = 110 / camera.zoom;
+    const embH = 36 / camera.zoom;
+    const embX = b.x + b.w - embW;
+    const embY = b.y;
+    if (
+      pt.x >= embX - slop &&
+      pt.x <= b.x + b.w + slop &&
+      pt.y >= embY - slop &&
+      pt.y <= embY + embH + slop
+    ) {
+      return true;
+    }
+
+    // 3. Top header bar of the card (top 44px)
+    if (
+      pt.x >= b.x - slop &&
+      pt.x <= b.x + b.w + slop &&
+      pt.y >= b.y - slop &&
+      pt.y <= b.y + 44 / camera.zoom + slop
+    ) {
+      return true;
+    }
+
+    return false;
+  }
+
+  function startMultiDrag(w: Point) {
+    const originals = new Map<string, CanvasObject>();
+    for (const o of page.objects) {
+      if (selectedIds.includes(o.id)) originals.set(o.id, o);
+    }
+    multiDragRef.current = { start: w, initialCamera: { ...camera }, originals };
+    dragPreviewRef.current = new Map();
+  }
+
   function drawSelection(ctx: CanvasRenderingContext2D, obj: CanvasObject) {
     const b = objectBounds(obj);
     ctx.save();
@@ -4435,12 +4505,28 @@ export function WhiteboardCanvas({
     // Multi-touch pinch-to-zoom check (2 or more fingers)
     if (touchMapRef.current.size >= 2) {
       wasPinchingRef.current = true;
+      // A second finger turns this into a pinch: abandon any drag/pan in progress.
+      if (dragRef.current || multiDragRef.current || dragPreviewRef.current) {
+        dragRef.current = null;
+        multiDragRef.current = null;
+        dragPreviewRef.current = null;
+        redraw();
+      }
+      panRef.current = null;
       if (drawingRef.current) {
         if (drawingRef.current.holdTimer) clearTimeout(drawingRef.current.holdTimer);
         drawingRef.current = null;
         clearOverlay();
       }
       return;
+    }
+
+    // Keep receiving move/up events for mouse & stylus even when the stroke
+    // leaves the canvas or passes over a toolbar (touch is captured implicitly).
+    if (e.pointerType !== "touch") {
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch {}
     }
 
     const rect = canvasRef.current!.getBoundingClientRect();
@@ -4474,8 +4560,8 @@ export function WhiteboardCanvas({
       lastTapRef.current = { time: now, x: e.clientX, y: e.clientY };
     }
 
-    // 1. Check multi-selection bounding box hit (allow moving multi-selection even if tool was drawing/panning)
-    const multiBounds = getMultiSelectionBounds();
+    // 1. Move a multi-selection (select / lasso tools only — drawing tools must keep drawing)
+    const multiBounds = tool === "select" || tool === "lasso" ? getMultiSelectionBounds() : null;
     if (
       multiBounds &&
       selectedIds.length > 1 &&
@@ -4485,25 +4571,52 @@ export function WhiteboardCanvas({
       w.y <= multiBounds.y + multiBounds.h
     ) {
       if (tool !== "select") setTool("select");
-      multiDragRef.current = { start: w, initialCamera: { ...camera } };
+      startMultiDrag(w);
       try {
         (e.target as HTMLElement).setPointerCapture(e.pointerId);
       } catch {}
       return;
     }
 
-    // 2. Direct Move for AI Answers & Draggable Cards:
-    // If user touches or drags an AI generated answer, formula, or card,
+    // 2. Direct move for cards & AI answers:
+    // If the user touches or drags an AI generated answer, formula, or card handle,
     // immediately allow them to move it anywhere without drawing strokes over it!
-    const targetCard = findDraggableCardAt(w);
+    let targetCard: CanvasObject | null = null;
+
+    // Check all cards in reverse z-order for drag handles / header bars
+    for (let i = page.objects.length - 1; i >= 0; i--) {
+      const obj = page.objects[i];
+      if (isPointOnCardDragHandle(w, obj)) {
+        targetCard = obj;
+        break;
+      }
+    }
+
+    // If not directly on a handle, check if touching the card itself:
+    if (!targetCard) {
+      const card = findDraggableCardAt(w);
+      if (card) {
+        // AI generated answers are floating cards intended to be positioned anywhere
+        if (isAiAnswerObject(card)) {
+          targetCard = card;
+        } else if (tool === "select" || tool === "pan") {
+          targetCard = card;
+        } else if (e.pointerType === "touch") {
+          targetCard = card;
+        }
+      }
+    }
+
     if (targetCard) {
       if (tool !== "select") setTool("select");
-      setSelected(targetCard.id);
+      setSelected(targetCard.id); // also sets selectedIds = [id]
       setSelectedIds([]);
-      const handle = getHandleAt(w, targetCard);
+      const handle = isPointOnCardDragHandle(w, targetCard)
+        ? { type: "move" as const }
+        : getHandleAt(w, targetCard);
       dragRef.current = { id: targetCard.id, handle, start: w, obj: structuredClone(targetCard) };
       try {
-        (e.target as HTMLElement).setPointerCapture(e.pointerId);
+        e.currentTarget.setPointerCapture(e.pointerId);
       } catch {}
       redraw();
       return;
@@ -4537,7 +4650,7 @@ export function WhiteboardCanvas({
         w.y >= multiBounds.y &&
         w.y <= multiBounds.y + multiBounds.h
       ) {
-        multiDragRef.current = { start: w, initialCamera: { ...camera } };
+        startMultiDrag(w);
         return;
       }
 
@@ -4703,19 +4816,21 @@ export function WhiteboardCanvas({
     }
 
     if (multiDragRef.current) {
-      const dx = w.x - multiDragRef.current.start.x;
-      const dy = w.y - multiDragRef.current.start.y;
-      for (const obj of page.objects) {
-        if (selectedIds.includes(obj.id)) {
-          if ("points" in obj) {
-            obj.points = obj.points.map((p) => ({ ...p, x: p.x + dx, y: p.y + dy }));
-          } else {
-            obj.x += dx;
-            obj.y += dy;
-          }
+      const md = multiDragRef.current;
+      const dx = w.x - md.start.x;
+      const dy = w.y - md.start.y;
+      const preview = new Map<string, CanvasObject>();
+      for (const [id, orig] of md.originals) {
+        if ("points" in orig) {
+          preview.set(id, {
+            ...orig,
+            points: orig.points.map((p) => ({ ...p, x: p.x + dx, y: p.y + dy })),
+          } as CanvasObject);
+        } else {
+          preview.set(id, { ...orig, x: orig.x + dx, y: orig.y + dy } as CanvasObject);
         }
       }
-      multiDragRef.current.start = w;
+      dragPreviewRef.current = preview;
       redraw();
       return;
     }
@@ -4725,8 +4840,8 @@ export function WhiteboardCanvas({
       const dx = w.x - d.start.x;
       const dy = w.y - d.start.y;
       const orig = d.obj;
-      const target = page.objects.find((o) => o.id === d.id);
-      if (target) {
+      const target = structuredClone(orig) as CanvasObject;
+      {
         if (d.handle.type === "move") {
           if ("points" in orig && "points" in target) {
             target.points = orig.points.map((p) => ({ ...p, x: p.x + dx, y: p.y + dy }));
@@ -4766,6 +4881,7 @@ export function WhiteboardCanvas({
             target.h = Math.max(20, nh);
           }
         }
+        dragPreviewRef.current = new Map([[d.id, target]]);
         redraw();
       }
       return;
@@ -5001,34 +5117,23 @@ export function WhiteboardCanvas({
 
     panRef.current = null;
 
-    if (multiDragRef.current) {
-      const selectedSet = new Set(selectedIds);
-      for (const obj of page.objects) {
-        if (selectedSet.has(obj.id)) {
+    if (multiDragRef.current || dragRef.current) {
+      const preview = dragPreviewRef.current;
+      multiDragRef.current = null;
+      dragRef.current = null;
+      dragPreviewRef.current = null;
+      if (preview && preview.size > 0) {
+        for (const [id, obj] of preview) {
           if ("points" in obj) {
-            updateObject(obj.id, { points: obj.points } as Partial<CanvasObject>);
+            updateObject(id, { points: obj.points } as Partial<CanvasObject>);
           } else {
-            updateObject(obj.id, { x: obj.x, y: obj.y } as Partial<CanvasObject>);
+            updateObject(id, { x: obj.x, y: obj.y, w: obj.w, h: obj.h } as Partial<CanvasObject>);
           }
         }
+        pushHistory();
+      } else {
+        redraw();
       }
-      pushHistory();
-      multiDragRef.current = null;
-      return;
-    }
-
-    if (dragRef.current) {
-      const d = dragRef.current;
-      const target = page.objects.find((o) => o.id === d.id);
-      if (target) {
-        if ("points" in target) {
-          updateObject(d.id, { points: target.points } as Partial<CanvasObject>);
-        } else {
-          updateObject(d.id, { x: target.x, y: target.y, w: target.w, h: target.h } as Partial<CanvasObject>);
-        }
-      }
-      pushHistory();
-      dragRef.current = null;
       return;
     }
 
@@ -5338,8 +5443,16 @@ export function WhiteboardCanvas({
 
   const targetSelectionIds = selectedIds.length > 0 ? selectedIds : selectedId ? [selectedId] : [];
   const selectionBounds = targetSelectionIds.length > 0 ? getMultiSelectionBounds() : null;
-  const selectionScreenPos = selectionBounds
+  // When a single AI answer is selected, its "Drag to move" pill sits ~8–34px
+  // above it — lift the action bar clear of the pill so the pill stays grabbable.
+  const singleSelected =
+    targetSelectionIds.length === 1 ? page.objects.find((o) => o.id === targetSelectionIds[0]) : undefined;
+  const barLift = singleSelected && isAiAnswerObject(singleSelected) ? 34 : 0;
+  const selectionScreenPosRaw = selectionBounds
     ? toScreen(selectionBounds.x + selectionBounds.w / 2, selectionBounds.y - 14)
+    : null;
+  const selectionScreenPos = selectionScreenPosRaw
+    ? { x: selectionScreenPosRaw.x, y: selectionScreenPosRaw.y - barLift }
     : null;
   const clampedSelectionPos = selectionScreenPos
     ? {
@@ -6120,7 +6233,7 @@ export function WhiteboardCanvas({
     <div ref={wrapRef} className="relative h-full w-full overflow-hidden touch-none select-none">
       <canvas
         ref={canvasRef}
-        className="absolute inset-0"
+        className="absolute inset-0 touch-none select-none"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -6128,6 +6241,7 @@ export function WhiteboardCanvas({
         onDoubleClick={onCanvasDoubleClick}
         onWheel={onWheel}
         style={{
+          touchAction: "none",
           cursor:
             tool === "pan"
               ? "grab"
