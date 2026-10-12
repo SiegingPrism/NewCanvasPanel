@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback, useMemo, useLayoutEffect } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useWhiteboard } from "@/lib/whiteboard/store";
 import type {
   CanvasObject,
@@ -27,7 +27,7 @@ import {
   CATEGORY_COLORS,
   type ChemicalElement,
 } from "@/lib/whiteboard/periodicTableData";
-import { recognizeShape, recognizeMultiStrokeArrow, isPointInPolygon } from "@/lib/whiteboard/shapeRecognition";
+import { recognizeShape, isPointInPolygon } from "@/lib/whiteboard/shapeRecognition";
 import {
   Copy,
   Trash2,
@@ -57,19 +57,14 @@ import {
   Calculator,
   Wand2,
   GitBranch,
-  CheckCircle2,
-  AlertCircle,
-  FileText,
-  BookOpen,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { AIEngine, aiErrorMessage, type CheckWorkResult } from "@/lib/ai/aiEngine";
+import { AIEngine, aiErrorMessage } from "@/lib/ai/aiEngine";
 import { compileMathFunction } from "@/lib/whiteboard/safeMath";
 import type { MindMapNode } from "@/lib/ai/aiEngine";
 import { renderMathSolutionCard } from "@/lib/whiteboard/renderMathSolutionImage";
 import { formatLatexForDisplay } from "@/lib/whiteboard/mathTypesetting";
-import { registerCanvasSnapshotCapture } from "@/lib/whiteboard/canvasSnapshot";
 
 function uid() {
   return Math.random().toString(36).slice(2, 10);
@@ -77,29 +72,11 @@ function uid() {
 
 type Handle = { type: "move" } | { type: "resize"; corner: "nw" | "ne" | "sw" | "se" };
 
-/** Pop every saved state (restore() on an empty stack is a no-op). */
-function unwindContext(ctx: CanvasRenderingContext2D) {
-  for (let i = 0; i < 64; i++) ctx.restore();
-}
-
-/** Fully reset a 2D context: transform, clip, save stack, styles. */
-function resetContext(ctx: CanvasRenderingContext2D) {
-  const anyCtx = ctx as CanvasRenderingContext2D & { reset?: () => void };
-  if (typeof anyCtx.reset === "function") {
-    anyCtx.reset();
-  } else {
-    unwindContext(ctx);
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.globalAlpha = 1;
-    ctx.globalCompositeOperation = "source-over";
-  }
-}
-
 export function WhiteboardCanvas({
   onOpenAI,
   onPresentationChange,
 }: {
-  onOpenAI?: (opts?: { contextText?: string; snapshot?: string; prompt?: string }) => void;
+  onOpenAI?: (context?: string) => void;
   onPresentationChange?: (presenting: boolean) => void;
 } = {}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -136,7 +113,6 @@ export function WhiteboardCanvas({
   const page = pages.find((p) => p.id === activePageId) ||
     pages[0] || { id: "default", objects: [], background: "white" as const };
   const [dpr, setDpr] = useState(1);
-  const [checkWorkModal, setCheckWorkModal] = useState<CheckWorkResult | null>(null);
   const lastTapRef = useRef<{ time: number; x: number; y: number } | null>(null);
 
   // Keep cameraRef and pageRef synced so event listeners always access latest state without re-binding
@@ -144,37 +120,6 @@ export function WhiteboardCanvas({
   useEffect(() => {
     cameraRef.current = camera;
   }, [camera]);
-
-  const panRafRef = useRef<number | null>(null);
-  const pendingCameraRef = useRef<{ x: number; y: number; zoom: number } | null>(null);
-
-  const applyCameraThrottled = useCallback(
-    (nextCam: { x: number; y: number; zoom: number }) => {
-      pendingCameraRef.current = nextCam;
-      cameraRef.current = nextCam;
-      if (panRafRef.current === null) {
-        panRafRef.current = requestAnimationFrame(() => {
-          panRafRef.current = null;
-          if (pendingCameraRef.current) {
-            setCamera(pendingCameraRef.current);
-            pendingCameraRef.current = null;
-          }
-        });
-      }
-    },
-    [setCamera]
-  );
-
-  const flushCameraUpdate = useCallback(() => {
-    if (panRafRef.current !== null) {
-      cancelAnimationFrame(panRafRef.current);
-      panRafRef.current = null;
-    }
-    if (pendingCameraRef.current) {
-      setCamera(pendingCameraRef.current);
-      pendingCameraRef.current = null;
-    }
-  }, [setCamera]);
 
   const pageRef = useRef(page);
   useEffect(() => {
@@ -227,11 +172,7 @@ export function WhiteboardCanvas({
   const multiDragRef = useRef<{
     start: Point;
     initialCamera: typeof camera;
-    originals: Map<string, CanvasObject>;
   } | null>(null);
-  // Live positions while dragging. Rendered by redraw() and committed to the
-  // store on pointer-up, so store objects are never mutated in place.
-  const dragPreviewRef = useRef<Map<string, CanvasObject> | null>(null);
 
   // Lasso polygon
   const lassoRef = useRef<Point[] | null>(null);
@@ -251,19 +192,6 @@ export function WhiteboardCanvas({
   const [editingText, setEditingText] = useState<{ id: string } | null>(null);
   const [editingTextValue, setEditingTextValue] = useState<string>("");
   const [recolorPickerOpen, setRecolorPickerOpen] = useState(false);
-
-  // Floating Action Bar measurement for screen clamping
-  const actionBarRef = useRef<HTMLDivElement>(null);
-  const [actionBarSize, setActionBarSize] = useState<{ w: number; h: number }>({ w: 880, h: 44 });
-
-  useLayoutEffect(() => {
-    if (actionBarRef.current) {
-      const rect = actionBarRef.current.getBoundingClientRect();
-      if (rect.width > 0 && (Math.abs(rect.width - actionBarSize.w) > 4 || Math.abs(rect.height - actionBarSize.h) > 4)) {
-        setActionBarSize({ w: rect.width, h: rect.height });
-      }
-    }
-  });
 
   // Focus textarea when text editing starts
   useEffect(() => {
@@ -291,74 +219,16 @@ export function WhiteboardCanvas({
   }, [isPresenting, onPresentationChange]);
 
   useEffect(() => {
-    const handleFsChange = () => {
-      const doc = document as any;
-      setIsFullscreen(
-        !!(
-          doc.fullscreenElement ||
-          doc.webkitFullscreenElement ||
-          doc.mozFullScreenElement ||
-          doc.msFullscreenElement
-        ),
-      );
-    };
+    const handleFsChange = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener("fullscreenchange", handleFsChange);
-    document.addEventListener("webkitfullscreenchange", handleFsChange);
-    return () => {
-      document.removeEventListener("fullscreenchange", handleFsChange);
-      document.removeEventListener("webkitfullscreenchange", handleFsChange);
-    };
+    return () => document.removeEventListener("fullscreenchange", handleFsChange);
   }, []);
 
   const toggleFullscreen = () => {
-    const doc = document as any;
-    const docEl = document.documentElement as any;
-    const isFs = !!(
-      doc.fullscreenElement ||
-      doc.webkitFullscreenElement ||
-      doc.mozFullScreenElement ||
-      doc.msFullscreenElement
-    );
-    if (!isFs) {
-      const req =
-        docEl.requestFullscreen ||
-        docEl.webkitRequestFullscreen ||
-        docEl.mozRequestFullScreen ||
-        docEl.msRequestFullscreen;
-      if (req) {
-        try {
-          const p = req.call(docEl);
-          if (p && typeof p.then === "function") {
-            p.then(() => setIsFullscreen(true)).catch(() => setIsFullscreen(true));
-          } else {
-            setIsFullscreen(true);
-          }
-        } catch {
-          setIsFullscreen(true);
-        }
-      } else {
-        setIsFullscreen(true);
-      }
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
     } else {
-      const exit =
-        doc.exitFullscreen ||
-        doc.webkitExitFullscreen ||
-        doc.mozCancelFullScreen ||
-        doc.msExitFullscreen;
-      if (exit) {
-        try {
-          const p = exit.call(doc);
-          if (p && typeof p.then === "function") {
-            p.then(() => setIsFullscreen(false)).catch(() => setIsFullscreen(false));
-          } else {
-            setIsFullscreen(false);
-          }
-        } catch {
-          setIsFullscreen(false);
-        }
-      } else {
-        setIsFullscreen(false);
-      }
+      document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
     }
   };
 
@@ -866,12 +736,11 @@ export function WhiteboardCanvas({
         const newX = curSx - wx * targetZoom;
         const newY = curSy - wy * targetZoom;
 
-        applyCameraThrottled({ x: newX, y: newY, zoom: targetZoom });
+        setCamera({ x: newX, y: newY, zoom: targetZoom });
       }
     };
 
     const onTouchEnd = (e: TouchEvent) => {
-      flushCameraUpdate();
       if (e.touches.length < 2) {
         isPinching = false;
         startDist = 0;
@@ -1013,34 +882,20 @@ export function WhiteboardCanvas({
     return segments;
   }
 
-  const drawErrorIdsRef = useRef<Set<string>>(new Set());
-  function reportDrawError(obj: CanvasObject, err: unknown) {
-    if (drawErrorIdsRef.current.has(obj.id)) return;
-    drawErrorIdsRef.current.add(obj.id);
-    console.error(`[Slate] Failed to draw ${obj.kind} ${obj.id}`, err, obj);
-  }
-
   const redraw = useCallback(() => {
     const c = canvasRef.current;
     if (!c) return;
     const ctx = c.getContext("2d")!;
-    // Start every frame from a pristine context. clearRect alone does not undo a
-    // clip / save-stack left behind by an earlier frame, and a leaked clip makes
-    // the next frames repaint only part of the board (leaving "ghost" copies).
-    resetContext(ctx);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, c.width, c.height);
     ctx.scale(dpr, dpr);
 
     // Background
     drawBackground(ctx, c.width / dpr, c.height / dpr, page.background);
 
-    const applyCamera = () => {
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.translate(camera.x, camera.y);
-      ctx.scale(camera.zoom, camera.zoom);
-    };
     ctx.save();
-    applyCamera();
+    ctx.translate(camera.x, camera.y);
+    ctx.scale(camera.zoom, camera.zoom);
 
     // World viewport boundaries with safety padding for smooth panning
     const screenW = c.width / dpr;
@@ -1055,34 +910,23 @@ export function WhiteboardCanvas({
     const selectedSet = new Set(
       selectedIds.length > 0 ? selectedIds : selectedId ? [selectedId] : [],
     );
-    const preview = dragPreviewRef.current;
     const objectsToDraw = eraserSessionRef.current?.active
       ? eraserSessionRef.current.objects
-      : preview && preview.size > 0
-        ? page.objects.map((o) => preview.get(o.id) ?? o)
-        : page.objects;
+      : page.objects;
     for (const obj of objectsToDraw) {
       if (selectedSet.has(obj.id) || isObjectInViewport(obj, viewLeft, viewTop, viewRight, viewBottom)) {
-        try {
-          drawObject(ctx, obj, selectedSet.has(obj.id));
-        } catch (err) {
-          // One malformed object (e.g. saved by an older app version) must never
-          // break the whole frame: unwind whatever state it left and keep going.
-          reportDrawError(obj, err);
-          unwindContext(ctx);
-          ctx.save();
-          applyCamera();
-        }
+        drawObject(ctx, obj, selectedSet.has(obj.id));
       }
     }
+    ctx.restore();
+
     // Multi-selection bounding box overlay
     if (selectedSet.size > 1) {
       drawMultiSelectionBox(
         ctx,
-        objectsToDraw.filter((o) => selectedSet.has(o.id)),
+        page.objects.filter((o) => selectedSet.has(o.id)),
       );
     }
-    ctx.restore();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [camera, dpr, page, selectedId, selectedIds]);
 
@@ -1682,15 +1526,7 @@ export function WhiteboardCanvas({
       }
     } else if (s.shape === "circle") {
       ctx.beginPath();
-      ctx.ellipse(
-        x + w / 2,
-        y + h / 2,
-        Math.abs(w / 2),
-        Math.abs(h / 2),
-        s.rotation ?? 0,
-        0,
-        Math.PI * 2,
-      );
+      ctx.ellipse(x + w / 2, y + h / 2, Math.abs(w / 2), Math.abs(h / 2), 0, 0, Math.PI * 2);
       ctx.stroke();
     } else if (s.shape === "ellipse") {
       drawEllipseShape(ctx, x, y, w, h);
@@ -3525,19 +3361,6 @@ export function WhiteboardCanvas({
     ctx.font = "bold 9px system-ui, sans-serif";
     ctx.fillText(o.label ? o.label.toUpperCase() : "MATH FORMULA", o.x + 18, o.y + 24);
 
-    // Top drag handle badge on the right
-    ctx.fillStyle = "rgba(139, 92, 246, 0.12)";
-    roundRect(ctx, o.x + o.w - 105, o.y + 10, 95, 20, 10);
-    ctx.fill();
-    ctx.strokeStyle = "rgba(139, 92, 246, 0.4)";
-    ctx.lineWidth = 1;
-    roundRect(ctx, o.x + o.w - 105, o.y + 10, 95, 20, 10);
-    ctx.stroke();
-
-    ctx.fillStyle = accentColor;
-    ctx.font = "bold 9px system-ui, sans-serif";
-    ctx.fillText("✥ Drag to move", o.x + o.w - 95, o.y + 23);
-
     ctx.fillStyle = "#0f172a";
     ctx.font = "italic 16px 'Cambria Math', 'STIX Two Math', 'Times New Roman', serif";
     const cleanFormula = formatLatexForDisplay(o.latex);
@@ -3724,29 +3547,11 @@ export function WhiteboardCanvas({
     let img = imageCache.current.get(o.src);
     if (!img) {
       img = new Image();
-      if (!o.src.startsWith("data:")) {
-        img.crossOrigin = "anonymous";
-      }
       img.src = o.src;
       img.onload = () => redraw();
-      img.onerror = () => {
-        // Fallback without crossOrigin if remote server strictly rejects CORS headers
-        if (img && img.crossOrigin === "anonymous") {
-          const fallback = new Image();
-          fallback.src = o.src;
-          fallback.onload = () => redraw();
-          imageCache.current.set(o.src, fallback);
-        }
-      };
       imageCache.current.set(o.src, img);
     }
-    if (img.complete && img.naturalWidth > 0) {
-      try {
-        ctx.drawImage(img, o.x, o.y, o.w, o.h);
-      } catch (err) {
-        console.warn("[Slate] Image render error:", err);
-      }
-    }
+    if (img.complete) ctx.drawImage(img, o.x, o.y, o.w, o.h);
   }
 
   function wrapText(ctx: CanvasRenderingContext2D, text: string, maxW: number) {
@@ -4344,144 +4149,11 @@ export function WhiteboardCanvas({
     return { x: minX - padX, y: minY - padY, w: Math.max(16, w), h: Math.max(16, h) };
   }
 
-  function isAiAnswerObject(obj: CanvasObject | null | undefined): boolean {
-    if (!obj) return false;
-    if ((obj as any).isAiAnswer === true) return true;
-    if (obj.kind === "formula") return true;
-    if (obj.kind === "image" && typeof (obj as any).src === "string") {
-      const src = (obj as any).src;
-      if (
-        src.includes("STEP-BY-STEP MATH SOLUTION") ||
-        src.includes("Slate AI") ||
-        src.includes("FINAL ANSWER") ||
-        src.includes("AI SOLUTION") ||
-        src.includes("Drag to move")
-      ) {
-        return true;
-      }
-    }
-    if (
-      (obj as any).label === "AI" ||
-      (obj as any).label === "AI Solution" ||
-      (obj as any).label === "MATH FORMULA"
-    ) {
-      return true;
-    }
-    return false;
-  }
-
-  function isPointNearStroke(pt: Point, stroke: StrokeBase, threshold: number): boolean {
-    const pts = stroke.points;
-    if (!pts || pts.length === 0) return false;
-    const threshSq = threshold * threshold;
-    if (pts.length === 1) {
-      const dx = pt.x - pts[0].x;
-      const dy = pt.y - pts[0].y;
-      return dx * dx + dy * dy <= threshSq;
-    }
-    for (let i = 0; i < pts.length - 1; i++) {
-      if (distToSegmentSq(pt, pts[i], pts[i + 1]) <= threshSq) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  function findDraggableCardAt(pt: Point): CanvasObject | null {
-    const pad = 12 / camera.zoom;
-    const topPad = 46 / camera.zoom;
-    for (let i = page.objects.length - 1; i >= 0; i--) {
-      const obj = page.objects[i];
-      if (
-        !isAiAnswerObject(obj) &&
-        obj.kind !== "formula" &&
-        obj.kind !== "sticky" &&
-        obj.kind !== "flashcard" &&
-        obj.kind !== "image" &&
-        obj.kind !== "graph"
-      ) {
-        continue;
-      }
-      const b = objectBounds(obj);
-      if (
-        pt.x >= b.x - pad &&
-        pt.x <= b.x + b.w + pad &&
-        pt.y >= b.y - topPad &&
-        pt.y <= b.y + b.h + pad
-      ) {
-        return obj;
-      }
-    }
-    return null;
-  }
-
-  /** True when pt is on the drag handle badge or top header bar of a card. */
-  function isPointOnCardDragHandle(pt: Point, obj: CanvasObject): boolean {
-    if (
-      !isAiAnswerObject(obj) &&
-      obj.kind !== "formula" &&
-      obj.kind !== "sticky" &&
-      obj.kind !== "flashcard"
-    ) {
-      return false;
-    }
-    const b = objectBounds(obj);
-    const slop = 10 / camera.zoom;
-
-    // 1. Top floating pill badge (drawn above the card when selected)
-    const pillW = 148 / camera.zoom;
-    const pillH = 28 / camera.zoom;
-    const pillX = b.x + (b.w - pillW) / 2;
-    const pillY = b.y - pillH - 8 / camera.zoom;
-    if (
-      pt.x >= pillX - slop &&
-      pt.x <= pillX + pillW + slop &&
-      pt.y >= pillY - slop &&
-      pt.y <= pillY + pillH + slop
-    ) {
-      return true;
-    }
-
-    // 2. Embedded drag handle on the right side of the card header (e.g. "✥ Drag to move" in drawFormula)
-    const embW = 110 / camera.zoom;
-    const embH = 36 / camera.zoom;
-    const embX = b.x + b.w - embW;
-    const embY = b.y;
-    if (
-      pt.x >= embX - slop &&
-      pt.x <= b.x + b.w + slop &&
-      pt.y >= embY - slop &&
-      pt.y <= embY + embH + slop
-    ) {
-      return true;
-    }
-
-    // 3. Top header bar of the card (top 44px)
-    if (
-      pt.x >= b.x - slop &&
-      pt.x <= b.x + b.w + slop &&
-      pt.y >= b.y - slop &&
-      pt.y <= b.y + 44 / camera.zoom + slop
-    ) {
-      return true;
-    }
-
-    return false;
-  }
-
-  function startMultiDrag(w: Point) {
-    const originals = new Map<string, CanvasObject>();
-    for (const o of page.objects) {
-      if (selectedIds.includes(o.id)) originals.set(o.id, o);
-    }
-    multiDragRef.current = { start: w, initialCamera: { ...camera }, originals };
-    dragPreviewRef.current = new Map();
-  }
-
   function drawSelection(ctx: CanvasRenderingContext2D, obj: CanvasObject) {
     const b = objectBounds(obj);
     ctx.save();
-    // Context is already translated & scaled to world coordinates by camera in redraw()
+    ctx.translate(camera.x, camera.y);
+    ctx.scale(camera.zoom, camera.zoom);
     ctx.strokeStyle = "#3b82f6";
     ctx.lineWidth = 1.5 / camera.zoom;
     ctx.setLineDash([6 / camera.zoom, 4 / camera.zoom]);
@@ -4499,32 +4171,6 @@ export function WhiteboardCanvas({
       ctx.fillRect(cx - handleSize / 2, cy - handleSize / 2, handleSize, handleSize);
       ctx.strokeRect(cx - handleSize / 2, cy - handleSize / 2, handleSize, handleSize);
     }
-
-    // Prominent Drag to Move handle badge for AI-generated answers and formulas
-    if (isAiAnswerObject(obj)) {
-      const pillW = 148 / camera.zoom;
-      const pillH = 26 / camera.zoom;
-      const pillX = b.x + (b.w - pillW) / 2;
-      const pillY = b.y - pillH - 8 / camera.zoom;
-
-      ctx.fillStyle = "#4f46e5";
-      ctx.beginPath();
-      if (typeof (ctx as any).roundRect === "function") {
-        (ctx as any).roundRect(pillX, pillY, pillW, pillH, 13 / camera.zoom);
-      } else {
-        ctx.rect(pillX, pillY, pillW, pillH);
-      }
-      ctx.fill();
-      ctx.strokeStyle = "#818cf8";
-      ctx.lineWidth = 1.5 / camera.zoom;
-      ctx.stroke();
-
-      ctx.fillStyle = "#ffffff";
-      ctx.font = `bold ${11 / camera.zoom}px system-ui, sans-serif`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText("✥ Drag to move", pillX + pillW / 2, pillY + pillH / 2);
-    }
     ctx.restore();
   }
 
@@ -4537,6 +4183,8 @@ export function WhiteboardCanvas({
     const maxY = Math.max(...boxes.map((b) => b.y + b.h));
 
     ctx.save();
+    ctx.translate(camera.x, camera.y);
+    ctx.scale(camera.zoom, camera.zoom);
     ctx.strokeStyle = "#6366f1";
     ctx.lineWidth = 2 / camera.zoom;
     ctx.setLineDash([8 / camera.zoom, 4 / camera.zoom]);
@@ -4563,15 +4211,7 @@ export function WhiteboardCanvas({
     for (let i = page.objects.length - 1; i >= 0; i--) {
       const obj = page.objects[i];
       const b = objectBounds(obj);
-      const topOffset = isAiAnswerObject(obj) ? 44 / camera.zoom : 0;
-      if (pt.x >= b.x && pt.x <= b.x + b.w && pt.y >= b.y - topOffset && pt.y <= b.y + b.h) {
-        if ("points" in obj && Array.isArray((obj as any).points)) {
-          const strokeSize = (obj as any).size || 4;
-          const thresh = Math.max(14, strokeSize * 1.5) / camera.zoom;
-          if (!isPointNearStroke(pt, obj as StrokeBase, thresh)) {
-            continue;
-          }
-        }
+      if (pt.x >= b.x && pt.x <= b.x + b.w && pt.y >= b.y && pt.y <= b.y + b.h) {
         return obj;
       }
     }
@@ -4580,7 +4220,7 @@ export function WhiteboardCanvas({
 
   function getHandleAt(pt: Point, obj: CanvasObject): Handle {
     const b = objectBounds(obj);
-    const h = 14 / camera.zoom;
+    const h = 12 / camera.zoom;
     const corners: Array<[number, number, "nw" | "ne" | "sw" | "se"]> = [
       [b.x, b.y, "nw"],
       [b.x + b.w, b.y, "ne"],
@@ -4591,19 +4231,6 @@ export function WhiteboardCanvas({
       if (Math.abs(pt.x - cx) < h && Math.abs(pt.y - cy) < h) return { type: "resize", corner };
     }
     return { type: "move" };
-  }
-
-  // Drag moves fire far more often than the screen refreshes on phones;
-  // repaint at most once per frame.
-  const redrawRafRef = useRef<number | null>(null);
-  const latestRedrawRef = useRef(redraw);
-  latestRedrawRef.current = redraw;
-  function scheduleRedraw() {
-    if (redrawRafRef.current !== null) return;
-    redrawRafRef.current = requestAnimationFrame(() => {
-      redrawRafRef.current = null;
-      latestRedrawRef.current();
-    });
   }
 
   // ---- Pointer events with Stylus Palm Rejection & Multi-touch ----
@@ -4622,15 +4249,6 @@ export function WhiteboardCanvas({
     // Multi-touch pinch-to-zoom check (2 or more fingers)
     if (touchMapRef.current.size >= 2) {
       wasPinchingRef.current = true;
-      // A second finger turns this into a pinch: abandon any drag/pan in progress.
-      if (dragRef.current || multiDragRef.current || dragPreviewRef.current) {
-        dragRef.current = null;
-        multiDragRef.current = null;
-        dragPreviewRef.current = null;
-        redraw();
-      }
-      panRef.current = null;
-      flushCameraUpdate();
       if (drawingRef.current) {
         if (drawingRef.current.holdTimer) clearTimeout(drawingRef.current.holdTimer);
         drawingRef.current = null;
@@ -4639,12 +4257,13 @@ export function WhiteboardCanvas({
       return;
     }
 
-    // Keep receiving move/up events for mouse & stylus even when the stroke
-    // leaves the canvas or passes over a toolbar (touch is captured implicitly).
+    // Only set pointer capture for mouse or stylus. NEVER capture touch pointer!
     if (e.pointerType !== "touch") {
       try {
-        e.currentTarget.setPointerCapture(e.pointerId);
-      } catch {}
+        (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      } catch {
+        // Pointer capture can fail if pointer is released or unsupported; safely ignore.
+      }
     }
 
     const rect = canvasRef.current!.getBoundingClientRect();
@@ -4678,73 +4297,9 @@ export function WhiteboardCanvas({
       lastTapRef.current = { time: now, x: e.clientX, y: e.clientY };
     }
 
-    // 1. Move a multi-selection (select / lasso tools only — drawing tools must keep drawing)
-    const multiBounds = tool === "select" || tool === "lasso" ? getMultiSelectionBounds() : null;
-    if (
-      multiBounds &&
-      selectedIds.length > 1 &&
-      w.x >= multiBounds.x &&
-      w.x <= multiBounds.x + multiBounds.w &&
-      w.y >= multiBounds.y &&
-      w.y <= multiBounds.y + multiBounds.h
-    ) {
-      if (tool !== "select") setTool("select");
-      startMultiDrag(w);
-      try {
-        (e.target as HTMLElement).setPointerCapture(e.pointerId);
-      } catch {}
-      return;
-    }
-
-    // 2. Direct move for cards & AI answers:
-    // If the user touches or drags an AI generated answer, formula, or card handle,
-    // immediately allow them to move it anywhere without drawing strokes over it!
-    let targetCard: CanvasObject | null = null;
-
-    // Check all cards in reverse z-order for drag handles / header bars
-    for (let i = page.objects.length - 1; i >= 0; i--) {
-      const obj = page.objects[i];
-      if (isPointOnCardDragHandle(w, obj)) {
-        targetCard = obj;
-        break;
-      }
-    }
-
-    // If not directly on a handle, check if touching the card itself:
-    if (!targetCard) {
-      const card = findDraggableCardAt(w);
-      if (card) {
-        // AI generated answers are floating cards intended to be positioned anywhere
-        if (isAiAnswerObject(card)) {
-          targetCard = card;
-        } else if (tool === "select" || tool === "pan") {
-          targetCard = card;
-        } else if (e.pointerType === "touch") {
-          targetCard = card;
-        }
-      }
-    }
-
-    if (targetCard) {
-      if (tool !== "select") setTool("select");
-      setSelected(targetCard.id); // also sets selectedIds = [id] — don't clear it afterwards
-      const handle = isPointOnCardDragHandle(w, targetCard)
-        ? { type: "move" as const }
-        : getHandleAt(w, targetCard);
-      dragRef.current = { id: targetCard.id, handle, start: w, obj: structuredClone(targetCard) };
-      try {
-        e.currentTarget.setPointerCapture(e.pointerId);
-      } catch {}
-      redraw();
-      return;
-    }
-
-    // 3. Pan
+    // Pan
     if (e.button === 1 || tool === "pan") {
       panRef.current = { x: sx, y: sy, cam: { ...camera } };
-      try {
-        (e.target as HTMLElement).setPointerCapture(e.pointerId);
-      } catch {}
       return;
     }
 
@@ -4767,7 +4322,7 @@ export function WhiteboardCanvas({
         w.y >= multiBounds.y &&
         w.y <= multiBounds.y + multiBounds.h
       ) {
-        startMultiDrag(w);
+        multiDragRef.current = { start: w, initialCamera: { ...camera } };
         return;
       }
 
@@ -4924,7 +4479,7 @@ export function WhiteboardCanvas({
     const ptWithMeta: Point = { x: w.x, y: w.y, p: e.pressure || 0.5, t: Date.now() };
 
     if (panRef.current) {
-      applyCameraThrottled({
+      setCamera({
         x: panRef.current.cam.x + (sx - panRef.current.x),
         y: panRef.current.cam.y + (sy - panRef.current.y),
         zoom: camera.zoom,
@@ -4933,22 +4488,10 @@ export function WhiteboardCanvas({
     }
 
     if (multiDragRef.current) {
-      const md = multiDragRef.current;
-      const dx = w.x - md.start.x;
-      const dy = w.y - md.start.y;
-      const preview = new Map<string, CanvasObject>();
-      for (const [id, orig] of md.originals) {
-        if ("points" in orig) {
-          preview.set(id, {
-            ...orig,
-            points: orig.points.map((p) => ({ ...p, x: p.x + dx, y: p.y + dy })),
-          } as CanvasObject);
-        } else {
-          preview.set(id, { ...orig, x: orig.x + dx, y: orig.y + dy } as CanvasObject);
-        }
-      }
-      dragPreviewRef.current = preview;
-      scheduleRedraw();
+      const dx = w.x - multiDragRef.current.start.x;
+      const dy = w.y - multiDragRef.current.start.y;
+      moveSelected(dx, dy);
+      multiDragRef.current.start = w;
       return;
     }
 
@@ -4957,49 +4500,47 @@ export function WhiteboardCanvas({
       const dx = w.x - d.start.x;
       const dy = w.y - d.start.y;
       const orig = d.obj;
-      const target = structuredClone(orig) as CanvasObject;
-      {
-        if (d.handle.type === "move") {
-          if ("points" in orig && "points" in target) {
-            target.points = orig.points.map((p) => ({ ...p, x: p.x + dx, y: p.y + dy }));
-          } else if (!("points" in orig) && !("points" in target)) {
-            target.x = orig.x + dx;
-            target.y = orig.y + dy;
-          }
+      if (d.handle.type === "move") {
+        if ("points" in orig) {
+          updateObject(d.id, {
+            points: orig.points.map((p) => ({ ...p, x: p.x + dx, y: p.y + dy })),
+          } as Partial<CanvasObject>);
         } else {
-          if (!("points" in orig) && !("points" in target)) {
-            let nx = orig.x,
-              ny = orig.y,
-              nw = orig.w,
-              nh = orig.h;
-            if (d.handle.corner === "se") {
-              nw = orig.w + dx;
-              nh = orig.h + dy;
-            }
-            if (d.handle.corner === "ne") {
-              ny = orig.y + dy;
-              nw = orig.w + dx;
-              nh = orig.h - dy;
-            }
-            if (d.handle.corner === "sw") {
-              nx = orig.x + dx;
-              nw = orig.w - dx;
-              nh = orig.h + dy;
-            }
-            if (d.handle.corner === "nw") {
-              nx = orig.x + dx;
-              ny = orig.y + dy;
-              nw = orig.w - dx;
-              nh = orig.h - dy;
-            }
-            target.x = nx;
-            target.y = ny;
-            target.w = Math.max(20, nw);
-            target.h = Math.max(20, nh);
-          }
+          updateObject(d.id, { x: orig.x + dx, y: orig.y + dy } as Partial<CanvasObject>);
         }
-        dragPreviewRef.current = new Map([[d.id, target]]);
-        scheduleRedraw();
+      } else {
+        if (!("points" in orig)) {
+          let nx = orig.x,
+            ny = orig.y,
+            nw = orig.w,
+            nh = orig.h;
+          if (d.handle.corner === "se") {
+            nw = orig.w + dx;
+            nh = orig.h + dy;
+          }
+          if (d.handle.corner === "ne") {
+            ny = orig.y + dy;
+            nw = orig.w + dx;
+            nh = orig.h - dy;
+          }
+          if (d.handle.corner === "sw") {
+            nx = orig.x + dx;
+            nw = orig.w - dx;
+            nh = orig.h + dy;
+          }
+          if (d.handle.corner === "nw") {
+            nx = orig.x + dx;
+            ny = orig.y + dy;
+            nw = orig.w - dx;
+            nh = orig.h - dy;
+          }
+          updateObject(d.id, {
+            x: nx,
+            y: ny,
+            w: Math.max(20, nw),
+            h: Math.max(20, nh),
+          } as Partial<CanvasObject>);
+        }
       }
       return;
     }
@@ -5214,9 +4755,6 @@ export function WhiteboardCanvas({
 
   function onPointerUp(e: React.PointerEvent<HTMLCanvasElement>) {
     touchMapRef.current.delete(e.pointerId);
-    if (touchMapRef.current.size === 0) {
-      wasPinchingRef.current = false;
-    }
     if (wasPinchingRef.current || touchMapRef.current.size >= 1) {
       if (drawingRef.current) {
         if (drawingRef.current.holdTimer) clearTimeout(drawingRef.current.holdTimer);
@@ -5233,25 +4771,11 @@ export function WhiteboardCanvas({
     }
 
     panRef.current = null;
-    flushCameraUpdate();
+    multiDragRef.current = null;
 
-    if (multiDragRef.current || dragRef.current) {
-      const preview = dragPreviewRef.current;
-      multiDragRef.current = null;
+    if (dragRef.current) {
+      pushHistory();
       dragRef.current = null;
-      dragPreviewRef.current = null;
-      if (preview && preview.size > 0) {
-        for (const [id, obj] of preview) {
-          if ("points" in obj) {
-            updateObject(id, { points: obj.points } as Partial<CanvasObject>);
-          } else {
-            updateObject(id, { x: obj.x, y: obj.y, w: obj.w, h: obj.h } as Partial<CanvasObject>);
-          }
-        }
-        pushHistory();
-      } else {
-        redraw();
-      }
       return;
     }
 
@@ -5303,18 +4827,6 @@ export function WhiteboardCanvas({
       let shapeToCommit: Omit<ShapeStroke, "id"> | null = d.snappedShape || null;
       if (!shapeToCommit && tool !== "tape" && tool !== "frame" && (autoSnapEnabled || tool === "shape") && d.points.length >= 6) {
         shapeToCommit = recognizeShape(d.points, color, size);
-      }
-
-      if (!shapeToCommit && (autoSnapEnabled || tool === "shape") && d.points.length >= 4) {
-        const lastObj = page.objects[page.objects.length - 1];
-        if (lastObj && "points" in lastObj && Array.isArray((lastObj as any).points)) {
-          const multiArrow = recognizeMultiStrokeArrow([(lastObj as any).points, d.points], color, size);
-          if (multiArrow) {
-            deleteObject(lastObj.id);
-            commitShape(multiArrow);
-            return;
-          }
-        }
       }
 
       if (shapeToCommit) {
@@ -5404,10 +4916,7 @@ export function WhiteboardCanvas({
     const overlay = overlayRef.current;
     if (!overlay) return;
     const ctx = overlay.getContext("2d");
-    if (ctx) {
-      resetContext(ctx);
-      ctx.clearRect(0, 0, overlay.width, overlay.height);
-    }
+    if (ctx) ctx.clearRect(0, 0, overlay.width, overlay.height);
   }
 
   function fadeLaser() {
@@ -5447,7 +4956,7 @@ export function WhiteboardCanvas({
     const overlay = overlayRef.current;
     if (!overlay) return;
     const ctx = overlay.getContext("2d")!;
-    resetContext(ctx);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, overlay.width, overlay.height);
     ctx.scale(dpr, dpr);
     ctx.save();
@@ -5556,40 +5065,21 @@ export function WhiteboardCanvas({
       const newZoom = Math.min(5, Math.max(0.15, camera.zoom * factor));
       const wx = (sx - camera.x) / camera.zoom;
       const wy = (sy - camera.y) / camera.zoom;
-      applyCameraThrottled({ x: sx - wx * newZoom, y: sy - wy * newZoom, zoom: newZoom });
+      setCamera({ x: sx - wx * newZoom, y: sy - wy * newZoom, zoom: newZoom });
     } else {
-      applyCameraThrottled({ x: camera.x - e.deltaX, y: camera.y - e.deltaY, zoom: camera.zoom });
+      setCamera({ x: camera.x - e.deltaX, y: camera.y - e.deltaY, zoom: camera.zoom });
     }
   }
 
   const targetSelectionIds = selectedIds.length > 0 ? selectedIds : selectedId ? [selectedId] : [];
   const selectionBounds = targetSelectionIds.length > 0 ? getMultiSelectionBounds() : null;
-  // When a single AI answer is selected, its "Drag to move" pill sits ~8–34px
-  // above it — lift the action bar clear of the pill so the pill stays grabbable.
-  const singleSelected =
-    targetSelectionIds.length === 1 ? page.objects.find((o) => o.id === targetSelectionIds[0]) : undefined;
-  const barLift = singleSelected && isAiAnswerObject(singleSelected) ? 34 : 0;
-  const selectionScreenPosRaw = selectionBounds
+  const selectionScreenPos = selectionBounds
     ? toScreen(selectionBounds.x + selectionBounds.w / 2, selectionBounds.y - 14)
     : null;
-  const selectionScreenPos = selectionScreenPosRaw
-    ? { x: selectionScreenPosRaw.x, y: selectionScreenPosRaw.y - barLift }
-    : null;
-  const barW = Math.min(window.innerWidth - 24, actionBarSize.w || 880);
-  const barH = actionBarSize.h || 44;
-  const halfW = barW / 2;
-  const isPhone = window.innerWidth < 640;
-  // Zoom bar sits at bottom-20 (approx 80px + 36px height = 116px from bottom) on phones. Keep at least 132px clear from bottom.
-  const maxY = isPhone ? window.innerHeight - 132 : window.innerHeight - 76;
-  const minY = 68 + barH;
-
   const clampedSelectionPos = selectionScreenPos
     ? {
-        x:
-          window.innerWidth <= barW + 24
-            ? window.innerWidth / 2
-            : Math.max(halfW + 12, Math.min(window.innerWidth - halfW - 12, selectionScreenPos.x)),
-        y: Math.max(minY, Math.min(maxY, selectionScreenPos.y)),
+        x: Math.max(160, Math.min(window.innerWidth - 160, selectionScreenPos.x)),
+        y: Math.max(68, selectionScreenPos.y),
       }
     : null;
 
@@ -5669,7 +5159,7 @@ export function WhiteboardCanvas({
     }
 
     return {
-      dataUrl: offscreen.toDataURL("image/jpeg", 0.85),
+      dataUrl: offscreen.toDataURL("image/png"),
       scale,
       pad,
       minX,
@@ -5682,118 +5172,6 @@ export function WhiteboardCanvas({
   function exportSelectedRegionAsImage(targetIds: string[]): string | null {
     const details = exportSelectedRegionDetails(targetIds);
     return details?.dataUrl || null;
-  }
-
-  // Register snapshot capture helper with canvasSnapshot module
-  useEffect(() => {
-    const unregister = registerCanvasSnapshotCapture((selectionOnly?: boolean): string | null => {
-      const targetIds = selectedIds.length > 0 ? selectedIds : selectedId ? [selectedId] : [];
-      if (selectionOnly && targetIds.length > 0) {
-        return exportSelectedRegionAsImage(targetIds);
-      }
-      const targetObjects = page.objects;
-      if (targetObjects.length === 0) return null;
-      let minX = Infinity;
-      let minY = Infinity;
-      let maxX = -Infinity;
-      let maxY = -Infinity;
-      for (const obj of targetObjects) {
-        const ob = objectBounds(obj);
-        minX = Math.min(minX, ob.x);
-        minY = Math.min(minY, ob.y);
-        maxX = Math.max(maxX, ob.x + ob.w);
-        maxY = Math.max(maxY, ob.y + ob.h);
-      }
-      if (!isFinite(minX)) return null;
-      const pad = 24;
-      const w = Math.max(80, maxX - minX + pad * 2);
-      const h = Math.max(80, maxY - minY + pad * 2);
-      const offCanvas = document.createElement("canvas");
-      offCanvas.width = Math.min(1600, Math.max(300, Math.round(w)));
-      offCanvas.height = Math.min(1600, Math.max(300, Math.round(h)));
-      const offCtx = offCanvas.getContext("2d");
-      if (!offCtx) return null;
-      offCtx.scale(offCanvas.width / w, offCanvas.height / h);
-      offCtx.fillStyle = "#ffffff";
-      offCtx.fillRect(0, 0, w, h);
-      offCtx.translate(-minX + pad, -minY + pad);
-      for (const obj of targetObjects) {
-        drawObject(offCtx, obj, false);
-      }
-      return offCanvas.toDataURL("image/jpeg", 0.85);
-    });
-    return unregister;
-  }, [page, selectedIds, selectedId]);
-
-  async function handleCheckWorkSelection() {
-    const targetIds = selectedIds.length > 0 ? selectedIds : selectedId ? [selectedId] : [];
-    if (targetIds.length === 0) return;
-    const img = exportSelectedRegionAsImage(targetIds);
-    const selectedObjects = page.objects.filter((o) => targetIds.includes(o.id));
-    let textHint = "";
-    for (const obj of selectedObjects) {
-      if (obj.kind === "formula") textHint = obj.latex;
-      else if (obj.kind === "text" || obj.kind === "sticky") textHint = obj.text;
-    }
-    const toastId = toast.loading("Checking your work step-by-step...");
-    try {
-      const res = await AIEngine.checkWork(textHint || undefined, img || undefined);
-      toast.dismiss(toastId);
-      setCheckWorkModal(res);
-    } catch (err) {
-      toast.dismiss(toastId);
-      toast.error(`${aiErrorMessage(err)} Your ink was kept.`);
-    }
-  }
-
-  async function handleSummarizeSelection() {
-    const targetIds = selectedIds.length > 0 ? selectedIds : selectedId ? [selectedId] : [];
-    if (targetIds.length === 0) return;
-    const selectedObjects = page.objects.filter((o) => targetIds.includes(o.id));
-    let text = "";
-    for (const obj of selectedObjects) {
-      if (obj.kind === "text" || obj.kind === "sticky") text += (text ? "\n" : "") + obj.text;
-      else if (obj.kind === "formula") text += (text ? "\n" : "") + obj.latex;
-    }
-    const img = exportSelectedRegionAsImage(targetIds);
-    const toastId = toast.loading("Summarizing selection...");
-    try {
-      if (!text.trim() && img) {
-        text = await AIEngine.transcribeHandwriting(img);
-      }
-      if (!text.trim()) {
-        toast.dismiss(toastId);
-        toast.error("Please select text or writing to summarize.");
-        return;
-      }
-      const summary = await AIEngine.summarize(text, "Selection Summary");
-      toast.dismiss(toastId);
-
-      const bounds = selectionBounds;
-      const x = bounds ? bounds.x + bounds.w + 24 : 400;
-      const y = bounds ? bounds.y : 300;
-      const keyPointsText = (summary.keyPoints || []).map((p: string) => `• ${p}`).join("\n");
-      const stickyId = uid();
-      addObject({
-        id: stickyId,
-        kind: "sticky",
-        x,
-        y,
-        w: 280,
-        h: 220,
-        text: `📌 Summary:\n${summary.overview}\n\nKey Points:\n${keyPointsText}${summary.takeaway ? `\n\n💡 ${summary.takeaway}` : ""}`,
-        color: "#fef08a",
-        isAiAnswer: true,
-      });
-      pushHistory();
-      setTool("select");
-      setSelected(stickyId);
-      setSelectedIds([]);
-      toast.success("Summary added! Drag to move it anywhere.", { icon: "✨" });
-    } catch (err) {
-      toast.dismiss(toastId);
-      toast.error(`${aiErrorMessage(err)} Your ink was kept.`);
-    }
   }
 
   async function handleConvertHandwritingToText() {
@@ -5814,9 +5192,8 @@ export function WhiteboardCanvas({
       }
 
       deleteSelected();
-      const textId = uid();
       addObject({
-        id: textId,
+        id: uid(),
         kind: "text",
         x: cx,
         y: cy,
@@ -5825,13 +5202,9 @@ export function WhiteboardCanvas({
         text: text.trim(),
         color: "#0f172a",
         fontSize: 18,
-        isAiAnswer: true,
       });
       pushHistory();
-      setTool("select");
-      setSelected(textId);
-      setSelectedIds([]);
-      toast.success("Converted to text! Drag to move it anywhere.", { icon: "✨" });
+      toast.success("Converted to editable text!");
     } catch (err) {
       toast.error(`${aiErrorMessage(err)} Your ink was kept.`);
     }
@@ -5855,51 +5228,20 @@ export function WhiteboardCanvas({
       }
 
       deleteSelected();
-      const formulaId = uid();
       addObject({
-        id: formulaId,
+        id: uid(),
         kind: "formula",
         x: cx,
         y: cy,
         w: 280,
         h: 110,
         latex: latex.trim(),
-        isAiAnswer: true,
       });
       pushHistory();
-      setTool("select");
-      setSelected(formulaId);
-      setSelectedIds([]);
-      toast.success("Converted to math formula! Drag to move.", { icon: "✨" });
+      toast.success("Converted to math formula!");
     } catch (err) {
       toast.error(`${aiErrorMessage(err)} Your ink was kept.`);
     }
-  }
-
-  function handleExplainSelection() {
-    const targetIds = selectedIds.length > 0 ? selectedIds : selectedId ? [selectedId] : [];
-    if (targetIds.length === 0) {
-      onOpenAI?.();
-      return;
-    }
-
-    const selectedObjects = page.objects.filter((o) => targetIds.includes(o.id));
-    let textHint = "";
-    for (const obj of selectedObjects) {
-      if (obj.kind === "formula") textHint += (textHint ? "\n" : "") + obj.latex;
-      else if (obj.kind === "text" || obj.kind === "sticky") textHint += (textHint ? "\n" : "") + obj.text;
-    }
-
-    const img = exportSelectedRegionAsImage(targetIds);
-    const prompt = textHint
-      ? `Explain this selection: "${textHint.slice(0, 120)}"`
-      : "Explain what is shown in this selected drawing/diagram.";
-
-    onOpenAI?.({
-      contextText: textHint || undefined,
-      snapshot: img || undefined,
-      prompt,
-    });
   }
 
   async function handleSolveAndPlotMath() {
@@ -5953,7 +5295,6 @@ export function WhiteboardCanvas({
         graphableFn: res.graphableFn,
         xRange: res.xRange,
         yRange: res.yRange,
-        verified: res.verified,
       });
 
       const solutionImageId = uid();
@@ -5965,15 +5306,13 @@ export function WhiteboardCanvas({
         y: insertY,
         w: solutionCard.width,
         h: solutionCard.height,
-        isAiAnswer: true,
       });
 
       // Interactive 2D GraphObject right next to the solution card if plottable
-      let createdGraphId: string | null = null;
       if (res.graphableFn) {
-        createdGraphId = uid();
+        const graphId = uid();
         addObject({
-          id: createdGraphId,
+          id: graphId,
           kind: "graph",
           x: insertX + solutionCard.width + 24,
           y: insertY,
@@ -5986,22 +5325,14 @@ export function WhiteboardCanvas({
           yMax: res.yRange?.[1] ?? 8,
           color: "#38bdf8",
           title: res.title || `Plot: ${res.latex}`,
-          isAiAnswer: true,
         });
-        toast.success("Solved & 2D graph plotted! Drag to position anywhere.", { icon: "✨" });
+        toast.success("Solved, explained & 2D graph plotted on canvas!");
       } else {
-        toast.success("Math solved! Drag to place the answer wherever you want.", { icon: "✨" });
+        toast.success("Math solved with step-by-step reasoning!");
       }
 
       pushHistory();
-      setTool("select");
-      if (createdGraphId) {
-        setSelectedIds([solutionImageId, createdGraphId]);
-        setSelected(solutionImageId);
-      } else {
-        setSelected(solutionImageId);
-        setSelectedIds([]);
-      }
+      setSelected(solutionImageId);
     } catch (err) {
       toast.error(`${aiErrorMessage(err)} Your ink was kept.`);
     }
@@ -6083,7 +5414,7 @@ export function WhiteboardCanvas({
       for (const obj of targetObjects) {
         drawObject(offCtx, obj, false);
       }
-      imgDataUrl = offCanvas.toDataURL("image/jpeg", 0.85);
+      imgDataUrl = offCanvas.toDataURL("image/png");
     }
 
     try {
@@ -6125,15 +5456,13 @@ export function WhiteboardCanvas({
         y: insertY,
         w: solutionCard.width,
         h: solutionCard.height,
-        isAiAnswer: true,
       });
 
       // If plottable interactive graph, add graph alongside
-      let createdGraphId: string | null = null;
       if (res.graphableFn) {
-        createdGraphId = uid();
+        const graphId = uid();
         addObject({
-          id: createdGraphId,
+          id: graphId,
           kind: "graph",
           x: insertX + solutionCard.width + 24,
           y: insertY,
@@ -6146,20 +5475,12 @@ export function WhiteboardCanvas({
           yMax: res.yRange?.[1] ?? 8,
           color: "#06b6d4",
           title: res.title || `Plot: ${res.latex}`,
-          isAiAnswer: true,
         });
       }
 
       pushHistory();
-      setTool("select");
-      if (createdGraphId) {
-        setSelectedIds([solutionImageId, createdGraphId]);
-        setSelected(solutionImageId);
-      } else {
-        setSelected(solutionImageId);
-        setSelectedIds([]);
-      }
-      toast.success(`Calculated: ${formatLatexForDisplay(res.solution)} • Drag to position`, { icon: "✨" });
+      setSelected(solutionImageId);
+      toast.success(`Calculated: ${formatLatexForDisplay(res.solution)}`);
     } catch (err) {
       toast.dismiss(solveToastId);
       console.error(err);
@@ -6180,24 +5501,6 @@ export function WhiteboardCanvas({
     if (strokeObjs.length === 0) {
       toast.info("Select drawn ink strokes to beautify into crisp shapes.");
       return;
-    }
-
-    if (strokeObjs.length >= 2) {
-      const multiArrow = recognizeMultiStrokeArrow(
-        strokeObjs.map((s) => s.points),
-        strokeObjs[0].color,
-        strokeObjs[0].size,
-      );
-      if (multiArrow) {
-        strokeObjs.forEach((s) => deleteObject(s.id));
-        addObject({
-          ...multiArrow,
-          id: uid(),
-        });
-        pushHistory();
-        toast.success("Beautified strokes into a clean arrow!");
-        return;
-      }
     }
 
     let beautifiedCount = 0;
@@ -6391,7 +5694,7 @@ export function WhiteboardCanvas({
     <div ref={wrapRef} className="relative h-full w-full overflow-hidden touch-none select-none">
       <canvas
         ref={canvasRef}
-        className="absolute inset-0 touch-none select-none"
+        className="absolute inset-0"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -6399,7 +5702,6 @@ export function WhiteboardCanvas({
         onDoubleClick={onCanvasDoubleClick}
         onWheel={onWheel}
         style={{
-          touchAction: "none",
           cursor:
             tool === "pan"
               ? "grab"
@@ -6702,119 +6004,80 @@ export function WhiteboardCanvas({
         </div>
       )}
 
-      {/* Floating Action Bar for Selection (Unified Menu) */}
+      {/* Floating Action Bar for Selection (Single & Multi Selection) */}
       {clampedSelectionPos && (
         <div
-          ref={actionBarRef}
-          className="pointer-events-auto absolute flex -translate-x-1/2 -translate-y-full items-center gap-1 rounded-full bg-card/95 px-2.5 py-1.5 shadow-xl ring-1 ring-border backdrop-blur z-20 max-w-[95vw] overflow-x-auto scrollbar-none"
+          className="pointer-events-auto absolute flex -translate-x-1/2 -translate-y-full items-center gap-1 rounded-full bg-card/95 px-2.5 py-1.5 shadow-xl ring-1 ring-border backdrop-blur z-20"
           style={{ left: clampedSelectionPos.x, top: clampedSelectionPos.y }}
         >
-          <div className="flex items-center gap-1 text-xs font-semibold text-primary px-1.5 border-r border-border shrink-0">
+          <div className="flex items-center gap-1 text-xs font-semibold text-primary px-1.5 border-r border-border">
             <span>{targetSelectionIds.length}</span> {targetSelectionIds.length === 1 ? "item" : "items"}
           </div>
 
-          {/* 1. Explain */}
-          {onOpenAI && (
-            <button
-              onClick={handleExplainSelection}
-              title="Explain selection with AI"
-              className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium hover:bg-sky-500/10 text-sky-600 dark:text-sky-400 transition shrink-0"
-            >
-              <Wand2 className="h-3.5 w-3.5" />
-              <span>Explain</span>
-            </button>
-          )}
-
-          {/* 2. Solve */}
+          {/* 1. Solve Math & Plot */}
           <button
             onClick={handleSolveAndPlotMath}
-            title="Solve Math & Plot Graph"
-            className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium hover:bg-purple-500/10 text-purple-600 dark:text-purple-400 transition shrink-0"
+            title="Solve Math & Plot 2D Function"
+            className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-purple-500/10 text-purple-600 transition"
           >
-            <Calculator className="h-3.5 w-3.5" />
-            <span>Solve</span>
+            <Calculator className="h-4 w-4" />
           </button>
 
-          {/* 3. Check Work */}
+          {/* 2. Handwriting → Math Formula (LaTeX) */}
           <button
-            onClick={handleCheckWorkSelection}
-            title="Check my work step-by-step"
-            className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium hover:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 transition shrink-0"
+            onClick={handleConvertMath}
+            title="Convert Handwriting → Math Formula (LaTeX)"
+            className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-violet-500/10 text-violet-500 transition"
           >
-            <CheckCircle2 className="h-3.5 w-3.5" />
-            <span>Check</span>
+            <Sigma className="h-4 w-4" />
           </button>
 
-          {/* 4. To Text */}
+          {/* 3. Handwriting → Text */}
           <button
             onClick={handleConvertHandwritingToText}
             title="Convert Handwriting → Text"
-            className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium hover:bg-primary/10 text-primary transition shrink-0"
+            className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-primary/10 text-primary transition"
           >
-            <Type className="h-3.5 w-3.5" />
-            <span>To text</span>
+            <Type className="h-4 w-4" />
           </button>
 
-          {/* 5. Flashcards */}
-          <button
-            onClick={handleCreateFlashcardsFromSelection}
-            title="Create Study Flashcards"
-            className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium hover:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 transition shrink-0"
-          >
-            <Layers className="h-3.5 w-3.5" />
-            <span>Flashcards</span>
-          </button>
-
-          {/* 6. Summarise */}
-          <button
-            onClick={handleSummarizeSelection}
-            title="Summarise Selection to Sticky Note"
-            className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium hover:bg-amber-500/10 text-amber-600 dark:text-amber-400 transition shrink-0"
-          >
-            <FileText className="h-3.5 w-3.5" />
-            <span>Summarise</span>
-          </button>
-
-          <div className="h-4 w-px bg-border mx-0.5 shrink-0" />
-
-          {/* Secondary tools in compact icon buttons */}
-          {/* Formula LaTeX */}
-          <button
-            onClick={handleConvertMath}
-            title="Convert to Math Formula (LaTeX)"
-            className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-violet-500/10 text-violet-500 transition shrink-0"
-          >
-            <Sigma className="h-3.5 w-3.5" />
-          </button>
-
-          {/* Beautify */}
+          {/* 3. Clean Up Sketch / Beautify */}
           <button
             onClick={handleBeautifySketch}
             title="Clean Up Sketch → Geometric Vector Shape"
-            className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-amber-500/10 text-amber-500 transition shrink-0"
+            className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-amber-500/10 text-amber-500 transition"
           >
-            <Sparkles className="h-3.5 w-3.5" />
+            <Sparkles className="h-4 w-4" />
           </button>
 
-          {/* Mind-Map */}
+          {/* 4. Mind-Map from Selection */}
           <button
             onClick={handleGenerateMindMapFromSelection}
             title="Generate Concept Mind-Map"
-            className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-indigo-500/10 text-indigo-500 transition shrink-0"
+            className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-indigo-500/10 text-indigo-500 transition"
           >
-            <GitBranch className="h-3.5 w-3.5" />
+            <GitBranch className="h-4 w-4" />
           </button>
 
-          {/* Diagram Flowchart */}
+          {/* 5. Create Flashcards */}
+          <button
+            onClick={handleCreateFlashcardsFromSelection}
+            title="Create Study Flashcards"
+            className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-emerald-500/10 text-emerald-500 transition"
+          >
+            <Layers className="h-4 w-4" />
+          </button>
+
+          {/* 6. Diagram → Flowchart */}
           <button
             onClick={handleConvertDiagram}
             title="Convert to Structured Flowchart"
-            className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-teal-500/10 text-teal-500 transition shrink-0"
+            className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-teal-500/10 text-teal-500 transition"
           >
-            <Workflow className="h-3.5 w-3.5" />
+            <Workflow className="h-4 w-4" />
           </button>
 
-          {/* Study Tape */}
+          {/* 7. Conceal with Study Tape */}
           <button
             onClick={() => {
               const bounds = selectionBounds;
@@ -6836,36 +6099,44 @@ export function WhiteboardCanvas({
               toast.success("Masked with Study Tape!");
             }}
             title="Conceal with Study Tape"
-            className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-orange-500/10 text-orange-500 transition shrink-0"
+            className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-orange-500/10 text-orange-500 transition"
           >
-            <EyeOff className="h-3.5 w-3.5" />
+            <EyeOff className="h-4 w-4" />
           </button>
 
-          <div className="h-4 w-px bg-border mx-0.5 shrink-0" />
+          {/* 8. Ask AI Sheet */}
+          {onOpenAI && (
+            <button
+              onClick={() => onOpenAI()}
+              title="Ask AI Assistant about Selection"
+              className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-sky-500/10 text-sky-500 transition"
+            >
+              <Wand2 className="h-4 w-4" />
+            </button>
+          )}
 
-          {/* Duplicate */}
+          <div className="h-4 w-px bg-border mx-0.5" />
+
           <button
             onClick={() => {
               duplicateSelected();
               pushHistory();
             }}
             title="Duplicate"
-            className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-accent text-foreground transition shrink-0"
+            className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-accent text-foreground transition"
           >
-            <Copy className="h-3.5 w-3.5" />
+            <Copy className="h-4 w-4" />
           </button>
-
-          {/* Recolor */}
-          <div className="relative shrink-0">
+          <div className="relative">
             <button
               onClick={() => setRecolorPickerOpen(!recolorPickerOpen)}
               title="Recolor"
-              className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-accent text-foreground transition"
+              className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-accent text-foreground transition"
             >
-              <Palette className="h-3.5 w-3.5" />
+              <Palette className="h-4 w-4" />
             </button>
             {recolorPickerOpen && (
-              <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 flex gap-1 p-2 rounded-xl bg-card shadow-xl ring-1 ring-border z-30">
+              <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 flex gap-1 p-2 rounded-xl bg-card shadow-xl ring-1 ring-border">
                 {PALETTE.slice(0, 7).map((c) => (
                   <button
                     key={c}
@@ -6881,17 +6152,15 @@ export function WhiteboardCanvas({
               </div>
             )}
           </div>
-
-          {/* Delete */}
           <button
             onClick={() => {
               deleteSelected();
               pushHistory();
             }}
             title="Delete"
-            className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-destructive/10 text-destructive transition shrink-0"
+            className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-destructive/10 text-destructive transition"
           >
-            <Trash2 className="h-3.5 w-3.5" />
+            <Trash2 className="h-4 w-4" />
           </button>
         </div>
       )}
@@ -7010,152 +6279,6 @@ export function WhiteboardCanvas({
               }
             }}
           />
-        </div>
-      )}
-
-      {/* Check My Work Modal */}
-      {checkWorkModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-          <div className="relative w-full max-w-lg max-h-[85vh] flex flex-col rounded-2xl bg-card border border-border shadow-2xl overflow-hidden">
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-border px-5 py-4 bg-muted/30">
-              <div className="flex items-center gap-2.5">
-                <div
-                  className={cn(
-                    "flex h-9 w-9 items-center justify-center rounded-xl",
-                    checkWorkModal.overallCorrect
-                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                      : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
-                  )}
-                >
-                  {checkWorkModal.overallCorrect ? (
-                    <CheckCircle2 className="h-5 w-5" />
-                  ) : (
-                    <AlertCircle className="h-5 w-5" />
-                  )}
-                </div>
-                <div>
-                  <h3 className="text-base font-semibold text-foreground">Work Verification</h3>
-                  <p className="text-xs text-muted-foreground">
-                    {checkWorkModal.overallCorrect
-                      ? "All steps verified correct 🎉"
-                      : checkWorkModal.mistakeStepIndex !== null
-                      ? `Mistake identified at Step ${checkWorkModal.mistakeStepIndex}`
-                      : "Review recommended"}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setCheckWorkModal(null)}
-                className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto p-5 space-y-4 text-sm">
-              <div className="rounded-xl bg-muted/40 p-3.5 border border-border/60">
-                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-1">
-                  Summary
-                </p>
-                <p className="text-foreground leading-relaxed">{checkWorkModal.summary}</p>
-              </div>
-
-              {/* Steps */}
-              {checkWorkModal.steps && checkWorkModal.steps.length > 0 && (
-                <div className="space-y-2.5">
-                  <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Step-by-Step Breakdown
-                  </p>
-                  <div className="space-y-2">
-                    {checkWorkModal.steps.map((st) => (
-                      <div
-                        key={st.stepNumber}
-                        className={cn(
-                          "rounded-xl p-3 border text-xs space-y-1.5 transition",
-                          st.isCorrect
-                            ? "bg-card border-border/80"
-                            : "bg-amber-500/5 dark:bg-amber-950/20 border-amber-500/30"
-                        )}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="font-semibold text-foreground">
-                            Step {st.stepNumber}
-                          </span>
-                          <span
-                            className={cn(
-                              "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium",
-                              st.isCorrect
-                                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                                : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
-                            )}
-                          >
-                            {st.isCorrect ? (
-                              <>
-                                <Check className="h-3 w-3" /> Correct
-                              </>
-                            ) : (
-                              <>
-                                <AlertCircle className="h-3 w-3" /> Needs Attention
-                              </>
-                            )}
-                          </span>
-                        </div>
-                        {st.stepText && (
-                          <div className="font-mono text-xs bg-muted/60 px-2 py-1 rounded text-foreground/90">
-                            {st.stepText}
-                          </div>
-                        )}
-                        <p className="text-muted-foreground">{st.feedback}</p>
-                        {st.correction && (
-                          <div className="rounded bg-emerald-500/10 px-2 py-1 text-emerald-700 dark:text-emerald-300 font-mono text-[11px]">
-                            💡 Correct: {st.correction}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Footer */}
-            <div className="flex items-center justify-between border-t border-border px-5 py-3 bg-muted/20">
-              <button
-                onClick={() => {
-                  const bounds = selectionBounds;
-                  const x = bounds ? bounds.x + bounds.w + 24 : 400;
-                  const y = bounds ? bounds.y : 300;
-                  const stepText = checkWorkModal.steps
-                    .map((s) => `${s.isCorrect ? "✅" : "⚠️"} Step ${s.stepNumber}: ${s.stepText || s.feedback}${s.correction ? ` (Fix: ${s.correction})` : ""}`)
-                    .join("\n");
-                  addObject({
-                    id: uid(),
-                    kind: "sticky",
-                    x,
-                    y,
-                    w: 280,
-                    h: 220,
-                    text: `📝 Work Feedback:\n${checkWorkModal.summary}\n\n${stepText}`,
-                    color: checkWorkModal.overallCorrect ? "#bbf7d0" : "#fef08a",
-                  });
-                  pushHistory();
-                  toast.success("Feedback inserted as sticky note!");
-                  setCheckWorkModal(null);
-                }}
-                className="text-xs font-medium text-primary hover:underline"
-              >
-                Insert Sticky Note on Board
-              </button>
-              <button
-                onClick={() => setCheckWorkModal(null)}
-                className="rounded-lg bg-primary px-4 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition"
-              >
-                Done
-              </button>
-            </div>
-          </div>
         </div>
       )}
     </div>

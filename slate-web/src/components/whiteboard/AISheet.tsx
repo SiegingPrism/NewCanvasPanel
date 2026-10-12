@@ -20,22 +20,11 @@ import {
   AlertCircle,
   Trash2,
   BookMarked,
-  Camera,
-  CheckCircle2,
-  ThumbsUp,
-  ThumbsDown,
-  X,
-  ExternalLink,
-  Move,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useWhiteboard } from "@/lib/whiteboard/store";
 import { useAISettings } from "@/lib/ai/aiSettingsStore";
-import { useAuth } from "@/lib/supabase/authStore";
 import { AIEngine, AIError, aiErrorMessage, type ChatSource } from "@/lib/ai/aiEngine";
-import { saveBoardChat, loadBoardChat, clearBoardChat } from "@/lib/whiteboard/slateStorage";
-import { captureCanvasSnapshot } from "@/lib/whiteboard/canvasSnapshot";
-import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
@@ -46,14 +35,9 @@ type Msg = {
   content: string;
   error?: string;
   sources?: ChatSource[];
-  feedback?: "up" | "down";
-  imageDataUrl?: string;
-  hasSnapshot?: boolean;
-  verified?: boolean;
 };
 
 const QUICK = [
-  { label: "Check my work", icon: CheckCircle2, prompt: "Check my solution step-by-step: " },
   { label: "Solve step-by-step", icon: Calculator, prompt: "Solve step-by-step: " },
   { label: "Explain simply", icon: BookOpen, prompt: "Explain simply, with an example: " },
   {
@@ -130,68 +114,27 @@ export function AISheet({
   onOpenChange,
   contextText,
   boardId,
-  initialPrompt,
-  initialSnapshot,
 }: {
   open: boolean;
   onOpenChange: (b: boolean) => void;
   contextText?: string;
   boardId?: string;
-  initialPrompt?: string;
-  initialSnapshot?: string;
 }) {
   const addRecentAI = useWhiteboard((s) => s.addRecentAI);
   const addObject = useWhiteboard((s) => s.addObject);
   const pushHistory = useWhiteboard((s) => s.pushHistory);
   const pages = useWhiteboard((s) => s.pages);
   const activePageId = useWhiteboard((s) => s.activePageId);
-  const setTool = useWhiteboard((s) => s.setTool);
-  const setSelected = useWhiteboard((s) => s.setSelected);
-  const setSelectedIds = useWhiteboard((s) => s.setSelectedIds);
-  const camera = useWhiteboard((s) => s.camera);
 
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [hintMode, setHintMode] = useState(false);
-  const [attachedSnapshot, setAttachedSnapshot] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
-  const isLoadedRef = useRef(false);
   const online = useOnlineStatus();
-  const hasAuth = useAuth((s) => Boolean(s.session?.access_token));
-  const configured = useAISettings((s) => Boolean(s.getApiKey())) || hasAuth;
-
-  const hasTriggeredPromptRef = useRef<string | null>(null);
-
-  // 1. Load per-board chat history from IndexedDB
-  useEffect(() => {
-    if (!boardId) {
-      isLoadedRef.current = true;
-      return;
-    }
-    let active = true;
-    loadBoardChat<Msg>(boardId).then((saved) => {
-      if (active && saved && Array.isArray(saved) && saved.length > 0) {
-        setMessages(saved);
-      }
-      isLoadedRef.current = true;
-    });
-    return () => {
-      active = false;
-    };
-  }, [boardId]);
-
-  // 2. Persist per-board chat history to IndexedDB (debounced by ~1000ms so streamed chunks don't spam writes)
-  useEffect(() => {
-    if (!boardId || !isLoadedRef.current) return;
-    const timer = setTimeout(() => {
-      saveBoardChat(boardId, messages);
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, [boardId, messages]);
+  const configured = useAISettings((s) => Boolean(s.getApiKey()));
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -201,78 +144,15 @@ export function AISheet({
   useEffect(() => () => abortRef.current?.abort(), []);
 
   function getInsertionCoords() {
-    const screenW = typeof window !== "undefined" ? window.innerWidth : 800;
-    const screenH = typeof window !== "undefined" ? window.innerHeight : 600;
     const p = pages.find((page) => page.id === activePageId) || pages[0];
-    const offset = p ? (p.objects.length % 6) * 20 : 0;
-    return {
-      x: (screenW / 2 - camera.x) / camera.zoom - 130 + offset,
-      y: (screenH / 2 - camera.y) / camera.zoom - 100 + offset,
-    };
-  }
-
-  function handleAttachSnapshot() {
-    const snap = captureCanvasSnapshot(Boolean(contextText));
-    if (snap) {
-      setAttachedSnapshot(snap);
-      toast.success(contextText ? "Selection snapshot attached!" : "Board snapshot attached!");
-    } else {
-      toast.info("No content on the board to capture yet.");
-    }
-  }
-
-  function handleFeedback(msgId: string, type: "up" | "down") {
-    setMessages((prev) =>
-      prev.map((m) => (m.id === msgId ? { ...m, feedback: m.feedback === type ? undefined : type } : m)),
-    );
-    toast.success(type === "up" ? "Thanks for your feedback!" : "Feedback recorded. We'll improve this.");
-  }
-
-  function handlePlaceAnswerOnBoard(content: string) {
-    const newId = uid();
-    const formula = extractFormula(content);
-    const { x, y } = getInsertionCoords();
-
-    if (formula) {
-      addObject({
-        id: newId,
-        kind: "formula",
-        x,
-        y,
-        w: 300,
-        h: 120,
-        latex: formula,
-        label: "AI Solution",
-        isAiAnswer: true,
-      });
-    } else {
-      addObject({
-        id: newId,
-        kind: "sticky",
-        x,
-        y,
-        w: 300,
-        h: 220,
-        text: `🤖 AI Answer:\n\n${toPlainText(content).slice(0, 800)}`,
-        color: "#dbeafe",
-        isAiAnswer: true,
-      });
-    }
-    pushHistory();
-    setTool("select");
-    setSelected(newId);
-    setSelectedIds([]);
-    onOpenChange(false);
-    toast.success("AI answer placed on board! Drag to move it where you want.", {
-      icon: "✨",
-    });
+    const offset = p ? (p.objects.length % 8) * 24 : 0;
+    return { x: 380 + offset, y: 280 + offset };
   }
 
   function handleAddSticky(content: string) {
-    const id = uid();
     const { x, y } = getInsertionCoords();
     addObject({
-      id,
+      id: uid(),
       kind: "sticky",
       x,
       y,
@@ -280,21 +160,15 @@ export function AISheet({
       h: 200,
       text: toPlainText(content).slice(0, 600),
       color: "#fef08a",
-      isAiAnswer: true,
     });
     pushHistory();
-    setTool("select");
-    setSelected(id);
-    setSelectedIds([]);
-    onOpenChange(false);
-    toast.success("Added to the board! Drag to move it where you want.", { icon: "✨" });
+    toast.success("Added to the board as a sticky note");
   }
 
   function handleAddFlashcard(content: string, question: string) {
-    const id = uid();
     const { x, y } = getInsertionCoords();
     addObject({
-      id,
+      id: uid(),
       kind: "flashcard",
       x,
       y,
@@ -303,21 +177,15 @@ export function AISheet({
       front: question.slice(0, 140),
       back: toPlainText(content).slice(0, 300),
       flipped: false,
-      isAiAnswer: true,
     });
     pushHistory();
-    setTool("select");
-    setSelected(id);
-    setSelectedIds([]);
-    onOpenChange(false);
-    toast.success("Flashcard added to board! Drag to move it where you want.", { icon: "✨" });
+    toast.success("Added to the board as a flashcard");
   }
 
   function handleInsertMath(latex: string) {
-    const id = uid();
     const { x, y } = getInsertionCoords();
     addObject({
-      id,
+      id: uid(),
       kind: "formula",
       x,
       y,
@@ -325,14 +193,9 @@ export function AISheet({
       h: 110,
       latex,
       label: "AI",
-      isAiAnswer: true,
     });
     pushHistory();
-    setTool("select");
-    setSelected(id);
-    setSelectedIds([]);
-    onOpenChange(false);
-    toast.success("Formula added to board! Drag to move it where you want.", { icon: "✨" });
+    toast.success("Formula added to the board");
   }
 
   async function handleCopy(id: string, content: string) {
@@ -345,7 +208,7 @@ export function AISheet({
     }
   }
 
-  async function runChat(history: Msg[], snapshotToSend?: string | null) {
+  async function runChat(history: Msg[]) {
     const assistantId = uid();
     setMessages([...history, { id: assistantId, role: "assistant", content: "" }]);
     setLoading(true);
@@ -361,8 +224,6 @@ export function AISheet({
         history.map((m) => ({ role: m.role, content: m.content })),
         {
           contextText,
-          imageDataUrl: snapshotToSend || undefined,
-          hintMode,
           signal: controller.signal,
           onText: (full) => update({ content: full }),
         },
@@ -386,27 +247,23 @@ export function AISheet({
   function send(text: string) {
     const clean = text.trim();
     if (!clean || loading) return;
+    // Drop failed/empty assistant turns from the history sent to the model.
     const history = messages.filter(
       (m) => !(m.role === "assistant" && (m.error || !m.content.trim())),
     );
-    const snap = attachedSnapshot;
     setInput("");
-    setAttachedSnapshot(null);
-    void runChat(
-      [...history, { id: uid(), role: "user", content: clean, imageDataUrl: snap || undefined }],
-      snap,
-    );
+    void runChat([...history, { id: uid(), role: "user", content: clean }]);
   }
 
   function retry() {
     if (loading) return;
+    // Remove the failed assistant reply and resend the conversation up to the last user message.
     const lastUserIdx = messages.map((m) => m.role).lastIndexOf("user");
     if (lastUserIdx === -1) return;
     const history = messages
       .slice(0, lastUserIdx + 1)
       .filter((m) => !(m.role === "assistant" && (m.error || !m.content.trim())));
-    const lastUserMsg = messages[lastUserIdx];
-    void runChat(history, lastUserMsg?.imageDataUrl);
+    void runChat(history);
   }
 
   function stop() {
@@ -416,122 +273,27 @@ export function AISheet({
   function clearChat() {
     abortRef.current?.abort();
     setMessages([]);
-    if (boardId) {
-      clearBoardChat(boardId);
-    }
   }
-
-  // Auto-trigger explanation or prefilled prompt when opening AI Sheet with an initial prompt
-  useEffect(() => {
-    if (!open) {
-      hasTriggeredPromptRef.current = null;
-      return;
-    }
-    if (open && initialSnapshot && !attachedSnapshot) {
-      setAttachedSnapshot(initialSnapshot);
-    }
-    if (
-      open &&
-      initialPrompt &&
-      isLoadedRef.current &&
-      hasTriggeredPromptRef.current !== initialPrompt
-    ) {
-      hasTriggeredPromptRef.current = initialPrompt;
-      const snap = initialSnapshot || attachedSnapshot;
-      setAttachedSnapshot(null);
-      const history = messages.filter(
-        (m) => !(m.role === "assistant" && (m.error || !m.content.trim())),
-      );
-      void runChat(
-        [...history, { id: uid(), role: "user", content: initialPrompt, imageDataUrl: snap || undefined }],
-        snap,
-      );
-    }
-  }, [open, initialPrompt, initialSnapshot, isLoadedRef.current]);
 
   const canSend = online && configured && !loading && input.trim().length > 0;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="flex w-full flex-col p-0 sm:max-w-md">
-        <SheetHeader className="border-b p-3.5">
-          <div className="flex items-center justify-between">
-            <SheetTitle className="flex items-center gap-2 text-base">
-              <Sparkles className="h-5 w-5 text-primary" /> Slate AI
-            </SheetTitle>
-            <div className="flex items-center gap-1.5 mr-6">
+        <SheetHeader className="border-b p-4">
+          <SheetTitle className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-primary" /> Slate AI
+            {messages.length > 0 && (
               <button
-                type="button"
-                onClick={() => setHintMode(!hintMode)}
-                className={cn(
-                  "inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition",
-                  hintMode
-                    ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
-                    : "text-muted-foreground hover:bg-accent border border-transparent",
-                )}
-                title="Toggle Socratic Hint Mode (gives clues and guiding questions instead of full answers)"
+                onClick={clearChat}
+                className="ml-auto mr-8 inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-normal text-muted-foreground hover:bg-accent"
+                title="Start a new chat"
               >
-                <Lightbulb className="h-3.5 w-3.5" />
-                <span>Hints</span>
+                <Trash2 className="h-3.5 w-3.5" /> New chat
               </button>
-
-              <button
-                type="button"
-                onClick={handleAttachSnapshot}
-                className={cn(
-                  "inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition",
-                  attachedSnapshot
-                    ? "bg-primary/15 text-primary border border-primary/30"
-                    : "text-muted-foreground hover:bg-accent border border-transparent",
-                )}
-                title="Attach canvas snapshot so AI can see diagrams, graphs, and handwriting"
-              >
-                <Camera className="h-3.5 w-3.5" />
-                <span>See Board</span>
-              </button>
-
-              {messages.length > 0 && (
-                <button
-                  type="button"
-                  onClick={clearChat}
-                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-normal text-muted-foreground hover:bg-accent"
-                  title="Start a new chat"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
-          </div>
+            )}
+          </SheetTitle>
         </SheetHeader>
-
-        {attachedSnapshot && (
-          <div className="flex items-center gap-2 border-b bg-primary/5 px-4 py-2 text-xs text-primary">
-            <img
-              src={attachedSnapshot}
-              alt="Board Snapshot"
-              className="h-8 w-10 rounded border border-primary/30 object-cover bg-white"
-            />
-            <div className="flex-1 min-w-0">
-              <p className="font-medium truncate">Board snapshot attached</p>
-              <p className="text-[11px] text-muted-foreground">AI can now see your drawing or diagram</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setAttachedSnapshot(null)}
-              className="rounded p-1 hover:bg-primary/20 text-muted-foreground hover:text-foreground"
-              title="Remove snapshot"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        )}
-
-        {hintMode && (
-          <div className="flex items-center gap-2 border-b bg-amber-500/10 px-4 py-1.5 text-xs text-amber-700 dark:text-amber-300">
-            <Lightbulb className="h-3.5 w-3.5 shrink-0" />
-            <span>Hint mode active — guiding questions, no spoilers</span>
-          </div>
-        )}
 
         {!online && (
           <div className="flex items-center gap-2 border-b bg-amber-500/10 px-4 py-2 text-xs text-amber-700 dark:text-amber-300">
@@ -542,7 +304,7 @@ export function AISheet({
         {online && !configured && (
           <div className="flex items-center gap-2 border-b bg-amber-500/10 px-4 py-2 text-xs text-amber-700 dark:text-amber-300">
             <AlertCircle className="h-4 w-4 shrink-0" />
-            AI isn't set up yet. Sign in or add a personal Gemini key in AI Settings.
+            AI isn't set up yet. Add a Gemini API key in AI Settings.
           </div>
         )}
 
@@ -562,7 +324,8 @@ export function AISheet({
               <Sparkles className="mx-auto h-8 w-8 text-primary" />
               <p className="mt-2 text-sm font-medium">Ask anything</p>
               <p className="text-xs text-muted-foreground">
-                Solve problems, check your work, explain diagrams, or create flashcards. Tap "See Board" to let the AI see your canvas!
+                Solve problems, explain topics, make flashcards, or plan a lesson. Answers can use
+                your selected board content and your notes.
               </p>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 {QUICK.map((q) => (
@@ -601,33 +364,9 @@ export function AISheet({
                   }
                 >
                   {m.role === "user" ? (
-                    <div>
-                      {m.imageDataUrl && (
-                        <div className="mb-2 overflow-hidden rounded-lg border border-white/20">
-                          <img
-                            src={m.imageDataUrl}
-                            alt="Attached ink"
-                            className="max-h-36 w-full object-contain bg-white"
-                          />
-                        </div>
-                      )}
-                      {!m.imageDataUrl && m.hasSnapshot && (
-                        <div className="mb-2 inline-flex items-center gap-1.5 rounded bg-white/20 px-2 py-0.5 text-[11px] font-medium text-white/90">
-                          <Camera className="h-3 w-3" />
-                          <span>Board snapshot attached</span>
-                        </div>
-                      )}
-                      <div className="whitespace-pre-wrap leading-relaxed">{m.content}</div>
-                    </div>
+                    <div className="whitespace-pre-wrap leading-relaxed">{m.content}</div>
                   ) : (
                     <>
-                      {m.verified && (
-                        <div className="mb-2 inline-flex items-center gap-1 rounded bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
-                          <Check className="h-3 w-3 text-emerald-500" />
-                          <span>Verified</span>
-                        </div>
-                      )}
-
                       {m.content && (
                         <div className={MD_CLASS}>
                           <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
@@ -663,32 +402,19 @@ export function AISheet({
                       )}
 
                       {m.sources && m.sources.length > 0 && !streaming && (
-                        <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
-                          <BookMarked className="h-3.5 w-3.5 text-primary/80" />
-                          <span>From your workspace:</span>
+                        <div className="mt-2 flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground">
+                          <BookMarked className="h-3 w-3" />
+                          From your workspace:
                           {m.sources.map((s, i) => (
-                            <a
-                              key={i}
-                              href={s.url || (s.id ? `/board/${s.id}` : "#")}
-                              className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-foreground hover:bg-accent hover:text-primary transition font-medium"
-                            >
-                              <span>{s.title}</span>
-                              <ExternalLink className="h-2.5 w-2.5 opacity-60" />
-                            </a>
+                            <span key={i} className="rounded bg-muted px-1.5 py-0.5">
+                              {s.title}
+                            </span>
                           ))}
                         </div>
                       )}
 
                       {m.content && !streaming && (
                         <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-border/60 pt-2 text-xs">
-                          <button
-                            onClick={() => handlePlaceAnswerOnBoard(m.content)}
-                            className="inline-flex items-center gap-1 rounded-md bg-primary/10 text-primary px-2 py-1 font-semibold hover:bg-primary/20 transition shadow-xs"
-                            title="Place answer directly on the whiteboard so you can move and position it anywhere"
-                          >
-                            <Move className="h-3.5 w-3.5" />
-                            Place on Board
-                          </button>
                           <button
                             onClick={() => handleAddSticky(m.content)}
                             className="inline-flex items-center gap-1 rounded-md bg-accent/60 px-2 py-1 font-medium text-foreground hover:bg-accent transition"
@@ -715,47 +441,23 @@ export function AISheet({
                               Formula
                             </button>
                           )}
-                          <div className="flex items-center gap-1 ml-auto">
-                            <button
-                              type="button"
-                              onClick={() => handleFeedback(m.id, "up")}
-                              className={cn(
-                                "inline-flex items-center justify-center h-6 w-6 rounded hover:bg-accent transition text-muted-foreground",
-                                m.feedback === "up" && "text-emerald-500 font-bold bg-emerald-500/10",
-                              )}
-                              title="Good answer"
-                            >
-                              <ThumbsUp className="h-3 w-3" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleFeedback(m.id, "down")}
-                              className={cn(
-                                "inline-flex items-center justify-center h-6 w-6 rounded hover:bg-accent transition text-muted-foreground",
-                                m.feedback === "down" && "text-rose-500 font-bold bg-rose-500/10",
-                              )}
-                              title="Needs improvement"
-                            >
-                              <ThumbsDown className="h-3 w-3" />
-                            </button>
-                            <button
-                              onClick={() => handleCopy(m.id, m.content)}
-                              className="inline-flex items-center gap-1 rounded-md bg-accent/60 px-2 py-1 font-medium text-foreground hover:bg-accent transition"
-                              title="Copy text"
-                            >
-                              {copiedId === m.id ? (
-                                <>
-                                  <Check className="h-3.5 w-3.5 text-green-500" />
-                                  Copied
-                                </>
-                              ) : (
-                                <>
-                                  <Copy className="h-3.5 w-3.5 text-muted-foreground" />
-                                  Copy
-                                </>
-                              )}
-                            </button>
-                          </div>
+                          <button
+                            onClick={() => handleCopy(m.id, m.content)}
+                            className="inline-flex items-center gap-1 rounded-md bg-accent/60 px-2 py-1 font-medium text-foreground hover:bg-accent transition ml-auto"
+                            title="Copy text"
+                          >
+                            {copiedId === m.id ? (
+                              <>
+                                <Check className="h-3.5 w-3.5 text-green-500" />
+                                Copied
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+                                Copy
+                              </>
+                            )}
+                          </button>
                         </div>
                       )}
                     </>
@@ -773,17 +475,6 @@ export function AISheet({
           }}
           className="flex items-end gap-2 border-t p-3 bg-card"
         >
-          <Button
-            size="icon"
-            type="button"
-            variant={attachedSnapshot ? "default" : "outline"}
-            onClick={handleAttachSnapshot}
-            title={attachedSnapshot ? "Snapshot attached" : "Attach board snapshot to your question"}
-            className="shrink-0"
-          >
-            <Camera className="h-4 w-4" />
-          </Button>
-
           <textarea
             ref={inputRef}
             value={input}
@@ -801,9 +492,7 @@ export function AISheet({
                 ? "You're offline"
                 : !configured
                   ? "Add a Gemini API key in AI Settings"
-                  : attachedSnapshot
-                    ? "Ask about this board snapshot…"
-                    : "Ask a question, paste a problem…"
+                  : "Ask a question, paste a problem…"
             }
             className="flex-1 resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring disabled:opacity-60"
           />

@@ -9,20 +9,16 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as NotesRouteImport } from './routes/notes'
 import { Route as LibraryRouteImport } from './routes/library'
 import { Route as LearnRouteImport } from './routes/learn'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as NoteNoteIdRouteImport } from './routes/note.$noteId'
 import { Route as BoardBoardIdRouteImport } from './routes/board.$boardId'
+import { Route as ApiVisionRouteImport } from './routes/api/vision'
+import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as ApiAiRouteImport } from './routes/api/ai'
 
-const ResetPasswordRoute = ResetPasswordRouteImport.update({
-  id: '/reset-password',
-  path: '/reset-password',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const NotesRoute = NotesRouteImport.update({
   id: '/notes',
   path: '/notes',
@@ -53,6 +49,16 @@ const BoardBoardIdRoute = BoardBoardIdRouteImport.update({
   path: '/board/$boardId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiVisionRoute = ApiVisionRouteImport.update({
+  id: '/api/vision',
+  path: '/api/vision',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiChatRoute = ApiChatRouteImport.update({
+  id: '/api/chat',
+  path: '/api/chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAiRoute = ApiAiRouteImport.update({
   id: '/api/ai',
   path: '/api/ai',
@@ -64,8 +70,9 @@ export interface FileRoutesByFullPath {
   '/learn': typeof LearnRoute
   '/library': typeof LibraryRoute
   '/notes': typeof NotesRoute
-  '/reset-password': typeof ResetPasswordRoute
   '/api/ai': typeof ApiAiRoute
+  '/api/chat': typeof ApiChatRoute
+  '/api/vision': typeof ApiVisionRoute
   '/board/$boardId': typeof BoardBoardIdRoute
   '/note/$noteId': typeof NoteNoteIdRoute
 }
@@ -74,8 +81,9 @@ export interface FileRoutesByTo {
   '/learn': typeof LearnRoute
   '/library': typeof LibraryRoute
   '/notes': typeof NotesRoute
-  '/reset-password': typeof ResetPasswordRoute
   '/api/ai': typeof ApiAiRoute
+  '/api/chat': typeof ApiChatRoute
+  '/api/vision': typeof ApiVisionRoute
   '/board/$boardId': typeof BoardBoardIdRoute
   '/note/$noteId': typeof NoteNoteIdRoute
 }
@@ -85,8 +93,9 @@ export interface FileRoutesById {
   '/learn': typeof LearnRoute
   '/library': typeof LibraryRoute
   '/notes': typeof NotesRoute
-  '/reset-password': typeof ResetPasswordRoute
   '/api/ai': typeof ApiAiRoute
+  '/api/chat': typeof ApiChatRoute
+  '/api/vision': typeof ApiVisionRoute
   '/board/$boardId': typeof BoardBoardIdRoute
   '/note/$noteId': typeof NoteNoteIdRoute
 }
@@ -97,8 +106,9 @@ export interface FileRouteTypes {
     | '/learn'
     | '/library'
     | '/notes'
-    | '/reset-password'
     | '/api/ai'
+    | '/api/chat'
+    | '/api/vision'
     | '/board/$boardId'
     | '/note/$noteId'
   fileRoutesByTo: FileRoutesByTo
@@ -107,8 +117,9 @@ export interface FileRouteTypes {
     | '/learn'
     | '/library'
     | '/notes'
-    | '/reset-password'
     | '/api/ai'
+    | '/api/chat'
+    | '/api/vision'
     | '/board/$boardId'
     | '/note/$noteId'
   id:
@@ -117,8 +128,9 @@ export interface FileRouteTypes {
     | '/learn'
     | '/library'
     | '/notes'
-    | '/reset-password'
     | '/api/ai'
+    | '/api/chat'
+    | '/api/vision'
     | '/board/$boardId'
     | '/note/$noteId'
   fileRoutesById: FileRoutesById
@@ -128,21 +140,15 @@ export interface RootRouteChildren {
   LearnRoute: typeof LearnRoute
   LibraryRoute: typeof LibraryRoute
   NotesRoute: typeof NotesRoute
-  ResetPasswordRoute: typeof ResetPasswordRoute
   ApiAiRoute: typeof ApiAiRoute
+  ApiChatRoute: typeof ApiChatRoute
+  ApiVisionRoute: typeof ApiVisionRoute
   BoardBoardIdRoute: typeof BoardBoardIdRoute
   NoteNoteIdRoute: typeof NoteNoteIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/reset-password': {
-      id: '/reset-password'
-      path: '/reset-password'
-      fullPath: '/reset-password'
-      preLoaderRoute: typeof ResetPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/notes': {
       id: '/notes'
       path: '/notes'
@@ -185,6 +191,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BoardBoardIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/vision': {
+      id: '/api/vision'
+      path: '/api/vision'
+      fullPath: '/api/vision'
+      preLoaderRoute: typeof ApiVisionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/chat': {
+      id: '/api/chat'
+      path: '/api/chat'
+      fullPath: '/api/chat'
+      preLoaderRoute: typeof ApiChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/ai': {
       id: '/api/ai'
       path: '/api/ai'
@@ -200,8 +220,9 @@ const rootRouteChildren: RootRouteChildren = {
   LearnRoute: LearnRoute,
   LibraryRoute: LibraryRoute,
   NotesRoute: NotesRoute,
-  ResetPasswordRoute: ResetPasswordRoute,
   ApiAiRoute: ApiAiRoute,
+  ApiChatRoute: ApiChatRoute,
+  ApiVisionRoute: ApiVisionRoute,
   BoardBoardIdRoute: BoardBoardIdRoute,
   NoteNoteIdRoute: NoteNoteIdRoute,
 }

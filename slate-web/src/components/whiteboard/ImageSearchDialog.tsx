@@ -191,31 +191,7 @@ export function ImageSearchDialog({
     reader.readAsDataURL(file);
   }
 
-async function urlToDataUrl(url: string): Promise<string> {
-  if (url.startsWith("data:")) return url;
-  try {
-    const res = await fetch(url, { mode: "cors" });
-    if (!res.ok) return url;
-    const blob = await res.blob();
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve((reader.result as string) || url);
-      reader.onerror = () => resolve(url);
-      reader.readAsDataURL(blob);
-    });
-  } catch {
-    return url;
-  }
-}
-
-  async function insertImageToCanvas(srcUrl: string, title?: string) {
-    let finalSrc = srcUrl;
-    try {
-      finalSrc = await urlToDataUrl(srcUrl);
-    } catch {
-      finalSrc = srcUrl;
-    }
-
+  function insertImageToCanvas(srcUrl: string, title?: string) {
     const screenW = typeof window !== "undefined" ? window.innerWidth : 400;
     const screenH = typeof window !== "undefined" ? window.innerHeight : 600;
     const w = 340;
@@ -230,7 +206,7 @@ async function urlToDataUrl(url: string): Promise<string> {
       y: cy,
       w,
       h,
-      src: finalSrc,
+      src: srcUrl,
     });
     pushHistory();
     toast.success(`Image "${title || "Selected"}" inserted on whiteboard!`);
@@ -243,10 +219,10 @@ async function urlToDataUrl(url: string): Promise<string> {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
             <ImagePlus className="h-5 w-5 text-indigo-500" />
-            Science Image Library
+            Image Search & Insert
           </DialogTitle>
           <DialogDescription className="text-xs">
-            Curated science diagrams, biological models, and illustrations for whiteboard lessons.
+            Search educational diagrams, encyclopedic illustrations, or upload custom imagery to the whiteboard.
           </DialogDescription>
         </DialogHeader>
 

@@ -271,14 +271,6 @@ export function NoteEditorPage() {
 
       wb.addObjectsToBoard(bId, canvasQuizzes);
 
-      // Save quiz questions directly to note blocks
-      addBlock(note.id, "h2", undefined, "Practice Quiz");
-      questions.forEach((q) => {
-        const optLines = q.options.map((opt, i) => `${String.fromCharCode(65 + i)}) ${opt}`).join("\n");
-        const ansLetter = String.fromCharCode(65 + q.answerIndex);
-        addBlock(note.id, "callout", undefined, `Question: ${q.question}\n${optLines}\nAnswer: ${ansLetter}`);
-      });
-
       // Set up in-note quiz modal
       setActiveQuiz(questions);
       setQuizIdx(0);
@@ -332,12 +324,6 @@ export function NoteEditorPage() {
       }));
 
       wb.addObjectsToBoard(bId, canvasCards);
-
-      // Save flashcard blocks directly to note
-      addBlock(note.id, "h2", undefined, "Study Flashcards");
-      cards.forEach((c) => {
-        addBlock(note.id, "callout", undefined, `Q: ${c.front}\nA: ${c.back}`);
-      });
 
       // Set up in-note flashcards review
       setActiveDeck(cards);

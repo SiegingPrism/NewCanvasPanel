@@ -117,21 +117,13 @@ export async function fetchBoardById(boardId: string): Promise<CloudBoardRecord 
   const supabase = getSupabase();
   if (!supabase) return null;
   try {
-    // 1. First check if user owns the board (or direct RLS read)
     const { data, error } = await supabase
       .from("boards")
       .select("*")
       .eq("id", boardId)
       .maybeSingle();
-    if (!error && data) return data as CloudBoardRecord;
-
-    // 2. If not found or restricted by owner-only RLS, retrieve shared public board via secure RPC
-    const { data: publicData, error: rpcError } = await supabase
-      .rpc("get_public_board", { p_board_id: boardId });
-    if (!rpcError && publicData) {
-      return publicData as CloudBoardRecord;
-    }
-    return null;
+    if (error || !data) return null;
+    return data as CloudBoardRecord;
   } catch {
     return null;
   }

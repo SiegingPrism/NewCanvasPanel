@@ -115,7 +115,6 @@ export function MathFormulaDialog({
         graphableFn: res.graphableFn,
         xRange: res.xRange,
         yRange: res.yRange,
-        verified: res.verified,
       });
 
       const solutionImageId = uid();
@@ -127,15 +126,12 @@ export function MathFormulaDialog({
         y: cy,
         w: solutionCard.width,
         h: solutionCard.height,
-        isAiAnswer: true,
       });
 
       // Interactive 2D Graph if plottable
-      let createdGraphId: string | null = null;
       if (res.graphableFn) {
-        createdGraphId = uid();
         addObject({
-          id: createdGraphId,
+          id: uid(),
           kind: "graph",
           x: cx + solutionCard.width + 24,
           y: cy,
@@ -148,22 +144,13 @@ export function MathFormulaDialog({
           yMax: res.yRange?.[1] ?? 8,
           color: "#38bdf8",
           title: res.title || `Plot: ${clean}`,
-          isAiAnswer: true,
         });
-        toast.success("Solved, explained & 2D graph plotted! Drag to position anywhere.", { icon: "✨" });
+        toast.success("Solved, explained & 2D graph plotted on canvas!");
       } else {
-        toast.success("Math solved! Drag to move it where you want.", { icon: "✨" });
+        toast.success("Math solved with step-by-step reasoning!");
       }
 
       pushHistory();
-      useWhiteboard.getState().setTool("select");
-      if (createdGraphId) {
-        useWhiteboard.getState().setSelectedIds([solutionImageId, createdGraphId]);
-        useWhiteboard.getState().setSelected(solutionImageId);
-      } else {
-        useWhiteboard.getState().setSelected(solutionImageId);
-        useWhiteboard.getState().setSelectedIds([]);
-      }
       onOpenChange(false);
     } catch (e) {
       console.error(e);

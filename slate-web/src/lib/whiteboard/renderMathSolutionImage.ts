@@ -28,7 +28,6 @@ export interface MathSolutionCardOptions {
   graphableFn?: string;
   xRange?: [number, number];
   yRange?: [number, number];
-  verified?: boolean;
 }
 
 export interface RenderedSolutionImage {
@@ -1045,21 +1044,6 @@ export function renderMathSolutionCard(opts: MathSolutionCardOptions): RenderedS
   ctx.font = "11px system-ui, sans-serif";
   ctx.fillText("Verified Algebraic Derivation & Visual Analysis", padding + 14, headerY + 36);
 
-  // Drag to move badge on top right of the banner
-  const moveText = "✥ Drag to move";
-  ctx.font = "bold 10px system-ui, sans-serif";
-  const mw = ctx.measureText(moveText).width + 16;
-  const mx = padding + contentW - mw - 10;
-  const my = headerY + 11;
-  ctx.fillStyle = "rgba(255, 255, 255, 0.22)";
-  roundRect(ctx, mx, my, mw, 24, 12);
-  ctx.fill();
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
-  ctx.lineWidth = 1;
-  ctx.stroke();
-  ctx.fillStyle = "#ffffff";
-  ctx.fillText(moveText, mx + 8, my + 16);
-
   let renderY = headerY + 46 + 12;
 
   // 3. Problem Statement Box
@@ -1093,23 +1077,6 @@ export function renderMathSolutionCard(opts: MathSolutionCardOptions): RenderedS
   ctx.fillStyle = "#15803d";
   ctx.font = "bold 10px system-ui, sans-serif";
   ctx.fillText("✓  FINAL ANSWER / ROOTS", padding + 14, renderY + 18);
-
-  // Render "✓ Verified" badge if algebraically/numerically verified by SafeMath
-  if (opts.verified === true) {
-    const badgeText = "✓ Verified";
-    ctx.font = "bold 9px system-ui, sans-serif";
-    const bw = ctx.measureText(badgeText).width + 14;
-    const bx = padding + contentW - bw - 14;
-    const by = renderY + 8;
-    ctx.fillStyle = "#dcfce7";
-    roundRect(ctx, bx, by, bw, 18, 9);
-    ctx.fill();
-    ctx.strokeStyle = "#22c55e";
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    ctx.fillStyle = "#15803d";
-    ctx.fillText(badgeText, bx + 7, by + 12);
-  }
 
   ctx.fillStyle = "#065f46";
   ctx.font = "bold italic 17px 'Cambria Math', 'Times New Roman', serif";

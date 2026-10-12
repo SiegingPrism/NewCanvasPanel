@@ -125,10 +125,8 @@ export function formatSuperscripts(str: string): string {
  * Converts LaTeX formulas and math expressions into clean, human-readable mathematical text.
  */
 export function formatLatexForDisplay(latex: string): string {
-  if (latex === null || latex === undefined) return "";
-  // Older saved boards can hold numbers/objects here — never throw while drawing.
-  let s = (typeof latex === "string" ? latex : String(latex)).trim();
-  if (!s) return "";
+  if (!latex) return "";
+  let s = latex.trim();
 
   // Strip duplicate `= x =` or leading `= `
   s = s.replace(/^=\s*(?=[a-z]\s*=)/i, "");

@@ -380,7 +380,7 @@ export const useNotes = create<NotesState & NotesActions>((set, get) => {
 
     clearOnSignOut: () => {
       saveStorage({}, []);
-      set({ notes: {}, noteOrder: [] });
+      set({ notes: {}, noteOrder: [], activeNoteId: null });
     },
   };
 });

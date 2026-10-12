@@ -1,5 +1,4 @@
 import type { Point, ShapeStroke } from "./types";
-import { fitClosedShape, fitRoundShape, looksRound } from "./shapeFit";
 
 // ---- Arc-Length Resampling ----
 export function resampleStroke(points: Point[], n = 64): Point[] {
@@ -237,17 +236,7 @@ export function recognizeShape(
   }
 
   // ----------------------------------------------------
-  // CLOSED STROKES: model fitting first
-  // ----------------------------------------------------
-  // Pick the simplest shape (triangle, 4-gon, pentagon, hexagon, ellipse) that actually traces
-  // the stroke. This handles wobbly, overshooting and not-quite-closed hand-drawn strokes.
-  const fitted = fitClosedShape(rawPoints, color, size);
-  if (fitted) return fitted;
-  // A round stroke with no real corners must never fall through to the rectangle rules below.
-  if (looksRound(rawPoints)) return fitRoundShape(rawPoints, color, size);
-
-  // ----------------------------------------------------
-  // CLOSED STROKES: Feature Extraction (special shapes: heart, star, cloud, cross, …)
+  // CLOSED STROKES: Feature Extraction
   // ----------------------------------------------------
   const { count: corners, corners: cornerPts } = countCorners(points, isClosed);
 
@@ -431,28 +420,19 @@ export function recognizeShape(
   // ----------------------------------------------------
   // G. Check DIAMOND (rhombus: 4 corners near edge centers)
   // ----------------------------------------------------
-  const hasDiamondCorners =
-    (rdpCount === 4 || corners === 4 || quadCorners?.length === 4) &&
-    rdpCount !== 5 &&
-    corners !== 5;
-
-  const isDiamond =
-    hasDiamondCorners &&
-    (isDiamondQuad(quadCorners, minX, maxX, minY, maxY, cx, cy) ||
-      isDiamondQuad(rdpVertices, minX, maxX, minY, maxY, cx, cy) ||
-      (!isTiltedRect && normRectDev >= 0.05 && detectDiamond(points, minX, maxX, minY, maxY, cx, cy)));
-
-  if (isDiamond) {
-    return {
-      kind: "shape",
-      shape: "diamond",
-      color,
-      size,
-      x: minX,
-      y: minY,
-      w,
-      h,
-    };
+  if (!isTiltedRect && normRectDev >= 0.075 && cornerElongation >= 1.25) {
+    if (detectDiamond(points, minX, maxX, minY, maxY, cx, cy)) {
+      return {
+        kind: "shape",
+        shape: "diamond",
+        color,
+        size,
+        x: minX,
+        y: minY,
+        w,
+        h,
+      };
+    }
   }
 
   // ----------------------------------------------------
@@ -865,38 +845,6 @@ function detectQuadType(
   return null;
 }
 
-function isDiamondQuad(
-  quad: Point[] | undefined | null,
-  minX: number,
-  maxX: number,
-  minY: number,
-  maxY: number,
-  cx: number,
-  cy: number,
-): boolean {
-  if (!quad || quad.length !== 4) return false;
-  const w = maxX - minX;
-  const h = maxY - minY;
-  if (w <= 0 || h <= 0) return false;
-
-  const sides: number[] = [];
-  for (let i = 0; i < 4; i++) {
-    const next = quad[(i + 1) % 4];
-    sides.push(Math.hypot(next.x - quad[i].x, next.y - quad[i].y));
-  }
-  const minSide = Math.min(...sides);
-  const maxSide = Math.max(...sides);
-  if (minSide === 0 || maxSide / minSide > 1.35) return false;
-
-  const tol = Math.max(16, Math.min(w, h) * 0.22);
-  const hasTop = quad.some((p) => Math.abs(p.x - cx) < tol && Math.abs(p.y - minY) < tol);
-  const hasBot = quad.some((p) => Math.abs(p.x - cx) < tol && Math.abs(p.y - maxY) < tol);
-  const hasLeft = quad.some((p) => Math.abs(p.x - minX) < tol && Math.abs(p.y - cy) < tol);
-  const hasRight = quad.some((p) => Math.abs(p.x - maxX) < tol && Math.abs(p.y - cy) < tol);
-
-  return hasTop && hasBot && hasLeft && hasRight;
-}
-
 function detectDiamond(
   points: Point[],
   minX: number,
@@ -934,14 +882,6 @@ function detectLine(
   const chordLen = Math.hypot(dx, dy);
   if (chordLen < 16) return null;
 
-  // 1. Path-length test: reject if path is >12% longer than the straight distance (e.g. cursive "mmm", waves, zigzags)
-  let pathLength = 0;
-  for (let i = 1; i < points.length; i++) {
-    pathLength += Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
-  }
-  if (pathLength / chordLen > 1.12) return null;
-
-  // 2. Maximum deviation from chord
   let maxDeviation = 0;
   for (const p of points) {
     const dist = Math.abs(dy * p.x - dx * p.y + last.x * first.y - last.y * first.x) / chordLen;
@@ -949,22 +889,6 @@ function detectLine(
   }
 
   if (maxDeviation / chordLen > 0.14) return null;
-
-  // 3. Repeated zero-crossings test: reject if path oscillates across the chord >= 3 times
-  let signCrossings = 0;
-  let lastSign = 0;
-  const deadband = Math.max(1.5, chordLen * 0.02);
-  for (const p of points) {
-    const signedDist = (dy * p.x - dx * p.y + last.x * first.y - last.y * first.x) / chordLen;
-    if (Math.abs(signedDist) > deadband) {
-      const sign = signedDist > 0 ? 1 : -1;
-      if (lastSign !== 0 && sign !== lastSign) {
-        signCrossings++;
-      }
-      lastSign = sign;
-    }
-  }
-  if (signCrossings >= 3) return null;
 
   return {
     kind: "shape",
@@ -978,95 +902,63 @@ function detectLine(
   };
 }
 
-function hasBarbAtEnd(points: Point[]): {
-  pStart: Point;
-  pTip: Point;
-  shaftDx: number;
-  shaftDy: number;
-} | null {
+function detectArrow(points: Point[], color: string, size: number): Omit<ShapeStroke, "id"> | null {
+  if (points.length < 8) return null;
   const n = points.length;
-  if (n < 6) return null;
+  const tip = points[n - 1];
 
-  let totalLen = 0;
+  let strokeLen = 0;
   for (let i = 1; i < n; i++) {
-    totalLen += Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
+    strokeLen += Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
   }
-  if (totalLen < 18) return null;
+  if (strokeLen < 16) return null;
 
-  let maxDist = 0;
-  let tipIdx = -1;
-  for (let i = Math.floor(n * 0.35); i < n - 1; i++) {
-    const d = Math.hypot(points[i].x - points[0].x, points[i].y - points[0].y);
-    if (d > maxDist) {
-      maxDist = d;
-      tipIdx = i;
+  const minBarb = Math.max(8, strokeLen * 0.04);
+  const maxBarb = Math.min(Math.max(28, strokeLen * 0.42), 140);
+
+  let barbFound = false;
+  let barbIndex = -1;
+
+  // Real barbs must be angled roughly 15°–60° off the line (0.26 to 1.05 radians)
+  const minBarbAngle = 15 * (Math.PI / 180);
+  const maxBarbAngle = 60 * (Math.PI / 180);
+
+  for (let i = n - 2; i >= Math.max(2, n - 25); i--) {
+    const d = Math.hypot(points[i].x - tip.x, points[i].y - tip.y);
+    if (d >= minBarb && d <= maxBarb) {
+      const vBarb = { x: points[i].x - tip.x, y: points[i].y - tip.y };
+      const vShaft = { x: points[0].x - tip.x, y: points[0].y - tip.y };
+      const magBarb = Math.hypot(vBarb.x, vBarb.y);
+      const magShaft = Math.hypot(vShaft.x, vShaft.y);
+      if (magBarb > 1e-4 && magShaft > 1e-4) {
+        const dot = (vBarb.x * vShaft.x + vBarb.y * vShaft.y) / (magBarb * magShaft);
+        const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
+        if (angle >= minBarbAngle && angle <= maxBarbAngle) {
+          barbFound = true;
+          barbIndex = i;
+          break;
+        }
+      }
     }
   }
-  if (tipIdx < 3) return null;
 
-  const pStart = points[0];
-  const pTip = points[tipIdx];
-  const pEnd = points[n - 1];
+  if (!barbFound) return null;
 
-  const shaftDx = pTip.x - pStart.x;
-  const shaftDy = pTip.y - pStart.y;
-  const shaftLen = Math.hypot(shaftDx, shaftDy);
+  const shaftEnd = points[barbIndex];
+  const startPt = points[0];
+  const dx = shaftEnd.x - startPt.x;
+  const dy = shaftEnd.y - startPt.y;
 
-  const barbDx = pEnd.x - pTip.x;
-  const barbDy = pEnd.y - pTip.y;
-  const barbLen = Math.hypot(barbDx, barbDy);
-
-  if (shaftLen < 20 || barbLen < 6 || barbLen > shaftLen * 0.65) return null;
-
-  let maxDev = 0;
-  for (let i = 1; i < tipIdx; i++) {
-    maxDev = Math.max(maxDev, perpendicularDistance(points[i], pStart, pTip));
-  }
-  if (maxDev > Math.max(16, shaftLen * 0.22)) return null;
-
-  const vShaftRev = { x: pStart.x - pTip.x, y: pStart.y - pTip.y };
-  const vBarb = { x: pEnd.x - pTip.x, y: pEnd.y - pTip.y };
-  const dot = (vShaftRev.x * vBarb.x + vShaftRev.y * vBarb.y) / (shaftLen * barbLen);
-  const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
-
-  // Cap barb angle at 55° (0.96 rad) to reject check marks (~60°-75°) while keeping true arrows (~20°-45°)
-  if (angle < 10 * (Math.PI / 180) || angle > 55 * (Math.PI / 180)) return null;
-
-  return { pStart, pTip, shaftDx, shaftDy };
-}
-
-function detectArrow(points: Point[], color: string, size: number): Omit<ShapeStroke, "id"> | null {
-  const endBarb = hasBarbAtEnd(points);
-  if (endBarb) {
-    return {
-      kind: "shape",
-      shape: "arrow",
-      color,
-      size,
-      x: endBarb.pStart.x,
-      y: endBarb.pStart.y,
-      w: endBarb.shaftDx,
-      h: endBarb.shaftDy,
-    };
-  }
-
-  const reversed = points.slice().reverse();
-  const startBarb = hasBarbAtEnd(reversed);
-  if (startBarb) {
-    const tail = points[points.length - 1];
-    return {
-      kind: "shape",
-      shape: "arrow",
-      color,
-      size,
-      x: tail.x,
-      y: tail.y,
-      w: startBarb.pTip.x - tail.x,
-      h: startBarb.pTip.y - tail.y,
-    };
-  }
-
-  return null;
+  return {
+    kind: "shape",
+    shape: "arrow",
+    color,
+    size,
+    x: startPt.x,
+    y: startPt.y,
+    w: dx,
+    h: dy,
+  };
 }
 
 function detectDoubleArrow(
@@ -1074,226 +966,30 @@ function detectDoubleArrow(
   color: string,
   size: number,
 ): Omit<ShapeStroke, "id"> | null {
-  const endBarb = hasBarbAtEnd(points);
-  const startBarb = hasBarbAtEnd(points.slice().reverse());
+  if (points.length < 14) return null;
+  const start = points[0];
+  const end = points[points.length - 1];
+  const totalSpan = Math.hypot(end.x - start.x, end.y - start.y);
+  if (totalSpan < 30) return null;
 
-  if (endBarb && startBarb) {
-    return {
-      kind: "shape",
-      shape: "double-arrow",
-      color,
-      size,
-      x: endBarb.pStart.x,
-      y: endBarb.pStart.y,
-      w: endBarb.shaftDx,
-      h: endBarb.shaftDy,
-    };
-  }
-  return null;
-}
+  // Check arrowheads near both ends
+  const hasEndArrow = detectArrow(points, color, size);
+  if (!hasEndArrow) return null;
 
-// ----------------------------------------------------
-// Multi-Stroke Recognition (e.g. Separate Line Shaft + Arrowhead)
-// ----------------------------------------------------
-
-function isStraightLine(points: Point[]): { start: Point; end: Point; len: number } | null {
-  if (points.length < 2) return null;
-  const first = points[0];
-  const last = points[points.length - 1];
-  const dx = last.x - first.x;
-  const dy = last.y - first.y;
-  const chordLen = Math.hypot(dx, dy);
-  if (chordLen < 16) return null;
-
-  let maxDeviation = 0;
-  for (const p of points) {
-    const dist = Math.abs(dy * p.x - dx * p.y + last.x * first.y - last.y * first.x) / chordLen;
-    maxDeviation = Math.max(maxDeviation, dist);
-  }
-
-  if (maxDeviation / chordLen > 0.18) return null;
-  return { start: first, end: last, len: chordLen };
-}
-
-function isChevronHead(
-  points: Point[],
-): { apex: Point; wing1: Point; wing2: Point; bisector: { x: number; y: number } } | null {
-  if (points.length < 3) return null;
-  const pts = resampleStroke(points, 24);
-  const start = pts[0];
-  const end = pts[pts.length - 1];
-
-  let maxDist = 0;
-  let apexIdx = -1;
-  const chordDx = end.x - start.x;
-  const chordDy = end.y - start.y;
-  const chordLen = Math.hypot(chordDx, chordDy);
-  if (chordLen === 0) return null;
-
-  for (let i = 1; i < pts.length - 1; i++) {
-    const d =
-      Math.abs(chordDy * pts[i].x - chordDx * pts[i].y + end.x * start.y - end.y * start.x) /
-      chordLen;
-    if (d > maxDist) {
-      maxDist = d;
-      apexIdx = i;
-    }
-  }
-
-  if (apexIdx < 2 || apexIdx > pts.length - 3) return null;
-  const apex = pts[apexIdx];
-
-  const w1 = { x: start.x - apex.x, y: start.y - apex.y };
-  const w2 = { x: end.x - apex.x, y: end.y - apex.y };
-  const len1 = Math.hypot(w1.x, w1.y);
-  const len2 = Math.hypot(w2.x, w2.y);
-
-  if (len1 < 5 || len2 < 5) return null;
-  if (len1 / len2 > 4.5 || len2 / len1 > 4.5) return null;
-
-  const dot = (w1.x * w2.x + w1.y * w2.y) / (len1 * len2);
-  const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
-  if (angle < 15 * (Math.PI / 180) || angle > 115 * (Math.PI / 180)) return null;
-
-  const normW1 = { x: w1.x / len1, y: w1.y / len1 };
-  const normW2 = { x: w2.x / len2, y: w2.y / len2 };
-  const bisector = {
-    x: -(normW1.x + normW2.x),
-    y: -(normW1.y + normW2.y),
-  };
-  const bLen = Math.hypot(bisector.x, bisector.y);
-  if (bLen === 0) return null;
+  const reversed = points.slice().reverse();
+  const hasStartArrow = detectArrow(reversed, color, size);
+  if (!hasStartArrow) return null;
 
   return {
-    apex,
-    wing1: start,
-    wing2: end,
-    bisector: { x: bisector.x / bLen, y: bisector.y / bLen },
+    kind: "shape",
+    shape: "double-arrow",
+    color,
+    size,
+    x: start.x,
+    y: start.y,
+    w: end.x - start.x,
+    h: end.y - start.y,
   };
-}
-
-export function recognizeMultiStrokeArrow(
-  strokes: Point[][],
-  color: string,
-  size: number,
-): Omit<ShapeStroke, "id"> | null {
-  if (strokes.length === 2) {
-    for (const [shaftPts, headPts] of [
-      [strokes[0], strokes[1]],
-      [strokes[1], strokes[0]],
-    ]) {
-      const line = isStraightLine(shaftPts);
-      if (!line) continue;
-
-      const chevron = isChevronHead(headPts);
-      if (chevron) {
-        const dEnd = Math.hypot(chevron.apex.x - line.end.x, chevron.apex.y - line.end.y);
-        const shaftDx = line.end.x - line.start.x;
-        const shaftDy = line.end.y - line.start.y;
-        const maxDist = Math.max(35, line.len * 0.35);
-
-        if (dEnd <= maxDist) {
-          const dot = (shaftDx * chevron.bisector.x + shaftDy * chevron.bisector.y) / line.len;
-          if (dot > 0.2) {
-            return {
-              kind: "shape",
-              shape: "arrow",
-              color,
-              size,
-              x: line.start.x,
-              y: line.start.y,
-              w: shaftDx,
-              h: shaftDy,
-            };
-          }
-        }
-
-        const dStart = Math.hypot(chevron.apex.x - line.start.x, chevron.apex.y - line.start.y);
-        if (dStart <= maxDist) {
-          const revDx = line.start.x - line.end.x;
-          const revDy = line.start.y - line.end.y;
-          const dot = (revDx * chevron.bisector.x + revDy * chevron.bisector.y) / line.len;
-          if (dot > 0.2) {
-            return {
-              kind: "shape",
-              shape: "arrow",
-              color,
-              size,
-              x: line.end.x,
-              y: line.end.y,
-              w: revDx,
-              h: revDy,
-            };
-          }
-        }
-      }
-
-      const barbLine = isStraightLine(headPts);
-      if (barbLine && barbLine.len >= 6 && barbLine.len <= line.len * 0.6) {
-        const dEnd1 = Math.hypot(barbLine.start.x - line.end.x, barbLine.start.y - line.end.y);
-        const dEnd2 = Math.hypot(barbLine.end.x - line.end.x, barbLine.end.y - line.end.y);
-        const tipPt = dEnd1 < dEnd2 ? barbLine.start : barbLine.end;
-        const barbEnd = dEnd1 < dEnd2 ? barbLine.end : barbLine.start;
-        const dTip = Math.min(dEnd1, dEnd2);
-
-        if (dTip <= Math.max(25, line.len * 0.25)) {
-          const bv = { x: barbEnd.x - tipPt.x, y: barbEnd.y - tipPt.y };
-          const shaftRev = { x: line.start.x - line.end.x, y: line.start.y - line.end.y };
-          const dot = (bv.x * shaftRev.x + bv.y * shaftRev.y) / (barbLine.len * line.len);
-          const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
-          if (angle >= 10 * (Math.PI / 180) && angle <= 80 * (Math.PI / 180)) {
-            return {
-              kind: "shape",
-              shape: "arrow",
-              color,
-              size,
-              x: line.start.x,
-              y: line.start.y,
-              w: line.end.x - line.start.x,
-              h: line.end.y - line.start.y,
-            };
-          }
-        }
-      }
-    }
-  }
-
-  if (strokes.length === 3) {
-    for (let i = 0; i < 3; i++) {
-      const shaftCandidate = strokes[i];
-      const line = isStraightLine(shaftCandidate);
-      if (!line) continue;
-
-      const otherStrokes = strokes.filter((_, idx) => idx !== i);
-      const barb1 = isStraightLine(otherStrokes[0]);
-      const barb2 = isStraightLine(otherStrokes[1]);
-      if (!barb1 || !barb2) continue;
-
-      const d1 = Math.min(
-        Math.hypot(barb1.start.x - line.end.x, barb1.start.y - line.end.y),
-        Math.hypot(barb1.end.x - line.end.x, barb1.end.y - line.end.y),
-      );
-      const d2 = Math.min(
-        Math.hypot(barb2.start.x - line.end.x, barb2.start.y - line.end.y),
-        Math.hypot(barb2.end.x - line.end.x, barb2.end.y - line.end.y),
-      );
-
-      if (d1 <= Math.max(25, line.len * 0.3) && d2 <= Math.max(25, line.len * 0.3)) {
-        return {
-          kind: "shape",
-          shape: "arrow",
-          color,
-          size,
-          x: line.start.x,
-          y: line.start.y,
-          w: line.end.x - line.start.x,
-          h: line.end.y - line.start.y,
-        };
-      }
-    }
-  }
-
-  return null;
 }
 
 export function isPointInPolygon(point: Point, polygon: Point[]): boolean {
