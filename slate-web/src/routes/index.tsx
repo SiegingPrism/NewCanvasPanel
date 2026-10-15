@@ -296,11 +296,11 @@ function Dashboard() {
         )}
       </header>
 
-      <main className="mx-auto max-w-6xl space-y-8 px-4 py-8 sm:px-6">
+      <main className="mx-auto max-w-6xl space-y-5 sm:space-y-8 px-3.5 py-4 sm:px-6 sm:py-8">
         {/* Welcome */}
         <section>
-          <h1 className="text-3xl font-bold tracking-tight">Welcome back</h1>
-          <p className="mt-1 text-muted-foreground">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Welcome back</h1>
+          <p className="mt-0.5 sm:mt-1 text-xs sm:text-sm text-muted-foreground">
             Pick up where you left off, or start something new.
           </p>
         </section>
@@ -310,7 +310,7 @@ function Dashboard() {
           <section>
             <SectionHeader
               title="Continue working"
-              icon={<Clock className="h-4 w-4" />}
+              icon={<Clock className="h-3.5 w-3.5" />}
               action={
                 <Link
                   to="/library"
@@ -324,25 +324,35 @@ function Dashboard() {
               onClick={() =>
                 navigate({ to: "/board/$boardId", params: { boardId: continueBoard.id } })
               }
-              className="group flex w-full items-center justify-between gap-4 rounded-2xl border bg-card p-5 text-left shadow-sm transition hover:border-primary hover:shadow-md"
+              className="group flex w-full items-center justify-between gap-3 rounded-xl sm:rounded-2xl border bg-card p-3 sm:p-4 text-left shadow-2xs transition hover:border-primary/80 hover:shadow-sm active:scale-[0.99]"
             >
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-lg font-semibold text-foreground">{continueBoard.title}</h3>
-                  {continueBoard.favorite && (
-                    <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                  )}
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="grid h-9 w-9 sm:h-10 sm:w-10 shrink-0 place-items-center rounded-lg sm:rounded-xl bg-primary/10 text-primary">
+                  <Clock className="h-4 w-4 sm:h-5 sm:w-5" />
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Last edited {relTime(continueBoard.updatedAt)}
-                </p>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="text-sm sm:text-base font-semibold text-foreground truncate">
+                      {continueBoard.title}
+                    </h3>
+                    {continueBoard.favorite && (
+                      <Star className="h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-400" />
+                    )}
+                  </div>
+                  <p className="mt-0.5 text-[11px] sm:text-xs text-muted-foreground">
+                    Last edited {relTime(continueBoard.updatedAt)}
+                  </p>
+                </div>
               </div>
-              <ArrowRight className="h-5 w-5 text-muted-foreground transition group-hover:translate-x-1 group-hover:text-primary" />
+              <div className="flex items-center gap-1 text-xs font-semibold text-primary shrink-0">
+                <span className="hidden sm:inline">Open</span>
+                <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
+              </div>
             </button>
           </section>
         ) : (
           <section>
-            <SectionHeader title="Recent board" icon={<Clock className="h-4 w-4" />} />
+            <SectionHeader title="Recent board" icon={<Clock className="h-3.5 w-3.5" />} />
             <EmptyState
               title="No boards created yet"
               subtitle="Create your first board to start drawing and sketching."
@@ -355,64 +365,70 @@ function Dashboard() {
           </section>
         )}
 
-        {/* Quick Actions (with New Note and Learning Hub restored) */}
+        {/* Quick Actions - 2 cols on mobile, 3 on tablet, 6 on desktop */}
         <section className="isolate">
           <SectionHeader title="Quick actions" />
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-3 lg:grid-cols-6">
             <QuickCard
-              icon={<Plus className="h-5 w-5" />}
+              icon={<Plus className="h-4 w-4 sm:h-5 sm:w-5" />}
               title="Blank board"
-              subtitle="Start with a clean canvas"
+              subtitle="Clean canvas"
               onClick={() => openNew("blank")}
+              badgeClass="bg-primary/10 text-primary"
             />
             <QuickCard
-              icon={<FolderOpen className="h-5 w-5" />}
+              icon={<FolderOpen className="h-4 w-4 sm:h-5 sm:w-5" />}
               title="Open library"
-              subtitle="Browse, sort, and organize"
+              subtitle="Browse & sort"
               onClick={() => navigate({ to: "/library" })}
+              badgeClass="bg-amber-500/10 text-amber-600 dark:text-amber-400"
             />
             <QuickCard
-              icon={<Sparkles className="h-5 w-5" />}
-              title="AI-assisted board"
-              subtitle="Start blank and open the AI helper"
+              icon={<Sparkles className="h-4 w-4 sm:h-5 sm:w-5" />}
+              title="AI board"
+              subtitle="Smart helper"
               onClick={() => openNew("blank")}
+              badgeClass="bg-violet-500/10 text-violet-600 dark:text-violet-400"
             />
             <QuickCard
-              icon={<FileText className="h-5 w-5" />}
+              icon={<FileText className="h-4 w-4 sm:h-5 sm:w-5" />}
               title="New note"
-              subtitle="Block-based notes with AI actions"
+              subtitle="Block notes"
               onClick={() => navigate({ to: "/notes" })}
+              badgeClass="bg-blue-500/10 text-blue-600 dark:text-blue-400"
             />
             <QuickCard
-              icon={<GraduationCap className="h-5 w-5" />}
+              icon={<GraduationCap className="h-4 w-4 sm:h-5 sm:w-5" />}
               title="Learning Hub"
-              subtitle="Study flashcards & take quizzes"
+              subtitle="Flashcards & quiz"
               onClick={() => navigate({ to: "/learn" })}
+              badgeClass="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
             />
             <QuickCard
-              icon={<BookOpen className="h-5 w-5 text-primary" />}
-              title="Feature Guide & Tutorial"
-              subtitle="Inks, widgets, snap & AI overview"
+              icon={<BookOpen className="h-4 w-4 sm:h-5 sm:w-5" />}
+              title="Feature Guide"
+              subtitle="Inks & tutorial"
               onClick={() => setTourOpen(true)}
+              badgeClass="bg-rose-500/10 text-rose-600 dark:text-rose-400"
             />
           </div>
         </section>
 
         {/* My Boards & Folders (Organization & Starred Favorites) */}
-        <section className="isolate space-y-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <section className="isolate space-y-3 sm:space-y-4">
+          <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
               <SectionHeader
                 title="My Boards & Folders"
                 icon={<Folder className="h-4 w-4 text-primary" />}
               />
-              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+              <span className="text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground -mt-2 sm:-mt-3">
                 {filteredBoards.length}
               </span>
             </div>
 
             <div className="flex items-center gap-2">
-              <div className="relative w-40 sm:w-52">
+              <div className="relative flex-1 sm:w-52 sm:flex-none">
                 <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
                   placeholder="Search boards..."
@@ -425,7 +441,7 @@ function Dashboard() {
               {/* New Folder Popover */}
               <Popover open={newFolderOpen} onOpenChange={setNewFolderOpen}>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs rounded-xl">
+                  <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs rounded-xl shrink-0">
                     <FolderPlus className="h-3.5 w-3.5" />
                     <span className="hidden sm:inline">New Folder</span>
                   </Button>
@@ -515,9 +531,9 @@ function Dashboard() {
 
           {/* Boards Grid */}
           {filteredBoards.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-border p-8 text-center bg-card/50">
-              <p className="text-sm font-semibold text-foreground">No boards found</p>
-              <p className="text-xs text-muted-foreground mt-1">
+            <div className="rounded-xl sm:rounded-2xl border border-dashed border-border p-6 sm:p-8 text-center bg-card/50">
+              <p className="text-xs sm:text-sm font-semibold text-foreground">No boards found</p>
+              <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">
                 {activeFolderId === "starred"
                   ? "Star your favorite boards to access them quickly here."
                   : "Create a new board in this folder to get started."}
@@ -526,28 +542,28 @@ function Dashboard() {
                 size="sm"
                 variant="outline"
                 onClick={() => openNew()}
-                className="mt-3 gap-1.5 text-xs rounded-xl"
+                className="mt-2.5 sm:mt-3 gap-1.5 text-xs rounded-xl"
               >
                 <Plus className="h-3.5 w-3.5" /> Create Board
               </Button>
             </div>
           ) : (
             <div className="space-y-2">
-              <div className="max-h-[272px] overflow-y-auto pr-1 scrollbar-thin">
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="max-h-[290px] overflow-y-auto pr-1 scrollbar-thin">
+                <div className="grid gap-2.5 sm:gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {filteredBoards.map((b) => {
                     const folderObj = folders.find((f) => f.id === b.folderId);
                     return (
                       <div
                         key={b.id}
-                        className="group relative flex flex-col justify-between rounded-2xl border bg-card p-4 shadow-2xs transition hover:border-primary/60 hover:shadow-md"
+                        className="group relative flex flex-col justify-between rounded-xl sm:rounded-2xl border bg-card p-3 sm:p-4 shadow-2xs transition hover:border-primary/60 hover:shadow-md"
                       >
                         <div>
                           <div className="flex items-start justify-between gap-2">
                             <Link
                               to="/board/$boardId"
                               params={{ boardId: b.id }}
-                              className="font-semibold text-foreground text-sm hover:underline line-clamp-1"
+                              className="font-semibold text-foreground text-xs sm:text-sm hover:underline line-clamp-1"
                             >
                               {b.title}
                             </Link>
@@ -563,7 +579,7 @@ function Dashboard() {
                               title={b.favorite ? "Unstar board" : "Star board"}
                             >
                               <Star
-                                className={`h-4 w-4 ${
+                                className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${
                                   b.favorite
                                     ? "fill-amber-400 text-amber-400"
                                     : "text-muted-foreground/60 hover:text-foreground"
@@ -573,7 +589,7 @@ function Dashboard() {
                           </div>
 
                           {/* Folder & Tags Bar */}
-                          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                          <div className="mt-1.5 sm:mt-2 flex flex-wrap items-center gap-1.5">
                             {/* Folder Picker Popover */}
                             <Popover>
                               <PopoverTrigger asChild>
@@ -623,8 +639,8 @@ function Dashboard() {
                           </div>
                         </div>
 
-                        <div className="mt-4 flex items-center justify-between border-t border-border/50 pt-2.5 text-xs text-muted-foreground">
-                          <span className="text-[11px]">{relTime(b.updatedAt)}</span>
+                        <div className="mt-3 sm:mt-4 flex items-center justify-between border-t border-border/50 pt-2 sm:pt-2.5 text-xs text-muted-foreground">
+                          <span className="text-[10px] sm:text-[11px]">{relTime(b.updatedAt)}</span>
                           <Link
                             to="/board/$boardId"
                             params={{ boardId: b.id }}
@@ -657,10 +673,10 @@ function Dashboard() {
         </section>
 
         {/* Recent AI Creations - Scrollable, max 2 items */}
-        <section className="isolate pb-16">
+        <section className="isolate pb-12 sm:pb-16">
           <SectionHeader
             title="Recent AI creations"
-            icon={<Wand2 className="h-4 w-4" />}
+            icon={<Wand2 className="h-3.5 w-3.5" />}
             action={
               recentAI.length > 0 ? (
                 <span className="text-xs text-muted-foreground font-medium">
@@ -677,15 +693,15 @@ function Dashboard() {
           ) : (
             <div className="max-h-[220px] overflow-y-auto space-y-2.5 pr-1 scrollbar-thin overscroll-contain rounded-xl">
               {recentAI.slice(0, 2).map((r) => (
-                <div key={r.id} className="rounded-xl border bg-card p-4 transition hover:border-primary/50 shadow-2xs">
+                <div key={r.id} className="rounded-xl border bg-card p-3 sm:p-4 transition hover:border-primary/50 shadow-2xs">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-semibold text-foreground">{r.prompt}</div>
-                      <div className="mt-1 line-clamp-3 text-xs text-muted-foreground whitespace-pre-wrap">
+                      <div className="truncate text-xs sm:text-sm font-semibold text-foreground">{r.prompt}</div>
+                      <div className="mt-1 line-clamp-2 sm:line-clamp-3 text-xs text-muted-foreground whitespace-pre-wrap">
                         {r.response}
                       </div>
                     </div>
-                    <div className="shrink-0 text-[11px] text-muted-foreground">
+                    <div className="shrink-0 text-[10px] sm:text-[11px] text-muted-foreground">
                       {relTime(r.createdAt)}
                     </div>
                   </div>
@@ -693,7 +709,7 @@ function Dashboard() {
                     <Link
                       to="/board/$boardId"
                       params={{ boardId: r.boardId }}
-                      className="mt-2.5 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                      className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
                     >
                       Open {boards[r.boardId].title} <ArrowRight className="h-3 w-3" />
                     </Link>
@@ -721,8 +737,8 @@ function SectionHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="mb-3 flex items-center justify-between">
-      <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+    <div className="mb-2 sm:mb-3 flex items-center justify-between">
+      <h2 className="flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-muted-foreground">
         {icon}
         {title}
       </h2>
@@ -736,23 +752,33 @@ function QuickCard({
   title,
   subtitle,
   onClick,
+  badgeClass = "bg-primary/10 text-primary",
 }: {
   icon: React.ReactNode;
   title: string;
   subtitle: string;
   onClick: () => void;
+  badgeClass?: string;
 }) {
   return (
     <button
       onClick={onClick}
-      className="group flex items-start gap-3 rounded-xl border bg-card p-4 text-left transition hover:border-primary hover:shadow-sm"
+      className="group flex flex-col justify-between rounded-xl sm:rounded-2xl border bg-card p-2.5 sm:p-3.5 text-left transition hover:border-primary/80 hover:shadow-2xs active:scale-[0.98]"
     >
-      <span className="grid h-10 w-10 place-items-center rounded-lg bg-primary/10 text-primary">
-        {icon}
-      </span>
-      <div>
-        <div className="text-sm font-semibold">{title}</div>
-        <div className="text-xs text-muted-foreground">{subtitle}</div>
+      <div className="flex items-center justify-between w-full mb-1.5 sm:mb-2">
+        <span
+          className={cn(
+            "grid h-7 w-7 sm:h-9 sm:w-9 place-items-center rounded-lg sm:rounded-xl transition group-hover:scale-105",
+            badgeClass
+          )}
+        >
+          {icon}
+        </span>
+        <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/40 opacity-0 group-hover:opacity-100 transition group-hover:translate-x-0.5 group-hover:text-primary" />
+      </div>
+      <div className="min-w-0">
+        <div className="text-xs sm:text-sm font-semibold text-foreground truncate">{title}</div>
+        <div className="text-[10px] sm:text-xs text-muted-foreground truncate mt-0.5">{subtitle}</div>
       </div>
     </button>
   );
@@ -768,10 +794,10 @@ function EmptyState({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed p-8 text-center">
-      <p className="text-sm font-medium">{title}</p>
-      <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p>
-      {action && <div className="mt-3">{action}</div>}
+    <div className="flex flex-col items-center justify-center rounded-xl sm:rounded-2xl border border-dashed p-4 sm:p-8 text-center bg-card/30">
+      <p className="text-xs sm:text-sm font-semibold text-foreground">{title}</p>
+      <p className="mt-0.5 sm:mt-1 text-[11px] sm:text-xs text-muted-foreground">{subtitle}</p>
+      {action && <div className="mt-2.5 sm:mt-3">{action}</div>}
     </div>
   );
 }
