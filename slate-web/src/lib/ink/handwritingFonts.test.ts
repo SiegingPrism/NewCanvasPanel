@@ -30,4 +30,15 @@ describe("handwriting fonts for translation", () => {
     expect(fontStack("Kalam")).toMatch(/^"Kalam", .*Noto Sans Devanagari/);
     expect(fontStack(undefined)).toContain("system-ui");
   });
+
+  it("safely handles failed font loading and allows clearing failed cache", async () => {
+    const { clearFailedFonts, ensureHandwritingFont } = await import("./handwritingFonts");
+    expect(typeof clearFailedFonts).toBe("function");
+    // Undefined font returns false without throwing
+    const res = await ensureHandwritingFont(undefined);
+    expect(res).toBe(false);
+
+    // clearFailedFonts can be called at any time (e.g. online reconnect)
+    expect(() => clearFailedFonts()).not.toThrow();
+  });
 });

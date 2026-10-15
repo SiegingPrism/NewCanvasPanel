@@ -81,3 +81,43 @@ describe("Ink settings defaults", () => {
   });
 });
 
+describe("Slate Translate selection decoupling", () => {
+  it("does not overwrite live translateTo when translating a selection", async () => {
+    const { useInk } = await import("./recognizer");
+    useInk.getState().setTranslateTo("hi-IN");
+    expect(useInk.getState().translateTo).toBe("hi-IN");
+
+    let pickedCode = "";
+    useInk.getState().openTranslatePicker((code) => {
+      pickedCode = code;
+    });
+
+    expect(useInk.getState().translatePickerOpen).toBe(true);
+    expect(useInk.getState().translatePickerForSelection).toBe(true);
+
+    // User picks French for selection translation
+    const changedLive = useInk.getState().chooseTranslateLanguage("fr-FR");
+    expect(changedLive).toBe(false);
+    expect(pickedCode).toBe("fr-FR");
+    // Crucial: live translation setting must remain untouched!
+    expect(useInk.getState().translateTo).toBe("hi-IN");
+    expect(useInk.getState().translatePickerOpen).toBe(false);
+    expect(useInk.getState().translatePickerForSelection).toBe(false);
+  });
+
+  it("updates live translateTo when chosen from pen menu or settings", async () => {
+    const { useInk } = await import("./recognizer");
+    useInk.getState().setTranslateTo("hi-IN");
+
+    // Opened from pen menu / toolbar (no callback provided)
+    useInk.getState().openTranslatePicker();
+    expect(useInk.getState().translatePickerOpen).toBe(true);
+    expect(useInk.getState().translatePickerForSelection).toBe(false);
+
+    const changedLive = useInk.getState().chooseTranslateLanguage("es-ES");
+    expect(changedLive).toBe(true);
+    expect(useInk.getState().translateTo).toBe("es-ES");
+    expect(useInk.getState().translatePickerOpen).toBe(false);
+  });
+});
+

@@ -26,7 +26,7 @@ export function HandwritingLanguageDialog({
   /** "write": the language you write in. "translate": the language to translate into. */
   mode?: "write" | "translate";
 }) {
-  const { language: writeLanguage, setLanguage, translateTo, setTranslateTo } = useInk();
+  const { language: writeLanguage, setLanguage, translateTo, chooseTranslateLanguage, translatePickerForSelection } = useInk();
   const isTranslate = mode === "translate";
   const language = isTranslate ? translateTo : writeLanguage;
   const [search, setSearch] = useState("");
@@ -56,8 +56,10 @@ export function HandwritingLanguageDialog({
 
   const selectLanguage = async (item: LanguageOption) => {
     if (isTranslate) {
-      setTranslateTo(item.code); // runs a pending "translate selection" request first
-      toast.success(`Slate Translate set to ${item.name} (${item.nativeName}) — Ready!`);
+      const changedLive = chooseTranslateLanguage(item.code);
+      if (changedLive) {
+        toast.success(`Slate Translate set to ${item.name} (${item.nativeName}) — Ready!`);
+      }
       onOpenChange(false);
       return;
     }
@@ -93,11 +95,15 @@ export function HandwritingLanguageDialog({
             </div>
             <div>
               <DialogTitle className="text-base font-semibold">
-                {isTranslate ? "Slate Translate — Translate into" : "Handwriting Language"}
+                {isTranslate
+                  ? (translatePickerForSelection ? "Translate Selection — Choose Language" : "Slate Translate — Translate into")
+                  : "Handwriting Language"}
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground">
                 {isTranslate
-                  ? "Write in any language — text is converted into this language in proper handwriting"
+                  ? (translatePickerForSelection
+                      ? "Translate the selected handwriting or text into this language"
+                      : "Write in any language — text is converted into this language in proper handwriting")
                   : "All 22 constitutional Indian languages + world languages"}
               </DialogDescription>
             </div>

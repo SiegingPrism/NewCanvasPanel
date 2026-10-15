@@ -90,35 +90,87 @@ export function handwritingScale(font: string | undefined): number {
 
 const requested = new Map<string, Promise<boolean>>();
 const loaded = new Set<string>();
+const failedFonts = new Map<string, number>();
 
-/** Loads a handwriting font (once). Resolves true when it's ready to draw on the canvas. */
-export function ensureHandwritingFont(font: string | undefined, sample = "Aa"): Promise<boolean> {
+/** Cooldown before retrying a failed font fetch (unless forced or online event fires). */
+const FAILED_COOLDOWN_MS = 6000;
+
+/** Clears failed font cache so all pending/failed handwriting fonts can be retried immediately. */
+export function clearFailedFonts(): void {
+  for (const font of failedFonts.keys()) {
+    requested.delete(font);
+  }
+  failedFonts.clear();
+}
+
+// When internet comes back online, clear failed fonts and notify canvas to retry loading
+if (typeof window !== "undefined") {
+  window.addEventListener("online", () => {
+    clearFailedFonts();
+    window.dispatchEvent(new CustomEvent("slate:fonts-retry"));
+  });
+}
+
+/** Loads a handwriting font. Resolves true when it's ready to draw on the canvas. */
+export function ensureHandwritingFont(
+  font: string | undefined,
+  sample = "Aa",
+  forceRetry = false,
+): Promise<boolean> {
   if (!font || typeof document === "undefined") return Promise.resolve(false);
   if (loaded.has(font)) return Promise.resolve(true);
-  const existing = requested.get(font);
-  if (existing) return existing;
+
+  if (!forceRetry) {
+    const lastFailed = failedFonts.get(font);
+    if (lastFailed && Date.now() - lastFailed < FAILED_COOLDOWN_MS) {
+      return Promise.resolve(false);
+    }
+    const existing = requested.get(font);
+    if (existing) return existing;
+  }
+
   const p = (async () => {
+    const id = `hwfont-${font.replace(/\s+/g, "-").toLowerCase()}`;
+    let linkAdded = false;
     try {
-      const id = `hwfont-${font.replace(/\s+/g, "-").toLowerCase()}`;
-      if (!document.getElementById(id)) {
-        const link = document.createElement("link");
+      let link = document.getElementById(id) as HTMLLinkElement | null;
+      if (!link) {
+        link = document.createElement("link");
         link.id = id;
         link.rel = "stylesheet";
         link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(font).replace(/%20/g, "+")}&display=swap`;
         document.head.appendChild(link);
-        await new Promise<void>((resolve) => {
-          link.onload = () => resolve();
-          link.onerror = () => resolve();
-          setTimeout(resolve, 6000);
+        linkAdded = true;
+        const loadedOk = await new Promise<boolean>((resolve) => {
+          if (!link) return resolve(false);
+          link.onload = () => resolve(true);
+          link.onerror = () => resolve(false);
+          setTimeout(() => resolve(false), 6000);
         });
+        if (!loadedOk) {
+          throw new Error(`Failed to fetch stylesheet for font "${font}"`);
+        }
       }
       await document.fonts.load(`32px "${font}"`, sample);
+      if (document.fonts.check && !document.fonts.check(`32px "${font}"`, sample)) {
+        await document.fonts.ready;
+      }
       loaded.add(font);
+      failedFonts.delete(font);
+      requested.delete(font);
       return true;
     } catch {
+      // If font fetch failed, remove the broken <link> tag so future retries re-fetch cleanly
+      if (linkAdded) {
+        const link = document.getElementById(id);
+        link?.remove();
+      }
+      failedFonts.set(font, Date.now());
+      requested.delete(font); // Do NOT cache the failed promise forever
       return false;
     }
   })();
+
   requested.set(font, p);
   return p;
 }
@@ -128,3 +180,4 @@ export function handwritingFontReady(font: string | undefined): boolean {
   if (!font || typeof document === "undefined") return true;
   return loaded.has(font);
 }
+

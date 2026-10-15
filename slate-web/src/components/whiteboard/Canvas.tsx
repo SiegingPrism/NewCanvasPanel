@@ -991,6 +991,20 @@ export function WhiteboardCanvas({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [camera, dpr, page, selectedId, selectedIds]);
 
+  // Retry handwriting fonts when returning online or when font reload is triggered
+  useEffect(() => {
+    const handleFontsRetry = () => {
+      fontRedrawRequested.current.clear();
+      redraw();
+    };
+    window.addEventListener("online", handleFontsRetry);
+    window.addEventListener("slate:fonts-retry", handleFontsRetry);
+    return () => {
+      window.removeEventListener("online", handleFontsRetry);
+      window.removeEventListener("slate:fonts-retry", handleFontsRetry);
+    };
+  }, [redraw]);
+
   function drawBackground(ctx: CanvasRenderingContext2D, w: number, h: number, bg: PageBackground) {
     if (bg === "blackboard") {
       // Authentic classroom chalkboard deep green
@@ -3568,7 +3582,14 @@ export function WhiteboardCanvas({
     if (t.fontFamily && !handwritingFontReady(t.fontFamily) && !fontRedrawRequested.current.has(t.fontFamily)) {
       // Load the handwriting font once, then draw again (a system font is used meanwhile)
       fontRedrawRequested.current.add(t.fontFamily);
-      void ensureHandwritingFont(t.fontFamily, t.text.slice(0, 8)).then(() => redraw());
+      void ensureHandwritingFont(t.fontFamily, t.text.slice(0, 8)).then((ok) => {
+        if (ok) {
+          redraw();
+        } else {
+          // Font load failed (e.g. offline); allow retrying when online or on next draw cycle
+          fontRedrawRequested.current.delete(t.fontFamily!);
+        }
+      });
     }
     ctx.save();
     ctx.fillStyle = t.color;

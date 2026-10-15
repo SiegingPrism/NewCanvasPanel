@@ -179,25 +179,33 @@ export function useHandwriting(opts: {
     const busyMsg = translateLive ? `Translating to ${findLanguage(translateTo).name}…` : "Reading…";
 
     if (livePreview) {
-      setChip({
-        rect: g.rect,
-        text: null,
-        alternatives: [],
-        busy: true,
-        busyText: busyMsg,
-        groupId: g.id,
-      });
+      if (chipRef.current?.groupId === g.id && chipRef.current?.text) {
+        // Keep existing recognized text anchored while user is continuing the word
+        setChip((prev) => (prev ? { ...prev, rect: g.rect } : null));
+      } else {
+        setChip(null);
+      }
     } else {
       setChip(null);
     }
-    // Wait for a short pause so a whole word goes in one request
-    const debounceMs = livePreview ? 450 : 600;
+    // Wait for a deliberate pause so slow/deliberate writers don't send individual requests per letter
+    const debounceMs = 1100;
     recogTimer.current = setTimeout(async () => {
       try {
         const strokes = groupStrokes(g);
         if (!strokes.length) {
           setChip(null);
           return;
+        }
+        if (useInk.getState().livePreview) {
+          setChip({
+            rect: strokesBounds(strokes),
+            text: null,
+            alternatives: [],
+            busy: true,
+            busyText: busyMsg,
+            groupId: g.id,
+          });
         }
         const res = await recognizeInk(strokes, translateLive ? { translateTo } : {});
         if (gen !== genRef.current || groupRef.current?.id !== g.id) return; // a newer stroke arrived

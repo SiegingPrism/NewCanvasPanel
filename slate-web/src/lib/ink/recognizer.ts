@@ -217,8 +217,12 @@ type InkState = InkSettings & {
   /** Language translations are written in. */
   translateTo: string;
   translatePickerOpen: boolean;
+  /** True when opened for a one-off selection translation rather than changing live writing settings */
+  translatePickerForSelection: boolean;
   set: (patch: Partial<InkSettings>) => void;
   setTranslateTo: (code: string) => void;
+  /** Chooses translation language; returns true if live translation setting changed, false if handled by selection callback */
+  chooseTranslateLanguage: (code: string) => boolean;
   /** Opens the "Translate into…" picker; `onPick` runs once with the chosen language. */
   openTranslatePicker: (onPick?: (code: string) => void) => void;
   closeTranslatePicker: () => void;
@@ -236,6 +240,7 @@ export const useInk = create<InkState>((set, get) => ({
   langPickerOpen: false,
   translateTo: loadTranslateTo(),
   translatePickerOpen: false,
+  translatePickerForSelection: false,
   set: (patch) => {
     set(patch);
     const { livePreview, autoType, scratchOut, translateLive } = { ...get(), ...patch };
@@ -256,7 +261,7 @@ export const useInk = create<InkState>((set, get) => ({
   setLangPickerOpen: (langPickerOpen) => set({ langPickerOpen }),
   setStatus: (status) => set({ status }),
   setTranslateTo: (code) => {
-    set((s) => ({ translateTo: code, translatePickerOpen: false, langVersion: (s.langVersion || 0) + 1 }));
+    set((s) => ({ translateTo: code, translatePickerOpen: false, translatePickerForSelection: false, langVersion: (s.langVersion || 0) + 1 }));
     try {
       localStorage.setItem(TRANSLATE_KEY, code);
     } catch {
@@ -266,13 +271,24 @@ export const useInk = create<InkState>((set, get) => ({
     pendingTranslatePick = null;
     cb?.(code);
   },
+  chooseTranslateLanguage: (code) => {
+    const cb = pendingTranslatePick;
+    pendingTranslatePick = null;
+    set({ translatePickerOpen: false, translatePickerForSelection: false });
+    if (cb) {
+      cb(code);
+      return false;
+    }
+    get().setTranslateTo(code);
+    return true;
+  },
   openTranslatePicker: (onPick) => {
     pendingTranslatePick = onPick ?? null;
-    set({ translatePickerOpen: true });
+    set({ translatePickerOpen: true, translatePickerForSelection: !!onPick });
   },
   closeTranslatePicker: () => {
     pendingTranslatePick = null;
-    set({ translatePickerOpen: false });
+    set({ translatePickerOpen: false, translatePickerForSelection: false });
   },
 }));
 
