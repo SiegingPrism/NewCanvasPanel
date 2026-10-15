@@ -24,6 +24,8 @@ import {
   Check,
   Tag,
   Cloud,
+  PenTool,
+  Layers,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -119,9 +121,12 @@ function Dashboard() {
   }
 
   return (
-    <div className="min-h-dvh w-full bg-background overscroll-y-contain">
+    <div className="relative min-h-dvh w-full bg-background overscroll-y-contain">
+      {/* Ambient background glow */}
+      <div className="pointer-events-none fixed top-0 inset-x-0 h-96 bg-gradient-to-b from-primary/[0.04] via-primary/[0.01] to-transparent z-0" />
+
       {/* Header with Safe Area Inset Boundary */}
-      <header className="sticky top-0 z-20 border-b bg-background/95 backdrop-blur pt-[max(1.75rem,calc(var(--sat,env(safe-area-inset-top,0px))+0.25rem))] sm:pt-[max(0.5rem,calc(var(--sat,env(safe-area-inset-top,0px))+0.25rem))]">
+      <header className="sticky top-0 z-20 border-b bg-background/95 backdrop-blur-md pt-[max(1.75rem,calc(var(--sat,env(safe-area-inset-top,0px))+0.25rem))] sm:pt-[max(0.5rem,calc(var(--sat,env(safe-area-inset-top,0px))+0.25rem))]">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-2 sm:py-3 sm:px-6">
           <Link to="/" className="flex items-center gap-2.5 font-semibold group">
             <img
@@ -194,13 +199,13 @@ function Dashboard() {
 
           {/* Mobile Right Bar: Quick New + Burger Menu Button */}
           <div className="flex md:hidden items-center gap-2">
-            <Button size="sm" onClick={() => openNew()} className="h-8 px-2.5 text-xs gap-1">
+            <Button size="sm" onClick={() => openNew()} className="h-8 px-2.5 text-xs gap-1 font-semibold rounded-lg shadow-xs shadow-primary/20">
               <Plus className="h-3.5 w-3.5" /> New
             </Button>
             <button
               type="button"
               onClick={() => setMobileMenuOpen((prev) => !prev)}
-              className="grid h-8 w-8 place-items-center rounded-lg border border-border bg-card text-foreground hover:bg-accent active:scale-95 transition"
+              className="grid h-8 w-8 place-items-center rounded-lg border border-border/80 bg-card text-foreground hover:bg-accent active:scale-95 transition"
               aria-label="Toggle navigation menu"
             >
               {mobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
@@ -298,8 +303,12 @@ function Dashboard() {
 
       <main className="mx-auto max-w-6xl space-y-3.5 sm:space-y-6 px-3.5 sm:px-6 py-2.5 sm:py-6 pb-[max(3.5rem,calc(var(--sab,env(safe-area-inset-bottom,0px))+2.5rem))]">
         {/* Welcome */}
-        <section className="space-y-0.5">
-          <h1 className="text-xl sm:text-3xl font-bold tracking-tight">Welcome back</h1>
+        <section className="space-y-1">
+          <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20 w-fit">
+            <Sparkles className="h-3 w-3" />
+            <span>Creative Whiteboard Studio</span>
+          </div>
+          <h1 className="text-xl sm:text-3xl font-bold tracking-tight text-foreground">Welcome back</h1>
           <p className="text-xs sm:text-sm text-muted-foreground">
             Pick up where you left off, or start something new.
           </p>
@@ -310,7 +319,7 @@ function Dashboard() {
           <section>
             <SectionHeader
               title="Continue working"
-              icon={<Clock className="h-3.5 w-3.5" />}
+              icon={<Clock className="h-3.5 w-3.5 text-primary" />}
               action={
                 <Link
                   to="/library"
@@ -324,11 +333,15 @@ function Dashboard() {
               onClick={() =>
                 navigate({ to: "/board/$boardId", params: { boardId: continueBoard.id } })
               }
-              className="group flex w-full items-center justify-between gap-2.5 rounded-xl sm:rounded-2xl border bg-card p-2.5 sm:p-4 text-left shadow-2xs transition hover:border-primary/80 hover:shadow-sm active:scale-[0.99]"
+              className="group relative flex w-full items-center justify-between gap-2.5 rounded-xl sm:rounded-2xl border border-primary/25 bg-gradient-to-r from-card via-card to-primary/[0.05] p-2.5 sm:p-4 text-left shadow-2xs transition duration-200 hover:border-primary/50 hover:shadow-xs active:scale-[0.99] overflow-hidden"
             >
-              <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-                <div className="grid h-8 w-8 sm:h-10 sm:w-10 shrink-0 place-items-center rounded-lg sm:rounded-xl bg-primary/10 text-primary">
-                  <Clock className="h-4 w-4 sm:h-5 sm:w-5" />
+              <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
+                <div className="relative grid h-8 w-8 sm:h-10 sm:w-10 shrink-0 place-items-center rounded-lg sm:rounded-xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-xs shadow-primary/25">
+                  <PenTool className="h-4 w-4 sm:h-5 sm:w-5" />
+                  <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  </span>
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
@@ -338,13 +351,17 @@ function Dashboard() {
                     {continueBoard.favorite && (
                       <Star className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0 fill-amber-400 text-amber-400" />
                     )}
+                    <span className="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[9px] font-semibold rounded bg-primary/10 text-primary">
+                      Recent
+                    </span>
                   </div>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground">
-                    Last edited {relTime(continueBoard.updatedAt)}
+                  <p className="text-[10px] sm:text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                    <Clock className="h-2.5 w-2.5 text-muted-foreground/70" />
+                    <span>Last edited {relTime(continueBoard.updatedAt)}</span>
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-1 text-[11px] sm:text-xs font-semibold text-primary shrink-0">
+              <div className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] sm:text-xs font-semibold bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-all duration-200 shrink-0 shadow-2xs">
                 <span>Resume</span>
                 <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
               </div>
@@ -374,42 +391,48 @@ function Dashboard() {
               title="Blank board"
               subtitle="Clean canvas"
               onClick={() => openNew("blank")}
-              badgeClass="bg-primary/10 text-primary"
+              badgeClass="bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-xs shadow-blue-500/30"
+              gradientBorder="hover:border-blue-500/40 hover:bg-blue-500/[0.02]"
             />
             <QuickCard
               icon={<FolderOpen className="h-3.5 w-3.5 sm:h-5 sm:w-5" />}
               title="Open library"
               subtitle="Browse & sort"
               onClick={() => navigate({ to: "/library" })}
-              badgeClass="bg-amber-500/10 text-amber-600 dark:text-amber-400"
+              badgeClass="bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-xs shadow-amber-500/30"
+              gradientBorder="hover:border-amber-500/40 hover:bg-amber-500/[0.02]"
             />
             <QuickCard
               icon={<Sparkles className="h-3.5 w-3.5 sm:h-5 sm:w-5" />}
               title="AI board"
               subtitle="Smart helper"
               onClick={() => openNew("blank")}
-              badgeClass="bg-violet-500/10 text-violet-600 dark:text-violet-400"
+              badgeClass="bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-xs shadow-violet-500/30"
+              gradientBorder="hover:border-violet-500/40 hover:bg-violet-500/[0.02]"
             />
             <QuickCard
               icon={<FileText className="h-3.5 w-3.5 sm:h-5 sm:w-5" />}
               title="New note"
               subtitle="Block notes"
               onClick={() => navigate({ to: "/notes" })}
-              badgeClass="bg-blue-500/10 text-blue-600 dark:text-blue-400"
+              badgeClass="bg-gradient-to-br from-sky-500 to-cyan-600 text-white shadow-xs shadow-sky-500/30"
+              gradientBorder="hover:border-sky-500/40 hover:bg-sky-500/[0.02]"
             />
             <QuickCard
               icon={<GraduationCap className="h-3.5 w-3.5 sm:h-5 sm:w-5" />}
               title="Learning Hub"
               subtitle="Flashcards"
               onClick={() => navigate({ to: "/learn" })}
-              badgeClass="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+              badgeClass="bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-xs shadow-emerald-500/30"
+              gradientBorder="hover:border-emerald-500/40 hover:bg-emerald-500/[0.02]"
             />
             <QuickCard
               icon={<BookOpen className="h-3.5 w-3.5 sm:h-5 sm:w-5" />}
               title="Feature Guide"
               subtitle="Inks & tutorial"
               onClick={() => setTourOpen(true)}
-              badgeClass="bg-rose-500/10 text-rose-600 dark:text-rose-400"
+              badgeClass="bg-gradient-to-br from-rose-500 to-pink-600 text-white shadow-xs shadow-rose-500/30"
+              gradientBorder="hover:border-rose-500/40 hover:bg-rose-500/[0.02]"
             />
           </div>
         </section>
@@ -556,17 +579,22 @@ function Dashboard() {
                     return (
                       <div
                         key={b.id}
-                        className="group relative flex flex-col justify-between rounded-xl sm:rounded-2xl border bg-card p-2.5 sm:p-4 shadow-2xs transition hover:border-primary/60 hover:shadow-md"
+                        className="group relative flex flex-col justify-between rounded-xl sm:rounded-2xl border border-border/80 bg-card p-2.5 sm:p-4 shadow-2xs transition duration-200 hover:border-primary/50 hover:shadow-xs"
                       >
                         <div>
                           <div className="flex items-start justify-between gap-2">
-                            <Link
-                              to="/board/$boardId"
-                              params={{ boardId: b.id }}
-                              className="font-semibold text-foreground text-xs sm:text-sm hover:underline line-clamp-1"
-                            >
-                              {b.title}
-                            </Link>
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              <div className="grid h-6 w-6 place-items-center rounded-lg bg-muted text-muted-foreground shrink-0 group-hover:bg-primary/10 group-hover:text-primary transition duration-200">
+                                <Layers className="h-3.5 w-3.5" />
+                              </div>
+                              <Link
+                                to="/board/$boardId"
+                                params={{ boardId: b.id }}
+                                className="font-semibold text-foreground text-xs sm:text-sm hover:underline line-clamp-1"
+                              >
+                                {b.title}
+                              </Link>
+                            </div>
                             {/* Star Favorite Toggle */}
                             <button
                               type="button"
@@ -582,14 +610,14 @@ function Dashboard() {
                                 className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${
                                   b.favorite
                                     ? "fill-amber-400 text-amber-400"
-                                    : "text-muted-foreground/60 hover:text-foreground"
+                                    : "text-muted-foreground/50 hover:text-foreground"
                                 }`}
                               />
                             </button>
                           </div>
 
                           {/* Folder & Tags Bar */}
-                          <div className="mt-1 sm:mt-2 flex flex-wrap items-center gap-1.5">
+                          <div className="mt-1.5 sm:mt-2.5 flex flex-wrap items-center gap-1.5">
                             {/* Folder Picker Popover */}
                             <Popover>
                               <PopoverTrigger asChild>
@@ -639,8 +667,11 @@ function Dashboard() {
                           </div>
                         </div>
 
-                        <div className="mt-2 sm:mt-4 flex items-center justify-between border-t border-border/50 pt-1.5 sm:pt-2.5 text-xs text-muted-foreground">
-                          <span className="text-[10px] sm:text-[11px]">{relTime(b.updatedAt)}</span>
+                        <div className="mt-2 sm:mt-3 flex items-center justify-between border-t border-border/50 pt-1.5 sm:pt-2 text-xs text-muted-foreground">
+                          <span className="text-[10px] sm:text-[11px] flex items-center gap-1">
+                            <Clock className="h-2.5 w-2.5 text-muted-foreground/70" />
+                            {relTime(b.updatedAt)}
+                          </span>
                           <Link
                             to="/board/$boardId"
                             params={{ boardId: b.id }}
@@ -676,7 +707,7 @@ function Dashboard() {
         <section className="isolate">
           <SectionHeader
             title="Recent AI creations"
-            icon={<Wand2 className="h-3.5 w-3.5" />}
+            icon={<Wand2 className="h-3.5 w-3.5 text-violet-500" />}
             action={
               recentAI.length > 0 ? (
                 <span className="text-xs text-muted-foreground font-medium">
@@ -693,11 +724,16 @@ function Dashboard() {
           ) : (
             <div className="max-h-[220px] overflow-y-auto space-y-2.5 pr-1 scrollbar-thin overscroll-contain rounded-xl">
               {recentAI.slice(0, 2).map((r) => (
-                <div key={r.id} className="rounded-xl border bg-card p-3 sm:p-4 transition hover:border-primary/50 shadow-2xs">
+                <div key={r.id} className="rounded-xl border border-border/80 bg-gradient-to-br from-card to-violet-500/[0.02] p-3 sm:p-4 transition hover:border-violet-500/40 shadow-2xs">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-xs sm:text-sm font-semibold text-foreground">{r.prompt}</div>
-                      <div className="mt-1 line-clamp-2 sm:line-clamp-3 text-xs text-muted-foreground whitespace-pre-wrap">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-violet-500/10 text-violet-600 dark:text-violet-400">
+                          <Wand2 className="h-2.5 w-2.5" /> Prompt
+                        </span>
+                        <div className="truncate text-xs sm:text-sm font-semibold text-foreground">{r.prompt}</div>
+                      </div>
+                      <div className="mt-1 line-clamp-2 sm:line-clamp-3 text-xs text-muted-foreground whitespace-pre-wrap pl-2 border-l-2 border-violet-500/30">
                         {r.response}
                       </div>
                     </div>
@@ -756,32 +792,37 @@ function QuickCard({
   subtitle,
   onClick,
   badgeClass = "bg-primary/10 text-primary",
+  gradientBorder = "hover:border-primary/40",
 }: {
   icon: React.ReactNode;
   title: string;
   subtitle: string;
   onClick: () => void;
   badgeClass?: string;
+  gradientBorder?: string;
 }) {
   return (
     <button
       onClick={onClick}
-      className="group flex flex-col justify-between rounded-xl sm:rounded-2xl border bg-card p-1.5 sm:p-3 text-left transition hover:border-primary/80 hover:shadow-2xs active:scale-[0.98]"
+      className={cn(
+        "group relative flex flex-col justify-between rounded-xl sm:rounded-2xl border border-border/80 bg-card/90 backdrop-blur-xs p-2 sm:p-3 text-left transition duration-200 hover:-translate-y-0.5 hover:shadow-xs active:scale-[0.98] overflow-hidden",
+        gradientBorder
+      )}
     >
-      <div className="flex items-center justify-between w-full mb-1">
+      <div className="flex items-center justify-between w-full mb-1.5">
         <span
           className={cn(
-            "grid h-6 w-6 sm:h-8 sm:w-8 place-items-center rounded-lg sm:rounded-xl transition group-hover:scale-105",
+            "grid h-6 w-6 sm:h-8 sm:w-8 place-items-center rounded-lg sm:rounded-xl transition duration-200 group-hover:scale-105",
             badgeClass
           )}
         >
           {icon}
         </span>
-        <ArrowRight className="h-3 w-3 text-muted-foreground/40 opacity-0 group-hover:opacity-100 transition group-hover:translate-x-0.5 group-hover:text-primary hidden sm:block" />
+        <ArrowRight className="h-3 w-3 text-muted-foreground/30 opacity-0 group-hover:opacity-100 transition duration-200 group-hover:translate-x-0.5 group-hover:text-primary hidden sm:block" />
       </div>
       <div className="min-w-0">
-        <div className="text-[11px] sm:text-xs md:text-sm font-semibold text-foreground truncate">{title}</div>
-        <div className="text-[9px] sm:text-[11px] text-muted-foreground truncate">{subtitle}</div>
+        <div className="text-[11px] sm:text-xs md:text-sm font-semibold text-foreground truncate tracking-tight">{title}</div>
+        <div className="text-[9px] sm:text-[11px] text-muted-foreground/80 truncate font-medium">{subtitle}</div>
       </div>
     </button>
   );
