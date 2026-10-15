@@ -18,6 +18,7 @@ const rolldownJs = files.find((f) => f.startsWith("rolldown-runtime-") && f.ends
 const storeJs = files.find((f) => f.startsWith("store-") && f.endsWith(".js")) || "";
 const jsxJs = files.find((f) => f.startsWith("jsx-runtime-") && f.endsWith(".js")) || "";
 const routesJs = files.find((f) => f.startsWith("routes-") && f.endsWith(".js")) || "";
+const boardJs = files.find((f) => f.startsWith("board._boardId-") && f.endsWith(".js") && !f.includes("-o1G")) || "";
 
 const htmlContent = `<!DOCTYPE html>
 <html lang="en">
@@ -33,13 +34,14 @@ const htmlContent = `<!DOCTYPE html>
   ${storeJs ? `<link rel="modulepreload" href="/assets/${storeJs}" />` : ""}
   ${jsxJs ? `<link rel="modulepreload" href="/assets/${jsxJs}" />` : ""}
   ${routesJs ? `<link rel="modulepreload" href="/assets/${routesJs}" />` : ""}
+  ${boardJs ? `<link rel="modulepreload" href="/assets/${boardJs}" />` : ""}
 </head>
 <body class="bg-background text-foreground antialiased overscroll-none select-none">
   <div id="root"></div>
   <script class="$tsr" id="$tsr-stream-barrier">
     (self.$R=self.$R||{})["tsr"]=[];
     self.$_TSR={h(){this.hydrated=!0,this.c()},e(){this.streamEnded=!0,this.c()},c(){this.hydrated&&this.streamEnded&&(delete self.$_TSR,delete self.$R.tsr)},p(e){this.initialized?e():this.buffer.push(e)},buffer:[]};
-    $_TSR.router=($R=>$R[0]={manifest:$R[1]={routes:$R[2]={__root__:$R[3]={preloads:$R[4]=[${[indexJs, rolldownJs, storeJs, jsxJs].filter(Boolean).map(f => `"/assets/${f}"`).join(",")}],scripts:$R[5]=[$R[6]={attrs:$R[7]={type:"module",async:!0,src:"/assets/${indexJs}"}}]},"/":$R[8]={preloads:$R[9]=[${routesJs ? `"/assets/${routesJs}"` : ""}]}}},matches:$R[10]=[$R[11]={i:"__root__ ",u:Date.now(),s:"success",ssr:!0}],lastMatchId:" "})($R["tsr"]);
+    $_TSR.router=($R=>$R[0]={manifest:$R[1]={routes:$R[2]={__root__:$R[3]={preloads:$R[4]=[${[indexJs, rolldownJs, storeJs, jsxJs, boardJs].filter(Boolean).map(f => `"/assets/${f}"`).join(",")}],scripts:$R[5]=[$R[6]={attrs:$R[7]={type:"module",async:!0,src:"/assets/${indexJs}"}}]},"/":$R[8]={preloads:$R[9]=[${routesJs ? `"/assets/${routesJs}"` : ""}]}}},matches:$R[10]=[$R[11]={i:"__root__ ",u:Date.now(),s:"success",ssr:!0}],lastMatchId:" "})($R["tsr"]);
     $_TSR.e();
     document.currentScript.remove();
   </script>
