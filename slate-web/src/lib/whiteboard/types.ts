@@ -30,6 +30,10 @@ export type StrokeBase = {
   color: string;
   size: number;
   points: Point[];
+  /** Handwriting recognition: the text this stroke's word/line reads as (set on the group's first stroke). */
+  inkText?: string;
+  /** Handwriting recognition: id shared by the strokes of one recognised word/line. */
+  inkGroup?: string;
 };
 
 export type PenStroke = StrokeBase & { kind: "pen" };
@@ -126,6 +130,11 @@ export type TextObject = {
   color: string;
   fontSize: number;
   bg?: string;
+  /** Handwriting-style font (set on translations), e.g. "Kalam" for Devanagari. */
+  fontFamily?: string;
+  /** Translation: the original writing and the language code it was translated into. */
+  translatedFrom?: string;
+  lang?: string;
 };
 
 export type ImageObject = {
@@ -351,5 +360,6 @@ export type WhiteboardState = {
   selectedId: string | null;
   selectedIds: string[];
   autoSnapEnabled: boolean;
+  showZoomDock: boolean;
   camera: { x: number; y: number; zoom: number };
 };

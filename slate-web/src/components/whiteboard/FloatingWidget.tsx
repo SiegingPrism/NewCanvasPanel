@@ -55,7 +55,11 @@ export function FloatingWidget({
           <GripHorizontal className="h-4 w-4 text-muted-foreground" />
           {title}
         </div>
-        <button onClick={onClose} className="rounded p-1 hover:bg-accent">
+        <button
+          onClick={onClose}
+          onPointerDown={(e) => e.stopPropagation()}
+          className="rounded p-1 hover:bg-accent cursor-pointer"
+        >
           <X className="h-4 w-4" />
         </button>
       </div>

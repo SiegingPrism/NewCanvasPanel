@@ -60,9 +60,12 @@ import {
   MonitorPlay,
   Sigma,
   Bot,
+  Languages,
 } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
+import { HandwritingSettings } from "./HandwritingSettings";
+import { findLanguage, useInk } from "@/lib/ink/recognizer";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { SwipeConfirmDialog } from "./SwipeConfirmDialog";
@@ -271,15 +274,25 @@ export function Toolbar() {
 
   const [activeFlyout, setActiveFlyout] = useState<"select" | "pen" | "shapes" | "color" | null>(null);
   const [shapesTab, setShapesTab] = useState<"2d" | "3d">("2d");
+  const [penFlyoutTab, setPenFlyoutTab] = useState<"styles" | "handwriting">("styles");
   const [eraseDialogOpen, setEraseDialogOpen] = useState(false);
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [mathDialogOpen, setMathDialogOpen] = useState(false);
   const [colorCategory, setColorCategory] = useState<"vivid" | "chalk" | "pastel" | "earthy">("vivid");
   const [mounted, setMounted] = useState(false);
+  const { langPickerOpen, setLangPickerOpen, language, translateLive, translateTo, openTranslatePicker } = useInk();
+  const currentInkLang = findLanguage(language);
+  const targetInkLang = findLanguage(translateTo);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (langPickerOpen) {
+      setActiveFlyout(null);
+    }
+  }, [langPickerOpen]);
 
   const lastEraserPressRef = useRef(0);
   const lastBinPressRef = useRef(0);
@@ -437,53 +450,80 @@ export function Toolbar() {
       {/* Flyout 2: Pen Styles */}
       {activeFlyout === "pen" && (
         <div
-          className="pointer-events-auto absolute bottom-full mb-3 w-[356px] max-w-[calc(100vw-24px)] p-3 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 select-none z-50"
+          className="pointer-events-auto absolute bottom-full mb-3 w-[356px] max-w-[calc(100vw-24px)] max-h-[min(78vh,640px)] overflow-y-auto overscroll-contain p-3 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 select-none z-50"
           onPointerDown={(e) => e.stopPropagation()}
           onTouchStart={(e) => e.stopPropagation()}
         >
-          <div className="px-1 pb-2 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center justify-between border-b border-slate-200 dark:border-slate-800">
-            <span>Pen Styles ({PEN_STYLES.length})</span>
-            <span className="text-[10px] lowercase font-normal text-slate-400 dark:text-slate-500">
-              tap to select
-            </span>
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl text-xs font-medium mb-2.5">
+            <button
+              type="button"
+              onClick={() => setPenFlyoutTab("styles")}
+              className={cn(
+                "flex-1 py-1 px-2 rounded-lg transition text-xs font-semibold text-center flex items-center justify-center gap-1.5",
+                penFlyoutTab === "styles"
+                  ? "bg-white dark:bg-slate-900 text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <Pen className="h-3.5 w-3.5 text-primary" />
+              <span>Pen Styles ({PEN_STYLES.length})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setPenFlyoutTab("handwriting")}
+              className={cn(
+                "flex-1 py-1 px-2 rounded-lg transition text-xs font-semibold text-center flex items-center justify-center gap-1.5",
+                penFlyoutTab === "handwriting"
+                  ? "bg-white dark:bg-slate-900 text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <Languages className="h-3.5 w-3.5 text-orange-500" />
+              <span>Handwriting</span>
+            </button>
           </div>
-          <div className="grid grid-cols-2 gap-2 pt-2">
-            {PEN_STYLES.map((p) => {
-              const Icon = p.icon;
-              const active = tool === p.id;
-              return (
-                <button
-                  key={p.id}
-                  type="button"
-                  title={p.label}
-                  onClick={() => {
-                    setTool(p.id);
-                    setActiveFlyout(null);
-                  }}
-                  className={cn(
-                    "flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium active:opacity-80 text-left min-w-0 border",
-                    active
-                      ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-semibold border-slate-900 dark:border-white"
-                      : "bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 border-slate-200 dark:border-slate-700",
-                  )}
-                >
-                  <span
+
+          {penFlyoutTab === "styles" ? (
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              {PEN_STYLES.map((p) => {
+                const Icon = p.icon;
+                const active = tool === p.id;
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    title={p.label}
+                    onClick={() => {
+                      setTool(p.id);
+                      setActiveFlyout(null);
+                    }}
                     className={cn(
-                      "grid h-6 w-6 place-items-center rounded-lg shrink-0",
+                      "flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium active:opacity-80 text-left min-w-0 border",
                       active
-                        ? "bg-white/20 text-white dark:bg-slate-900/20 dark:text-slate-900"
-                        : "bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-300 border border-slate-200 dark:border-slate-600",
+                        ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-semibold border-slate-900 dark:border-white"
+                        : "bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 border-slate-200 dark:border-slate-700",
                     )}
                   >
-                    <Icon className="h-3.5 w-3.5" />
-                  </span>
-                  <span className="truncate text-xs font-medium leading-none whitespace-nowrap text-inherit flex-1 min-w-0">
-                    {p.label}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+                    <span
+                      className={cn(
+                        "grid h-6 w-6 place-items-center rounded-lg shrink-0",
+                        active
+                          ? "bg-white/20 text-white dark:bg-slate-900/20 dark:text-slate-900"
+                          : "bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-300 border border-slate-200 dark:border-slate-600",
+                      )}
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                    </span>
+                    <span className="truncate text-xs font-medium leading-none whitespace-nowrap text-inherit flex-1 min-w-0">
+                      {p.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <HandwritingSettings className="p-1" />
+          )}
         </div>
       )}
 
@@ -760,6 +800,38 @@ export function Toolbar() {
         >
           <ActivePenIcon className="h-4 w-4" />
         </button>
+
+        {/* Quick Handwriting Language Badge / Slate Translate Badge when pen tool is active */}
+        {isPenToolActive && (
+          translateLive ? (
+            <button
+              type="button"
+              onClick={() => {
+                setActiveFlyout(null);
+                openTranslatePicker();
+              }}
+              className="flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold bg-violet-600/15 text-violet-700 dark:bg-violet-500/25 dark:text-violet-300 hover:bg-violet-600/25 transition-all border border-violet-500/40 shrink-0 cursor-pointer active:scale-95 shadow-xs"
+              title={`Slate Translate is ON (translating into ${targetInkLang.name}) — Tap to change target language`}
+            >
+              <Languages className="h-3 w-3 shrink-0 text-violet-600 dark:text-violet-400" />
+              <span className="text-[10px] uppercase font-bold tracking-tight opacity-75">➔</span>
+              <span className="max-w-[70px] truncate font-bold">{targetInkLang.nativeName || targetInkLang.name}</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setActiveFlyout(null);
+                setLangPickerOpen(true);
+              }}
+              className="flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold bg-orange-500/10 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400 hover:bg-orange-500/20 transition-all border border-orange-500/30 shrink-0 cursor-pointer active:scale-95"
+              title={`Handwriting Language: ${currentInkLang.name} (${currentInkLang.nativeName}) — Tap to change`}
+            >
+              <Languages className="h-3 w-3 shrink-0" />
+              <span className="max-w-[65px] truncate">{currentInkLang.nativeName || currentInkLang.name}</span>
+            </button>
+          )
+        )}
 
         {/* 4. Highlighter */}
         <button

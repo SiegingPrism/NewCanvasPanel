@@ -78,6 +78,10 @@ export function extractBoardSearchStrings(bData: any): string[] {
       // 1. Text & Sticky Notes & Labels
       if (typeof obj.text === "string" && obj.text.trim()) chunks.push(obj.text.trim());
       if (typeof obj.label === "string" && obj.label.trim()) chunks.push(obj.label.trim());
+      // Handwriting recognised on the board (stored on the first stroke of each word/line)
+      if (typeof obj.inkText === "string" && obj.inkText.trim()) chunks.push(obj.inkText.trim());
+      // Translations remember what was originally written
+      if (typeof obj.translatedFrom === "string" && obj.translatedFrom.trim()) chunks.push(obj.translatedFrom.trim());
       // 2. Flashcards
       if (typeof obj.front === "string" && obj.front.trim()) chunks.push(obj.front.trim());
       if (typeof obj.back === "string" && obj.back.trim()) chunks.push(obj.back.trim());

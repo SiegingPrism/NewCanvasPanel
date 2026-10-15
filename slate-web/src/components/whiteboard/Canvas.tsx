@@ -57,6 +57,7 @@ import {
   Calculator,
   Wand2,
   GitBranch,
+  Languages,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -65,6 +66,11 @@ import { compileMathFunction } from "@/lib/whiteboard/safeMath";
 import type { MindMapNode } from "@/lib/ai/aiEngine";
 import { renderMathSolutionCard } from "@/lib/whiteboard/renderMathSolutionImage";
 import { formatLatexForDisplay } from "@/lib/whiteboard/mathTypesetting";
+import { InkChip, useHandwriting } from "./useHandwriting";
+import { FindOnBoard } from "./FindOnBoard";
+import { ensureHandwritingFont, fontStack, handwritingFontReady, handwritingScale, scriptFor } from "@/lib/ink/handwritingFonts";
+import { findLanguage, useInk } from "@/lib/ink/recognizer";
+import { textBoxForInk, typicalLetterHeight } from "@/lib/ink/inkGeometry";
 
 function uid() {
   return Math.random().toString(36).slice(2, 10);
@@ -94,6 +100,7 @@ export function WhiteboardCanvas({
     selectedId,
     selectedIds,
     autoSnapEnabled,
+    showZoomDock,
     addObject,
     setObjects,
     updateObject,
@@ -125,6 +132,55 @@ export function WhiteboardCanvas({
   useEffect(() => {
     pageRef.current = page;
   }, [page]);
+
+  // Handwriting: live preview, write-to-type, scratch-out, searchable ink
+  const handwriting = useHandwriting({
+    getObjects: () => {
+      const s = useWhiteboard.getState();
+      return (s.pages.find((p) => p.id === s.activePageId) || s.pages[0])?.objects ?? [];
+    },
+    setObjects,
+    pushHistory,
+    getZoom: () => cameraRef.current.zoom,
+  });
+
+  // Find on board (typed text + recognised handwriting)
+  const [findOpen, setFindOpen] = useState(false);
+  const [findFlash, setFindFlash] = useState<{ x: number; y: number; w: number; h: number; n: number } | null>(null);
+  useEffect(() => {
+    const open = () => setFindOpen(true);
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        setFindOpen(true);
+      }
+    };
+    window.addEventListener("slate:open-find", open);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("slate:open-find", open);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, []);
+  useEffect(() => {
+    if (!findFlash) return;
+    const t = setTimeout(() => setFindFlash(null), 1800);
+    return () => clearTimeout(t);
+  }, [findFlash]);
+  const focusRect = useCallback(
+    (r: { x: number; y: number; w: number; h: number }) => {
+      const el = wrapRef.current;
+      const vw = el?.clientWidth || window.innerWidth;
+      const vh = el?.clientHeight || window.innerHeight;
+      const cur = cameraRef.current;
+      // Keep the zoom unless the match would not fit
+      const zoom = Math.min(cur.zoom, (vw * 0.8) / Math.max(r.w, 1), (vh * 0.6) / Math.max(r.h, 1));
+      const z = Math.max(0.2, zoom);
+      setCamera({ x: vw / 2 - (r.x + r.w / 2) * z, y: vh / 2 - (r.y + r.h / 2) * z, zoom: z });
+      setFindFlash((f) => ({ ...r, n: (f?.n || 0) + 1 }));
+    },
+    [setCamera],
+  );
 
   // Zoom control helpers
   const zoomIn = () => {
@@ -920,8 +976,13 @@ export function WhiteboardCanvas({
     }
     ctx.restore();
 
-    // Multi-selection bounding box overlay
-    if (selectedSet.size > 1) {
+    // Selection bounding box overlays (drawn cleanly on screen after restoring camera transform)
+    if (selectedSet.size === 1) {
+      const singleObj = objectsToDraw.find((o) => selectedSet.has(o.id));
+      if (singleObj) {
+        drawSelection(ctx, singleObj);
+      }
+    } else if (selectedSet.size > 1) {
       drawMultiSelectionBox(
         ctx,
         page.objects.filter((o) => selectedSet.has(o.id)),
@@ -1132,10 +1193,6 @@ export function WhiteboardCanvas({
       drawPeriodicTable(ctx, obj);
     }
     ctx.restore();
-
-    if (selected && selectedIds.length <= 1) {
-      drawSelection(ctx, obj);
-    }
   }
 
   // 1. FINE PEN: Smooth Bezier with pressure sensitivity
@@ -3508,14 +3565,27 @@ export function WhiteboardCanvas({
       ctx.fillStyle = t.bg;
       ctx.fillRect(t.x, t.y, t.w, t.h);
     }
+    if (t.fontFamily && !handwritingFontReady(t.fontFamily) && !fontRedrawRequested.current.has(t.fontFamily)) {
+      // Load the handwriting font once, then draw again (a system font is used meanwhile)
+      fontRedrawRequested.current.add(t.fontFamily);
+      void ensureHandwritingFont(t.fontFamily, t.text.slice(0, 8)).then(() => redraw());
+    }
+    ctx.save();
     ctx.fillStyle = t.color;
-    ctx.font = `${t.fontSize}px system-ui, -apple-system, sans-serif`;
+    ctx.font = `${t.fontSize}px ${fontStack(t.fontFamily)}`;
     ctx.textBaseline = "top";
+    const rtl = !!t.lang && /^(ur|ar|ks|sd)\b/.test(t.lang);
+    if (rtl) {
+      ctx.direction = "rtl";
+      ctx.textAlign = "right";
+    }
     const lines = wrapText(ctx, t.text, t.w - 8);
     lines.forEach((line, i) => {
-      ctx.fillText(line, t.x + 4, t.y + 4 + i * (t.fontSize * 1.2));
+      ctx.fillText(line, rtl ? t.x + t.w - 4 : t.x + 4, t.y + 4 + i * (t.fontSize * 1.2));
     });
+    ctx.restore();
   }
+
 
   function drawSticky(ctx: CanvasRenderingContext2D, s: StickyNoteObject) {
     ctx.save();
@@ -3542,6 +3612,7 @@ export function WhiteboardCanvas({
     ctx.restore();
   }
 
+  const fontRedrawRequested = useRef<Set<string>>(new Set());
   const imageCache = useRef<Map<string, HTMLImageElement>>(new Map());
   function drawImage(ctx: CanvasRenderingContext2D, o: ImageObject) {
     let img = imageCache.current.get(o.src);
@@ -4461,6 +4532,7 @@ export function WhiteboardCanvas({
       holdTimer: undefined as number | undefined,
     };
     drawingRef.current = drawingSession;
+    handwriting.penDown();
 
     if (tool === "laser") laserRef.current = [ptWithMeta];
   }
@@ -4815,6 +4887,7 @@ export function WhiteboardCanvas({
       if (d.holdTimer) clearTimeout(d.holdTimer);
       drawingRef.current = null;
       clearOverlay();
+      handwriting.penUp();
 
       if (tool === "laser") {
         fadeLaser();
@@ -4823,9 +4896,13 @@ export function WhiteboardCanvas({
 
       if (d.points.length < 2) return;
 
+      // Handwriting: a scribble over ink erases it; letters of a word must not snap into shapes
+      const inkIntent = d.snappedShape || tool === "shape" ? null : handwriting.beforeCommit(tool, d.points);
+      if (inkIntent === "erased") return;
+
       // Check for snapped or recognized shape (on hold OR on liftoff if autoSnap is enabled)
       let shapeToCommit: Omit<ShapeStroke, "id"> | null = d.snappedShape || null;
-      if (!shapeToCommit && tool !== "tape" && tool !== "frame" && (autoSnapEnabled || tool === "shape") && d.points.length >= 6) {
+      if (!shapeToCommit && inkIntent !== "writing" && tool !== "tape" && tool !== "frame" && (autoSnapEnabled || tool === "shape") && d.points.length >= 6) {
         shapeToCommit = recognizeShape(d.points, color, size);
       }
 
@@ -4872,6 +4949,22 @@ export function WhiteboardCanvas({
         const maxY = Math.max(...ys);
         const tw = Math.max(50, maxX - minX);
         const th = Math.max(28, maxY - minY);
+
+        // Check if a Study Tape already covers this area
+        const isDuplicate = page.objects.some((o) => {
+          if (o.kind !== "tape") return false;
+          const tb = objectBounds(o);
+          const xOverlap = Math.max(0, Math.min(minX + tw, tb.x + tb.w) - Math.max(minX, tb.x));
+          const yOverlap = Math.max(0, Math.min(minY + th, tb.y + tb.h) - Math.max(minY, tb.y));
+          const overlapArea = xOverlap * yOverlap;
+          const minArea = Math.min(tw * th, tb.w * tb.h);
+          return minArea > 0 && overlapArea / minArea > 0.6;
+        });
+        if (isDuplicate) {
+          toast.info("A Study Tape already exists in this area!");
+          return;
+        }
+
         addObject({
           id,
           kind: "tape",
@@ -4909,6 +5002,7 @@ export function WhiteboardCanvas({
         toast.success(`Presentation Slide ${existingFrames.length + 1} created!`);
       }
       pushHistory();
+      handwriting.afterCommit(id, tool, d.points, color);
     }
   }
 
@@ -5076,12 +5170,28 @@ export function WhiteboardCanvas({
   const selectionScreenPos = selectionBounds
     ? toScreen(selectionBounds.x + selectionBounds.w / 2, selectionBounds.y - 14)
     : null;
-  const clampedSelectionPos = selectionScreenPos
-    ? {
-        x: Math.max(160, Math.min(window.innerWidth - 160, selectionScreenPos.x)),
-        y: Math.max(68, selectionScreenPos.y),
-      }
-    : null;
+  const clampedSelectionPos = useMemo(() => {
+    if (!selectionScreenPos || !selectionBounds) return null;
+    const screenW = typeof window !== "undefined" ? window.innerWidth : 400;
+    // On mobile devices / narrow viewports, center the floating bar to avoid clipping
+    const x =
+      screenW < 540
+        ? screenW / 2
+        : Math.max(220, Math.min(screenW - 220, selectionScreenPos.x));
+
+    // If selection is near the top of the screen (underneath TopBar ~60px), flip bar below selection
+    let y = selectionScreenPos.y;
+    let isBelow = false;
+    if (y < 120) {
+      const bottomPos = toScreen(
+        selectionBounds.x + selectionBounds.w / 2,
+        selectionBounds.y + selectionBounds.h + 16,
+      );
+      y = Math.max(120, bottomPos.y);
+      isBelow = true;
+    }
+    return { x, y, isBelow };
+  }, [selectionScreenPos, selectionBounds, camera]);
 
   const editing = editingText
     ? (page.objects.find((o) => o.id === editingText.id) as TextObject | undefined)
@@ -5177,37 +5287,142 @@ export function WhiteboardCanvas({
   async function handleConvertHandwritingToText() {
     const targetIds = selectedIds.length > 0 ? selectedIds : selectedId ? [selectedId] : [];
     if (targetIds.length === 0) return;
-    const img = exportSelectedRegionAsImage(targetIds);
-    toast.info("Transcribing handwriting with AI...");
-    try {
-      const text = await AIEngine.transcribeHandwriting(img || undefined);
+    const selectedObjects = page.objects.filter((o) => targetIds.includes(o.id));
+    if (selectedObjects.length === 0) return;
 
-      let cx = 400;
-      let cy = 300;
-      const selectedObjects = page.objects.filter((o) => targetIds.includes(o.id));
-      if (selectedObjects.length > 0) {
-        const b = objectBounds(selectedObjects[0]);
-        cx = b.x;
-        cy = b.y;
+    // Union bounds of all selected items
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const obj of selectedObjects) {
+      const b = objectBounds(obj);
+      minX = Math.min(minX, b.x);
+      minY = Math.min(minY, b.y);
+      maxX = Math.max(maxX, b.x + b.w);
+      maxY = Math.max(maxY, b.y + b.h);
+    }
+    const inkW = Math.max(40, maxX - minX);
+    const inkH = Math.max(24, maxY - minY);
+    const primaryColor = (selectedObjects.find((o) => "color" in o) as { color?: string })?.color || "#0f172a";
+
+    // Fast path: if the strokes were already recognised by live handwriting recognition
+    const knownText = selectedObjects.map((o) => (o as any).inkText).filter(Boolean).join(" ");
+
+    let text = knownText;
+    if (!text.trim()) {
+      const img = exportSelectedRegionAsImage(targetIds);
+      toast.info("Transcribing handwriting with AI...");
+      try {
+        text = await AIEngine.transcribeHandwriting(img || undefined);
+      } catch (err) {
+        toast.error(`${aiErrorMessage(err)} Your ink was kept.`);
+        return;
       }
+    }
 
-      deleteSelected();
-      addObject({
+    const fontSize = Math.round(Math.min(96, Math.max(16, inkH * 0.75)));
+    deleteSelected();
+    addObject({
+      id: uid(),
+      kind: "text",
+      x: minX,
+      y: minY,
+      w: Math.max(inkW, text.length * fontSize * 0.58 + 16),
+      h: Math.max(inkH, fontSize * 1.4),
+      text: text.trim(),
+      color: primaryColor,
+      fontSize,
+    });
+    pushHistory();
+    toast.success("Converted to editable text!");
+  }
+
+  /** Selection → "Translate": ask for the language, then replace the selection with the translation in handwriting. */
+  function handleTranslateSelection() {
+    const targetIds = selectedIds.length > 0 ? selectedIds : selectedId ? [selectedId] : [];
+    if (targetIds.length === 0) return;
+    useInk.getState().openTranslatePicker((code) => {
+      void translateObjects(targetIds, code);
+    });
+  }
+
+  async function translateObjects(targetIds: string[], code: string) {
+    const current = useWhiteboard.getState();
+    const objects = (current.pages.find((p) => p.id === current.activePageId) || current.pages[0])?.objects ?? [];
+    const selected = objects.filter((o) => targetIds.includes(o.id));
+    if (!selected.length) return;
+    const target = findLanguage(code);
+    const { script, font } = scriptFor(target.code);
+    const toastId = toast.loading(`Translating to ${target.name}…`);
+
+    // Typed text (text boxes, sticky notes) is translated as text; anything with ink is read from an image
+    const typedOnly = selected.every((o) => o.kind === "text" || o.kind === "sticky");
+    let result;
+    try {
+      if (typedOnly) {
+        const text = selected.map((o) => (o as { text?: string }).text || "").filter(Boolean).join("\n");
+        result = await AIEngine.translateText(text, `${target.name} (${target.nativeName})`, script);
+      } else {
+        const img = exportSelectedRegionAsImage(targetIds);
+        result = await AIEngine.translateHandwriting(img || undefined, `${target.name} (${target.nativeName})`, script);
+      }
+    } catch (err) {
+      toast.error(`${aiErrorMessage(err)} Your writing was kept.`, { id: toastId });
+      return;
+    }
+
+    // Size the handwriting like the original and put it where the original was
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const o of selected) {
+      const b = objectBounds(o);
+      minX = Math.min(minX, b.x);
+      minY = Math.min(minY, b.y);
+      maxX = Math.max(maxX, b.x + b.w);
+      maxY = Math.max(maxY, b.y + b.h);
+    }
+    const strokes = selected
+      .filter((o) => Array.isArray((o as { points?: unknown }).points) && o.kind !== "shape")
+      .map((o) => ({ id: o.id, points: (o as { points: { x: number; y: number }[] }).points }));
+    const typedSize = Math.max(0, ...selected.map((o) => (o as { fontSize?: number }).fontSize || 0));
+    const letterHeight = strokes.length ? typicalLetterHeight(strokes) : typedSize ? typedSize / 1.05 : 24;
+    const box = textBoxForInk(
+      { x: minX, y: minY, w: maxX - minX, h: maxY - minY },
+      result.translation,
+      letterHeight * handwritingScale(font),
+    );
+    const color = (selected.find((o) => "color" in o && typeof (o as { color?: unknown }).color === "string") as { color?: string } | undefined)?.color;
+    await Promise.race([ensureHandwritingFont(font, result.translation.slice(0, 8)), new Promise((r) => setTimeout(r, 2500))]);
+
+    const ids = new Set(targetIds);
+    const latest = useWhiteboard.getState();
+    const latestObjects = (latest.pages.find((p) => p.id === latest.activePageId) || latest.pages[0])?.objects ?? [];
+    setObjects([
+      ...latestObjects.filter((o) => !ids.has(o.id)),
+      {
         id: uid(),
         kind: "text",
-        x: cx,
-        y: cy,
-        w: 260,
-        h: 90,
-        text: text.trim(),
-        color: "#0f172a",
-        fontSize: 18,
-      });
-      pushHistory();
-      toast.success("Converted to editable text!");
-    } catch (err) {
-      toast.error(`${aiErrorMessage(err)} Your ink was kept.`);
-    }
+        x: box.x,
+        y: box.y,
+        w: box.w,
+        h: box.h,
+        text: result.translation,
+        color: color && color !== "#ffffff" ? color : "#0f172a",
+        fontSize: box.fontSize,
+        fontFamily: font,
+        lang: target.code,
+        translatedFrom: result.source || undefined,
+      } as CanvasObject,
+    ]);
+    setSelectedIds([]);
+    pushHistory();
+    toast.success(
+      `${result.sourceLanguage ? `${result.sourceLanguage} → ` : ""}${target.name}`,
+      { id: toastId, description: "Tap undo to bring your writing back." },
+    );
   }
 
   async function handleConvertMath() {
@@ -5714,11 +5929,45 @@ export function WhiteboardCanvas({
       />
       <canvas ref={overlayRef} className="absolute inset-0 pointer-events-none" />
 
+      {findFlash && (
+        <div
+          key={findFlash.n}
+          data-testid="find-highlight"
+          className="pointer-events-none absolute z-20 rounded-lg ring-4 ring-amber-400/80 bg-amber-300/20 animate-pulse"
+          style={{
+            left: (findFlash.x - 6) * camera.zoom + camera.x,
+            top: (findFlash.y - 6) * camera.zoom + camera.y,
+            width: (findFlash.w + 12) * camera.zoom,
+            height: (findFlash.h + 12) * camera.zoom,
+          }}
+        />
+      )}
+
+      <FindOnBoard
+        open={findOpen}
+        onClose={() => setFindOpen(false)}
+        getObjects={() => {
+          const s = useWhiteboard.getState();
+          return (s.pages.find((p) => p.id === s.activePageId) || s.pages[0])?.objects ?? [];
+        }}
+        setObjects={setObjects}
+        boundsOf={objectBounds}
+        onFocus={focusRect}
+      />
+
+      <InkChip
+        chip={handwriting.chip}
+        camera={camera}
+        onConvert={(alt) => handwriting.convert(undefined, alt)}
+        onDismiss={handwriting.dismiss}
+        onRetry={handwriting.retry}
+      />
+
       {/* Minimap Popup */}
       {minimapOpen && (
         <div
           className={cn(
-            "pointer-events-auto absolute bottom-28 sm:bottom-16 right-3 sm:right-4 z-20 overflow-hidden rounded-2xl bg-card/95 p-2.5 shadow-2xl ring-1 ring-border backdrop-blur-md animate-in fade-in zoom-in-95 transition-all duration-200",
+            "pointer-events-auto absolute bottom-[max(7.5rem,calc(var(--sab,env(safe-area-inset-bottom,0px))+6.5rem))] sm:bottom-16 right-3 sm:right-4 z-20 overflow-hidden rounded-2xl bg-card/95 p-2.5 shadow-2xl ring-1 ring-border backdrop-blur-md animate-in fade-in zoom-in-95 transition-all duration-200",
             minimapExpanded ? "w-[285px]" : "w-[210px]",
           )}
         >
@@ -5783,84 +6032,86 @@ export function WhiteboardCanvas({
       )}
 
       {/* Floating Zoom & Canvas Tools */}
-      <div className="pointer-events-auto absolute bottom-20 right-3 sm:bottom-4 sm:right-4 z-20 flex items-center gap-1 rounded-full bg-white dark:bg-slate-900 bg-card/95 px-2 py-1 shadow-lg ring-1 ring-border backdrop-blur">
-        <button
-          type="button"
-          onClick={zoomOut}
-          title="Zoom out (-)"
-          className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-accent text-foreground transition active:scale-90"
-        >
-          <Minus className="h-3.5 w-3.5" />
-        </button>
-        <button
-          type="button"
-          onClick={resetZoom}
-          title="Reset zoom to 100%"
-          className="px-1.5 py-0.5 text-xs font-semibold tabular-nums text-foreground hover:bg-accent rounded-md transition active:scale-95"
-        >
-          {Math.round(camera.zoom * 100)}%
-        </button>
-        <button
-          type="button"
-          onClick={zoomIn}
-          title="Zoom in (+)"
-          className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-accent text-foreground transition active:scale-90"
-        >
-          <Plus className="h-3.5 w-3.5" />
-        </button>
-
-        <div className="h-3.5 w-px bg-border mx-0.5" />
-
-        {/* Fit to Content */}
-        <button
-          type="button"
-          onClick={fitToContent}
-          title="Fit all content to view"
-          className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-accent text-foreground transition active:scale-90"
-        >
-          <Maximize2 className="h-3.5 w-3.5" />
-        </button>
-
-        {/* Minimap Toggle */}
-        <button
-          type="button"
-          onClick={() => setMinimapOpen(!minimapOpen)}
-          title="Toggle Radar Minimap"
-          className={cn(
-            "flex h-7 w-7 items-center justify-center rounded-full transition active:scale-90",
-            minimapOpen ? "bg-sky-500 text-white shadow-sm" : "hover:bg-accent text-foreground",
-          )}
-        >
-          <Compass className="h-3.5 w-3.5" />
-        </button>
-
-        {/* Study Tape Reveal All Toggle */}
-        {hasTape && (
+      {showZoomDock && (
+        <div className="pointer-events-auto absolute bottom-[max(5rem,calc(var(--sab,env(safe-area-inset-bottom,0px))+4rem))] right-3 sm:bottom-4 sm:right-4 z-20 flex items-center gap-1 rounded-full bg-white dark:bg-slate-900 bg-card/95 px-2 py-1 shadow-lg ring-1 ring-border backdrop-blur">
           <button
             type="button"
-            onClick={() => setAllTapeReveal(!allTapeRevealed)}
-            title={allTapeRevealed ? "Hide all study tape" : "Reveal all study tape"}
-            className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-amber-500/10 text-amber-500 transition active:scale-90"
+            onClick={zoomOut}
+            title="Zoom out (-)"
+            className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-accent text-foreground transition active:scale-90"
           >
-            {allTapeRevealed ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+            <Minus className="h-3.5 w-3.5" />
           </button>
-        )}
+          <button
+            type="button"
+            onClick={resetZoom}
+            title="Reset zoom to 100%"
+            className="px-1.5 py-0.5 text-xs font-semibold tabular-nums text-foreground hover:bg-accent rounded-md transition active:scale-95"
+          >
+            {Math.round(camera.zoom * 100)}%
+          </button>
+          <button
+            type="button"
+            onClick={zoomIn}
+            title="Zoom in (+)"
+            className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-accent text-foreground transition active:scale-90"
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </button>
 
-        {/* Presentation Mode Toggle - ALWAYS visible to present any board */}
-        <button
-          type="button"
-          onClick={startPresentation}
-          title="Start Lecture Presentation (Slides Mode)"
-          className={cn(
-            "flex h-7 w-7 items-center justify-center rounded-full transition active:scale-90",
-            isPresenting
-              ? "bg-indigo-600 text-white shadow-sm"
-              : "hover:bg-indigo-500/15 text-indigo-500",
+          <div className="h-3.5 w-px bg-border mx-0.5" />
+
+          {/* Fit to Content */}
+          <button
+            type="button"
+            onClick={fitToContent}
+            title="Fit all content to view"
+            className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-accent text-foreground transition active:scale-90"
+          >
+            <Maximize2 className="h-3.5 w-3.5" />
+          </button>
+
+          {/* Minimap Toggle */}
+          <button
+            type="button"
+            onClick={() => setMinimapOpen(!minimapOpen)}
+            title="Toggle Radar Minimap"
+            className={cn(
+              "flex h-7 w-7 items-center justify-center rounded-full transition active:scale-90",
+              minimapOpen ? "bg-sky-500 text-white shadow-sm" : "hover:bg-accent text-foreground",
+            )}
+          >
+            <Compass className="h-3.5 w-3.5" />
+          </button>
+
+          {/* Study Tape Reveal All Toggle */}
+          {hasTape && (
+            <button
+              type="button"
+              onClick={() => setAllTapeReveal(!allTapeRevealed)}
+              title={allTapeRevealed ? "Hide all study tape" : "Reveal all study tape"}
+              className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-amber-500/10 text-amber-500 transition active:scale-90"
+            >
+              {allTapeRevealed ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+            </button>
           )}
-        >
-          <MonitorPlay className="h-3.5 w-3.5" />
-        </button>
-      </div>
+
+          {/* Presentation Mode Toggle - ALWAYS visible to present any board */}
+          <button
+            type="button"
+            onClick={startPresentation}
+            title="Start Lecture Presentation (Slides Mode)"
+            className={cn(
+              "flex h-7 w-7 items-center justify-center rounded-full transition active:scale-90",
+              isPresenting
+                ? "bg-indigo-600 text-white shadow-sm"
+                : "hover:bg-indigo-500/15 text-indigo-500",
+            )}
+          >
+            <MonitorPlay className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* Presentation Mode Overlay */}
       {isPresenting && (
@@ -6005,165 +6256,246 @@ export function WhiteboardCanvas({
       )}
 
       {/* Floating Action Bar for Selection (Single & Multi Selection) */}
-      {clampedSelectionPos && (
-        <div
-          className="pointer-events-auto absolute flex -translate-x-1/2 -translate-y-full items-center gap-1 rounded-full bg-card/95 px-2.5 py-1.5 shadow-xl ring-1 ring-border backdrop-blur z-20"
-          style={{ left: clampedSelectionPos.x, top: clampedSelectionPos.y }}
-        >
-          <div className="flex items-center gap-1 text-xs font-semibold text-primary px-1.5 border-r border-border">
-            <span>{targetSelectionIds.length}</span> {targetSelectionIds.length === 1 ? "item" : "items"}
-          </div>
-
-          {/* 1. Solve Math & Plot */}
-          <button
-            onClick={handleSolveAndPlotMath}
-            title="Solve Math & Plot 2D Function"
-            className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-purple-500/10 text-purple-600 transition"
-          >
-            <Calculator className="h-4 w-4" />
-          </button>
-
-          {/* 2. Handwriting → Math Formula (LaTeX) */}
-          <button
-            onClick={handleConvertMath}
-            title="Convert Handwriting → Math Formula (LaTeX)"
-            className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-violet-500/10 text-violet-500 transition"
-          >
-            <Sigma className="h-4 w-4" />
-          </button>
-
-          {/* 3. Handwriting → Text */}
-          <button
-            onClick={handleConvertHandwritingToText}
-            title="Convert Handwriting → Text"
-            className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-primary/10 text-primary transition"
-          >
-            <Type className="h-4 w-4" />
-          </button>
-
-          {/* 3. Clean Up Sketch / Beautify */}
-          <button
-            onClick={handleBeautifySketch}
-            title="Clean Up Sketch → Geometric Vector Shape"
-            className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-amber-500/10 text-amber-500 transition"
-          >
-            <Sparkles className="h-4 w-4" />
-          </button>
-
-          {/* 4. Mind-Map from Selection */}
-          <button
-            onClick={handleGenerateMindMapFromSelection}
-            title="Generate Concept Mind-Map"
-            className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-indigo-500/10 text-indigo-500 transition"
-          >
-            <GitBranch className="h-4 w-4" />
-          </button>
-
-          {/* 5. Create Flashcards */}
-          <button
-            onClick={handleCreateFlashcardsFromSelection}
-            title="Create Study Flashcards"
-            className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-emerald-500/10 text-emerald-500 transition"
-          >
-            <Layers className="h-4 w-4" />
-          </button>
-
-          {/* 6. Diagram → Flowchart */}
-          <button
-            onClick={handleConvertDiagram}
-            title="Convert to Structured Flowchart"
-            className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-teal-500/10 text-teal-500 transition"
-          >
-            <Workflow className="h-4 w-4" />
-          </button>
-
-          {/* 7. Conceal with Study Tape */}
-          <button
-            onClick={() => {
-              const bounds = selectionBounds;
-              if (!bounds) return;
-              const uid = Math.random().toString(36).slice(2, 10);
-              addObject({
-                id: uid,
-                kind: "tape",
-                x: bounds.x,
-                y: bounds.y,
-                w: bounds.w,
-                h: bounds.h,
-                color: "#fed7aa",
-                revealed: false,
-                pattern: "diagonal",
-                label: "Tap to reveal",
-              });
-              pushHistory();
-              toast.success("Masked with Study Tape!");
-            }}
-            title="Conceal with Study Tape"
-            className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-orange-500/10 text-orange-500 transition"
-          >
-            <EyeOff className="h-4 w-4" />
-          </button>
-
-          {/* 8. Ask AI Sheet */}
-          {onOpenAI && (
-            <button
-              onClick={() => onOpenAI()}
-              title="Ask AI Assistant about Selection"
-              className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-sky-500/10 text-sky-500 transition"
-            >
-              <Wand2 className="h-4 w-4" />
-            </button>
-          )}
-
-          <div className="h-4 w-px bg-border mx-0.5" />
-
-          <button
-            onClick={() => {
-              duplicateSelected();
-              pushHistory();
-            }}
-            title="Duplicate"
-            className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-accent text-foreground transition"
-          >
-            <Copy className="h-4 w-4" />
-          </button>
-          <div className="relative">
-            <button
-              onClick={() => setRecolorPickerOpen(!recolorPickerOpen)}
-              title="Recolor"
-              className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-accent text-foreground transition"
-            >
-              <Palette className="h-4 w-4" />
-            </button>
-            {recolorPickerOpen && (
-              <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 flex gap-1 p-2 rounded-xl bg-card shadow-xl ring-1 ring-border">
-                {PALETTE.slice(0, 7).map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => {
-                      recolorSelected(c);
-                      pushHistory();
-                      setRecolorPickerOpen(false);
-                    }}
-                    className="h-6 w-6 rounded-full border border-border"
-                    style={{ backgroundColor: c }}
-                  />
-                ))}
-              </div>
+      {clampedSelectionPos && (() => {
+        const tooltipPlacement = clampedSelectionPos.isBelow || clampedSelectionPos.y < 120 ? "bottom" : "top";
+        return (
+          <div
+            className={cn(
+              "pointer-events-auto absolute flex -translate-x-1/2 items-center gap-0.5 sm:gap-1 rounded-full bg-card/95 px-2 py-1 sm:px-2.5 sm:py-1.5 shadow-xl ring-1 ring-border backdrop-blur z-20 max-w-[calc(100vw-16px)] overflow-x-auto scrollbar-none touch-pan-x flex-nowrap",
+              clampedSelectionPos.isBelow ? "translate-y-0" : "-translate-y-full"
             )}
-          </div>
-          <button
-            onClick={() => {
-              deleteSelected();
-              pushHistory();
-            }}
-            title="Delete"
-            className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-destructive/10 text-destructive transition"
+            style={{ left: clampedSelectionPos.x, top: clampedSelectionPos.y }}
           >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        </div>
-      )}
+            <div className="flex items-center gap-1 text-[11px] sm:text-xs font-semibold text-primary px-1 sm:px-1.5 border-r border-border shrink-0 select-none">
+              <span>{targetSelectionIds.length}</span> {targetSelectionIds.length === 1 ? "item" : "items"}
+            </div>
+
+            {/* 1. Solve Math & Plot */}
+            <SelectionToolBtn
+              onClick={handleSolveAndPlotMath}
+              icon={<Calculator className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+              label="Solve Math & Plot"
+              description="Calculate math & plot 2D graph"
+              className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-purple-500/10 text-purple-600 transition shrink-0"
+              placement={tooltipPlacement}
+            />
+
+            {/* 2. Handwriting → Math Formula (LaTeX) */}
+            <SelectionToolBtn
+              onClick={handleConvertMath}
+              icon={<Sigma className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+              label="Math Formula (LaTeX)"
+              description="Handwriting → typed LaTeX equation"
+              className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-violet-500/10 text-violet-500 transition shrink-0"
+              placement={tooltipPlacement}
+            />
+
+            {/* Translate selection into any language, written back in handwriting */}
+            <SelectionToolBtn
+              onClick={handleTranslateSelection}
+              icon={<Languages className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+              label="Translate"
+              description="Rewrite in another language, in handwriting"
+              className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-orange-500/10 text-orange-500 transition shrink-0"
+              placement={tooltipPlacement}
+            />
+
+            {/* 3. Handwriting → Text */}
+            <SelectionToolBtn
+              onClick={handleConvertHandwritingToText}
+              icon={<Type className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+              label="Convert to Text"
+              description="Handwriting → editable text box"
+              className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-primary/10 text-primary transition shrink-0"
+              placement={tooltipPlacement}
+            />
+
+            {/* 4. Clean Up Sketch / Beautify */}
+            <SelectionToolBtn
+              onClick={handleBeautifySketch}
+              icon={<Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+              label="Clean Up Shape"
+              description="Rough sketch → clean geometric vector"
+              className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-amber-500/10 text-amber-500 transition shrink-0"
+              placement={tooltipPlacement}
+            />
+
+            {/* 5. Mind-Map from Selection */}
+            <SelectionToolBtn
+              onClick={handleGenerateMindMapFromSelection}
+              icon={<GitBranch className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+              label="Concept Mind Map"
+              description="Generate branching concept diagram"
+              className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-indigo-500/10 text-indigo-500 transition shrink-0"
+              placement={tooltipPlacement}
+            />
+
+            {/* 6. Create Flashcards */}
+            <SelectionToolBtn
+              onClick={handleCreateFlashcardsFromSelection}
+              icon={<Layers className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+              label="Create Flashcards"
+              description="Extract study cards for Learning Hub"
+              className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-emerald-500/10 text-emerald-500 transition shrink-0"
+              placement={tooltipPlacement}
+            />
+
+            {/* 7. Diagram → Flowchart */}
+            <SelectionToolBtn
+              onClick={handleConvertDiagram}
+              icon={<Workflow className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+              label="Diagram → Flowchart"
+              description="Convert sketches to aligned flowchart"
+              className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-teal-500/10 text-teal-500 transition shrink-0"
+              placement={tooltipPlacement}
+            />
+
+            {/* 8. Conceal with Study Tape */}
+            <SelectionToolBtn
+              onClick={() => {
+                const bounds = selectionBounds;
+                if (!bounds) return;
+
+                // 1. Check if selection is already a Study Tape
+                const isAlreadyTape = targetSelectionIds.some((id) => {
+                  const o = page.objects.find((obj) => obj.id === id);
+                  return o?.kind === "tape";
+                });
+                if (isAlreadyTape) {
+                  toast.info("Study Tape is already applied to this!");
+                  return;
+                }
+
+                // 2. Check if an existing tape object already covers this box / bounds
+                const existingTape = page.objects.find((o) => {
+                  if (o.kind !== "tape") return false;
+                  const tb = objectBounds(o);
+                  const xOverlap = Math.max(0, Math.min(bounds.x + bounds.w, tb.x + tb.w) - Math.max(bounds.x, tb.x));
+                  const yOverlap = Math.max(0, Math.min(bounds.y + bounds.h, tb.y + tb.h) - Math.max(bounds.y, tb.y));
+                  const overlapArea = xOverlap * yOverlap;
+                  const minArea = Math.min(bounds.w * bounds.h, tb.w * tb.h);
+                  return minArea > 0 && overlapArea / minArea > 0.5;
+                });
+                if (existingTape) {
+                  toast.info("Study Tape already applied to this box!");
+                  return;
+                }
+
+                const uid = Math.random().toString(36).slice(2, 10);
+                addObject({
+                  id: uid,
+                  kind: "tape",
+                  x: bounds.x,
+                  y: bounds.y,
+                  w: bounds.w,
+                  h: bounds.h,
+                  color: "#fed7aa",
+                  revealed: false,
+                  pattern: "diagonal",
+                  label: "Tap to reveal",
+                });
+                pushHistory();
+                toast.success("Masked with Study Tape!");
+              }}
+              icon={<EyeOff className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+              label="Study Tape"
+              description="Conceal answers (tap to reveal)"
+              className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-orange-500/10 text-orange-500 transition shrink-0"
+              placement={tooltipPlacement}
+            />
+
+            {/* 9. Ask AI Sheet */}
+            {onOpenAI && (
+              <SelectionToolBtn
+                onClick={() => onOpenAI()}
+                icon={<Wand2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+                label="Ask Slate AI"
+                description="Explain, summarize or quiz selection"
+                className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-sky-500/10 text-sky-500 transition shrink-0"
+                placement={tooltipPlacement}
+              />
+            )}
+
+            <div className="h-3.5 sm:h-4 w-px bg-border mx-0 sm:mx-0.5 shrink-0" />
+
+            {/* 10. Duplicate */}
+            <SelectionToolBtn
+              onClick={() => {
+                duplicateSelected();
+                pushHistory();
+              }}
+              icon={<Copy className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+              label="Duplicate"
+              description="Clone selected objects"
+              className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-accent text-foreground transition shrink-0"
+              placement={tooltipPlacement}
+            />
+
+            {/* 11. Recolor */}
+            <div className="relative group/recolor flex items-center justify-center shrink-0">
+              <button
+                type="button"
+                onClick={() => setRecolorPickerOpen(!recolorPickerOpen)}
+                aria-label="Recolor"
+                className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-accent text-foreground transition shrink-0"
+              >
+                <Palette className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              </button>
+              {!recolorPickerOpen && (
+                <div
+                  className={cn(
+                    "pointer-events-none absolute left-1/2 -translate-x-1/2 hidden group-hover/recolor:flex flex-col items-center z-50 animate-in fade-in-0 zoom-in-95 duration-100",
+                    tooltipPlacement === "bottom" ? "top-full mt-2" : "bottom-full mb-2"
+                  )}
+                >
+                  {tooltipPlacement === "bottom" && (
+                    <div className="w-2 h-2 rotate-45 bg-slate-900 dark:bg-slate-100 -mb-1 shadow-xs" />
+                  )}
+                  <div className="flex flex-col items-center rounded-lg bg-slate-900/95 dark:bg-slate-100/95 text-white dark:text-slate-900 px-2.5 py-1.5 shadow-xl ring-1 ring-white/10 dark:ring-black/10 backdrop-blur whitespace-nowrap text-center">
+                    <span className="font-semibold text-xs leading-tight tracking-wide">Recolor</span>
+                    <span className="text-[10px] text-slate-300 dark:text-slate-600 font-normal leading-tight mt-0.5">
+                      Change stroke or fill color
+                    </span>
+                  </div>
+                  {tooltipPlacement === "top" && (
+                    <div className="w-2 h-2 rotate-45 bg-slate-900 dark:bg-slate-100 -mt-1 shadow-xs" />
+                  )}
+                </div>
+              )}
+              {recolorPickerOpen && (
+                <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 flex gap-1 p-2 rounded-xl bg-card shadow-xl ring-1 ring-border">
+                  {PALETTE.slice(0, 7).map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => {
+                        recolorSelected(c);
+                        pushHistory();
+                        setRecolorPickerOpen(false);
+                      }}
+                      className="h-6 w-6 rounded-full border border-border"
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 12. Delete */}
+            <SelectionToolBtn
+              onClick={() => {
+                deleteSelected();
+                pushHistory();
+              }}
+              icon={<Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+              label="Delete"
+              description="Remove selection from canvas"
+              className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-destructive/10 text-destructive transition shrink-0"
+              placement={tooltipPlacement}
+            />
+          </div>
+        );
+      })()}
 
       {editing && (
         <div
@@ -6250,6 +6582,8 @@ export function WhiteboardCanvas({
               fontSize: Math.max(14, (editing.fontSize || 20) * camera.zoom),
               color: editing.color || "inherit",
               lineHeight: 1.3,
+              ...(editing.fontFamily ? { fontFamily: fontStack(editing.fontFamily) } : {}),
+              ...(editing.lang && /^(ur|ar|ks|sd)\b/.test(editing.lang) ? { direction: "rtl" as const } : {}),
             }}
             value={editingTextValue}
             onChange={(e) => {
@@ -6281,6 +6615,56 @@ export function WhiteboardCanvas({
           />
         </div>
       )}
+    </div>
+  );
+}
+
+function SelectionToolBtn({
+  onClick,
+  icon,
+  label,
+  description,
+  className,
+  placement = "top",
+}: {
+  onClick: (e: React.MouseEvent) => void;
+  icon: React.ReactNode;
+  label: string;
+  description: string;
+  className: string;
+  placement?: "top" | "bottom";
+}) {
+  return (
+    <div className="relative group/btn flex items-center justify-center shrink-0">
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={label}
+        className={className}
+      >
+        {icon}
+      </button>
+
+      {/* Floating Rich Tooltip */}
+      <div
+        className={cn(
+          "pointer-events-none absolute left-1/2 -translate-x-1/2 hidden group-hover/btn:flex flex-col items-center z-50 animate-in fade-in-0 zoom-in-95 duration-100",
+          placement === "bottom" ? "top-full mt-2" : "bottom-full mb-2"
+        )}
+      >
+        {placement === "bottom" && (
+          <div className="w-2 h-2 rotate-45 bg-slate-900 dark:bg-slate-100 -mb-1 shadow-xs" />
+        )}
+        <div className="flex flex-col items-center rounded-lg bg-slate-900/95 dark:bg-slate-100/95 text-white dark:text-slate-900 px-2.5 py-1.5 shadow-xl ring-1 ring-white/10 dark:ring-black/10 backdrop-blur whitespace-nowrap text-center">
+          <span className="font-semibold text-xs leading-tight tracking-wide">{label}</span>
+          <span className="text-[10px] text-slate-300 dark:text-slate-600 font-normal leading-tight mt-0.5 max-w-[210px]">
+            {description}
+          </span>
+        </div>
+        {placement === "top" && (
+          <div className="w-2 h-2 rotate-45 bg-slate-900 dark:bg-slate-100 -mt-1 shadow-xs" />
+        )}
+      </div>
     </div>
   );
 }

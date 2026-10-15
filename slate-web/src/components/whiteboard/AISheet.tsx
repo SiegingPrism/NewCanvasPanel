@@ -279,7 +279,7 @@ export function AISheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="flex w-full flex-col p-0 sm:max-w-md">
+      <SheetContent side="right" className="flex w-full flex-col p-0 pt-[max(0.5rem,calc(var(--sat,env(safe-area-inset-top,0px))))] sm:max-w-md">
         <SheetHeader className="border-b p-4">
           <SheetTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" /> Slate AI

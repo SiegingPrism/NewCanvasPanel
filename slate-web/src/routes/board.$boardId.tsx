@@ -5,6 +5,8 @@ import { Toolbar } from "@/components/whiteboard/Toolbar";
 import { TopBar } from "@/components/whiteboard/TopBar";
 import { WidgetsSheet, useWidgetLauncher } from "@/components/whiteboard/WidgetsSheet";
 import { AISheet } from "@/components/whiteboard/AISheet";
+import { HandwritingLanguageDialog } from "@/components/whiteboard/HandwritingLanguageDialog";
+import { useInk } from "@/lib/ink/recognizer";
 import { FloatingWidget } from "@/components/whiteboard/FloatingWidget";
 import {
   CalculatorWidget,
@@ -16,6 +18,9 @@ import {
   MathGraphWidget,
 } from "@/components/whiteboard/widgets/BasicWidgets";
 import { RulerWidget } from "@/components/whiteboard/widgets/RulerWidget";
+import { CurtainWidget } from "@/components/whiteboard/widgets/CurtainWidget";
+import { ProtractorWidget } from "@/components/whiteboard/widgets/ProtractorWidget";
+import { Shapes3DWidget } from "@/components/whiteboard/widgets/Shapes3DWidget";
 import { useWhiteboard } from "@/lib/whiteboard/store";
 import { fetchBoardById } from "@/lib/supabase/dbService";
 import { Wand2 } from "lucide-react";
@@ -45,6 +50,7 @@ function BoardPage() {
   const [widgetsOpen, setWidgetsOpen] = useState(false);
   const [aiOpen, setAIOpen] = useState(false);
   const [isPresenting, setIsPresenting] = useState(false);
+  const { langPickerOpen, setLangPickerOpen, translatePickerOpen, closeTranslatePicker } = useInk();
   const { openWidgets, launch, close } = useWidgetLauncher();
   const { selectedId, pages, activePageId, activeBoardId, boards, boardData, openBoard, hydrated } =
     useWhiteboard();
@@ -188,7 +194,7 @@ function BoardPage() {
 
       <div
         className={cn(
-          "pointer-events-none absolute inset-x-0 top-0 flex justify-center p-2 pt-7 sm:p-3 sm:pt-3 transition-opacity duration-300 z-30",
+          "pointer-events-none absolute inset-x-0 top-0 flex justify-center p-2 pt-[max(1.75rem,calc(var(--sat,env(safe-area-inset-top,0px))+0.5rem))] sm:p-3 sm:pt-[max(0.75rem,calc(var(--sat,env(safe-area-inset-top,0px))+0.5rem))] transition-opacity duration-300 z-30",
           isPresenting ? "opacity-0 pointer-events-none" : "opacity-100",
         )}
       >
@@ -201,7 +207,7 @@ function BoardPage() {
 
       <div
         className={cn(
-          "pointer-events-none absolute inset-x-0 bottom-2 sm:bottom-3 flex justify-center px-2 z-30 transition-opacity duration-300",
+          "pointer-events-none absolute inset-x-0 bottom-[max(0.75rem,calc(var(--sab,env(safe-area-inset-bottom,0px))+0.5rem))] sm:bottom-[max(1rem,calc(var(--sab,env(safe-area-inset-bottom,0px))+0.75rem))] flex justify-center px-2 z-30 transition-opacity duration-300",
           isPresenting ? "opacity-0 pointer-events-none" : "opacity-100",
         )}
       >
@@ -209,7 +215,7 @@ function BoardPage() {
       </div>
 
       {selectedId && (
-        <div className="pointer-events-none absolute bottom-24 left-1/2 -translate-x-1/2 lg:bottom-4 lg:left-auto lg:right-4 lg:translate-x-0">
+        <div className="pointer-events-none absolute bottom-[max(6.5rem,calc(var(--sab,env(safe-area-inset-bottom,0px))+5.25rem))] left-1/2 -translate-x-1/2 lg:bottom-4 lg:left-auto lg:right-4 lg:translate-x-0">
           <div className="pointer-events-auto flex items-center gap-1 rounded-full bg-card px-2 py-1 shadow-lg ring-1 ring-border">
             <button
               onClick={() => setAIOpen(true)}
@@ -224,6 +230,14 @@ function BoardPage() {
 
       <WidgetsSheet open={widgetsOpen} onOpenChange={setWidgetsOpen} onLaunch={launch} />
       <AISheet open={aiOpen} onOpenChange={setAIOpen} contextText={contextText} boardId={boardId} />
+      <HandwritingLanguageDialog open={langPickerOpen} onOpenChange={setLangPickerOpen} />
+      <HandwritingLanguageDialog
+        mode="translate"
+        open={translatePickerOpen}
+        onOpenChange={(o) => {
+          if (!o) closeTranslatePicker();
+        }}
+      />
 
       {openWidgets.map((w) => (
         <FloatingWidget
@@ -240,6 +254,9 @@ function BoardPage() {
           {w.kind === "voice" && <VoiceNoteWidget />}
           {w.kind === "graph" && <MathGraphWidget />}
           {w.kind === "ruler" && <RulerWidget />}
+          {w.kind === "curtain" && <CurtainWidget />}
+          {w.kind === "protractor" && <ProtractorWidget />}
+          {w.kind === "shapes3d" && <Shapes3DWidget />}
         </FloatingWidget>
       ))}
     </div>
@@ -264,6 +281,12 @@ function titleFor(k: string) {
       return "MathPad 2D Grapher";
     case "ruler":
       return "Interactive Ruler";
+    case "curtain":
+      return "Classroom Reveal Curtain";
+    case "protractor":
+      return "Protractor & Angle Dial";
+    case "shapes3d":
+      return "3D Geometric Solids";
     default:
       return k;
   }

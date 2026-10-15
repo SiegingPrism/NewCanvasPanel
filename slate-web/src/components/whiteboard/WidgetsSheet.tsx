@@ -18,6 +18,11 @@ import {
   Atom,
   Layers,
   Grid3X3,
+  Eye,
+  Compass,
+  Box,
+  Globe,
+  Grid,
 } from "lucide-react";
 import { useWhiteboard } from "@/lib/whiteboard/store";
 import type { StickyNoteObject } from "@/lib/whiteboard/types";
@@ -27,6 +32,9 @@ import { TableDialog } from "./TableDialog";
 import { PeriodicTableDialog, type ElementData } from "./widgets/PeriodicTableDialog";
 import { FlashcardsDialog, type Flashcard } from "./widgets/FlashcardsDialog";
 import { WidgetTutorialDialog, type WidgetGuideItem } from "./WidgetTutorialDialog";
+import { GeoMapsDialog } from "./widgets/GeoMapsDialog";
+import { GridTemplatesDialog } from "./widgets/GridTemplatesDialog";
+import { MagicDoodleDialog } from "./widgets/MagicDoodleDialog";
 
 function uid() {
   return Math.random().toString(36).slice(2, 10);
@@ -40,7 +48,10 @@ export type WidgetKind =
   | "calculator"
   | "voice"
   | "graph"
-  | "ruler";
+  | "ruler"
+  | "curtain"
+  | "protractor"
+  | "shapes3d";
 
 export function WidgetsSheet({
   open,
@@ -59,6 +70,9 @@ export function WidgetsSheet({
   const [flashcardsOpen, setFlashcardsOpen] = useState(false);
   const [tutorialOpen, setTutorialOpen] = useState(false);
   const [inspectElementNum, setInspectElementNum] = useState<number | undefined>(undefined);
+  const [geoMapsOpen, setGeoMapsOpen] = useState(false);
+  const [gridTemplatesOpen, setGridTemplatesOpen] = useState(false);
+  const [magicDoodleOpen, setMagicDoodleOpen] = useState(false);
 
   // Automatically trigger the tutorial popup the first time widgets are opened
   useEffect(() => {
@@ -244,12 +258,33 @@ export function WidgetsSheet({
       icon: LineChart,
       color: "bg-cyan-500/10 text-cyan-500",
     },
+    {
+      kind: "curtain" as const,
+      label: "Reveal Curtain",
+      desc: "Conceal / reveal",
+      icon: Eye,
+      color: "bg-red-500/10 text-red-500",
+    },
+    {
+      kind: "protractor" as const,
+      label: "Protractor",
+      desc: "Angle measurer",
+      icon: Compass,
+      color: "bg-indigo-500/10 text-indigo-500",
+    },
+    {
+      kind: "shapes3d" as const,
+      label: "3D Solids",
+      desc: "Geometry shapes",
+      icon: Box,
+      color: "bg-emerald-500/10 text-emerald-500",
+    },
   ];
 
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="right" className="w-full sm:max-w-md flex flex-col h-full max-h-dvh p-4 sm:p-6 overflow-hidden">
+        <SheetContent side="right" className="w-full sm:max-w-md flex flex-col h-full max-h-dvh p-4 sm:p-6 pt-[max(1rem,calc(var(--sat,env(safe-area-inset-top,0px))+0.75rem))] overflow-hidden">
           <SheetHeader className="flex flex-row items-center justify-between space-y-0 pr-6 border-b border-border/60 pb-3 shrink-0">
             <SheetTitle className="text-base font-bold">Widgets & Tools</SheetTitle>
             <button
@@ -421,6 +456,51 @@ export function WidgetsSheet({
                 <button
                   onClick={() => {
                     onOpenChange(false);
+                    setMagicDoodleOpen(true);
+                  }}
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/5 p-2.5 text-center transition hover:bg-amber-500/10 active:scale-95 group"
+                >
+                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400 transition-transform group-hover:scale-105">
+                    <Sparkles className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <div className="text-xs font-semibold leading-tight text-amber-700 dark:text-amber-300">Magic Doodle</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">340 AI icons</div>
+                  </div>
+                </button>
+                <button
+                  onClick={() => {
+                    onOpenChange(false);
+                    setGridTemplatesOpen(true);
+                  }}
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-teal-500/30 bg-teal-500/5 p-2.5 text-center transition hover:bg-teal-500/10 active:scale-95 group"
+                >
+                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-teal-500/15 text-teal-600 dark:text-teal-400 transition-transform group-hover:scale-105">
+                    <Grid className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <div className="text-xs font-semibold leading-tight text-teal-700 dark:text-teal-300">Grid Paper</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Notebook & lines</div>
+                  </div>
+                </button>
+                <button
+                  onClick={() => {
+                    onOpenChange(false);
+                    setGeoMapsOpen(true);
+                  }}
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-blue-500/30 bg-blue-500/5 p-2.5 text-center transition hover:bg-blue-500/10 active:scale-95 group"
+                >
+                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-blue-500/15 text-blue-600 dark:text-blue-400 transition-transform group-hover:scale-105">
+                    <Globe className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <div className="text-xs font-semibold leading-tight text-blue-700 dark:text-blue-300">Geo Maps</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">World & continents</div>
+                  </div>
+                </button>
+                <button
+                  onClick={() => {
+                    onOpenChange(false);
                     window.dispatchEvent(new CustomEvent("slate:solve-math"));
                   }}
                   className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
@@ -456,11 +536,22 @@ export function WidgetsSheet({
         onInsertWholeTable={handleInsertWholePeriodicTable}
         initialElementNumber={inspectElementNum}
       />
-      <FlashcardsDialog
-        open={flashcardsOpen}
-        onOpenChange={setFlashcardsOpen}
-        onInsertCard={handleInsertCard}
-      />
+      {flashcardsOpen && (
+        <FlashcardsDialog
+          open={flashcardsOpen}
+          onOpenChange={setFlashcardsOpen}
+          onInsertCard={handleInsertCard}
+        />
+      )}
+      {magicDoodleOpen && (
+        <MagicDoodleDialog open={magicDoodleOpen} onOpenChange={setMagicDoodleOpen} />
+      )}
+      {gridTemplatesOpen && (
+        <GridTemplatesDialog open={gridTemplatesOpen} onOpenChange={setGridTemplatesOpen} />
+      )}
+      {geoMapsOpen && (
+        <GeoMapsDialog open={geoMapsOpen} onOpenChange={setGeoMapsOpen} />
+      )}
     </>
   );
 }
@@ -487,9 +578,17 @@ export function useWidgetLauncher() {
     Array<{ id: string; kind: WidgetKind; x: number; y: number }>
   >([]);
   function launch(kind: WidgetKind) {
+    const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
+    const screenW = typeof window !== "undefined" ? window.innerWidth : 400;
+    const defaultX = isMobile
+      ? Math.max(8, Math.round((screenW - 320) / 2))
+      : 120 + (openWidgets.length % 5) * 30;
+    const defaultY = isMobile
+      ? 80 + (openWidgets.length % 4) * 20
+      : 120 + (openWidgets.length % 5) * 30;
     setOpenWidgets((w) => [
       ...w,
-      { id: uid(), kind, x: 120 + w.length * 30, y: 120 + w.length * 30 },
+      { id: uid(), kind, x: defaultX, y: defaultY },
     ]);
   }
   function close(id: string) {

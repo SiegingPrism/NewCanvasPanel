@@ -174,6 +174,135 @@ function extractQuadCorners(points: Point[], cornerPts: Point[], maxSpan: number
 }
 
 // ---- Main Shape Recognizer ----
+/** Strokes smaller than this (world px) are treated as handwriting and never snapped. */
+export const MIN_SNAP_SPAN = 40;
+
+/**
+ * How many times a stroke swings to alternate sides of the straight line between its
+ * ends (only swings bigger than ~4% of that distance count). A line or arrow has at
+ * most 2; cursive, waves and zigzags have many.
+ */
+export function countChordLobes(points: Point[]): number {
+  if (points.length < 3) return 0;
+  // Best-fit line through all points (principal axis), so a stroke whose two ends
+  // happen to sit at different heights is still measured against its real direction.
+  let mx = 0;
+  let my = 0;
+  for (const p of points) {
+    mx += p.x;
+    my += p.y;
+  }
+  mx /= points.length;
+  my /= points.length;
+  let sxx = 0;
+  let syy = 0;
+  let sxy = 0;
+  for (const p of points) {
+    sxx += (p.x - mx) ** 2;
+    syy += (p.y - my) ** 2;
+    sxy += (p.x - mx) * (p.y - my);
+  }
+  const theta = 0.5 * Math.atan2(2 * sxy, sxx - syy);
+  const ux = Math.cos(theta);
+  const uy = Math.sin(theta);
+  let lo = Infinity;
+  let hi = -Infinity;
+  for (const p of points) {
+    const t = (p.x - mx) * ux + (p.y - my) * uy;
+    lo = Math.min(lo, t);
+    hi = Math.max(hi, t);
+  }
+  const len = hi - lo;
+  if (len < 1) return 0;
+  const thresh = Math.max(4, len * 0.04);
+  let lobes = 0;
+  let side = 0;
+  for (const p of points) {
+    const d = -(p.x - mx) * uy + (p.y - my) * ux;
+    if (Math.abs(d) < thresh) continue;
+    const sgn = d > 0 ? 1 : -1;
+    if (sgn !== side) {
+      lobes++;
+      side = sgn;
+    }
+  }
+  return lobes;
+}
+
+/**
+ * A scribble / scratch-out: the pen sweeps back and forth along one direction at
+ * least 4 times, each sweep covering most of the width, while the shape stays flat
+ * (much wider than tall, or the reverse). A drawn star also zig-zags but is about
+ * as tall as it is wide, so it is not a scribble.
+ */
+export function isScribble(raw: Point[]): boolean {
+  if (raw.length < 8) return false;
+  const xs = raw.map((p) => p.x);
+  const ys = raw.map((p) => p.y);
+  const w = Math.max(...xs) - Math.min(...xs);
+  const h = Math.max(...ys) - Math.min(...ys);
+  const major = Math.max(w, h);
+  const minor = Math.min(w, h);
+  if (major < 20) return false;
+  if (minor / major > 0.75) return false;
+  const along = w >= h ? xs : ys;
+  // Count direction reversals along the major axis, ignoring jitter.
+  const minSweep = major * 0.4;
+  let reversals = 0;
+  let dir = 0;
+  let anchor = along[0];
+  for (const v of along) {
+    const delta = v - anchor;
+    if (dir >= 0 && delta <= -minSweep) {
+      if (dir > 0) reversals++;
+      dir = -1;
+      anchor = v;
+    } else if (dir <= 0 && delta >= minSweep) {
+      if (dir < 0) reversals++;
+      dir = 1;
+      anchor = v;
+    } else if ((dir > 0 && v > anchor) || (dir < 0 && v < anchor)) {
+      anchor = v;
+    }
+  }
+  return reversals >= 4;
+}
+
+/**
+ * Sharpest change of direction (degrees) in the last `tailFrac` of a stroke. An arrow
+ * head drawn in one stroke always has a hairpin (>~100°) where the pen turns back;
+ * a curve or wave that merely bends at its end does not.
+ */
+function sharpestTurnInTail(raw: Point[], tailFrac: number): number {
+  const pts = resampleStroke(raw, 48);
+  const w = 2;
+  let best = 0;
+  for (let k = Math.max(w, Math.floor(pts.length * (1 - tailFrac))); k < pts.length - w; k++) {
+    const ax = pts[k].x - pts[k - w].x;
+    const ay = pts[k].y - pts[k - w].y;
+    const bx = pts[k + w].x - pts[k].x;
+    const by = pts[k + w].y - pts[k].y;
+    const ma = Math.hypot(ax, ay);
+    const mb = Math.hypot(bx, by);
+    if (ma < 1e-6 || mb < 1e-6) continue;
+    const c = Math.max(-1, Math.min(1, (ax * bx + ay * by) / (ma * mb)));
+    best = Math.max(best, (Math.acos(c) * 180) / Math.PI);
+  }
+  return best;
+}
+
+/** Largest distance of points[from..to] from the straight line p→q, as a fraction of |pq|. */
+function straightnessError(points: Point[], from: number, to: number, p: Point, q: Point): number {
+  const len = Math.hypot(q.x - p.x, q.y - p.y);
+  if (len < 1) return Infinity;
+  let maxDev = 0;
+  for (let i = Math.max(0, from); i <= Math.min(points.length - 1, to); i++) {
+    const d = Math.abs((q.x - p.x) * (points[i].y - p.y) - (q.y - p.y) * (points[i].x - p.x)) / len;
+    if (d > maxDev) maxDev = d;
+  }
+  return maxDev / len;
+}
+
 export function recognizeShape(
   rawPoints: Point[],
   color: string,
@@ -192,7 +321,10 @@ export function recognizeShape(
   const maxY = Math.max(...ys);
   const w = maxX - minX;
   const h = maxY - minY;
-  if (w < 12 && h < 12) return null;
+  // Letter-sized strokes (o, l, c, 0, 1 …) are handwriting, never shapes.
+  if (Math.max(w, h) < MIN_SNAP_SPAN) return null;
+  // Scribbles / scratch-outs are erasing gestures or doodles, never shapes.
+  if (isScribble(rawPoints)) return null;
 
   const first = points[0];
   const last = points[points.length - 1];
@@ -223,6 +355,10 @@ export function recognizeShape(
   // OPEN STROKES: Line, Arrow, Double Arrow
   // ----------------------------------------------------
   if (!isClosed) {
+    // Cursive, waves and zigzags swing back and forth across their own chord:
+    // that is writing, not a line or an arrow.
+    if (countChordLobes(points) >= 3) return null;
+
     const doubleArrow = detectDoubleArrow(rawPoints, color, size);
     if (doubleArrow) return doubleArrow;
 
@@ -890,6 +1026,13 @@ function detectLine(
 
   if (maxDeviation / chordLen > 0.14) return null;
 
+  // A wavy or zig-zag stroke can stay inside that band but is much longer than a line.
+  let pathLen = 0;
+  for (let i = 1; i < points.length; i++) {
+    pathLen += Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
+  }
+  if (pathLen / chordLen > 1.15) return null;
+
   return {
     kind: "shape",
     shape: "line",
@@ -902,7 +1045,13 @@ function detectLine(
   };
 }
 
-function detectArrow(points: Point[], color: string, size: number): Omit<ShapeStroke, "id"> | null {
+function detectArrow(
+  points: Point[],
+  color: string,
+  size: number,
+  /** Ignore this fraction of the stroke's start when checking the shaft (the other head of a double arrow). */
+  skipHeadFrac = 0,
+): Omit<ShapeStroke, "id"> | null {
   if (points.length < 8) return null;
   const n = points.length;
   const tip = points[n - 1];
@@ -946,6 +1095,12 @@ function detectArrow(points: Point[], color: string, size: number): Omit<ShapeSt
 
   const shaftEnd = points[barbIndex];
   const startPt = points[0];
+  // The shaft (everything before the barb) must be a straight line — a check mark,
+  // the letter "c" or a curve with a hook at the end is not an arrow.
+  const from = Math.floor(barbIndex * skipHeadFrac);
+  if (straightnessError(points, from, barbIndex, points[from], shaftEnd) > 0.1) return null;
+  // …and the head must have a real hairpin turn, not just a gentle bend.
+  if (sharpestTurnInTail(points, 0.35) < 100) return null;
   const dx = shaftEnd.x - startPt.x;
   const dy = shaftEnd.y - startPt.y;
 
@@ -973,11 +1128,11 @@ function detectDoubleArrow(
   if (totalSpan < 30) return null;
 
   // Check arrowheads near both ends
-  const hasEndArrow = detectArrow(points, color, size);
+  const hasEndArrow = detectArrow(points, color, size, 0.25);
   if (!hasEndArrow) return null;
 
   const reversed = points.slice().reverse();
-  const hasStartArrow = detectArrow(reversed, color, size);
+  const hasStartArrow = detectArrow(reversed, color, size, 0.25);
   if (!hasStartArrow) return null;
 
   return {

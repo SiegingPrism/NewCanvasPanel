@@ -63,6 +63,8 @@
 }
 
 :root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
   --radius: 0.625rem;
   /* Fallback color definitions (solid hex) ensure non-transparent render */
   --background: #ffffff;

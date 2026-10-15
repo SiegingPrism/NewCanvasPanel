@@ -3,6 +3,7 @@ import { useWhiteboard } from "@/lib/whiteboard/store";
 import type { ImageObject, PageBackground } from "@/lib/whiteboard/types";
 import {
   Upload,
+  Search,
   Download,
   QrCode,
   Undo2,
@@ -579,12 +580,22 @@ export function TopBar({
             }}
           >
             <Settings className="h-3.5 w-3.5 text-muted-foreground" />
-            <span>AI Settings</span>
+            <span>Settings</span>
           </button>
 
           <div className="h-px w-full bg-border/60 my-1" />
 
           {/* Tools & Files */}
+          <button
+            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-accent text-foreground transition"
+            onClick={() => {
+              setMenuOpen(false);
+              window.dispatchEvent(new CustomEvent("slate:open-find"));
+            }}
+          >
+            <Search className="h-3.5 w-3.5 text-muted-foreground" />
+            <span>Find on Board</span>
+          </button>
           <button
             className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-accent text-foreground transition"
             onClick={() => {

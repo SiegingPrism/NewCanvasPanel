@@ -135,9 +135,9 @@ const API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 
 /** Model used for every request. Override with VITE_GEMINI_MODEL in .env if needed. */
 export const GEMINI_MODEL: string =
-  ((import.meta.env?.VITE_GEMINI_MODEL as string | undefined) || "").trim() || "gemini-3.5-flash";
+  ((import.meta.env?.VITE_GEMINI_MODEL as string | undefined) || "").trim() || "gemini-3.5-flash-lite";
 
-const FALLBACK_MODELS: string[] = ["gemini-3.5-flash", "gemini-3.5-flash-lite"];
+const FALLBACK_MODELS: string[] = ["gemini-3.5-flash-lite", "gemini-3.8-flash", "gemini-3.5-flash"];
 
 type Part = { text: string } | { inlineData: { mimeType: string; data: string } };
 type Content = { role: "user" | "model"; parts: Part[] };
@@ -242,6 +242,11 @@ async function toAIError(res: Response): Promise<AIError> {
     const j = await res.json();
     message = j?.error?.message || "";
     status = j?.error?.status || "";
+    // Google puts machine-readable reasons (e.g. ACCESS_TOKEN_TYPE_UNSUPPORTED) in details[]
+    const reasons = Array.isArray(j?.error?.details)
+      ? j.error.details.map((d: { reason?: string }) => d?.reason || "").filter(Boolean)
+      : [];
+    if (reasons.length) status = `${status} ${reasons.join(" ")}`;
   } catch {
     /* body was not JSON */
   }
@@ -251,8 +256,10 @@ async function toAIError(res: Response): Promise<AIError> {
     return new AIError("quota", "AI usage limit reached. Please wait a minute and try again.");
   }
   if (
+    res.status === 401 ||
     lower.includes("api key") ||
     lower.includes("api_key") ||
+    lower.includes("access_token_type_unsupported") ||
     lower.includes("leaked") ||
     (res.status === 403 && lower.includes("permission"))
   ) {
@@ -465,6 +472,81 @@ async function callGemini(contents: Content[], opts: CallOptions = {}): Promise<
 
   if (lastErr instanceof AIError) throw lastErr;
   throw new AIError("server", "The AI service is busy right now. Please try again in a moment.");
+}
+
+export type ConnectionTestResult = {
+  ok: boolean;
+  /** HTTP status from Google (0 = no response). */
+  status: number;
+  /** Plain-language verdict for the user. */
+  message: string;
+  /** Google's own error text, when there was one. */
+  detail?: string;
+  model: string;
+  ms: number;
+};
+
+/**
+ * Send one tiny request straight to Gemini with `key` (or the configured key) and
+ * report exactly what Google answered. Used by the "Test connection" button.
+ */
+export async function testGeminiConnection(key?: string): Promise<ConnectionTestResult> {
+  const apiKey = (key ?? useAISettings.getState().getApiKey()).trim();
+  const model = GEMINI_MODEL;
+  const t0 = Date.now();
+  const done = (r: Omit<ConnectionTestResult, "model" | "ms">): ConnectionTestResult => ({
+    ...r,
+    model,
+    ms: Date.now() - t0,
+  });
+  if (!apiKey) return done({ ok: false, status: 0, message: "No API key is set." });
+  if (typeof navigator !== "undefined" && navigator.onLine === false) {
+    return done({ ok: false, status: 0, message: "This device is offline." });
+  }
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 20000);
+  try {
+    const res = await fetch(`${API_BASE}/models/${model}:generateContent`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts: [{ text: "Reply with exactly one word: connected" }] }],
+        generationConfig: { maxOutputTokens: 16, temperature: 0 },
+      }),
+      signal: ctrl.signal,
+    });
+    if (res.ok) {
+      const text = extractText(await res.json()).trim();
+      return done({
+        ok: true,
+        status: res.status,
+        message: text ? `Connected — Gemini replied "${text.slice(0, 40)}".` : "Connected.",
+      });
+    }
+    let detail = "";
+    try {
+      const j = await res.clone().json();
+      detail = [j?.error?.status, j?.error?.message].filter(Boolean).join(": ");
+      const reason = j?.error?.details?.find?.((d: { reason?: string }) => d?.reason)?.reason;
+      if (reason) detail += ` (${reason})`;
+    } catch {
+      /* not JSON */
+    }
+    const err = await toAIError(res);
+    return done({ ok: false, status: res.status, message: err.message, detail: detail || undefined });
+  } catch (e) {
+    const aborted = e instanceof Error && e.name === "AbortError";
+    return done({
+      ok: false,
+      status: 0,
+      message: aborted
+        ? "Google did not answer within 20 seconds."
+        : "Could not reach Google (network blocked or no internet).",
+      detail: e instanceof Error ? e.message : undefined,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /** Streaming request (Server-Sent Events) with fallback models. Calls onText with the full text so far. */
@@ -772,6 +854,39 @@ const TUTOR_SYSTEM = `You are Slate AI, a friendly and precise study assistant i
 - If the request is ambiguous, make a sensible assumption and say what you assumed.
 - Never invent facts about the user's notes; only use the provided board or notes context.`;
 
+const TRANSLATE_SYSTEM =
+  "You are a professional translator and handwriting reader. Respond only with JSON matching the schema. Translate meaning naturally, never word-by-word, and always write the translation in the requested script.";
+
+const TRANSLATION_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    source: { type: "STRING" },
+    sourceLanguage: { type: "STRING" },
+    translation: { type: "STRING" },
+  },
+  required: ["source", "sourceLanguage", "translation"],
+};
+
+export interface TranslationResult {
+  source: string;
+  sourceLanguage: string;
+  translation: string;
+}
+
+function parseTranslation(raw: string): TranslationResult {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const p = parseJSON<any>(raw);
+  const translation = String(p?.translation ?? "").replace(/^["'`]+|["'`]+$/g, "").trim();
+  if (!translation) {
+    throw new AIError("bad_response", "Couldn't read that — try writing a little larger or clearer.");
+  }
+  return {
+    source: String(p?.source ?? "").trim(),
+    sourceLanguage: String(p?.sourceLanguage ?? "").trim(),
+    translation,
+  };
+}
+
 const JSON_SYSTEM =
   "You are an accurate educational content engine. Respond only with JSON that matches the requested schema. Base every item strictly on the provided material.";
 
@@ -857,16 +972,23 @@ export class AIEngine {
   }
 
   // ---- Handwriting → text ----
-  static async transcribeHandwriting(imageDataUrl?: string): Promise<string> {
+  static async transcribeHandwriting(
+    imageDataUrl?: string,
+    languageHint?: string,
+    opts: { timeoutMs?: number; signal?: AbortSignal } = {},
+  ): Promise<string> {
     if (!imageDataUrl) throw new AIError("bad_input", "Select some handwriting first.");
+    const langClause = languageHint
+      ? ` The expected language/script is ${languageHint} or English/Latin. Transcribe in the native script for ${languageHint}, or English if written in English.`
+      : "";
     const text = await callGemini(
       userContent(
-        "Transcribe all handwritten text in this image exactly as written, keeping line breaks. Write any math in plain text (e.g. x^2 + 3x = 5). Output only the transcription. If there is no readable writing, output exactly: [unreadable]",
+        `Transcribe whatever handwritten text, characters, letters, glyphs, words, numbers, or math are written in this image exactly as written.${langClause} Even if it is a single character, letter, symbol, or digit, output that character (for example: 'H', '1', 'क', 'a'). Output ONLY the transcribed characters without code fences, quotes, or commentary. Only output [unreadable] if the image is completely blank, accidental noise, or contains no characters/symbols at all.`,
         imageDataUrl,
       ),
-      { temperature: 0 },
+      { temperature: 0, ...opts },
     );
-    const clean = text.replace(/^```\w*\s*|```$/g, "").trim();
+    const clean = text.replace(/^```\w*\s*|```$/g, "").replace(/^["'`]+|["'`]+$/g, "").trim();
     if (!clean || /^\[unreadable\]$/i.test(clean)) {
       throw new AIError(
         "bad_response",
@@ -874,6 +996,56 @@ export class AIEngine {
       );
     }
     return clean;
+  }
+
+  // ---- Translation (handwriting or text → any language, in the right script) ----
+  /**
+   * Reads handwriting from an image and translates it. `target` is the language
+   * name (e.g. "Hindi (हिन्दी)") and `script` the writing system to answer in.
+   */
+  static async translateHandwriting(
+    imageDataUrl: string | undefined,
+    target: string,
+    script: string,
+    opts: { timeoutMs?: number; signal?: AbortSignal } = {},
+  ): Promise<TranslationResult> {
+    if (!imageDataUrl) throw new AIError("bad_input", "Select some handwriting first.");
+    const raw = await callGemini(
+      userContent(
+        `Read the handwritten text in this image (it may be in any language or script). Then translate it into ${target}, written in ${script} script, the way a fluent native speaker would naturally write it.
+Return JSON with:
+- source: the handwriting exactly as written (keep its original script)
+- sourceLanguage: the English name of the language it is written in
+- translation: the translation in ${target} (${script} script). Keep numbers, names, units and math as they are. Keep line breaks. If it is already in ${target}, return it unchanged (fix obvious spelling only).
+Even if it is a single word, greeting, letter, character, or digit, accurately transcribe and translate it. Only return empty strings if the image is completely blank, accidental noise, or contains no characters/symbols at all.`,
+        imageDataUrl,
+      ),
+      { system: TRANSLATE_SYSTEM, json: true, schema: TRANSLATION_SCHEMA, temperature: 0.1, ...opts },
+    );
+    return parseTranslation(raw);
+  }
+
+  /** Translates typed text into `target` (written in `script`). */
+  static async translateText(
+    text: string,
+    target: string,
+    script: string,
+    opts: { timeoutMs?: number; signal?: AbortSignal } = {},
+  ): Promise<TranslationResult> {
+    const clean = text.trim();
+    if (!clean) throw new AIError("bad_input", "There's no text to translate.");
+    const raw = await callGemini(
+      userContent(
+        `Translate this text into ${target}, written in ${script} script, the way a fluent native speaker would naturally write it. Keep numbers, names, units and math as they are. Keep line breaks. If it is already in ${target}, return it unchanged.
+Return JSON with source (the text as given), sourceLanguage (English name of its language) and translation.
+
+TEXT:
+${clean.slice(0, 8000)}`,
+      ),
+      { system: TRANSLATE_SYSTEM, json: true, schema: TRANSLATION_SCHEMA, temperature: 0.1, ...opts },
+    );
+    const r = parseTranslation(raw);
+    return { ...r, source: r.source || clean };
   }
 
   // ---- Handwriting → LaTeX ----

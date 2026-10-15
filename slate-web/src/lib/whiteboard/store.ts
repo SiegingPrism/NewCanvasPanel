@@ -61,6 +61,7 @@ type Actions = {
   setSelected: (id: string | null) => void;
   setSelectedIds: (ids: string[]) => void;
   setAutoSnapEnabled: (enabled: boolean) => void;
+  setShowZoomDock: (show: boolean) => void;
   moveSelected: (dx: number, dy: number) => void;
   duplicateSelected: () => void;
   deleteSelected: () => void;
@@ -194,6 +195,15 @@ function persistMeta(state: State) {
   });
 }
 
+function loadShowZoomDock(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return localStorage.getItem("slate_show_zoom_dock") === "true";
+  } catch {
+    return false;
+  }
+}
+
 export const useWhiteboard = create<State & Actions>((set, get) => {
   return {
     // persist
@@ -210,7 +220,8 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
     historyIndex: -1,
     selectedId: null,
     selectedIds: [],
-    autoSnapEnabled: true,
+    autoSnapEnabled: false,
+    showZoomDock: loadShowZoomDock(),
     camera: { x: 0, y: 0, zoom: 1 },
 
     setTool: (tool) =>
@@ -232,6 +243,12 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
         selectedId: ids.length === 1 ? ids[0] : null,
       }),
     setAutoSnapEnabled: (autoSnapEnabled) => set({ autoSnapEnabled }),
+    setShowZoomDock: (showZoomDock) => {
+      set({ showZoomDock });
+      try {
+        localStorage.setItem("slate_show_zoom_dock", String(showZoomDock));
+      } catch {}
+    },
 
     moveSelected: (dx, dy) => {
       const s = get();
