@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { useAISettings } from "@/lib/ai/aiSettingsStore";
 import { useWhiteboard } from "@/lib/whiteboard/store";
 import { useInk, findLanguage } from "@/lib/ink/recognizer";
+import { useAuth } from "@/lib/supabase/authStore";
 import { HandwritingLanguageDialog } from "@/components/whiteboard/HandwritingLanguageDialog";
 import { GEMINI_MODEL, testGeminiConnection, type ConnectionTestResult } from "@/lib/ai/aiEngine";
 import {
@@ -55,6 +56,8 @@ export function AISettingsDialog({
   const [langDialogOpen, setLangDialogOpen] = useState(false);
   const currentLang = findLanguage(language);
 
+  const user = useAuth((s) => s.user);
+
   const [tempKey, setTempKey] = useState(geminiKey);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<ConnectionTestResult | null>(null);
@@ -69,7 +72,7 @@ export function AISettingsDialog({
   async function handleTest() {
     setTesting(true);
     setTestResult(null);
-    // Test the key in the box, or the built-in key when the box is empty.
+    // Test the key in the box, or the cloud proxy when empty and signed in
     const result = await testGeminiConnection(tempKey.trim() || undefined);
     setTestResult(result);
     setTesting(false);
@@ -81,8 +84,9 @@ export function AISettingsDialog({
     onOpenChange(false);
   }
 
-  const usingBuiltIn = !tempKey.trim() && hasBuiltInKey;
-  const notConfigured = !tempKey.trim() && !hasBuiltInKey;
+  const hasPersonalKey = Boolean(tempKey.trim());
+  const usingCloudProxy = !hasPersonalKey && Boolean(user);
+  const notConfigured = !hasPersonalKey && !usingCloudProxy;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -257,9 +261,9 @@ export function AISettingsDialog({
                 <Input
                   type="password"
                   placeholder={
-                    hasBuiltInKey
-                      ? "Leave blank to use Slate's built-in AI"
-                      : "Paste your Gemini API key"
+                    user
+                      ? "Leave blank to use Slate cloud AI (signed in)"
+                      : "Paste your Gemini API key (optional)"
                   }
                   value={tempKey}
                   onChange={(e) => setTempKey(e.target.value)}
@@ -283,11 +287,11 @@ export function AISettingsDialog({
             >
               <Wifi className="h-4 w-4 shrink-0 mt-0.5" />
               <span>
-                {notConfigured
-                  ? "No API key is configured yet, so AI features are turned off. Add a key above."
-                  : usingBuiltIn
-                    ? "Using Slate's built-in AI. AI features need an internet connection."
-                    : "Using your personal key. AI features need an internet connection."}
+                {hasPersonalKey
+                  ? "Using your personal Gemini API key. AI features need an internet connection."
+                  : usingCloudProxy
+                    ? `Signed in as ${user?.email}. Using Slate cloud AI proxy.`
+                    : "Sign in with Google/Email or paste a personal Gemini key above to use AI features."}
               </span>
             </div>
 

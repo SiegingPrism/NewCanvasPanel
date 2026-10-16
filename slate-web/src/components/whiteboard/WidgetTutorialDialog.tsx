@@ -263,17 +263,29 @@ export function WidgetTutorialDialog({
   }, [tab, search]);
 
   const handleClose = () => {
-    if (dontShowAgain) {
-      try {
-        localStorage.setItem("slate_widget_tutorial_dismissed", "true");
-      } catch (e) {}
-    }
+    try {
+      localStorage.setItem("slate_widget_tutorial_dismissed", "true");
+    } catch (e) {}
     onOpenChange(false);
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[88vh] flex flex-col p-0 overflow-hidden rounded-2xl shadow-2xl border border-border bg-card">
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (!v) {
+          try {
+            localStorage.setItem("slate_widget_tutorial_dismissed", "true");
+          } catch (e) {}
+        }
+        onOpenChange(v);
+      }}
+    >
+      <DialogContent
+        className="max-w-2xl max-h-[88vh] flex flex-col p-0 overflow-hidden rounded-2xl shadow-2xl border border-border bg-card"
+        onPointerDownOutside={(e) => e.stopPropagation()}
+        onInteractOutside={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="p-4 sm:p-5 border-b border-border bg-muted/30">
           <div className="flex items-start justify-between gap-3">
@@ -405,7 +417,15 @@ export function WidgetTutorialDialog({
             <span>Don&apos;t pop up automatically (open anytime via &ldquo;?&rdquo;)</span>
           </label>
 
-          <Button size="sm" onClick={handleClose} className="px-5 text-xs font-semibold h-8 w-full sm:w-auto">
+          <Button
+            size="sm"
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleClose();
+            }}
+            className="px-5 text-xs font-semibold h-8 w-full sm:w-auto"
+          >
             Got it, Let&apos;s Draw!
           </Button>
         </div>

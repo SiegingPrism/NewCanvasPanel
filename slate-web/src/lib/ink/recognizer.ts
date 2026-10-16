@@ -156,7 +156,7 @@ export type RecognizerStatus =
 
 const SETTINGS_KEY = "slate_ink_settings_v1";
 const LANGUAGE_KEY = "slate_ink_language_v1";
-const DEFAULTS: InkSettings = { livePreview: true, autoType: true, scratchOut: true, translateLive: false };
+const DEFAULTS: InkSettings = { livePreview: true, autoType: false, scratchOut: true, translateLive: false };
 const TRANSLATE_KEY = "slate_ink_translate_to_v1";
 
 function loadTranslateTo(): string {
@@ -171,29 +171,22 @@ function loadTranslateTo(): string {
 
 function loadSettings(): InkSettings {
   try {
-    const MIGRATION_KEY = "slate_ink_autotype_v3_fixed";
-    if (typeof localStorage !== "undefined" && !localStorage.getItem(MIGRATION_KEY)) {
-      localStorage.setItem(MIGRATION_KEY, "1");
-      const raw = localStorage.getItem(SETTINGS_KEY);
-      const parsed = raw ? JSON.parse(raw) : {};
-      const fixed = { ...DEFAULTS, ...parsed, autoType: true, livePreview: true };
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify(fixed));
-      return fixed;
-    }
     const raw = typeof localStorage !== "undefined" ? localStorage.getItem(SETTINGS_KEY) : null;
     if (raw) {
       const parsed = JSON.parse(raw);
       return {
         ...DEFAULTS,
         ...parsed,
-        livePreview: true,
-        autoType: typeof parsed.autoType === "boolean" ? parsed.autoType : true,
+        livePreview: typeof parsed.livePreview === "boolean" ? parsed.livePreview : DEFAULTS.livePreview,
+        autoType: typeof parsed.autoType === "boolean" ? parsed.autoType : DEFAULTS.autoType,
+        scratchOut: typeof parsed.scratchOut === "boolean" ? parsed.scratchOut : DEFAULTS.scratchOut,
+        translateLive: typeof parsed.translateLive === "boolean" ? parsed.translateLive : DEFAULTS.translateLive,
       };
     }
   } catch {
     /* ignore */
   }
-  return { ...DEFAULTS, livePreview: true, autoType: true };
+  return { ...DEFAULTS };
 }
 
 function loadLanguage(): string {
@@ -446,13 +439,19 @@ export async function recognizeInk(
         }
       } catch (err) {
         const code = err instanceof AIError ? err.code : "";
-        if (code === "bad_response") return fail("error", "Couldn't read that — try writing a little larger.");
+        if (code === "bad_response") {
+          useInk.setState({ status: "idle", lastError: null });
+          return null;
+        }
         if (code === "offline") return fail("offline", "You're offline — handwriting needs internet.");
         return fail("error", aiErrorMessage(err));
       }
     }
     const clean = (text || "").replace(/^["'`]+|["'`]+$/g, "").trim();
-    if (!clean) return fail("error", "Couldn't read that — try writing a little larger.");
+    if (!clean || /^\[unreadable\]$/i.test(clean)) {
+      useInk.setState({ status: "idle", lastError: null });
+      return null;
+    }
     const out: Recognition = {
       text: clean,
       alternatives: [],

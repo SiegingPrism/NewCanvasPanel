@@ -6,10 +6,10 @@ const config: CapacitorConfig = {
   webDir: ".output/public",
   server: {
     androidScheme: "https",
-    cleartext: true,
+    cleartext: false,
   },
   android: {
-    allowMixedContent: true,
+    allowMixedContent: false,
     captureInput: true,
   },
 };

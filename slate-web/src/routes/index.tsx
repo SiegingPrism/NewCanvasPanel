@@ -24,8 +24,8 @@ import {
   Check,
   Tag,
   Cloud,
-  PenTool,
-  Layers,
+  LogIn,
+  User,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -121,22 +121,19 @@ function Dashboard() {
   }
 
   return (
-    <div className="relative min-h-dvh w-full bg-background overscroll-y-contain">
-      {/* Ambient background glow */}
-      <div className="pointer-events-none fixed top-0 inset-x-0 h-96 bg-gradient-to-b from-primary/[0.04] via-primary/[0.01] to-transparent z-0" />
-
-      {/* Header with Safe Area Inset Boundary */}
-      <header className="sticky top-0 z-20 border-b bg-background/95 backdrop-blur-md pt-[max(1.75rem,calc(var(--sat,env(safe-area-inset-top,0px))+0.25rem))] sm:pt-[max(0.5rem,calc(var(--sat,env(safe-area-inset-top,0px))+0.25rem))]">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-2 sm:py-3 sm:px-6">
+    <div className="min-h-dvh w-full bg-background overscroll-y-contain">
+      {/* Header */}
+      <header className="sticky top-0 z-20 border-b bg-background/95 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <Link to="/" className="flex items-center gap-2.5 font-semibold group">
             <img
               src="/sti-logo.png"
               alt="STI Logo"
-              className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl object-cover shadow-xs transition group-hover:scale-105 ring-1 ring-border/50"
+              className="h-9 w-9 rounded-xl object-cover shadow-xs transition group-hover:scale-105 ring-1 ring-border/50"
             />
             <div className="flex flex-col leading-tight">
-              <span className="font-bold text-foreground tracking-tight text-sm sm:text-base">Slate</span>
-              <span className="text-[8px] sm:text-[9px] font-bold tracking-wider text-[#B48528] uppercase -mt-0.5">
+              <span className="font-bold text-foreground tracking-tight text-base">Slate</span>
+              <span className="text-[9px] font-bold tracking-wider text-[#B48528] uppercase -mt-0.5">
                 SNANS TECH
               </span>
             </div>
@@ -174,6 +171,29 @@ function Dashboard() {
               <BookOpen className="h-4 w-4" />
               <span>Tutorial</span>
             </button>
+            {user ? (
+              <button
+                type="button"
+                onClick={() => setAuthOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium text-foreground hover:bg-accent transition"
+                title={`Signed in as ${user.email}`}
+              >
+                <div className="grid h-6 w-6 place-items-center rounded-full bg-emerald-500/15 text-emerald-600 font-bold text-xs">
+                  {user.email?.charAt(0).toUpperCase()}
+                </div>
+                <span className="text-xs font-medium max-w-[100px] truncate">{user.email?.split("@")[0]}</span>
+              </button>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setAuthOpen(true)}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold h-8"
+              >
+                <LogIn className="h-3.5 w-3.5" />
+                <span>Sign in</span>
+              </Button>
+            )}
             <button
               type="button"
               onClick={async () => {
@@ -190,22 +210,42 @@ function Dashboard() {
               title="Sync with Cloud"
             >
               <Cloud className={cn("h-4 w-4", user ? "text-emerald-500" : "text-blue-500")} />
-              <span className="hidden lg:inline text-xs">{user ? "Cloud Sync" : "Sign In / Sync"}</span>
+              <span className="hidden lg:inline text-xs">{user ? "Sync" : "Cloud"}</span>
             </button>
             <Button size="sm" onClick={() => openNew()} className="ml-1">
               <Plus className="h-4 w-4" /> New board
             </Button>
           </nav>
 
-          {/* Mobile Right Bar: Quick New + Burger Menu Button */}
-          <div className="flex md:hidden items-center gap-2">
-            <Button size="sm" onClick={() => openNew()} className="h-8 px-2.5 text-xs gap-1 font-semibold rounded-lg shadow-xs shadow-primary/20">
+          {/* Mobile Right Bar: Quick Sign in + New + Burger Menu Button */}
+          <div className="flex md:hidden items-center gap-1.5">
+            {user ? (
+              <button
+                type="button"
+                onClick={() => setAuthOpen(true)}
+                className="grid h-8 w-8 place-items-center rounded-lg border border-border bg-card text-emerald-600 font-bold text-xs"
+                title={`Signed in as ${user.email}`}
+              >
+                {user.email?.charAt(0).toUpperCase()}
+              </button>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setAuthOpen(true)}
+                className="h-8 px-2 text-xs gap-1 font-medium"
+              >
+                <LogIn className="h-3.5 w-3.5" />
+                <span>Sign in</span>
+              </Button>
+            )}
+            <Button size="sm" onClick={() => openNew()} className="h-8 px-2.5 text-xs gap-1">
               <Plus className="h-3.5 w-3.5" /> New
             </Button>
             <button
               type="button"
               onClick={() => setMobileMenuOpen((prev) => !prev)}
-              className="grid h-8 w-8 place-items-center rounded-lg border border-border/80 bg-card text-foreground hover:bg-accent active:scale-95 transition"
+              className="grid h-8 w-8 place-items-center rounded-lg border border-border bg-card text-foreground hover:bg-accent active:scale-95 transition"
               aria-label="Toggle navigation menu"
             >
               {mobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
@@ -217,7 +257,7 @@ function Dashboard() {
         {mobileMenuOpen && (
           <>
             <div
-              className="fixed inset-0 top-[max(3.5rem,calc(var(--sat,env(safe-area-inset-top,0px))+3.25rem))] z-30 bg-background/60 backdrop-blur-sm md:hidden"
+              className="fixed inset-0 top-[57px] z-30 bg-background/60 backdrop-blur-sm md:hidden"
               onClick={() => setMobileMenuOpen(false)}
             />
             <div className="absolute top-full left-0 right-0 z-40 border-b border-border bg-card p-4 shadow-xl md:hidden space-y-3 animate-in slide-in-from-top duration-200">
@@ -283,6 +323,24 @@ function Dashboard() {
                     </div>
                   </div>
                 </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    setAuthOpen(true);
+                  }}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-foreground hover:bg-accent transition"
+                >
+                  <div className={cn("grid h-8 w-8 place-items-center rounded-lg", user ? "bg-emerald-500/10 text-emerald-500" : "bg-blue-500/10 text-blue-500")}>
+                    {user ? <User className="h-4 w-4" /> : <LogIn className="h-4 w-4" />}
+                  </div>
+                  <div className="text-left">
+                    <div className="font-semibold">{user ? "Cloud Account" : "Sign In / Register"}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {user ? `Signed in as ${user.email}` : "Sync boards & unlock cloud AI"}
+                    </div>
+                  </div>
+                </button>
               </div>
 
               <div className="pt-2 border-t border-border">
@@ -301,15 +359,11 @@ function Dashboard() {
         )}
       </header>
 
-      <main className="mx-auto max-w-6xl space-y-3.5 sm:space-y-6 px-3.5 sm:px-6 py-2.5 sm:py-6 pb-[max(3.5rem,calc(var(--sab,env(safe-area-inset-bottom,0px))+2.5rem))]">
+      <main className="mx-auto max-w-6xl space-y-8 px-4 py-8 sm:px-6">
         {/* Welcome */}
-        <section className="space-y-1">
-          <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20 w-fit">
-            <Sparkles className="h-3 w-3" />
-            <span>Creative Whiteboard Studio</span>
-          </div>
-          <h1 className="text-xl sm:text-3xl font-bold tracking-tight text-foreground">Welcome back</h1>
-          <p className="text-xs sm:text-sm text-muted-foreground">
+        <section>
+          <h1 className="text-3xl font-bold tracking-tight">Welcome back</h1>
+          <p className="mt-1 text-muted-foreground">
             Pick up where you left off, or start something new.
           </p>
         </section>
@@ -319,7 +373,7 @@ function Dashboard() {
           <section>
             <SectionHeader
               title="Continue working"
-              icon={<Clock className="h-3.5 w-3.5 text-primary" />}
+              icon={<Clock className="h-4 w-4" />}
               action={
                 <Link
                   to="/library"
@@ -333,43 +387,25 @@ function Dashboard() {
               onClick={() =>
                 navigate({ to: "/board/$boardId", params: { boardId: continueBoard.id } })
               }
-              className="group relative flex w-full items-center justify-between gap-2.5 rounded-xl sm:rounded-2xl border border-primary/25 bg-gradient-to-r from-card via-card to-primary/[0.05] p-2.5 sm:p-4 text-left shadow-2xs transition duration-200 hover:border-primary/50 hover:shadow-xs active:scale-[0.99] overflow-hidden"
+              className="group flex w-full items-center justify-between gap-4 rounded-2xl border bg-card p-5 text-left shadow-sm transition hover:border-primary hover:shadow-md"
             >
-              <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
-                <div className="relative grid h-8 w-8 sm:h-10 sm:w-10 shrink-0 place-items-center rounded-lg sm:rounded-xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-xs shadow-primary/25">
-                  <PenTool className="h-4 w-4 sm:h-5 sm:w-5" />
-                  <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                  </span>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-semibold text-foreground">{continueBoard.title}</h3>
+                  {continueBoard.favorite && (
+                    <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                  )}
                 </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <h3 className="text-xs sm:text-base font-semibold text-foreground truncate">
-                      {continueBoard.title}
-                    </h3>
-                    {continueBoard.favorite && (
-                      <Star className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0 fill-amber-400 text-amber-400" />
-                    )}
-                    <span className="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[9px] font-semibold rounded bg-primary/10 text-primary">
-                      Recent
-                    </span>
-                  </div>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                    <Clock className="h-2.5 w-2.5 text-muted-foreground/70" />
-                    <span>Last edited {relTime(continueBoard.updatedAt)}</span>
-                  </p>
-                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Last edited {relTime(continueBoard.updatedAt)}
+                </p>
               </div>
-              <div className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] sm:text-xs font-semibold bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-all duration-200 shrink-0 shadow-2xs">
-                <span>Resume</span>
-                <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
-              </div>
+              <ArrowRight className="h-5 w-5 text-muted-foreground transition group-hover:translate-x-1 group-hover:text-primary" />
             </button>
           </section>
         ) : (
           <section>
-            <SectionHeader title="Recent board" icon={<Clock className="h-3.5 w-3.5" />} />
+            <SectionHeader title="Recent board" icon={<Clock className="h-4 w-4" />} />
             <EmptyState
               title="No boards created yet"
               subtitle="Create your first board to start drawing and sketching."
@@ -382,76 +418,64 @@ function Dashboard() {
           </section>
         )}
 
-        {/* Quick Actions - 3 cols on mobile, 3 on tablet, 6 on desktop */}
+        {/* Quick Actions (with New Note and Learning Hub restored) */}
         <section className="isolate">
           <SectionHeader title="Quick actions" />
-          <div className="grid grid-cols-3 gap-1.5 sm:gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <QuickCard
-              icon={<Plus className="h-3.5 w-3.5 sm:h-5 sm:w-5" />}
+              icon={<Plus className="h-5 w-5" />}
               title="Blank board"
-              subtitle="Clean canvas"
+              subtitle="Start with a clean canvas"
               onClick={() => openNew("blank")}
-              badgeClass="bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-xs shadow-blue-500/30"
-              gradientBorder="hover:border-blue-500/40 hover:bg-blue-500/[0.02]"
             />
             <QuickCard
-              icon={<FolderOpen className="h-3.5 w-3.5 sm:h-5 sm:w-5" />}
+              icon={<FolderOpen className="h-5 w-5" />}
               title="Open library"
-              subtitle="Browse & sort"
+              subtitle="Browse, sort, and organize"
               onClick={() => navigate({ to: "/library" })}
-              badgeClass="bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-xs shadow-amber-500/30"
-              gradientBorder="hover:border-amber-500/40 hover:bg-amber-500/[0.02]"
             />
             <QuickCard
-              icon={<Sparkles className="h-3.5 w-3.5 sm:h-5 sm:w-5" />}
-              title="AI board"
-              subtitle="Smart helper"
+              icon={<Sparkles className="h-5 w-5" />}
+              title="AI-assisted board"
+              subtitle="Start blank and open the AI helper"
               onClick={() => openNew("blank")}
-              badgeClass="bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-xs shadow-violet-500/30"
-              gradientBorder="hover:border-violet-500/40 hover:bg-violet-500/[0.02]"
             />
             <QuickCard
-              icon={<FileText className="h-3.5 w-3.5 sm:h-5 sm:w-5" />}
+              icon={<FileText className="h-5 w-5" />}
               title="New note"
-              subtitle="Block notes"
+              subtitle="Block-based notes with AI actions"
               onClick={() => navigate({ to: "/notes" })}
-              badgeClass="bg-gradient-to-br from-sky-500 to-cyan-600 text-white shadow-xs shadow-sky-500/30"
-              gradientBorder="hover:border-sky-500/40 hover:bg-sky-500/[0.02]"
             />
             <QuickCard
-              icon={<GraduationCap className="h-3.5 w-3.5 sm:h-5 sm:w-5" />}
+              icon={<GraduationCap className="h-5 w-5" />}
               title="Learning Hub"
-              subtitle="Flashcards"
+              subtitle="Study flashcards & take quizzes"
               onClick={() => navigate({ to: "/learn" })}
-              badgeClass="bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-xs shadow-emerald-500/30"
-              gradientBorder="hover:border-emerald-500/40 hover:bg-emerald-500/[0.02]"
             />
             <QuickCard
-              icon={<BookOpen className="h-3.5 w-3.5 sm:h-5 sm:w-5" />}
-              title="Feature Guide"
-              subtitle="Inks & tutorial"
+              icon={<BookOpen className="h-5 w-5 text-primary" />}
+              title="Feature Guide & Tutorial"
+              subtitle="Inks, widgets, snap & AI overview"
               onClick={() => setTourOpen(true)}
-              badgeClass="bg-gradient-to-br from-rose-500 to-pink-600 text-white shadow-xs shadow-rose-500/30"
-              gradientBorder="hover:border-rose-500/40 hover:bg-rose-500/[0.02]"
             />
           </div>
         </section>
 
         {/* My Boards & Folders (Organization & Starred Favorites) */}
-        <section className="isolate space-y-3 sm:space-y-4">
-          <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+        <section className="isolate space-y-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
               <SectionHeader
                 title="My Boards & Folders"
                 icon={<Folder className="h-4 w-4 text-primary" />}
               />
-              <span className="text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground -mt-2 sm:-mt-3">
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
                 {filteredBoards.length}
               </span>
             </div>
 
             <div className="flex items-center gap-2">
-              <div className="relative flex-1 sm:w-52 sm:flex-none">
+              <div className="relative w-40 sm:w-52">
                 <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
                   placeholder="Search boards..."
@@ -464,7 +488,7 @@ function Dashboard() {
               {/* New Folder Popover */}
               <Popover open={newFolderOpen} onOpenChange={setNewFolderOpen}>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs rounded-xl shrink-0">
+                  <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs rounded-xl">
                     <FolderPlus className="h-3.5 w-3.5" />
                     <span className="hidden sm:inline">New Folder</span>
                   </Button>
@@ -554,9 +578,9 @@ function Dashboard() {
 
           {/* Boards Grid */}
           {filteredBoards.length === 0 ? (
-            <div className="rounded-xl sm:rounded-2xl border border-dashed border-border p-6 sm:p-8 text-center bg-card/50">
-              <p className="text-xs sm:text-sm font-semibold text-foreground">No boards found</p>
-              <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">
+            <div className="rounded-2xl border border-dashed border-border p-8 text-center bg-card/50">
+              <p className="text-sm font-semibold text-foreground">No boards found</p>
+              <p className="text-xs text-muted-foreground mt-1">
                 {activeFolderId === "starred"
                   ? "Star your favorite boards to access them quickly here."
                   : "Create a new board in this folder to get started."}
@@ -565,36 +589,31 @@ function Dashboard() {
                 size="sm"
                 variant="outline"
                 onClick={() => openNew()}
-                className="mt-2.5 sm:mt-3 gap-1.5 text-xs rounded-xl"
+                className="mt-3 gap-1.5 text-xs rounded-xl"
               >
                 <Plus className="h-3.5 w-3.5" /> Create Board
               </Button>
             </div>
           ) : (
             <div className="space-y-2">
-              <div className="max-h-[155px] sm:max-h-[290px] overflow-y-auto pr-1 scrollbar-thin">
-                <div className="grid gap-2 sm:gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="max-h-[272px] overflow-y-auto pr-1 scrollbar-thin">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {filteredBoards.map((b) => {
                     const folderObj = folders.find((f) => f.id === b.folderId);
                     return (
                       <div
                         key={b.id}
-                        className="group relative flex flex-col justify-between rounded-xl sm:rounded-2xl border border-border/80 bg-card p-2.5 sm:p-4 shadow-2xs transition duration-200 hover:border-primary/50 hover:shadow-xs"
+                        className="group relative flex flex-col justify-between rounded-2xl border bg-card p-4 shadow-2xs transition hover:border-primary/60 hover:shadow-md"
                       >
                         <div>
                           <div className="flex items-start justify-between gap-2">
-                            <div className="flex items-center gap-2 min-w-0 flex-1">
-                              <div className="grid h-6 w-6 place-items-center rounded-lg bg-muted text-muted-foreground shrink-0 group-hover:bg-primary/10 group-hover:text-primary transition duration-200">
-                                <Layers className="h-3.5 w-3.5" />
-                              </div>
-                              <Link
-                                to="/board/$boardId"
-                                params={{ boardId: b.id }}
-                                className="font-semibold text-foreground text-xs sm:text-sm hover:underline line-clamp-1"
-                              >
-                                {b.title}
-                              </Link>
-                            </div>
+                            <Link
+                              to="/board/$boardId"
+                              params={{ boardId: b.id }}
+                              className="font-semibold text-foreground text-sm hover:underline line-clamp-1"
+                            >
+                              {b.title}
+                            </Link>
                             {/* Star Favorite Toggle */}
                             <button
                               type="button"
@@ -607,24 +626,24 @@ function Dashboard() {
                               title={b.favorite ? "Unstar board" : "Star board"}
                             >
                               <Star
-                                className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${
+                                className={`h-4 w-4 ${
                                   b.favorite
                                     ? "fill-amber-400 text-amber-400"
-                                    : "text-muted-foreground/50 hover:text-foreground"
+                                    : "text-muted-foreground/60 hover:text-foreground"
                                 }`}
                               />
                             </button>
                           </div>
 
                           {/* Folder & Tags Bar */}
-                          <div className="mt-1.5 sm:mt-2.5 flex flex-wrap items-center gap-1.5">
+                          <div className="mt-2 flex flex-wrap items-center gap-1.5">
                             {/* Folder Picker Popover */}
                             <Popover>
                               <PopoverTrigger asChild>
                                 <button
                                   type="button"
                                   onClick={(e) => e.stopPropagation()}
-                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-primary/10 text-primary hover:bg-primary/20 transition"
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-primary/10 text-primary hover:bg-primary/20 transition"
                                 >
                                   <Folder className="h-3 w-3" />
                                   <span className="truncate max-w-[90px]">{folderObj ? folderObj.name : "No folder"}</span>
@@ -667,11 +686,8 @@ function Dashboard() {
                           </div>
                         </div>
 
-                        <div className="mt-2 sm:mt-3 flex items-center justify-between border-t border-border/50 pt-1.5 sm:pt-2 text-xs text-muted-foreground">
-                          <span className="text-[10px] sm:text-[11px] flex items-center gap-1">
-                            <Clock className="h-2.5 w-2.5 text-muted-foreground/70" />
-                            {relTime(b.updatedAt)}
-                          </span>
+                        <div className="mt-4 flex items-center justify-between border-t border-border/50 pt-2.5 text-xs text-muted-foreground">
+                          <span className="text-[11px]">{relTime(b.updatedAt)}</span>
                           <Link
                             to="/board/$boardId"
                             params={{ boardId: b.id }}
@@ -704,10 +720,10 @@ function Dashboard() {
         </section>
 
         {/* Recent AI Creations - Scrollable, max 2 items */}
-        <section className="isolate">
+        <section className="isolate pb-16">
           <SectionHeader
             title="Recent AI creations"
-            icon={<Wand2 className="h-3.5 w-3.5 text-violet-500" />}
+            icon={<Wand2 className="h-4 w-4" />}
             action={
               recentAI.length > 0 ? (
                 <span className="text-xs text-muted-foreground font-medium">
@@ -724,20 +740,15 @@ function Dashboard() {
           ) : (
             <div className="max-h-[220px] overflow-y-auto space-y-2.5 pr-1 scrollbar-thin overscroll-contain rounded-xl">
               {recentAI.slice(0, 2).map((r) => (
-                <div key={r.id} className="rounded-xl border border-border/80 bg-gradient-to-br from-card to-violet-500/[0.02] p-3 sm:p-4 transition hover:border-violet-500/40 shadow-2xs">
+                <div key={r.id} className="rounded-xl border bg-card p-4 transition hover:border-primary/50 shadow-2xs">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-violet-500/10 text-violet-600 dark:text-violet-400">
-                          <Wand2 className="h-2.5 w-2.5" /> Prompt
-                        </span>
-                        <div className="truncate text-xs sm:text-sm font-semibold text-foreground">{r.prompt}</div>
-                      </div>
-                      <div className="mt-1 line-clamp-2 sm:line-clamp-3 text-xs text-muted-foreground whitespace-pre-wrap pl-2 border-l-2 border-violet-500/30">
+                      <div className="truncate text-sm font-semibold text-foreground">{r.prompt}</div>
+                      <div className="mt-1 line-clamp-3 text-xs text-muted-foreground whitespace-pre-wrap">
                         {r.response}
                       </div>
                     </div>
-                    <div className="shrink-0 text-[10px] sm:text-[11px] text-muted-foreground">
+                    <div className="shrink-0 text-[11px] text-muted-foreground">
                       {relTime(r.createdAt)}
                     </div>
                   </div>
@@ -745,7 +756,7 @@ function Dashboard() {
                     <Link
                       to="/board/$boardId"
                       params={{ boardId: r.boardId }}
-                      className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                      className="mt-2.5 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
                     >
                       Open {boards[r.boardId].title} <ArrowRight className="h-3 w-3" />
                     </Link>
@@ -759,9 +770,6 @@ function Dashboard() {
 
       <FeatureTourDialog open={tourOpen} onOpenChange={setTourOpen} />
       <AuthDialog open={authOpen} onOpenChange={setAuthOpen} />
-
-      {/* System Navigation Bar Boundary Protection */}
-      <div className="fixed bottom-0 inset-x-0 pointer-events-none z-20 h-[max(var(--sab,0px),env(safe-area-inset-bottom,0px))] bg-background/95 backdrop-blur border-t border-border/30" />
     </div>
   );
 }
@@ -776,8 +784,8 @@ function SectionHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="mb-2 sm:mb-3 flex items-center justify-between">
-      <h2 className="flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+    <div className="mb-3 flex items-center justify-between">
+      <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
         {icon}
         {title}
       </h2>
@@ -791,38 +799,23 @@ function QuickCard({
   title,
   subtitle,
   onClick,
-  badgeClass = "bg-primary/10 text-primary",
-  gradientBorder = "hover:border-primary/40",
 }: {
   icon: React.ReactNode;
   title: string;
   subtitle: string;
   onClick: () => void;
-  badgeClass?: string;
-  gradientBorder?: string;
 }) {
   return (
     <button
       onClick={onClick}
-      className={cn(
-        "group relative flex flex-col justify-between rounded-xl sm:rounded-2xl border border-border/80 bg-card/90 backdrop-blur-xs p-2 sm:p-3 text-left transition duration-200 hover:-translate-y-0.5 hover:shadow-xs active:scale-[0.98] overflow-hidden",
-        gradientBorder
-      )}
+      className="group flex items-start gap-3 rounded-xl border bg-card p-4 text-left transition hover:border-primary hover:shadow-sm"
     >
-      <div className="flex items-center justify-between w-full mb-1.5">
-        <span
-          className={cn(
-            "grid h-6 w-6 sm:h-8 sm:w-8 place-items-center rounded-lg sm:rounded-xl transition duration-200 group-hover:scale-105",
-            badgeClass
-          )}
-        >
-          {icon}
-        </span>
-        <ArrowRight className="h-3 w-3 text-muted-foreground/30 opacity-0 group-hover:opacity-100 transition duration-200 group-hover:translate-x-0.5 group-hover:text-primary hidden sm:block" />
-      </div>
-      <div className="min-w-0">
-        <div className="text-[11px] sm:text-xs md:text-sm font-semibold text-foreground truncate tracking-tight">{title}</div>
-        <div className="text-[9px] sm:text-[11px] text-muted-foreground/80 truncate font-medium">{subtitle}</div>
+      <span className="grid h-10 w-10 place-items-center rounded-lg bg-primary/10 text-primary">
+        {icon}
+      </span>
+      <div>
+        <div className="text-sm font-semibold">{title}</div>
+        <div className="text-xs text-muted-foreground">{subtitle}</div>
       </div>
     </button>
   );
@@ -838,10 +831,10 @@ function EmptyState({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-xl sm:rounded-2xl border border-dashed p-4 sm:p-8 text-center bg-card/30">
-      <p className="text-xs sm:text-sm font-semibold text-foreground">{title}</p>
-      <p className="mt-0.5 sm:mt-1 text-[11px] sm:text-xs text-muted-foreground">{subtitle}</p>
-      {action && <div className="mt-2.5 sm:mt-3">{action}</div>}
+    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed p-8 text-center">
+      <p className="text-sm font-medium">{title}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p>
+      {action && <div className="mt-3">{action}</div>}
     </div>
   );
 }

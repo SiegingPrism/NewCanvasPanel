@@ -212,25 +212,48 @@ export function TopBar({
   function exportPNG() {
     const c = document.querySelector<HTMLCanvasElement>("canvas");
     if (!c) return;
-    const link = document.createElement("a");
-    link.download = `whiteboard-${pad2(idx + 1)}.png`;
-    link.href = c.toDataURL("image/png");
-    link.click();
-    toast.success("PNG exported");
+    try {
+      const link = document.createElement("a");
+      link.download = `whiteboard-${pad2(idx + 1)}.png`;
+      link.href = c.toDataURL("image/png");
+      link.click();
+      toast.success("PNG exported");
+    } catch (err) {
+      console.error("[Slate] PNG export error:", err);
+      toast.error("Failed to export PNG. External image cross-origin restriction.");
+    }
   }
 
   function exportPDF() {
     const c = document.querySelector<HTMLCanvasElement>("canvas");
     if (!c) return;
-    const img = c.toDataURL("image/png");
-    const pdf = new jsPDF({
-      orientation: c.width > c.height ? "landscape" : "portrait",
-      unit: "px",
-      format: [c.width, c.height],
-    });
-    pdf.addImage(img, "PNG", 0, 0, c.width, c.height);
-    pdf.save(`whiteboard-${pad2(idx + 1)}.pdf`);
-    toast.success("PDF exported");
+    try {
+      const maxDim = 1920;
+      let exportCanvas = c;
+      if (c.width > maxDim || c.height > maxDim) {
+        const scale = Math.min(maxDim / c.width, maxDim / c.height);
+        const scaledCanvas = document.createElement("canvas");
+        scaledCanvas.width = Math.round(c.width * scale);
+        scaledCanvas.height = Math.round(c.height * scale);
+        const sCtx = scaledCanvas.getContext("2d");
+        if (sCtx) {
+          sCtx.drawImage(c, 0, 0, scaledCanvas.width, scaledCanvas.height);
+          exportCanvas = scaledCanvas;
+        }
+      }
+      const img = exportCanvas.toDataURL("image/jpeg", 0.85);
+      const pdf = new jsPDF({
+        orientation: exportCanvas.width > exportCanvas.height ? "landscape" : "portrait",
+        unit: "px",
+        format: [exportCanvas.width, exportCanvas.height],
+      });
+      pdf.addImage(img, "JPEG", 0, 0, exportCanvas.width, exportCanvas.height, undefined, "FAST");
+      pdf.save(`whiteboard-${pad2(idx + 1)}.pdf`);
+      toast.success("PDF exported");
+    } catch (err) {
+      console.error("[Slate] PDF export error:", err);
+      toast.error("Failed to export PDF. External image cross-origin restriction.");
+    }
   }
 
   async function shareQR() {

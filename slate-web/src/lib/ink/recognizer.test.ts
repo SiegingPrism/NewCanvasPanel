@@ -73,11 +73,11 @@ describe("find on board", () => {
 });
 
 describe("Ink settings defaults", () => {
-  it("defaults livePreview and autoType to true so writing converts to text", async () => {
+  it("defaults livePreview to true and autoType to false to protect drawings", async () => {
     const { useInk } = await import("./recognizer");
     const state = useInk.getState();
     expect(state.livePreview).toBe(true);
-    expect(state.autoType).toBe(true);
+    expect(state.autoType).toBe(false);
   });
 });
 

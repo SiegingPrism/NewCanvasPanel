@@ -21,7 +21,8 @@ import {
   type InkStroke,
   type Rect,
 } from "@/lib/ink/inkGeometry";
-import { findLanguage, recognizeInk, useInk } from "@/lib/ink/recognizer";
+import { findLanguage, recognitionAvailable, recognizeInk, useInk } from "@/lib/ink/recognizer";
+import { recognizeShape } from "@/lib/whiteboard/shapeRecognition";
 import { ensureHandwritingFont, fontStack, handwritingScale, scriptFor } from "@/lib/ink/handwritingFonts";
 
 const GROUP_WINDOW_MS = 2500;
@@ -171,8 +172,13 @@ export function useHandwriting(opts: {
   }, [langVersion]);
 
   const scheduleRecognition = (g: Group) => {
+    // If AI is not set up (no API key and not signed in), do not perform recognition or show error pills
+    if (!recognitionAvailable()) {
+      setChip(null);
+      return;
+    }
+
     const { livePreview } = useInk.getState();
-    // Online only: every word is read by Gemini. Failures are shown in the pill (never silent).
     const gen = ++genRef.current;
     if (recogTimer.current) clearTimeout(recogTimer.current);
     const { translateLive, translateTo } = useInk.getState();
@@ -197,6 +203,15 @@ export function useHandwriting(opts: {
           setChip(null);
           return;
         }
+
+        // Geometric shape safety check: verify stroke group does not contain geometric shapes (circles, arrows, lines...)
+        for (const s of strokes) {
+          if (s.points.length >= 5 && recognizeShape(s.points, "#000000", 2)) {
+            setChip(null);
+            return;
+          }
+        }
+
         if (useInk.getState().livePreview) {
           setChip({
             rect: strokesBounds(strokes),
@@ -210,12 +225,8 @@ export function useHandwriting(opts: {
         const res = await recognizeInk(strokes, translateLive ? { translateTo } : {});
         if (gen !== genRef.current || groupRef.current?.id !== g.id) return; // a newer stroke arrived
         if (!res?.text) {
-          const error = useInk.getState().lastError;
-          if (useInk.getState().livePreview && error) {
-            setChip({ rect: strokesBounds(strokes), text: null, busy: false, error, groupId: g.id });
-          } else {
-            setChip(null);
-          }
+          // Unreadable drawings, doodles, or circles that were rejected: silently dismiss without error pill
+          setChip(null);
           return;
         }
         resultRef.current = { groupId: g.id, text: res.text, original: res.original, translatedTo: res.translatedTo };
@@ -239,11 +250,7 @@ export function useHandwriting(opts: {
         if (s.autoType) scheduleAutoConvert(g, gen);
       } catch (err) {
         console.warn("Handwriting recognition error:", err);
-        if (useInk.getState().livePreview) {
-          setChip({ rect: g.rect, text: null, busy: false, error: "Something went wrong reading that.", groupId: g.id });
-        } else {
-          setChip(null);
-        }
+        setChip(null);
       }
     }, debounceMs);
   };
@@ -293,7 +300,22 @@ export function useHandwriting(opts: {
   const afterCommit = useCallback((id: string, kind: string, points: Point[], color: string) => {
     if (!WRITING_KINDS.has(kind)) return;
     if (autoTimer.current) clearTimeout(autoTimer.current);
+
+    // If AI is not available, never attempt handwriting grouping or recognition
+    if (!recognitionAvailable()) return;
+
+    // Geometric shape discrimination: if this stroke forms a circle, ellipse, arrow, line, rectangle, etc.
+    // it is a drawing/diagram, NOT handwriting.
+    if (points.length >= 5 && recognizeShape(points, color, 2)) {
+      return;
+    }
+
     const b = boundsOf(points);
+    // Large strokes (> 360px on board) are drawings, borders, or sketches, not a single handwriting letter
+    if (b.w > 360 || b.h > 360) {
+      return;
+    }
+
     const now = Date.now();
     let g = groupRef.current;
     if (g && now - g.lastAt < GROUP_WINDOW_MS && continuesGroup(g.rect, b, typicalLetterHeight(groupStrokes(g)))) {

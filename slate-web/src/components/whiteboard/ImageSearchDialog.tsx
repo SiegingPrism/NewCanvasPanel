@@ -191,7 +191,31 @@ export function ImageSearchDialog({
     reader.readAsDataURL(file);
   }
 
-  function insertImageToCanvas(srcUrl: string, title?: string) {
+async function urlToDataUrl(url: string): Promise<string> {
+  if (url.startsWith("data:")) return url;
+  try {
+    const res = await fetch(url, { mode: "cors" });
+    if (!res.ok) return url;
+    const blob = await res.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve((reader.result as string) || url);
+      reader.onerror = () => resolve(url);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return url;
+  }
+}
+
+  async function insertImageToCanvas(srcUrl: string, title?: string) {
+    let finalSrc = srcUrl;
+    try {
+      finalSrc = await urlToDataUrl(srcUrl);
+    } catch {
+      finalSrc = srcUrl;
+    }
+
     const screenW = typeof window !== "undefined" ? window.innerWidth : 400;
     const screenH = typeof window !== "undefined" ? window.innerHeight : 600;
     const w = 340;
@@ -206,7 +230,7 @@ export function ImageSearchDialog({
       y: cy,
       w,
       h,
-      src: srcUrl,
+      src: finalSrc,
     });
     pushHistory();
     toast.success(`Image "${title || "Selected"}" inserted on whiteboard!`);

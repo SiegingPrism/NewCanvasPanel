@@ -49,6 +49,11 @@ function BoardPage() {
   const navigate = useNavigate();
   const [widgetsOpen, setWidgetsOpen] = useState(false);
   const [aiOpen, setAIOpen] = useState(false);
+  const [aiOptions, setAiOptions] = useState<{
+    prompt?: string;
+    snapshot?: string;
+    contextText?: string;
+  } | null>(null);
   const [isPresenting, setIsPresenting] = useState(false);
   const { langPickerOpen, setLangPickerOpen, translatePickerOpen, closeTranslatePicker } = useInk();
   const { openWidgets, launch, close } = useWidgetLauncher();
@@ -56,6 +61,25 @@ function BoardPage() {
     useWhiteboard();
 
   const [loadTimedOut, setLoadTimedOut] = useState(false);
+
+  // Auto-open AI panel if query parameter ?ai=1 is present
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("ai") === "1" || params.get("ai") === "true") {
+        setAIOpen(true);
+      }
+    }
+  }, []);
+
+  function handleOpenAI(opts?: { prompt?: string; snapshot?: string; contextText?: string }) {
+    if (opts) {
+      setAiOptions(opts);
+    } else {
+      setAiOptions(null);
+    }
+    setAIOpen(true);
+  }
 
   // Watchdog timer: If loading takes longer than 3.5s, offer manual recovery
   useEffect(() => {
@@ -190,7 +214,7 @@ function BoardPage() {
 
   return (
     <div className="relative h-dvh w-screen overflow-hidden bg-background">
-      <WhiteboardCanvas onOpenAI={() => setAIOpen(true)} onPresentationChange={setIsPresenting} />
+      <WhiteboardCanvas onOpenAI={handleOpenAI} onPresentationChange={setIsPresenting} />
 
       <div
         className={cn(
@@ -199,7 +223,7 @@ function BoardPage() {
         )}
       >
         <TopBar
-          onOpenAI={() => setAIOpen(true)}
+          onOpenAI={() => handleOpenAI()}
           onOpenWidgets={() => setWidgetsOpen(true)}
           boardTitle={board?.title ?? "Untitled board"}
         />
@@ -218,7 +242,7 @@ function BoardPage() {
         <div className="pointer-events-none absolute bottom-[max(6.5rem,calc(var(--sab,env(safe-area-inset-bottom,0px))+5.25rem))] left-1/2 -translate-x-1/2 lg:bottom-4 lg:left-auto lg:right-4 lg:translate-x-0">
           <div className="pointer-events-auto flex items-center gap-1 rounded-full bg-card px-2 py-1 shadow-lg ring-1 ring-border">
             <button
-              onClick={() => setAIOpen(true)}
+              onClick={() => handleOpenAI()}
               className="flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
             >
               <Wand2 className="h-3.5 w-3.5" />
@@ -228,8 +252,20 @@ function BoardPage() {
         </div>
       )}
 
-      <WidgetsSheet open={widgetsOpen} onOpenChange={setWidgetsOpen} onLaunch={launch} />
-      <AISheet open={aiOpen} onOpenChange={setAIOpen} contextText={contextText} boardId={boardId} />
+      {widgetsOpen && (
+        <WidgetsSheet open={widgetsOpen} onOpenChange={setWidgetsOpen} onLaunch={launch} />
+      )}
+      <AISheet
+        open={aiOpen}
+        onOpenChange={(b) => {
+          setAIOpen(b);
+          if (!b) setAiOptions(null);
+        }}
+        contextText={aiOptions?.contextText || contextText}
+        initialPrompt={aiOptions?.prompt}
+        initialSnapshot={aiOptions?.snapshot}
+        boardId={boardId}
+      />
       <HandwritingLanguageDialog open={langPickerOpen} onOpenChange={setLangPickerOpen} />
       <HandwritingLanguageDialog
         mode="translate"

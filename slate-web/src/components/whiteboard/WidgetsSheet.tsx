@@ -284,7 +284,16 @@ export function WidgetsSheet({
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="right" className="w-full sm:max-w-md flex flex-col h-full max-h-dvh p-4 sm:p-6 pt-[max(1rem,calc(var(--sat,env(safe-area-inset-top,0px))+0.75rem))] overflow-hidden">
+        <SheetContent
+          side="right"
+          className="w-full sm:max-w-md flex flex-col h-full max-h-dvh p-4 sm:p-6 pt-[max(1rem,calc(var(--sat,env(safe-area-inset-top,0px))+0.75rem))] overflow-hidden"
+          onInteractOutside={(e) => {
+            if (tutorialOpen) e.preventDefault();
+          }}
+          onPointerDownOutside={(e) => {
+            if (tutorialOpen) e.preventDefault();
+          }}
+        >
           <SheetHeader className="flex flex-row items-center justify-between space-y-0 pr-6 border-b border-border/60 pb-3 shrink-0">
             <SheetTitle className="text-base font-bold">Widgets & Tools</SheetTitle>
             <button

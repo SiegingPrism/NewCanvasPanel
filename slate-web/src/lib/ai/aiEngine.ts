@@ -983,7 +983,13 @@ export class AIEngine {
       : "";
     const text = await callGemini(
       userContent(
-        `Transcribe whatever handwritten text, characters, letters, glyphs, words, numbers, or math are written in this image exactly as written.${langClause} Even if it is a single character, letter, symbol, or digit, output that character (for example: 'H', '1', 'क', 'a'). Output ONLY the transcribed characters without code fences, quotes, or commentary. Only output [unreadable] if the image is completely blank, accidental noise, or contains no characters/symbols at all.`,
+        `Transcribe whatever handwritten text, characters, letters, glyphs, words, numbers, or math are written in this image exactly as written.${langClause}
+CRITICAL INSTRUCTION: This image is drawn on a whiteboard that contains both handwriting and drawings/sketches.
+If the image shows a geometric shape (such as a circle, ellipse, loop, arrow, line, rectangle, square, triangle, diamond, star, or doodle) and NOT genuine intentional handwritten words, text, or math, you MUST return [unreadable].
+Do NOT convert a drawn circle, ellipse, or closed loop into 'O', 'o', or '0'.
+Do NOT convert a drawn arrow into '->', '>', '^', or text.
+Do NOT convert drawn lines, ticks, or borders into '-', 'l', or '1'.
+Only output the transcribed characters when there is genuine handwritten text or math. Output ONLY the transcribed characters without code fences, quotes, or commentary. If it is a drawing/shape, return [unreadable].`,
         imageDataUrl,
       ),
       { temperature: 0, ...opts },
@@ -1013,11 +1019,12 @@ export class AIEngine {
     const raw = await callGemini(
       userContent(
         `Read the handwritten text in this image (it may be in any language or script). Then translate it into ${target}, written in ${script} script, the way a fluent native speaker would naturally write it.
+CRITICAL INSTRUCTION: If the image contains a drawing, geometric shape (circle, ellipse, arrow, line, box), sketch, or doodle and NOT genuine handwritten words/sentences/math, return empty strings for source and translation. Do NOT convert circles into 'O' or arrows into text.
 Return JSON with:
 - source: the handwriting exactly as written (keep its original script)
 - sourceLanguage: the English name of the language it is written in
 - translation: the translation in ${target} (${script} script). Keep numbers, names, units and math as they are. Keep line breaks. If it is already in ${target}, return it unchanged (fix obvious spelling only).
-Even if it is a single word, greeting, letter, character, or digit, accurately transcribe and translate it. Only return empty strings if the image is completely blank, accidental noise, or contains no characters/symbols at all.`,
+Only return empty strings if the image is a drawing/shape, completely blank, accidental noise, or contains no words/math.`,
         imageDataUrl,
       ),
       { system: TRANSLATE_SYSTEM, json: true, schema: TRANSLATION_SCHEMA, temperature: 0.1, ...opts },

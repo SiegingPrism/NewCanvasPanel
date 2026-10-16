@@ -72,6 +72,8 @@ import { ensureHandwritingFont, fontStack, handwritingFontReady, handwritingScal
 import { findLanguage, useInk } from "@/lib/ink/recognizer";
 import { textBoxForInk, typicalLetterHeight } from "@/lib/ink/inkGeometry";
 
+import { registerCanvasSnapshotCapture } from "@/lib/whiteboard/canvasSnapshot";
+
 function uid() {
   return Math.random().toString(36).slice(2, 10);
 }
@@ -82,7 +84,7 @@ export function WhiteboardCanvas({
   onOpenAI,
   onPresentationChange,
 }: {
-  onOpenAI?: (context?: string) => void;
+  onOpenAI?: (opts?: { contextText?: string; snapshot?: string; prompt?: string }) => void;
   onPresentationChange?: (presenting: boolean) => void;
 } = {}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -132,6 +134,64 @@ export function WhiteboardCanvas({
   useEffect(() => {
     pageRef.current = page;
   }, [page]);
+
+  const panRafRef = useRef<number | null>(null);
+  const pendingCameraRef = useRef<{ x: number; y: number; zoom: number } | null>(null);
+
+  const applyCameraThrottled = useCallback(
+    (nextCam: { x: number; y: number; zoom: number }) => {
+      pendingCameraRef.current = nextCam;
+      cameraRef.current = nextCam;
+      if (panRafRef.current === null) {
+        panRafRef.current = requestAnimationFrame(() => {
+          panRafRef.current = null;
+          if (pendingCameraRef.current) {
+            setCamera(pendingCameraRef.current);
+            pendingCameraRef.current = null;
+          }
+        });
+      }
+    },
+    [setCamera]
+  );
+
+  const flushCameraUpdate = useCallback(() => {
+    if (panRafRef.current !== null) {
+      cancelAnimationFrame(panRafRef.current);
+      panRafRef.current = null;
+    }
+    if (pendingCameraRef.current) {
+      setCamera(pendingCameraRef.current);
+      pendingCameraRef.current = null;
+    }
+  }, [setCamera]);
+
+  const redrawRafRef = useRef<number | null>(null);
+  const latestRedrawRef = useRef<() => void>(() => {});
+  const scheduleRedraw = useCallback(() => {
+    if (redrawRafRef.current !== null) return;
+    redrawRafRef.current = requestAnimationFrame(() => {
+      redrawRafRef.current = null;
+      latestRedrawRef.current();
+    });
+  }, []);
+
+  useEffect(() => {
+    return registerCanvasSnapshotCapture((selectionOnly) => {
+      const targetIds = selectedIds.length > 0 ? selectedIds : selectedId ? [selectedId] : [];
+      if (selectionOnly && targetIds.length > 0) {
+        return exportSelectedRegionAsImage(targetIds);
+      }
+      const c = canvasRef.current;
+      if (!c) return null;
+      try {
+        return c.toDataURL("image/png");
+      } catch (err) {
+        console.warn("[Slate] Snapshot capture error:", err);
+        return null;
+      }
+    });
+  }, [selectedId, selectedIds, page, camera]);
 
   // Handwriting: live preview, write-to-type, scratch-out, searchable ink
   const handwriting = useHandwriting({
@@ -792,11 +852,12 @@ export function WhiteboardCanvas({
         const newX = curSx - wx * targetZoom;
         const newY = curSy - wy * targetZoom;
 
-        setCamera({ x: newX, y: newY, zoom: targetZoom });
+        applyCameraThrottled({ x: newX, y: newY, zoom: targetZoom });
       }
     };
 
     const onTouchEnd = (e: TouchEvent) => {
+      flushCameraUpdate();
       if (e.touches.length < 2) {
         isPinching = false;
         startDist = 0;
@@ -874,6 +935,8 @@ export function WhiteboardCanvas({
     return { x: x * camera.zoom + camera.x, y: y * camera.zoom + camera.y };
   }
 
+  const strokeBoundsCache = useRef<WeakMap<object, { minX: number; maxX: number; minY: number; maxY: number }>>(new WeakMap());
+
   function isObjectInViewport(
     obj: CanvasObject,
     viewLeft: number,
@@ -882,18 +945,23 @@ export function WhiteboardCanvas({
     viewBottom: number,
   ): boolean {
     if ("points" in obj && Array.isArray(obj.points) && obj.points.length > 0) {
-      let minX = obj.points[0].x;
-      let maxX = obj.points[0].x;
-      let minY = obj.points[0].y;
-      let maxY = obj.points[0].y;
-      for (let i = 1; i < obj.points.length; i++) {
-        const p = obj.points[i];
-        if (p.x < minX) minX = p.x;
-        if (p.x > maxX) maxX = p.x;
-        if (p.y < minY) minY = p.y;
-        if (p.y > maxY) maxY = p.y;
+      let b = strokeBoundsCache.current.get(obj);
+      if (!b) {
+        let minX = obj.points[0].x;
+        let maxX = obj.points[0].x;
+        let minY = obj.points[0].y;
+        let maxY = obj.points[0].y;
+        for (let i = 1; i < obj.points.length; i++) {
+          const p = obj.points[i];
+          if (p.x < minX) minX = p.x;
+          if (p.x > maxX) maxX = p.x;
+          if (p.y < minY) minY = p.y;
+          if (p.y > maxY) maxY = p.y;
+        }
+        b = { minX, maxX, minY, maxY };
+        strokeBoundsCache.current.set(obj, b);
       }
-      return maxX >= viewLeft && minX <= viewRight && maxY >= viewTop && minY <= viewBottom;
+      return b.maxX >= viewLeft && b.minX <= viewRight && b.maxY >= viewTop && b.minY <= viewBottom;
     }
 
     const o = obj as { x?: number; y?: number; w?: number; h?: number };
@@ -991,6 +1059,8 @@ export function WhiteboardCanvas({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [camera, dpr, page, selectedId, selectedIds]);
 
+  latestRedrawRef.current = redraw;
+
   // Retry handwriting fonts when returning online or when font reload is triggered
   useEffect(() => {
     const handleFontsRetry = () => {
@@ -1007,39 +1077,41 @@ export function WhiteboardCanvas({
 
   function drawBackground(ctx: CanvasRenderingContext2D, w: number, h: number, bg: PageBackground) {
     if (bg === "blackboard") {
-      // Authentic classroom chalkboard deep green
       ctx.fillStyle = "#1b382b";
       ctx.fillRect(0, 0, w, h);
-      // Soft chalk dust micro-particles
-      ctx.fillStyle = "rgba(255, 255, 255, 0.025)";
-      const step = 44 * camera.zoom;
-      const ox = camera.x % step;
-      const oy = camera.y % step;
-      for (let x = ox; x < w; x += step) {
-        for (let y = oy; y < h; y += step) {
-          ctx.beginPath();
-          ctx.arc(x, y, 1.3, 0, Math.PI * 2);
-          ctx.fill();
+      if (camera.zoom >= 0.45) {
+        ctx.fillStyle = "rgba(255, 255, 255, 0.025)";
+        const step = 44 * camera.zoom;
+        const ox = camera.x % step;
+        const oy = camera.y % step;
+        ctx.beginPath();
+        for (let x = ox; x < w; x += step) {
+          for (let y = oy; y < h; y += step) {
+            ctx.moveTo(x + 1.3, y);
+            ctx.arc(x, y, 1.3, 0, Math.PI * 2);
+          }
         }
+        ctx.fill();
       }
       return;
     }
 
     if (bg === "oled") {
-      // True pitch-black OLED background
       ctx.fillStyle = "#000000";
       ctx.fillRect(0, 0, w, h);
-      // Ultra-subtle stardust grid
-      ctx.fillStyle = "rgba(255, 255, 255, 0.03)";
-      const step = 48 * camera.zoom;
-      const ox = camera.x % step;
-      const oy = camera.y % step;
-      for (let x = ox; x < w; x += step) {
-        for (let y = oy; y < h; y += step) {
-          ctx.beginPath();
-          ctx.arc(x, y, 1.0, 0, Math.PI * 2);
-          ctx.fill();
+      if (camera.zoom >= 0.45) {
+        ctx.fillStyle = "rgba(255, 255, 255, 0.03)";
+        const step = 48 * camera.zoom;
+        const ox = camera.x % step;
+        const oy = camera.y % step;
+        ctx.beginPath();
+        for (let x = ox; x < w; x += step) {
+          for (let y = oy; y < h; y += step) {
+            ctx.moveTo(x + 1.0, y);
+            ctx.arc(x, y, 1.0, 0, Math.PI * 2);
+          }
         }
+        ctx.fill();
       }
       return;
     }
@@ -1047,17 +1119,19 @@ export function WhiteboardCanvas({
     if (bg === "dark") {
       ctx.fillStyle = "#0f172a";
       ctx.fillRect(0, 0, w, h);
-      // Subtle chalkboard dust texture
-      ctx.fillStyle = "rgba(255, 255, 255, 0.015)";
-      const step = 48 * camera.zoom;
-      const ox = camera.x % step;
-      const oy = camera.y % step;
-      for (let x = ox; x < w; x += step) {
-        for (let y = oy; y < h; y += step) {
-          ctx.beginPath();
-          ctx.arc(x, y, 1.5, 0, Math.PI * 2);
-          ctx.fill();
+      if (camera.zoom >= 0.45) {
+        ctx.fillStyle = "rgba(255, 255, 255, 0.015)";
+        const step = 48 * camera.zoom;
+        const ox = camera.x % step;
+        const oy = camera.y % step;
+        ctx.beginPath();
+        for (let x = ox; x < w; x += step) {
+          for (let y = oy; y < h; y += step) {
+            ctx.moveTo(x + 1.5, y);
+            ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+          }
         }
+        ctx.fill();
       }
       return;
     }
@@ -1066,47 +1140,44 @@ export function WhiteboardCanvas({
     ctx.fillRect(0, 0, w, h);
     const step = 28 * camera.zoom;
 
-    if (bg === "grid") {
+    if (bg === "grid" && step >= 8) {
       ctx.strokeStyle = "#e2e8f0";
       ctx.lineWidth = 1;
       const ox = camera.x % step;
       const oy = camera.y % step;
+      ctx.beginPath();
       for (let x = ox; x < w; x += step) {
-        ctx.beginPath();
         ctx.moveTo(x, 0);
         ctx.lineTo(x, h);
-        ctx.stroke();
       }
       for (let y = oy; y < h; y += step) {
-        ctx.beginPath();
         ctx.moveTo(0, y);
         ctx.lineTo(w, y);
-        ctx.stroke();
       }
-    } else if (bg === "dots") {
+      ctx.stroke();
+    } else if (bg === "dots" && step >= 8) {
       ctx.fillStyle = "#cbd5e1";
       const ox = camera.x % step;
       const oy = camera.y % step;
+      ctx.beginPath();
       for (let x = ox; x < w; x += step) {
         for (let y = oy; y < h; y += step) {
-          ctx.beginPath();
+          ctx.moveTo(x + 1.4, y);
           ctx.arc(x, y, 1.4, 0, Math.PI * 2);
-          ctx.fill();
         }
       }
+      ctx.fill();
     } else if (bg === "lined") {
-      // College ruled notebook lines with soft red margin
       ctx.strokeStyle = "#e2e8f0";
       ctx.lineWidth = 1;
       const lineStep = 32 * camera.zoom;
       const oy = camera.y % lineStep;
+      ctx.beginPath();
       for (let y = oy; y < h; y += lineStep) {
-        ctx.beginPath();
         ctx.moveTo(0, y);
         ctx.lineTo(w, y);
-        ctx.stroke();
       }
-      // Vertical margin line at world x = 80
+      ctx.stroke();
       const marginX = 80 * camera.zoom + camera.x;
       if (marginX > 0 && marginX < w) {
         ctx.strokeStyle = "#fca5a5";
@@ -3639,6 +3710,9 @@ export function WhiteboardCanvas({
     let img = imageCache.current.get(o.src);
     if (!img) {
       img = new Image();
+      if (!o.src.startsWith("data:")) {
+        img.crossOrigin = "anonymous";
+      }
       img.src = o.src;
       img.onload = () => redraw();
       imageCache.current.set(o.src, img);
@@ -4572,7 +4646,7 @@ export function WhiteboardCanvas({
     const ptWithMeta: Point = { x: w.x, y: w.y, p: e.pressure || 0.5, t: Date.now() };
 
     if (panRef.current) {
-      setCamera({
+      applyCameraThrottled({
         x: panRef.current.cam.x + (sx - panRef.current.x),
         y: panRef.current.cam.y + (sy - panRef.current.y),
         zoom: camera.zoom,
@@ -4863,6 +4937,7 @@ export function WhiteboardCanvas({
       }, 250);
     }
 
+    flushCameraUpdate();
     panRef.current = null;
     multiDragRef.current = null;
 
@@ -5180,9 +5255,9 @@ export function WhiteboardCanvas({
       const newZoom = Math.min(5, Math.max(0.15, camera.zoom * factor));
       const wx = (sx - camera.x) / camera.zoom;
       const wy = (sy - camera.y) / camera.zoom;
-      setCamera({ x: sx - wx * newZoom, y: sy - wy * newZoom, zoom: newZoom });
+      applyCameraThrottled({ x: sx - wx * newZoom, y: sy - wy * newZoom, zoom: newZoom });
     } else {
-      setCamera({ x: camera.x - e.deltaX, y: camera.y - e.deltaY, zoom: camera.zoom });
+      applyCameraThrottled({ x: camera.x - e.deltaX, y: camera.y - e.deltaY, zoom: camera.zoom });
     }
   }
 
@@ -6282,7 +6357,7 @@ export function WhiteboardCanvas({
         return (
           <div
             className={cn(
-              "pointer-events-auto absolute flex -translate-x-1/2 items-center gap-0.5 sm:gap-1 rounded-full bg-card/95 px-2 py-1 sm:px-2.5 sm:py-1.5 shadow-xl ring-1 ring-border backdrop-blur z-20 max-w-[calc(100vw-16px)] overflow-x-auto scrollbar-none touch-pan-x flex-nowrap",
+              "pointer-events-auto absolute flex -translate-x-1/2 items-center gap-1 sm:gap-1.5 rounded-2xl sm:rounded-full bg-card/95 p-1.5 sm:px-2.5 sm:py-1.5 shadow-xl ring-1 ring-border backdrop-blur z-20 max-w-[min(460px,calc(100vw-16px))] flex-wrap sm:flex-nowrap justify-center",
               clampedSelectionPos.isBelow ? "translate-y-0" : "-translate-y-full"
             )}
             style={{ left: clampedSelectionPos.x, top: clampedSelectionPos.y }}
@@ -6291,27 +6366,110 @@ export function WhiteboardCanvas({
               <span>{targetSelectionIds.length}</span> {targetSelectionIds.length === 1 ? "item" : "items"}
             </div>
 
-            {/* 1. Solve Math & Plot */}
+            {/* 1. Recolor */}
+            <div className="relative group/recolor flex items-center justify-center shrink-0">
+              <button
+                type="button"
+                onClick={() => setRecolorPickerOpen(!recolorPickerOpen)}
+                aria-label="Recolor"
+                className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-accent text-foreground transition shrink-0"
+              >
+                <Palette className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              </button>
+              {!recolorPickerOpen && (
+                <div
+                  className={cn(
+                    "pointer-events-none absolute left-1/2 -translate-x-1/2 hidden group-hover/recolor:flex flex-col items-center z-50 animate-in fade-in-0 zoom-in-95 duration-100",
+                    tooltipPlacement === "bottom" ? "top-full mt-2" : "bottom-full mb-2"
+                  )}
+                >
+                  {tooltipPlacement === "bottom" && (
+                    <div className="w-2 h-2 rotate-45 bg-slate-900 dark:bg-slate-100 -mb-1 shadow-xs" />
+                  )}
+                  <div className="flex flex-col items-center rounded-lg bg-slate-900/95 dark:bg-slate-100/95 text-white dark:text-slate-900 px-2.5 py-1.5 shadow-xl ring-1 ring-white/10 dark:ring-black/10 backdrop-blur whitespace-nowrap text-center">
+                    <span className="font-semibold text-xs leading-tight tracking-wide">Recolor</span>
+                    <span className="text-[10px] text-slate-300 dark:text-slate-600 font-normal leading-tight mt-0.5">
+                      Change stroke or fill color
+                    </span>
+                  </div>
+                  {tooltipPlacement === "top" && (
+                    <div className="w-2 h-2 rotate-45 bg-slate-900 dark:bg-slate-100 -mt-1 shadow-xs" />
+                  )}
+                </div>
+              )}
+              {recolorPickerOpen && (
+                <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 flex gap-1 p-2 rounded-xl bg-card shadow-xl ring-1 ring-border z-50">
+                  {PALETTE.slice(0, 7).map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => {
+                        recolorSelected(c);
+                        pushHistory();
+                        setRecolorPickerOpen(false);
+                      }}
+                      className="h-6 w-6 rounded-full border border-border"
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 2. Duplicate */}
             <SelectionToolBtn
-              onClick={handleSolveAndPlotMath}
-              icon={<Calculator className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
-              label="Solve Math & Plot"
-              description="Calculate math & plot 2D graph"
-              className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-purple-500/10 text-purple-600 transition shrink-0"
+              onClick={() => {
+                duplicateSelected();
+                pushHistory();
+              }}
+              icon={<Copy className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+              label="Duplicate"
+              description="Clone selected objects"
+              className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-accent text-foreground transition shrink-0"
               placement={tooltipPlacement}
             />
 
-            {/* 2. Handwriting → Math Formula (LaTeX) */}
+            {/* 3. Delete */}
             <SelectionToolBtn
-              onClick={handleConvertMath}
-              icon={<Sigma className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
-              label="Math Formula (LaTeX)"
-              description="Handwriting → typed LaTeX equation"
-              className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-violet-500/10 text-violet-500 transition shrink-0"
+              onClick={() => {
+                deleteSelected();
+                pushHistory();
+              }}
+              icon={<Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+              label="Delete"
+              description="Remove selection from canvas"
+              className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-destructive/10 text-destructive transition shrink-0"
               placement={tooltipPlacement}
             />
 
-            {/* Translate selection into any language, written back in handwriting */}
+            <div className="h-3.5 sm:h-4 w-px bg-border mx-0 sm:mx-0.5 shrink-0" />
+
+            {/* 4. Ask Slate AI / Explain Selection */}
+            {onOpenAI && (
+              <SelectionToolBtn
+                onClick={() => {
+                  const targetIds = selectedIds.length > 0 ? selectedIds : selectedId ? [selectedId] : [];
+                  const img = exportSelectedRegionAsImage(targetIds);
+                  const selectedObjects = page.objects.filter((o) => targetIds.includes(o.id));
+                  const knownText = selectedObjects
+                    .map((o) => (o as any).text || (o as any).inkText || "")
+                    .filter(Boolean)
+                    .join(" ");
+                  onOpenAI({
+                    snapshot: img || undefined,
+                    prompt: "Explain what's shown here and help me understand it step-by-step.",
+                    contextText: knownText || undefined,
+                  });
+                }}
+                icon={<Wand2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+                label="Ask Slate AI"
+                description="Explain, summarize or quiz selection"
+                className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-sky-500/10 text-sky-500 transition shrink-0"
+                placement={tooltipPlacement}
+              />
+            )}
+
+            {/* 5. Translate */}
             <SelectionToolBtn
               onClick={handleTranslateSelection}
               icon={<Languages className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
@@ -6321,7 +6479,7 @@ export function WhiteboardCanvas({
               placement={tooltipPlacement}
             />
 
-            {/* 3. Handwriting → Text */}
+            {/* 6. Handwriting → Text */}
             <SelectionToolBtn
               onClick={handleConvertHandwritingToText}
               icon={<Type className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
@@ -6331,7 +6489,27 @@ export function WhiteboardCanvas({
               placement={tooltipPlacement}
             />
 
-            {/* 4. Clean Up Sketch / Beautify */}
+            {/* 7. Math Formula (LaTeX) */}
+            <SelectionToolBtn
+              onClick={handleConvertMath}
+              icon={<Sigma className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+              label="Math Formula (LaTeX)"
+              description="Handwriting → typed LaTeX equation"
+              className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-violet-500/10 text-violet-500 transition shrink-0"
+              placement={tooltipPlacement}
+            />
+
+            {/* 8. Solve Math & Plot */}
+            <SelectionToolBtn
+              onClick={handleSolveAndPlotMath}
+              icon={<Calculator className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+              label="Solve Math & Plot"
+              description="Calculate math & plot 2D graph"
+              className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-purple-500/10 text-purple-600 transition shrink-0"
+              placement={tooltipPlacement}
+            />
+
+            {/* 9. Clean Up Sketch / Beautify */}
             <SelectionToolBtn
               onClick={handleBeautifySketch}
               icon={<Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
@@ -6341,7 +6519,7 @@ export function WhiteboardCanvas({
               placement={tooltipPlacement}
             />
 
-            {/* 5. Mind-Map from Selection */}
+            {/* 10. Mind-Map from Selection */}
             <SelectionToolBtn
               onClick={handleGenerateMindMapFromSelection}
               icon={<GitBranch className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
@@ -6351,7 +6529,7 @@ export function WhiteboardCanvas({
               placement={tooltipPlacement}
             />
 
-            {/* 6. Create Flashcards */}
+            {/* 11. Create Flashcards */}
             <SelectionToolBtn
               onClick={handleCreateFlashcardsFromSelection}
               icon={<Layers className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
@@ -6361,7 +6539,7 @@ export function WhiteboardCanvas({
               placement={tooltipPlacement}
             />
 
-            {/* 7. Diagram → Flowchart */}
+            {/* 12. Diagram → Flowchart */}
             <SelectionToolBtn
               onClick={handleConvertDiagram}
               icon={<Workflow className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
@@ -6371,13 +6549,12 @@ export function WhiteboardCanvas({
               placement={tooltipPlacement}
             />
 
-            {/* 8. Conceal with Study Tape */}
+            {/* 13. Conceal with Study Tape */}
             <SelectionToolBtn
               onClick={() => {
                 const bounds = selectionBounds;
                 if (!bounds) return;
 
-                // 1. Check if selection is already a Study Tape
                 const isAlreadyTape = targetSelectionIds.some((id) => {
                   const o = page.objects.find((obj) => obj.id === id);
                   return o?.kind === "tape";
@@ -6387,7 +6564,6 @@ export function WhiteboardCanvas({
                   return;
                 }
 
-                // 2. Check if an existing tape object already covers this box / bounds
                 const existingTape = page.objects.find((o) => {
                   if (o.kind !== "tape") return false;
                   const tb = objectBounds(o);
@@ -6422,96 +6598,6 @@ export function WhiteboardCanvas({
               label="Study Tape"
               description="Conceal answers (tap to reveal)"
               className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-orange-500/10 text-orange-500 transition shrink-0"
-              placement={tooltipPlacement}
-            />
-
-            {/* 9. Ask AI Sheet */}
-            {onOpenAI && (
-              <SelectionToolBtn
-                onClick={() => onOpenAI()}
-                icon={<Wand2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
-                label="Ask Slate AI"
-                description="Explain, summarize or quiz selection"
-                className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-sky-500/10 text-sky-500 transition shrink-0"
-                placement={tooltipPlacement}
-              />
-            )}
-
-            <div className="h-3.5 sm:h-4 w-px bg-border mx-0 sm:mx-0.5 shrink-0" />
-
-            {/* 10. Duplicate */}
-            <SelectionToolBtn
-              onClick={() => {
-                duplicateSelected();
-                pushHistory();
-              }}
-              icon={<Copy className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
-              label="Duplicate"
-              description="Clone selected objects"
-              className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-accent text-foreground transition shrink-0"
-              placement={tooltipPlacement}
-            />
-
-            {/* 11. Recolor */}
-            <div className="relative group/recolor flex items-center justify-center shrink-0">
-              <button
-                type="button"
-                onClick={() => setRecolorPickerOpen(!recolorPickerOpen)}
-                aria-label="Recolor"
-                className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-accent text-foreground transition shrink-0"
-              >
-                <Palette className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-              </button>
-              {!recolorPickerOpen && (
-                <div
-                  className={cn(
-                    "pointer-events-none absolute left-1/2 -translate-x-1/2 hidden group-hover/recolor:flex flex-col items-center z-50 animate-in fade-in-0 zoom-in-95 duration-100",
-                    tooltipPlacement === "bottom" ? "top-full mt-2" : "bottom-full mb-2"
-                  )}
-                >
-                  {tooltipPlacement === "bottom" && (
-                    <div className="w-2 h-2 rotate-45 bg-slate-900 dark:bg-slate-100 -mb-1 shadow-xs" />
-                  )}
-                  <div className="flex flex-col items-center rounded-lg bg-slate-900/95 dark:bg-slate-100/95 text-white dark:text-slate-900 px-2.5 py-1.5 shadow-xl ring-1 ring-white/10 dark:ring-black/10 backdrop-blur whitespace-nowrap text-center">
-                    <span className="font-semibold text-xs leading-tight tracking-wide">Recolor</span>
-                    <span className="text-[10px] text-slate-300 dark:text-slate-600 font-normal leading-tight mt-0.5">
-                      Change stroke or fill color
-                    </span>
-                  </div>
-                  {tooltipPlacement === "top" && (
-                    <div className="w-2 h-2 rotate-45 bg-slate-900 dark:bg-slate-100 -mt-1 shadow-xs" />
-                  )}
-                </div>
-              )}
-              {recolorPickerOpen && (
-                <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 flex gap-1 p-2 rounded-xl bg-card shadow-xl ring-1 ring-border">
-                  {PALETTE.slice(0, 7).map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => {
-                        recolorSelected(c);
-                        pushHistory();
-                        setRecolorPickerOpen(false);
-                      }}
-                      className="h-6 w-6 rounded-full border border-border"
-                      style={{ backgroundColor: c }}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* 12. Delete */}
-            <SelectionToolBtn
-              onClick={() => {
-                deleteSelected();
-                pushHistory();
-              }}
-              icon={<Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
-              label="Delete"
-              description="Remove selection from canvas"
-              className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-destructive/10 text-destructive transition shrink-0"
               placement={tooltipPlacement}
             />
           </div>
