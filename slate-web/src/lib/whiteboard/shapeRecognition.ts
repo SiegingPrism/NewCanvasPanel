@@ -347,23 +347,31 @@ export function recognizeShape(
     totalAngleDelta += diff;
     prevAngle = curAngle;
   }
+
+  // Reject spirals: multi-turn loops that do not close onto their start point
+  if ((Math.abs(totalAngleDelta) >= 6.8 && endpointDist > 0.18 * maxSpan) || Math.abs(totalAngleDelta) >= 9.5) {
+    return null;
+  }
+
   const hasFullLoop = Math.abs(totalAngleDelta) >= 4.8;
   const isDirectlyClosed = endpointDist < 0.32 * maxSpan;
-  const isClosed = isDirectlyClosed || hasFullLoop;
+  const isClosed = isDirectlyClosed || (hasFullLoop && endpointDist < 0.45 * maxSpan);
 
   // ----------------------------------------------------
   // OPEN STROKES: Line, Arrow, Double Arrow
   // ----------------------------------------------------
   if (!isClosed) {
-    // Cursive, waves and zigzags swing back and forth across their own chord:
-    // that is writing, not a line or an arrow.
-    if (countChordLobes(points) >= 3) return null;
-
+    // Check arrows first: single-stroke arrowheads swing across their chord at the barb,
+    // so checking wave guard beforehand blocked arrows.
     const doubleArrow = detectDoubleArrow(rawPoints, color, size);
     if (doubleArrow) return doubleArrow;
 
     const arrow = detectArrow(rawPoints, color, size);
     if (arrow) return arrow;
+
+    // Cursive, waves and zigzags swing back and forth across their own chord:
+    // that is writing, not a line.
+    if (countChordLobes(points) >= 3) return null;
 
     const line = detectLine(rawPoints, color, size, first, last);
     if (line) return line;
@@ -448,21 +456,7 @@ export function recognizeShape(
     };
   }
 
-  // ----------------------------------------------------
-  // C. Check CLOUD (multiple convex scallops along perimeter)
-  // ----------------------------------------------------
-  if (detectCloud(points, cx, cy, w, h, solidity)) {
-    return {
-      kind: "shape",
-      shape: "cloud",
-      color,
-      size,
-      x: minX,
-      y: minY,
-      w,
-      h,
-    };
-  }
+
 
   // ----------------------------------------------------
   // D. Check CROSS / PLUS (4 arms, notches)
@@ -484,14 +478,64 @@ export function recognizeShape(
   // ----------------------------------------------------
   // E. Check CIRCLE / ELLIPSE
   // ----------------------------------------------------
-  // In a circle: distance to center is near-constant (cornerElongation < 1.28, low ellipseDev).
-  // A rectangle/square ALWAYS has cornerElongation ~ 1.414.
+  // Compute principal axes using second moments to support tilted ellipses
+  let sxx = 0, syy = 0, sxy = 0;
+  for (const p of points) {
+    sxx += (p.x - cx) ** 2;
+    syy += (p.y - cy) ** 2;
+    sxy += (p.x - cx) * (p.y - cy);
+  }
+  const ellipseTheta = 0.5 * Math.atan2(2 * sxy, sxx - syy);
+  const cosT = Math.cos(-ellipseTheta);
+  const sinT = Math.sin(-ellipseTheta);
+
+  let rotMinX = Infinity, rotMaxX = -Infinity, rotMinY = Infinity, rotMaxY = -Infinity;
+  for (const p of points) {
+    const rx = (p.x - cx) * cosT - (p.y - cy) * sinT;
+    const ry = (p.x - cx) * sinT + (p.y - cy) * cosT;
+    if (rx < rotMinX) rotMinX = rx;
+    if (rx > rotMaxX) rotMaxX = rx;
+    if (ry < rotMinY) rotMinY = ry;
+    if (ry > rotMaxY) rotMaxY = ry;
+  }
+  const rotA = Math.max(1, (rotMaxX - rotMinX) / 2);
+  const rotB = Math.max(1, (rotMaxY - rotMinY) / 2);
+
+  let rotEllipseDev = 0;
+  for (const p of points) {
+    const rx = (p.x - cx) * cosT - (p.y - cy) * sinT;
+    const ry = (p.x - cx) * sinT + (p.y - cy) * cosT;
+    const d = Math.hypot(rx / rotA, ry / rotB);
+    rotEllipseDev += Math.abs(d - 1);
+  }
+  rotEllipseDev /= points.length;
+
+  const quadCorners = extractQuadCorners(points, cornerPts, maxSpan);
+  const isTiltedRect = Boolean(quadCorners && isRectangleAngles(quadCorners));
+  const hasQuad = corners === 4 || rdpCount === 4 || isTiltedRect;
+
+  const fivePoints =
+    rdpVertices.length >= 6
+      ? rdpVertices.slice(0, 5)
+      : cornerPts.length === 5
+        ? cornerPts
+        : [];
+  const isPentagon =
+    !isTiltedRect &&
+    (rdpCount === 5 || corners === 5) &&
+    (isPentagonLike(fivePoints) || (solidity > 0.85 && normRectDev >= 0.09 && !isRectangleAngles(fivePoints)));
+
+  const isHexagon = (rdpCount === 6 || corners === 6) && solidity > 0.86;
+
+  const isNearlyRound = aspect >= 0.78 && aspect <= 1.28;
   const isCircle =
-    (ellipseDev < 0.16 && cornerElongation < 1.28) ||
-    (hasFullLoop && ellipseDev < 0.24 && cornerElongation < 1.3);
+    !isPentagon &&
+    !isHexagon &&
+    ((ellipseDev < 0.16 && cornerElongation < 1.26) ||
+      (hasFullLoop && ellipseDev < 0.24 && cornerElongation < 1.28) ||
+      (!hasQuad && rotEllipseDev < 0.18 && Math.max(rotA, rotB) / Math.min(rotA, rotB) < 1.25 && cornerElongation < 1.26));
 
   if (isCircle) {
-    const isNearlyRound = aspect >= 0.76 && aspect <= 1.32;
     const diam = Math.max(w, h);
     return {
       kind: "shape",
@@ -505,9 +549,29 @@ export function recognizeShape(
     };
   }
 
-  const quadCorners = extractQuadCorners(points, cornerPts, maxSpan);
-  const isTiltedRect = Boolean(quadCorners && isRectangleAngles(quadCorners));
-  const hasQuad = corners === 4 || rdpCount === 4 || isTiltedRect;
+  // Tilted or elongated Ellipse (radial fit along principal axes, smooth continuous curve)
+  const isRotated = Math.abs(ellipseTheta) > 0.12;
+  const isEllipse =
+    !isPentagon &&
+    !isHexagon &&
+    solidity > 0.80 &&
+    rotEllipseDev < 0.18 &&
+    (!isTiltedRect || rotEllipseDev < 0.13) &&
+    normRectDev >= 0.05;
+
+  if (isEllipse) {
+    return {
+      kind: "shape",
+      shape: "ellipse",
+      color,
+      size,
+      x: isRotated ? cx - rotA : minX,
+      y: isRotated ? cy - rotB : minY,
+      w: isRotated ? rotA * 2 : w,
+      h: isRotated ? rotB * 2 : h,
+      rotation: isRotated ? ellipseTheta : undefined,
+    };
+  }
 
   // ----------------------------------------------------
   // F. Check TRIANGLES: Right Triangle vs General Triangle
@@ -557,7 +621,7 @@ export function recognizeShape(
   // G. Check DIAMOND (rhombus: 4 corners near edge centers)
   // ----------------------------------------------------
   if (!isTiltedRect && normRectDev >= 0.075 && cornerElongation >= 1.25) {
-    if (detectDiamond(points, minX, maxX, minY, maxY, cx, cy)) {
+    if (detectDiamond(points, minX, maxX, minY, maxY, cx, cy, rotEllipseDev)) {
       return {
         kind: "shape",
         shape: "diamond",
@@ -573,17 +637,6 @@ export function recognizeShape(
 
   // ----------------------------------------------------
   // H. Check RECTANGLE / SQUARE (Checked before pentagon/hexagon to prevent 5-point closed strokes becoming pentagons)
-  const fivePoints =
-    rdpVertices.length >= 6
-      ? rdpVertices.slice(0, 5)
-      : cornerPts.length === 5
-        ? cornerPts
-        : [];
-  const isPentagon =
-    !isTiltedRect &&
-    (rdpCount === 5 || corners === 5) &&
-    (isPentagonLike(fivePoints) || (solidity > 0.85 && normRectDev >= 0.09 && !isRectangleAngles(fivePoints)));
-
   const isRectangle =
     !isPentagon &&
     (isTiltedRect ||
@@ -725,6 +778,22 @@ export function recognizeShape(
   }
 
   // ----------------------------------------------------
+  // L2. Check CLOUD (multiple convex scallops along perimeter)
+  // ----------------------------------------------------
+  if (detectCloud(points, cx, cy, w, h, solidity, normRectDev, rotEllipseDev)) {
+    return {
+      kind: "shape",
+      shape: "cloud",
+      color,
+      size,
+      x: minX,
+      y: minY,
+      w,
+      h,
+    };
+  }
+
+  // ----------------------------------------------------
   // M. Fallback: Closed smooth stroke -> circle/ellipse
   // ----------------------------------------------------
   if (isClosed && ellipseDev < 0.32 && cornerElongation < 1.36) {
@@ -822,14 +891,18 @@ function detectCloud(
   w: number,
   h: number,
   solidity: number,
+  normRectDev: number,
+  rotEllipseDev: number,
 ): boolean {
-  if (solidity < 0.75 || solidity > 0.94) return false;
+  if (normRectDev < 0.14 || rotEllipseDev < 0.20) return false;
+  if (solidity < 0.70 || solidity > 0.92) return false;
   const aspect = w / (h || 1);
   if (aspect < 1.05 || aspect > 2.4) return false;
 
   // Count bumps (radial oscillations)
   const dists = pts.map((p) => Math.hypot((p.x - cx) / (w / 2), (p.y - cy) / (h / 2)));
   let localPeaks = 0;
+  let localDips = 0;
   const n = dists.length;
   for (let i = 0; i < n; i++) {
     const prev = dists[(i - 1 + n) % n];
@@ -838,8 +911,11 @@ function detectCloud(
     if (cur > prev && cur > next && cur > 1.02) {
       localPeaks++;
     }
+    if (cur < prev && cur < next && cur < 0.95) {
+      localDips++;
+    }
   }
-  return localPeaks >= 4 && localPeaks <= 8;
+  return localPeaks >= 5 && localPeaks <= 9 && localDips >= 4;
 }
 
 function detectCross(
@@ -989,7 +1065,9 @@ function detectDiamond(
   maxY: number,
   cx: number,
   cy: number,
+  rotEllipseDev: number,
 ): boolean {
+  if (rotEllipseDev < 0.17) return false;
   const w = maxX - minX;
   const h = maxY - minY;
   const tol = Math.max(16, Math.min(w, h) * 0.22);
@@ -999,7 +1077,17 @@ function detectDiamond(
   const hasLeftMid = points.some((p) => Math.abs(p.x - minX) < tol && Math.abs(p.y - cy) < tol);
   const hasRightMid = points.some((p) => Math.abs(p.x - maxX) < tol && Math.abs(p.y - cy) < tol);
 
-  return hasTopMid && hasBotMid && hasLeftMid && hasRightMid;
+  if (!hasTopMid || !hasBotMid || !hasLeftMid || !hasRightMid) return false;
+
+  const cornerTol = Math.min(w, h) * 0.20;
+  const inCorners = points.some(
+    (p) =>
+      (p.x < minX + cornerTol && p.y < minY + cornerTol) ||
+      (p.x > maxX - cornerTol && p.y < minY + cornerTol) ||
+      (p.x < minX + cornerTol && p.y > maxY - cornerTol) ||
+      (p.x > maxX - cornerTol && p.y > maxY - cornerTol),
+  );
+  return !inCorners;
 }
 
 // ----------------------------------------------------
@@ -1018,20 +1106,31 @@ function detectLine(
   const chordLen = Math.hypot(dx, dy);
   if (chordLen < 16) return null;
 
+  // Maximum and average deviation from the chord line
+  // Ignore pen-down/pen-up hook jitter in first and last 5% of points
+  const margin = Math.max(1, Math.floor(points.length * 0.05));
   let maxDeviation = 0;
-  for (const p of points) {
+  let sumDeviation = 0;
+  let count = 0;
+  for (let i = margin; i < points.length - margin; i++) {
+    const p = points[i];
     const dist = Math.abs(dy * p.x - dx * p.y + last.x * first.y - last.y * first.x) / chordLen;
     maxDeviation = Math.max(maxDeviation, dist);
+    sumDeviation += dist;
+    count++;
   }
+  const avgDev = count > 0 ? sumDeviation / count : 0;
 
-  if (maxDeviation / chordLen > 0.14) return null;
+  // Relaxed from 0.14 to 0.22 for human hand wobble on touchscreen/tablets
+  if (maxDeviation / chordLen > 0.22) return null;
+  if (avgDev / chordLen > 0.09) return null;
 
-  // A wavy or zig-zag stroke can stay inside that band but is much longer than a line.
+  // Total path length vs direct chord length (relaxed from 1.15 to 1.30)
   let pathLen = 0;
   for (let i = 1; i < points.length; i++) {
     pathLen += Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
   }
-  if (pathLen / chordLen > 1.15) return null;
+  if (pathLen / chordLen > 1.30) return null;
 
   return {
     kind: "shape",
@@ -1054,55 +1153,71 @@ function detectArrow(
 ): Omit<ShapeStroke, "id"> | null {
   if (points.length < 8) return null;
   const n = points.length;
-  const tip = points[n - 1];
+  const startPt = points[0];
 
   let strokeLen = 0;
   for (let i = 1; i < n; i++) {
     strokeLen += Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
   }
-  if (strokeLen < 16) return null;
+  if (strokeLen < 20) return null;
 
-  const minBarb = Math.max(8, strokeLen * 0.04);
-  const maxBarb = Math.min(Math.max(28, strokeLen * 0.42), 140);
+  // In single-stroke arrows, people draw:
+  // (A) start -> straight shaft -> tip apex -> barb(s) drawn back
+  // (B) start -> straight shaft -> barb -> tip apex at end
+  // Find candidate tip apex in the last 45% of the stroke
+  let bestTipIdx = n - 1;
+  let maxDistFromStart = 0;
+  const searchStart = Math.max(3, Math.floor(n * 0.55));
+  for (let i = searchStart; i < n; i++) {
+    const d = Math.hypot(points[i].x - startPt.x, points[i].y - startPt.y);
+    if (d > maxDistFromStart) {
+      maxDistFromStart = d;
+      bestTipIdx = i;
+    }
+  }
+
+  const tip = points[bestTipIdx];
+  const shaftLen = Math.hypot(tip.x - startPt.x, tip.y - startPt.y);
+  if (shaftLen < 18) return null;
+
+  // The shaft before the tip must be reasonably straight
+  const from = Math.floor(bestTipIdx * skipHeadFrac);
+  if (straightnessError(points, from, bestTipIdx, points[from], tip) > 0.20) return null;
+
+  // The shaft must not oscillate back and forth like a wave or handwriting
+  const shaftPoints = points.slice(from, bestTipIdx + 1);
+  if (countChordLobes(shaftPoints) >= 2) return null;
+
+  // A real arrow head must have a sharp hairpin turn (>80°) in the tail
+  if (sharpestTurnInTail(points, 0.45) < 80) return null;
+
+  // Verify at least one barb vector angled backwards from the shaft
+  const minBarb = Math.max(6, shaftLen * 0.05);
+  const maxBarb = Math.min(Math.max(25, shaftLen * 0.45), 160);
+  const ux = (tip.x - startPt.x) / shaftLen;
+  const uy = (tip.y - startPt.y) / shaftLen;
 
   let barbFound = false;
-  let barbIndex = -1;
-
-  // Real barbs must be angled roughly 15°–60° off the line (0.26 to 1.05 radians)
-  const minBarbAngle = 15 * (Math.PI / 180);
-  const maxBarbAngle = 60 * (Math.PI / 180);
-
-  for (let i = n - 2; i >= Math.max(2, n - 25); i--) {
+  for (let i = 1; i < n; i++) {
+    if (i === bestTipIdx) continue;
     const d = Math.hypot(points[i].x - tip.x, points[i].y - tip.y);
     if (d >= minBarb && d <= maxBarb) {
-      const vBarb = { x: points[i].x - tip.x, y: points[i].y - tip.y };
-      const vShaft = { x: points[0].x - tip.x, y: points[0].y - tip.y };
-      const magBarb = Math.hypot(vBarb.x, vBarb.y);
-      const magShaft = Math.hypot(vShaft.x, vShaft.y);
-      if (magBarb > 1e-4 && magShaft > 1e-4) {
-        const dot = (vBarb.x * vShaft.x + vBarb.y * vShaft.y) / (magBarb * magShaft);
-        const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
-        if (angle >= minBarbAngle && angle <= maxBarbAngle) {
-          barbFound = true;
-          barbIndex = i;
-          break;
-        }
+      const bx = (points[i].x - tip.x) / d;
+      const by = (points[i].y - tip.y) / d;
+      // Dot product with reverse shaft direction (-ux, -uy)
+      const dot = bx * (-ux) + by * (-uy);
+      const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
+      if (angle >= 10 * (Math.PI / 180) && angle <= 65 * (Math.PI / 180)) {
+        barbFound = true;
+        break;
       }
     }
   }
 
   if (!barbFound) return null;
 
-  const shaftEnd = points[barbIndex];
-  const startPt = points[0];
-  // The shaft (everything before the barb) must be a straight line — a check mark,
-  // the letter "c" or a curve with a hook at the end is not an arrow.
-  const from = Math.floor(barbIndex * skipHeadFrac);
-  if (straightnessError(points, from, barbIndex, points[from], shaftEnd) > 0.1) return null;
-  // …and the head must have a real hairpin turn, not just a gentle bend.
-  if (sharpestTurnInTail(points, 0.35) < 100) return null;
-  const dx = shaftEnd.x - startPt.x;
-  const dy = shaftEnd.y - startPt.y;
+  const dx = tip.x - startPt.x;
+  const dy = tip.y - startPt.y;
 
   return {
     kind: "shape",

@@ -64,6 +64,26 @@ export function continuesGroup(group: Rect, stroke: Rect, lineHeight: number): b
   return gap <= Math.max(60, lh * 1.6);
 }
 
+/**
+ * Does `stroke` continue the current line of writing/sentence? True when it sits on the
+ * same horizontal line with normal word spacing (gap up to 3.2x letter height).
+ */
+export function continuesLine(group: Rect, stroke: Rect, lineHeight: number): boolean {
+  const lh = Math.max(16, lineHeight);
+  const vOverlap = overlap1d(group.y, group.y + group.h, stroke.y, stroke.y + stroke.h);
+  const sameLine =
+    vOverlap >= Math.min(group.h, stroke.h) * 0.25 ||
+    (stroke.y + stroke.h >= group.y - lh * 1.0 && stroke.y <= group.y + group.h + lh * 0.4);
+  if (!sameLine) return false;
+  const gap =
+    stroke.x > group.x + group.w
+      ? stroke.x - (group.x + group.w)
+      : group.x > stroke.x + stroke.w
+        ? group.x - (stroke.x + stroke.w)
+        : 0;
+  return gap <= Math.max(140, lh * 3.2);
+}
+
 /** Typical letter height of a set of strokes (median stroke height, ignoring dots). */
 export function typicalLetterHeight(strokes: InkStroke[]): number {
   const hs = strokes
@@ -110,7 +130,8 @@ export function clusterIntoLines(strokes: InkStroke[]): InkStroke[][] {
   for (const { s, b } of sorted) {
     let placed = false;
     for (const c of clusters) {
-      if (continuesGroup(c.rect, b, typicalLetterHeight(c.strokes))) {
+      const lh = typicalLetterHeight(c.strokes);
+      if (continuesLine(c.rect, b, lh) || continuesGroup(c.rect, b, lh)) {
         c.strokes.push(s);
         c.rect = unionRect(c.rect, b);
         placed = true;
@@ -119,6 +140,8 @@ export function clusterIntoLines(strokes: InkStroke[]): InkStroke[][] {
     }
     if (!placed) clusters.push({ strokes: [s], rect: b });
   }
+  // Sort clusters top-to-bottom so lines appear in natural reading order
+  clusters.sort((a, b) => a.rect.y - b.rect.y);
   return clusters.map((c) => c.strokes);
 }
 

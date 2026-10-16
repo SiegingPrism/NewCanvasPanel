@@ -193,3 +193,24 @@ if (typeof window !== "undefined") {
     useAuth.setState({ user: null, session: null, loading: false, initialized: true });
   }
 }
+
+export function getUserAvatarUrl(user: User | null | undefined): string | null {
+  if (!user) return null;
+  return (
+    user.user_metadata?.avatar_url ||
+    user.user_metadata?.picture ||
+    user.identities?.[0]?.identity_data?.avatar_url ||
+    user.identities?.[0]?.identity_data?.picture ||
+    null
+  );
+}
+
+export function getUserDisplayName(user: User | null | undefined): string {
+  if (!user) return "Guest User";
+  return (
+    user.user_metadata?.full_name ||
+    user.user_metadata?.name ||
+    user.user_metadata?.user_name ||
+    (user.email ? user.email.split("@")[0] : "User")
+  );
+}

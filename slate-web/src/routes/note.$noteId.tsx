@@ -429,18 +429,19 @@ export function NoteEditorPage() {
   }
 
   return (
-    <div className="min-h-dvh bg-background pb-28">
+    <div className="min-h-dvh bg-background touch-pan-y pb-[max(8rem,calc(var(--sab,env(safe-area-inset-bottom,0px))+6rem))]">
       {/* Top Bar */}
-      <header className="sticky top-0 z-20 border-b bg-background/90 backdrop-blur">
+      <header className="sticky top-0 z-20 border-b bg-background/90 backdrop-blur pt-[max(0.75rem,var(--sat,env(safe-area-inset-top,0px)))]">
         <div className="mx-auto flex max-w-4xl items-center justify-between gap-3 px-4 py-2.5 sm:px-6">
           <div className="flex items-center gap-2.5">
-            <Link
-              to="/notes"
+            <button
+              type="button"
+              onClick={() => navigate({ to: "/notes" })}
               className="grid h-8 w-8 place-items-center rounded-lg hover:bg-accent text-foreground transition"
               title="Back to notes"
             >
               <ArrowLeft className="h-4 w-4" />
-            </Link>
+            </button>
 
             <select
               value={note.type}

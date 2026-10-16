@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { AuthDialog } from "@/components/auth/AuthDialog";
 import { useAuth } from "@/lib/supabase/authStore";
 import { semanticSearch } from "@/lib/ai/localRAG";
+import { BottomNavBar } from "@/components/navigation/BottomNavBar";
 
 export const Route = createFileRoute("/notes")({
   head: () => ({
@@ -111,17 +112,18 @@ function NotesPage() {
   }
 
   return (
-    <div className="min-h-dvh bg-background">
-      <header className="sticky top-0 z-10 border-b bg-background/80 backdrop-blur">
+    <div className="min-h-dvh bg-background touch-pan-y pb-[max(6.5rem,calc(var(--sab,env(safe-area-inset-bottom,0px))+5rem))]">
+      <header className="sticky top-0 z-10 border-b bg-background/80 backdrop-blur pt-[max(0.75rem,var(--sat,env(safe-area-inset-top,0px)))]">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <div className="flex items-center gap-3">
-            <Link
-              to="/"
+            <button
+              type="button"
+              onClick={() => navigate({ to: "/" })}
               className="grid h-8 w-8 place-items-center rounded-lg hover:bg-accent text-foreground transition"
               title="Dashboard"
             >
               <ArrowLeft className="h-4 w-4" />
-            </Link>
+            </button>
             <h1 className="flex items-center gap-2 font-semibold text-lg">
               <FileText className="h-4 w-4 text-primary" /> Notes
             </h1>
@@ -358,6 +360,7 @@ function NotesPage() {
       </main>
 
       <AuthDialog open={authOpen} onOpenChange={setAuthOpen} />
+      <BottomNavBar activeTab="library" />
     </div>
   );
 }

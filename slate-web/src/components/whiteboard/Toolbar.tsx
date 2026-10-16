@@ -280,7 +280,16 @@ export function Toolbar() {
   const [mathDialogOpen, setMathDialogOpen] = useState(false);
   const [colorCategory, setColorCategory] = useState<"vivid" | "chalk" | "pastel" | "earthy">("vivid");
   const [mounted, setMounted] = useState(false);
-  const { langPickerOpen, setLangPickerOpen, language, translateLive, translateTo, openTranslatePicker } = useInk();
+  const {
+    langPickerOpen,
+    setLangPickerOpen,
+    language,
+    translateLive,
+    translateTo,
+    openTranslatePicker,
+    livePreview,
+    autoType,
+  } = useInk();
   const currentInkLang = findLanguage(language);
   const targetInkLang = findLanguage(translateTo);
 
@@ -801,8 +810,8 @@ export function Toolbar() {
           <ActivePenIcon className="h-4 w-4" />
         </button>
 
-        {/* Quick Handwriting Language Badge / Slate Translate Badge when pen tool is active */}
-        {isPenToolActive && (
+        {/* Quick Handwriting Language Badge / Slate Translate Badge when pen tool is active and handwriting is active */}
+        {isPenToolActive && (translateLive || livePreview || autoType) && (
           translateLive ? (
             <button
               type="button"

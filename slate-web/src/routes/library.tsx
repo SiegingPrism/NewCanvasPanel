@@ -39,6 +39,7 @@ import { cn } from "@/lib/utils";
 import { AuthDialog } from "@/components/auth/AuthDialog";
 import { useAuth } from "@/lib/supabase/authStore";
 import { semanticSearch } from "@/lib/ai/localRAG";
+import { BottomNavBar } from "@/components/navigation/BottomNavBar";
 
 export const Route = createFileRoute("/library")({
   head: () => ({
@@ -145,17 +146,18 @@ function Library() {
   }
 
   return (
-    <div className="min-h-dvh bg-background">
-      <header className="sticky top-0 z-10 border-b bg-background/80 backdrop-blur">
+    <div className="min-h-dvh bg-background touch-pan-y pb-[max(6.5rem,calc(var(--sab,env(safe-area-inset-bottom,0px))+5rem))]">
+      <header className="sticky top-0 z-10 border-b bg-background/80 backdrop-blur pt-[max(0.75rem,var(--sat,env(safe-area-inset-top,0px)))]">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <div className="flex items-center gap-3">
-            <Link
-              to="/"
+            <button
+              type="button"
+              onClick={() => navigate({ to: "/" })}
               className="grid h-8 w-8 place-items-center rounded-md hover:bg-accent"
               title="Back to dashboard"
             >
               <ArrowLeft className="h-4 w-4" />
-            </Link>
+            </button>
             <h1 className="font-semibold">Board library</h1>
           </div>
           <div className="flex items-center gap-2">
@@ -381,7 +383,7 @@ function Library() {
               {visible.map((b) => (
                 <div
                   key={b.id}
-                  className="group relative flex aspect-[4/3] flex-col justify-end rounded-xl border bg-gradient-to-br from-muted/40 to-muted p-3 text-left transition hover:border-primary hover:shadow-sm"
+                  className="group relative flex aspect-[4/3] min-h-[135px] flex-col justify-end rounded-xl border bg-gradient-to-br from-muted/40 to-muted p-3 text-left transition hover:border-primary hover:shadow-sm"
                 >
                   <button
                     onClick={() => navigate({ to: "/board/$boardId", params: { boardId: b.id } })}
@@ -544,6 +546,7 @@ function Library() {
       </AlertDialog>
 
       <AuthDialog open={authOpen} onOpenChange={setAuthOpen} />
+      <BottomNavBar activeTab="boards" />
     </div>
   );
 }

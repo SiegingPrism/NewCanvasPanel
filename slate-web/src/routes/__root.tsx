@@ -4,10 +4,12 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useLocation,
+  useNavigate,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { Toaster } from "../components/ui/sonner";
@@ -114,6 +116,77 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+function AndroidBackHandler() {
+  const router = useRouter();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Track the history stack of visited paths in memory
+  const historyStackRef = useRef<string[]>([location.pathname]);
+
+  useEffect(() => {
+    const current = location.pathname;
+    const stack = historyStackRef.current;
+    if (stack.length === 0 || stack[stack.length - 1] !== current) {
+      stack.push(current);
+    }
+  }, [location.pathname]);
+
+  useEffect(() => {
+    (window as any).__handleAndroidBack = () => {
+      // 1. Check if any open modal, dialog, sheet, or popover is open
+      const openModal = document.querySelector(
+        '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"], [data-radix-portal] [data-state="open"]'
+      );
+      if (openModal) {
+        // Dispatch Escape key
+        const escEvent = new KeyboardEvent("keydown", {
+          key: "Escape",
+          code: "Escape",
+          keyCode: 27,
+          which: 27,
+          bubbles: true,
+          cancelable: true,
+        });
+        document.dispatchEvent(escEvent);
+        const closeBtn = openModal.querySelector<HTMLElement>(
+          'button[aria-label="Close"], button.close, [data-state="open"] button'
+        );
+        if (closeBtn) {
+          closeBtn.click();
+        }
+        return true;
+      }
+
+      // 2. If stack has previous pages, navigate to the most recent page
+      const stack = historyStackRef.current;
+      if (stack.length > 1) {
+        stack.pop(); // remove current page
+        const previousPath = stack[stack.length - 1];
+        if (previousPath && previousPath !== location.pathname) {
+          navigate({ to: previousPath as any });
+          return true;
+        }
+      }
+
+      // 3. Fallback: If not on home page "/", always go to "/"
+      if (location.pathname !== "/") {
+        navigate({ to: "/" });
+        return true;
+      }
+
+      // 4. On home page with no modal or history to pop
+      return false;
+    };
+
+    return () => {
+      delete (window as any).__handleAndroidBack;
+    };
+  }, [location.pathname, navigate]);
+
+  return null;
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
@@ -121,6 +194,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
+      <AndroidBackHandler />
       <SplashScreen />
       <Toaster richColors position="top-center" offset="68px" />
     </QueryClientProvider>

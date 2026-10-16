@@ -53,21 +53,54 @@ type Msg = {
 };
 
 const QUICK = [
-  { label: "Check my work", icon: CheckCircle2, prompt: "Check my solution step-by-step: " },
-  { label: "Solve step-by-step", icon: Calculator, prompt: "Solve step-by-step: " },
-  { label: "Explain simply", icon: BookOpen, prompt: "Explain simply, with an example: " },
+  {
+    label: "Check my work",
+    icon: CheckCircle2,
+    prompt: "Check my solution step-by-step: ",
+    desc: "Verify formulas & steps",
+  },
+  {
+    label: "Solve step-by-step",
+    icon: Calculator,
+    prompt: "Solve step-by-step: ",
+    desc: "Detailed math breakdown",
+  },
+  {
+    label: "Explain simply",
+    icon: BookOpen,
+    prompt: "Explain simply, with an example: ",
+    desc: "Clear intuitive analogy",
+  },
   {
     label: "Make flashcards",
     icon: Layers,
     prompt: "Make 5 flashcards (question and answer) about: ",
+    desc: "Study questions & answers",
   },
   {
     label: "Practice questions",
     icon: HelpCircle,
     prompt: "Give me 5 practice questions with answers on: ",
+    desc: "Quizzes with answers",
   },
-  { label: "Lesson plan", icon: Wand2, prompt: "Create a 45-minute lesson plan for: " },
-  { label: "Activity ideas", icon: Lightbulb, prompt: "Suggest 4 whiteboard activities about: " },
+  {
+    label: "Lesson plan",
+    icon: Wand2,
+    prompt: "Create a 45-minute lesson plan for: ",
+    desc: "Structured teaching guide",
+  },
+  {
+    label: "Activity ideas",
+    icon: Lightbulb,
+    prompt: "Suggest 4 whiteboard activities about: ",
+    desc: "Classroom exercises",
+  },
+  {
+    label: "Summarize topic",
+    icon: Sparkles,
+    prompt: "Summarize key concepts and formulas for: ",
+    desc: "Key takeaways & terms",
+  },
 ];
 
 /** Markdown styling without the typography plugin (Tailwind preflight resets headings and lists). */
@@ -453,13 +486,13 @@ export function AISheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="flex w-full flex-col p-0 sm:max-w-md">
-        <SheetHeader className="border-b p-3.5">
+      <SheetContent side="right" className="flex w-full flex-col h-full max-h-dvh p-0 sm:max-w-md overflow-hidden bg-background">
+        <SheetHeader className="border-b border-border/80 px-4 pb-3.5 pt-[calc(var(--sat,0px)+1.15rem)] shrink-0 bg-background/95 backdrop-blur-md">
           <div className="flex items-center justify-between">
-            <SheetTitle className="flex items-center gap-2 text-base">
+            <SheetTitle className="flex items-center gap-2 text-base font-bold text-foreground">
               <Sparkles className="h-5 w-5 text-primary" /> Slate AI
             </SheetTitle>
-            <div className="flex items-center gap-1.5 mr-6">
+            <div className="flex items-center gap-1.5 mr-8">
               <button
                 type="button"
                 onClick={() => setHintMode(!hintMode)}
@@ -546,7 +579,7 @@ export function AISheet({
           </div>
         )}
 
-        <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto p-4">
+        <div ref={scrollRef} className="flex-1 min-h-0 space-y-4 overflow-y-auto px-4 py-3 overscroll-contain flex flex-col">
           {contextText && (
             <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-primary">
               <span className="font-semibold">Using your selection: </span>
@@ -558,26 +591,49 @@ export function AISheet({
           )}
 
           {messages.length === 0 && (
-            <div className="rounded-xl border border-dashed border-border p-4 text-center">
-              <Sparkles className="mx-auto h-8 w-8 text-primary" />
-              <p className="mt-2 text-sm font-medium">Ask anything</p>
-              <p className="text-xs text-muted-foreground">
-                Solve problems, check your work, explain diagrams, or create flashcards. Tap "See Board" to let the AI see your canvas!
-              </p>
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                {QUICK.map((q) => (
-                  <button
-                    key={q.label}
-                    className="flex items-center gap-2 rounded-lg border border-border px-2 py-2 text-left text-xs transition hover:bg-accent hover:border-primary/40"
-                    onClick={() => {
-                      setInput(q.prompt);
-                      inputRef.current?.focus();
-                    }}
-                  >
-                    <q.icon className="h-3.5 w-3.5 text-primary shrink-0" />
-                    <span className="line-clamp-1">{q.label}</span>
-                  </button>
-                ))}
+            <div className="flex-1 flex flex-col justify-between py-2 sm:py-3 min-h-0">
+              <div className="flex flex-col items-center text-center px-2 pt-2 sm:pt-4 pb-2">
+                <div className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-primary/15 via-primary/10 to-primary/5 text-primary mb-2.5 shadow-2xs border border-primary/20">
+                  <Sparkles className="h-6 w-6" />
+                </div>
+                <h3 className="text-base font-bold text-foreground tracking-tight">Ask Slate AI</h3>
+                <p className="mt-1 text-xs text-muted-foreground leading-relaxed max-w-xs">
+                  Solve problems, check your work, explain diagrams, or create flashcards. Tap "See Board" to let the AI see your canvas!
+                </p>
+              </div>
+
+              <div className="space-y-2 mt-auto pb-1">
+                <div className="flex items-center justify-between px-1">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80">
+                    Quick Prompts
+                  </span>
+                  <span className="text-[10px] text-muted-foreground/60 font-medium">Select a topic</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
+                  {QUICK.map((q) => (
+                    <button
+                      key={q.label}
+                      type="button"
+                      className="flex flex-col justify-between rounded-xl border border-border/80 bg-card hover:bg-accent/70 hover:border-primary/40 p-2.5 text-left transition active:scale-[0.98] shadow-2xs cursor-pointer group"
+                      onClick={() => {
+                        setInput(q.prompt);
+                        inputRef.current?.focus();
+                      }}
+                    >
+                      <div className="flex items-center justify-between w-full mb-1">
+                        <div className="grid h-6 w-6 place-items-center rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors shrink-0">
+                          <q.icon className="h-3.5 w-3.5" />
+                        </div>
+                      </div>
+                      <span className="truncate text-xs font-semibold text-foreground group-hover:text-primary transition-colors">
+                        {q.label}
+                      </span>
+                      <span className="truncate text-[10px] text-muted-foreground mt-0.5">
+                        {q.desc}
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           )}
@@ -771,7 +827,7 @@ export function AISheet({
             e.preventDefault();
             send(input);
           }}
-          className="flex items-end gap-2 border-t p-3 bg-card"
+          className="flex items-end gap-2 border-t border-border bg-card/95 backdrop-blur-md px-3.5 pt-3 pb-[calc(var(--sab,0px)+1.15rem)] shrink-0 shadow-lg"
         >
           <Button
             size="icon"
@@ -779,7 +835,7 @@ export function AISheet({
             variant={attachedSnapshot ? "default" : "outline"}
             onClick={handleAttachSnapshot}
             title={attachedSnapshot ? "Snapshot attached" : "Attach board snapshot to your question"}
-            className="shrink-0"
+            className="h-11 w-11 rounded-xl shrink-0"
           >
             <Camera className="h-4 w-4" />
           </Button>
@@ -805,14 +861,14 @@ export function AISheet({
                     ? "Ask about this board snapshot…"
                     : "Ask a question, paste a problem…"
             }
-            className="flex-1 resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring disabled:opacity-60"
+            className="min-h-[44px] max-h-32 flex-1 resize-none rounded-xl border border-border bg-background px-3 py-2.5 text-sm leading-snug outline-none focus:ring-2 focus:ring-ring focus:border-primary transition disabled:opacity-60"
           />
           {loading ? (
-            <Button size="icon" type="button" variant="secondary" onClick={stop} title="Stop">
+            <Button size="icon" type="button" variant="secondary" onClick={stop} title="Stop" className="h-11 w-11 rounded-xl shrink-0">
               <Square className="h-4 w-4" />
             </Button>
           ) : (
-            <Button size="icon" type="submit" disabled={!canSend} title="Send">
+            <Button size="icon" type="submit" disabled={!canSend} title="Send" className="h-11 w-11 rounded-xl shrink-0">
               <Send className="h-4 w-4" />
             </Button>
           )}

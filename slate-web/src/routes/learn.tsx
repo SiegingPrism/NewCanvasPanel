@@ -28,6 +28,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { toast } from "sonner";
+import { BottomNavBar } from "@/components/navigation/BottomNavBar";
 
 export const Route = createFileRoute("/learn")({
   head: () => ({
@@ -383,8 +384,8 @@ function LearningHubPage() {
 
   if (!mounted) {
     return (
-      <div className="min-h-dvh bg-background pb-20">
-        <header className="sticky top-0 z-10 border-b bg-background/80 backdrop-blur">
+      <div className="min-h-dvh bg-background touch-pan-y pb-[max(6.5rem,calc(var(--sab,env(safe-area-inset-bottom,0px))+5rem))]">
+        <header className="sticky top-0 z-10 border-b bg-background/80 backdrop-blur pt-[max(0.75rem,var(--sat,env(safe-area-inset-top,0px)))]">
           <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3 sm:px-6">
             <div className="h-8 w-8 rounded-lg bg-muted animate-pulse" />
             <div className="h-6 w-36 rounded bg-muted animate-pulse" />
@@ -403,18 +404,19 @@ function LearningHubPage() {
   }
 
   return (
-    <div className="min-h-dvh bg-background pb-20">
+    <div className="min-h-dvh bg-background touch-pan-y pb-[max(6.5rem,calc(var(--sab,env(safe-area-inset-bottom,0px))+5rem))]">
       {/* Header */}
-      <header className="sticky top-0 z-10 border-b bg-background/80 backdrop-blur">
+      <header className="sticky top-0 z-10 border-b bg-background/80 backdrop-blur pt-[max(0.75rem,var(--sat,env(safe-area-inset-top,0px)))]">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <div className="flex items-center gap-3">
-            <Link
-              to="/"
+            <button
+              type="button"
+              onClick={() => navigate({ to: "/" })}
               className="grid h-8 w-8 place-items-center rounded-lg hover:bg-accent text-foreground transition"
               title="Dashboard"
             >
               <ArrowLeft className="h-4 w-4" />
-            </Link>
+            </button>
             <h1 className="flex items-center gap-2 font-semibold text-lg text-foreground">
               <GraduationCap className="h-5 w-5 text-primary" /> Learning Hub
             </h1>
@@ -882,6 +884,7 @@ function LearningHubPage() {
           )}
         </DialogContent>
       </Dialog>
+      <BottomNavBar activeTab="home" />
     </div>
   );
 }

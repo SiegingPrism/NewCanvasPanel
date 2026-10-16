@@ -12,6 +12,11 @@ const config: CapacitorConfig = {
     allowMixedContent: false,
     captureInput: true,
   },
+  plugins: {
+    CapacitorHttp: {
+      enabled: true,
+    },
+  },
 };
 
 export default config;

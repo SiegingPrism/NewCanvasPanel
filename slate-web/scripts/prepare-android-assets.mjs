@@ -36,7 +36,7 @@ const htmlContent = `<!DOCTYPE html>
   ${routesJs ? `<link rel="modulepreload" href="/assets/${routesJs}" />` : ""}
   ${boardJs ? `<link rel="modulepreload" href="/assets/${boardJs}" />` : ""}
 </head>
-<body class="bg-background text-foreground antialiased overscroll-none select-none">
+<body class="bg-background text-foreground antialiased">
   <div id="root"></div>
   <script class="$tsr" id="$tsr-stream-barrier">
     (self.$R=self.$R||{})["tsr"]=[];

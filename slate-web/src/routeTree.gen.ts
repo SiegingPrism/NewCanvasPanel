@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as NotesRouteImport } from './routes/notes'
 import { Route as LibraryRouteImport } from './routes/library'
 import { Route as LearnRouteImport } from './routes/learn'
@@ -19,6 +20,11 @@ import { Route as ApiVisionRouteImport } from './routes/api/vision'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as ApiAiRouteImport } from './routes/api/ai'
 
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const NotesRoute = NotesRouteImport.update({
   id: '/notes',
   path: '/notes',
@@ -70,6 +76,7 @@ export interface FileRoutesByFullPath {
   '/learn': typeof LearnRoute
   '/library': typeof LibraryRoute
   '/notes': typeof NotesRoute
+  '/profile': typeof ProfileRoute
   '/api/ai': typeof ApiAiRoute
   '/api/chat': typeof ApiChatRoute
   '/api/vision': typeof ApiVisionRoute
@@ -81,6 +88,7 @@ export interface FileRoutesByTo {
   '/learn': typeof LearnRoute
   '/library': typeof LibraryRoute
   '/notes': typeof NotesRoute
+  '/profile': typeof ProfileRoute
   '/api/ai': typeof ApiAiRoute
   '/api/chat': typeof ApiChatRoute
   '/api/vision': typeof ApiVisionRoute
@@ -93,6 +101,7 @@ export interface FileRoutesById {
   '/learn': typeof LearnRoute
   '/library': typeof LibraryRoute
   '/notes': typeof NotesRoute
+  '/profile': typeof ProfileRoute
   '/api/ai': typeof ApiAiRoute
   '/api/chat': typeof ApiChatRoute
   '/api/vision': typeof ApiVisionRoute
@@ -106,6 +115,7 @@ export interface FileRouteTypes {
     | '/learn'
     | '/library'
     | '/notes'
+    | '/profile'
     | '/api/ai'
     | '/api/chat'
     | '/api/vision'
@@ -117,6 +127,7 @@ export interface FileRouteTypes {
     | '/learn'
     | '/library'
     | '/notes'
+    | '/profile'
     | '/api/ai'
     | '/api/chat'
     | '/api/vision'
@@ -128,6 +139,7 @@ export interface FileRouteTypes {
     | '/learn'
     | '/library'
     | '/notes'
+    | '/profile'
     | '/api/ai'
     | '/api/chat'
     | '/api/vision'
@@ -140,6 +152,7 @@ export interface RootRouteChildren {
   LearnRoute: typeof LearnRoute
   LibraryRoute: typeof LibraryRoute
   NotesRoute: typeof NotesRoute
+  ProfileRoute: typeof ProfileRoute
   ApiAiRoute: typeof ApiAiRoute
   ApiChatRoute: typeof ApiChatRoute
   ApiVisionRoute: typeof ApiVisionRoute
@@ -149,6 +162,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/notes': {
       id: '/notes'
       path: '/notes'
@@ -220,6 +240,7 @@ const rootRouteChildren: RootRouteChildren = {
   LearnRoute: LearnRoute,
   LibraryRoute: LibraryRoute,
   NotesRoute: NotesRoute,
+  ProfileRoute: ProfileRoute,
   ApiAiRoute: ApiAiRoute,
   ApiChatRoute: ApiChatRoute,
   ApiVisionRoute: ApiVisionRoute,

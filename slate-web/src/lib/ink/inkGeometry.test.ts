@@ -62,6 +62,13 @@ describe("clusterIntoLines", () => {
     expect(lines).toContainEqual(["a", "b"]);
     expect(lines).toContainEqual(["c", "d"]);
   });
+  it("keeps separated words on the same line in a single line cluster", () => {
+    // "hello" (a at 100, b at 116) ... 60px gap ... "world" (c at 190, d at 206)
+    const strokes = [letter("a", 100, 100), letter("b", 116, 100), letter("c", 190, 100), letter("d", 206, 100)];
+    const lines = clusterIntoLines(strokes);
+    expect(lines).toHaveLength(1);
+    expect(lines[0].map((s) => s.id).sort()).toEqual(["a", "b", "c", "d"]);
+  });
 });
 
 describe("textBoxForInk", () => {

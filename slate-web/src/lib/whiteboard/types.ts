@@ -156,6 +156,7 @@ export type StickyNoteObject = {
   h: number;
   text: string;
   color: string;
+  isAiAnswer?: boolean;
 };
 
 export type FlashcardObject = {
@@ -169,6 +170,7 @@ export type FlashcardObject = {
   back: string;
   flipped?: boolean;
   color?: string;
+  isAiAnswer?: boolean;
 };
 
 export type QuizObject = {
@@ -208,6 +210,7 @@ export type FormulaObject = {
   latex: string;
   label?: string;
   color?: string;
+  isAiAnswer?: boolean;
 };
 
 export type DiagramNodeObject = {

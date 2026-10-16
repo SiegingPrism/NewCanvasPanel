@@ -88,6 +88,8 @@ export interface ChatMessage {
 
 export interface ChatSource {
   title: string;
+  url?: string;
+  id?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -149,6 +151,8 @@ interface CallOptions {
   schema?: Record<string, unknown>;
   temperature?: number;
   maxOutputTokens?: number;
+  /** Budget in tokens for Gemini thinking process. Set to 0 to disable thinking for maximum speed. */
+  thinkingBudget?: number;
   signal?: AbortSignal;
   timeoutMs?: number;
 }
@@ -226,6 +230,9 @@ function buildBody(contents: Content[], opts: CallOptions) {
     temperature: opts.temperature ?? 0.4,
   };
   if (opts.maxOutputTokens) generationConfig.maxOutputTokens = opts.maxOutputTokens;
+  if (opts.thinkingBudget !== undefined) {
+    generationConfig.thinkingConfig = { thinkingBudget: opts.thinkingBudget };
+  }
   if (opts.json) {
     generationConfig.responseMimeType = "application/json";
     if (opts.schema) generationConfig.responseSchema = opts.schema;
@@ -855,7 +862,7 @@ const TUTOR_SYSTEM = `You are Slate AI, a friendly and precise study assistant i
 - Never invent facts about the user's notes; only use the provided board or notes context.`;
 
 const TRANSLATE_SYSTEM =
-  "You are a professional translator and handwriting reader. Respond only with JSON matching the schema. Translate meaning naturally, never word-by-word, and always write the translation in the requested script.";
+  "You are a professional translator and handwriting reader. Respond only with JSON matching the schema. Translate meaning naturally, never word-by-word, and always write the translation in the requested script. Support Hinglish: if Roman letters represent Hindi or regional languages (e.g. 'kya haal hai', 'dhanyawad'), translate faithfully into the proper native script (e.g. क्या हाल है, धन्यवाद). Provide 1-2 natural alternatives if applicable.";
 
 const TRANSLATION_SCHEMA = {
   type: "OBJECT",
@@ -863,6 +870,10 @@ const TRANSLATION_SCHEMA = {
     source: { type: "STRING" },
     sourceLanguage: { type: "STRING" },
     translation: { type: "STRING" },
+    alternatives: {
+      type: "ARRAY",
+      items: { type: "STRING" },
+    },
   },
   required: ["source", "sourceLanguage", "translation"],
 };
@@ -871,6 +882,26 @@ export interface TranslationResult {
   source: string;
   sourceLanguage: string;
   translation: string;
+  alternatives?: string[];
+}
+
+function matchesExpectedScript(text: string, script: string): boolean {
+  if (!text || !script) return true;
+  const s = script.toLowerCase();
+  if (s.includes("devanagari")) return /[\u0900-\u097F]/.test(text);
+  if (s.includes("bengali")) return /[\u0980-\u09FF]/.test(text);
+  if (s.includes("gurmukhi")) return /[\u0A00-\u0A7F]/.test(text);
+  if (s.includes("gujarati")) return /[\u0A80-\u0AFF]/.test(text);
+  if (s.includes("odia")) return /[\u0B00-\u0B7F]/.test(text);
+  if (s.includes("tamil")) return /[\u0B80-\u0BFF]/.test(text);
+  if (s.includes("telugu")) return /[\u0C00-\u0C7F]/.test(text);
+  if (s.includes("kannada")) return /[\u0C80-\u0CFF]/.test(text);
+  if (s.includes("malayalam")) return /[\u0D00-\u0D7F]/.test(text);
+  if (s.includes("nastaliq") || s.includes("arabic")) return /[\u0600-\u06FF\u0750-\u077F]/.test(text);
+  if (s.includes("cyrillic")) return /[\u0400-\u04FF]/.test(text);
+  if (s.includes("japanese")) return /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(text);
+  if (s.includes("chinese")) return /[\u4E00-\u9FFF]/.test(text);
+  return true;
 }
 
 function parseTranslation(raw: string): TranslationResult {
@@ -880,10 +911,16 @@ function parseTranslation(raw: string): TranslationResult {
   if (!translation) {
     throw new AIError("bad_response", "Couldn't read that — try writing a little larger or clearer.");
   }
+  const alternatives = Array.isArray(p?.alternatives)
+    ? p.alternatives
+        .map((a: unknown) => String(a || "").replace(/^["'`]+|["'`]+$/g, "").trim())
+        .filter((a: string) => a && a !== translation)
+    : [];
   return {
     source: String(p?.source ?? "").trim(),
     sourceLanguage: String(p?.sourceLanguage ?? "").trim(),
     translation,
+    alternatives: alternatives.slice(0, 3),
   };
 }
 
@@ -915,7 +952,13 @@ export class AIEngine {
   // ---- Chat (streaming) ----
   static async chat(
     history: ChatMessage[],
-    opts: { contextText?: string; onText: (fullText: string) => void; signal?: AbortSignal },
+    opts: {
+      contextText?: string;
+      imageDataUrl?: string;
+      hintMode?: boolean;
+      onText: (fullText: string) => void;
+      signal?: AbortSignal;
+    },
   ): Promise<{ text: string; sources: ChatSource[] }> {
     const turns = history.filter((m) => m.content.trim()).slice(-20);
     const last = turns[turns.length - 1];
@@ -930,6 +973,8 @@ export class AIEngine {
         notesContext = chunks.map((c, i) => `[${i + 1}] ${c.source}\n${c.text}`).join("\n\n");
         sources = chunks.map((c) => ({
           title: c.source.replace(/^(NOTE|BOARD|FLASHCARD):\s*/i, ""),
+          id: c.id,
+          url: c.url,
         }));
       }
     } catch {
@@ -937,6 +982,12 @@ export class AIEngine {
     }
 
     let system = TUTOR_SYSTEM;
+    if (opts.hintMode) {
+      system += `\n\nHINT MODE / SOCRATIC TUTORING ACTIVE:
+- Do NOT give the final answer or full solution directly.
+- Instead, guide the user step-by-step with targeted questions, hints, and conceptual explanations.
+- Prompt them to attempt the next logical step themselves.`;
+    }
     if (opts.contextText?.trim()) {
       system += `\n\nThe user selected this content on their whiteboard. Treat it as the main subject when relevant:\n"""\n${opts.contextText.trim().slice(0, 4000)}\n"""`;
     }
@@ -944,10 +995,18 @@ export class AIEngine {
       system += `\n\nPossibly relevant excerpts from the user's own notes and boards (use only if they help; mention the source title when you use one):\n${notesContext}`;
     }
 
-    const contents: Content[] = turns.map((m) => ({
-      role: m.role === "assistant" ? "model" : "user",
-      parts: [{ text: m.content }],
-    }));
+    const contents: Content[] = turns.map((m, idx) => {
+      const role = m.role === "assistant" ? "model" : "user";
+      const parts: Part[] = [{ text: m.content }];
+      if (idx === turns.length - 1 && role === "user" && opts.imageDataUrl) {
+        try {
+          parts.unshift(imagePart(opts.imageDataUrl));
+        } catch {
+          /* ignore invalid data url */
+        }
+      }
+      return { role, parts };
+    });
 
     const text = await streamGemini(contents, {
       system,
@@ -975,7 +1034,7 @@ export class AIEngine {
   static async transcribeHandwriting(
     imageDataUrl?: string,
     languageHint?: string,
-    opts: { timeoutMs?: number; signal?: AbortSignal } = {},
+    opts: { timeoutMs?: number; signal?: AbortSignal; thinkingBudget?: number } = {},
   ): Promise<string> {
     if (!imageDataUrl) throw new AIError("bad_input", "Select some handwriting first.");
     const langClause = languageHint
@@ -992,7 +1051,7 @@ Do NOT convert drawn lines, ticks, or borders into '-', 'l', or '1'.
 Only output the transcribed characters when there is genuine handwritten text or math. Output ONLY the transcribed characters without code fences, quotes, or commentary. If it is a drawing/shape, return [unreadable].`,
         imageDataUrl,
       ),
-      { temperature: 0, ...opts },
+      { temperature: 0, thinkingBudget: 0, ...opts },
     );
     const clean = text.replace(/^```\w*\s*|```$/g, "").replace(/^["'`]+|["'`]+$/g, "").trim();
     if (!clean || /^\[unreadable\]$/i.test(clean)) {
@@ -1013,23 +1072,50 @@ Only output the transcribed characters when there is genuine handwritten text or
     imageDataUrl: string | undefined,
     target: string,
     script: string,
-    opts: { timeoutMs?: number; signal?: AbortSignal } = {},
+    opts: { timeoutMs?: number; signal?: AbortSignal; context?: string; prefix?: string; thinkingBudget?: number } = {},
   ): Promise<TranslationResult> {
     if (!imageDataUrl) throw new AIError("bad_input", "Select some handwriting first.");
+    const contextClause = opts.context
+      ? `\nPreceding context / sentence: "${opts.context}". Formulate the translation so it flows naturally in context, observing proper ${target} word order.`
+      : "";
+    const prefixClause = opts.prefix
+      ? `\nAlready recognized text prefix in this line: "${opts.prefix}".`
+      : "";
+
     const raw = await callGemini(
       userContent(
-        `Read the handwritten text in this image (it may be in any language or script). Then translate it into ${target}, written in ${script} script, the way a fluent native speaker would naturally write it.
+        `Read the handwritten text in this image (it may be in any language or script). Then translate it into ${target}, written in ${script} script, the way a fluent native speaker would naturally write it.${contextClause}${prefixClause}
 CRITICAL INSTRUCTION: If the image contains a drawing, geometric shape (circle, ellipse, arrow, line, box), sketch, or doodle and NOT genuine handwritten words/sentences/math, return empty strings for source and translation. Do NOT convert circles into 'O' or arrows into text.
 Return JSON with:
-- source: the handwriting exactly as written (keep its original script)
+- source: the handwriting exactly as written (keep its original script; if Hinglish transcribe accurately)
 - sourceLanguage: the English name of the language it is written in
-- translation: the translation in ${target} (${script} script). Keep numbers, names, units and math as they are. Keep line breaks. If it is already in ${target}, return it unchanged (fix obvious spelling only).
+- translation: the natural translation in ${target} (${script} script). Keep numbers, names, units and math as they are. Keep line breaks. If it is already in ${target}, return it unchanged (fix obvious spelling only).
+- alternatives: 1 or 2 alternative phrasing or vocabulary choices in ${target} (${script} script) if relevant.
 Only return empty strings if the image is a drawing/shape, completely blank, accidental noise, or contains no words/math.`,
         imageDataUrl,
       ),
-      { system: TRANSLATE_SYSTEM, json: true, schema: TRANSLATION_SCHEMA, temperature: 0.1, ...opts },
+      { system: TRANSLATE_SYSTEM, json: true, schema: TRANSLATION_SCHEMA, temperature: 0.1, thinkingBudget: opts.thinkingBudget ?? 0, ...opts },
     );
-    return parseTranslation(raw);
+    const parsed = parseTranslation(raw);
+
+    // Auto-repair if translation returned in wrong script (e.g. English returned for Hindi target)
+    if (!matchesExpectedScript(parsed.translation, script) && parsed.translation.trim()) {
+      try {
+        const fixed = await AIEngine.translateText(
+          parsed.translation,
+          target,
+          script,
+          { timeoutMs: 5000, signal: opts.signal, thinkingBudget: 0 },
+        );
+        if (matchesExpectedScript(fixed.translation, script)) {
+          return { ...parsed, translation: fixed.translation };
+        }
+      } catch {
+        /* keep original if repair failed */
+      }
+    }
+
+    return parsed;
   }
 
   /** Translates typed text into `target` (written in `script`). */
@@ -1037,19 +1123,19 @@ Only return empty strings if the image is a drawing/shape, completely blank, acc
     text: string,
     target: string,
     script: string,
-    opts: { timeoutMs?: number; signal?: AbortSignal } = {},
+    opts: { timeoutMs?: number; signal?: AbortSignal; thinkingBudget?: number } = {},
   ): Promise<TranslationResult> {
     const clean = text.trim();
     if (!clean) throw new AIError("bad_input", "There's no text to translate.");
     const raw = await callGemini(
       userContent(
         `Translate this text into ${target}, written in ${script} script, the way a fluent native speaker would naturally write it. Keep numbers, names, units and math as they are. Keep line breaks. If it is already in ${target}, return it unchanged.
-Return JSON with source (the text as given), sourceLanguage (English name of its language) and translation.
+Return JSON with source (the text as given), sourceLanguage (English name of its language), translation (${script} script), and optional alternatives array.
 
 TEXT:
 ${clean.slice(0, 8000)}`,
       ),
-      { system: TRANSLATE_SYSTEM, json: true, schema: TRANSLATION_SCHEMA, temperature: 0.1, ...opts },
+      { system: TRANSLATE_SYSTEM, json: true, schema: TRANSLATION_SCHEMA, temperature: 0.1, thinkingBudget: opts.thinkingBudget ?? 0, ...opts },
     );
     const r = parseTranslation(raw);
     return { ...r, source: r.source || clean };

@@ -36,7 +36,7 @@ import {
   Cloud,
   ShieldCheck,
 } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import jsPDF from "jspdf";
@@ -55,6 +55,7 @@ import { extractBoardSearchStrings } from "@/lib/ai/localRAG";
 import type { MindMapNodeObject } from "@/lib/whiteboard/types";
 
 import { TEMPLATES } from "@/lib/whiteboard/templates";
+import { useStrokeRecorderStore } from "@/lib/whiteboard/strokeRecorderStore";
 
 function uid() {
   return Math.random().toString(36).slice(2, 10);
@@ -98,7 +99,9 @@ export function TopBar({
     syncWithCloud,
   } = useWhiteboard();
 
+  const navigate = useNavigate();
   const fileRef = useRef<HTMLInputElement>(null);
+  const titleClicksRef = useRef<number>(0);
   const { user } = useAuth();
   const [authOpen, setAuthOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
@@ -331,17 +334,38 @@ export function TopBar({
 
   return (
     <div className="pointer-events-auto flex items-center gap-0.5 sm:gap-1.5 rounded-full bg-card px-2 py-1 sm:px-3 sm:py-1.5 shadow-lg ring-1 ring-border max-w-[calc(100vw-16px)]">
-      {/* Back to Dashboard */}
-      <Link
-        to="/"
+      {/* Back to Previous Page / Dashboard */}
+      <button
+        type="button"
+        onClick={() => {
+          if (typeof window !== "undefined" && window.history.length > 1) {
+            window.history.back();
+          } else {
+            navigate({ to: "/" });
+          }
+        }}
         className={iconBtn}
-        title="Back to Dashboard"
+        title="Back"
       >
         <ArrowLeft className={iconSize} />
-      </Link>
+      </button>
 
       {boardTitle && (
-        <span className="hidden max-w-[140px] truncate text-xs font-semibold text-foreground/80 md:block px-1">
+        <span
+          onClick={() => {
+            titleClicksRef.current++;
+            if (titleClicksRef.current >= 3) {
+              titleClicksRef.current = 0;
+              useStrokeRecorderStore.getState().openRecorder();
+              toast.info("Stroke Benchmark Recorder launched");
+            }
+            setTimeout(() => {
+              titleClicksRef.current = 0;
+            }, 1000);
+          }}
+          className="hidden max-w-[140px] truncate text-xs font-semibold text-foreground/80 md:block px-1 cursor-pointer select-none hover:text-foreground"
+          title="Triple-click to launch Stroke Benchmark Recorder"
+        >
           {boardTitle}
         </span>
       )}

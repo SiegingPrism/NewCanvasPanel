@@ -12,7 +12,8 @@ import { AIEngine, AIError, aiErrorMessage } from "@/lib/ai/aiEngine";
 import { useAISettings } from "@/lib/ai/aiSettingsStore";
 import { useAuth } from "@/lib/supabase/authStore";
 import { boundsOf, type InkStroke } from "./inkGeometry";
-import { scriptFor } from "./handwritingFonts";
+import { ensureHandwritingFont, scriptFor } from "./handwritingFonts";
+import { useTranslationMetrics } from "./translationMetrics";
 
 // ---------------------------------------------------------------------------
 // Language definitions & Indian languages support
@@ -224,6 +225,8 @@ type InkState = InkSettings & {
   setStatus: (s: RecognizerStatus) => void;
 };
 
+let pendingTranslatePick: ((code: string) => void) | null = null;
+
 export const useInk = create<InkState>((set, get) => ({
   ...loadSettings(),
   status: "idle",
@@ -237,6 +240,10 @@ export const useInk = create<InkState>((set, get) => ({
   set: (patch) => {
     set(patch);
     const { livePreview, autoType, scratchOut, translateLive } = { ...get(), ...patch };
+    if (patch.translateLive || patch.translateTo) {
+      const code = patch.translateTo || get().translateTo;
+      if (code) void ensureHandwritingFont(scriptFor(code).font);
+    }
     try {
       localStorage.setItem(SETTINGS_KEY, JSON.stringify({ livePreview, autoType, scratchOut, translateLive }));
     } catch {
@@ -255,6 +262,7 @@ export const useInk = create<InkState>((set, get) => ({
   setStatus: (status) => set({ status }),
   setTranslateTo: (code) => {
     set((s) => ({ translateTo: code, translatePickerOpen: false, translatePickerForSelection: false, langVersion: (s.langVersion || 0) + 1 }));
+    void ensureHandwritingFont(scriptFor(code).font);
     try {
       localStorage.setItem(TRANSLATE_KEY, code);
     } catch {
@@ -268,6 +276,7 @@ export const useInk = create<InkState>((set, get) => ({
     const cb = pendingTranslatePick;
     pendingTranslatePick = null;
     set({ translatePickerOpen: false, translatePickerForSelection: false });
+    void ensureHandwritingFont(scriptFor(code).font);
     if (cb) {
       cb(code);
       return false;
@@ -285,7 +294,16 @@ export const useInk = create<InkState>((set, get) => ({
   },
 }));
 
-let pendingTranslatePick: ((code: string) => void) | null = null;
+if (typeof window !== "undefined") {
+  try {
+    const initLang = loadTranslateTo();
+    if (initLang) {
+      void ensureHandwritingFont(scriptFor(initLang).font);
+    }
+  } catch {
+    /* ignore */
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Online engine (Gemini)
@@ -337,24 +355,43 @@ export function recognitionAvailable(): boolean {
   return aiConfigured();
 }
 
-/** Draws ink onto a white PNG for Gemini. */
-export function renderInkPng(strokes: InkStroke[], pad = 24): string | null {
+export type RenderedInk = {
+  dataUrl: string;
+  bytes: number;
+  w: number;
+  h: number;
+};
+
+/**
+ * Draws ink onto an optimized high-contrast canvas for Gemini.
+ * Scales word to max 420px (down from 900px), reducing upload payload by ~4-6x.
+ * Uses WebP or high-compression format with grayscale strokes.
+ */
+export function renderInkImage(strokes: InkStroke[], pad = 16): RenderedInk | null {
   if (typeof document === "undefined") return null;
   const b = boundsOf(strokes.flatMap((s) => s.points));
   if (b.w + b.h < 4) return null;
-  // Normalise so the word fills ~900px on its long side — sharp for the model, small upload
-  const scale = Math.min(4, Math.max(0.25, 900 / Math.max(b.w, b.h, 1)));
+
+  // Max long side 420px: sharp for Gemini OCR, small upload (< 25KB)
+  const maxDim = Math.max(b.w, b.h, 1);
+  const scale = Math.min(2.5, Math.max(0.35, 420 / maxDim));
   const canvas = document.createElement("canvas");
-  canvas.width = Math.ceil(b.w * scale + pad * 2);
-  canvas.height = Math.ceil(b.h * scale + pad * 2);
+  const w = Math.ceil(b.w * scale + pad * 2);
+  const h = Math.ceil(b.h * scale + pad * 2);
+  canvas.width = w;
+  canvas.height = h;
+
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
+
+  // High contrast monochrome: pure white background with jet black strokes
   ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.strokeStyle = "#111111";
-  ctx.lineWidth = Math.max(3, 3 * Math.min(1.5, scale));
+  ctx.fillRect(0, 0, w, h);
+  ctx.strokeStyle = "#000000";
+  ctx.lineWidth = Math.max(2.5, 2.5 * Math.min(1.2, scale));
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
+
   for (const s of strokes) {
     if (!s.points.length) continue;
     ctx.beginPath();
@@ -364,10 +401,34 @@ export function renderInkPng(strokes: InkStroke[], pad = 24): string | null {
       if (i === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     });
-    if (s.points.length === 1) ctx.lineTo((s.points[0].x - b.x) * scale + pad + 0.1, (s.points[0].y - b.y) * scale + pad);
+    if (s.points.length === 1) {
+      ctx.lineTo((s.points[0].x - b.x) * scale + pad + 0.1, (s.points[0].y - b.y) * scale + pad);
+    }
     ctx.stroke();
   }
-  return canvas.toDataURL("image/png");
+
+  // Prefer WebP or JPEG 80% for tiny payload; fallback to PNG if unsupported
+  let dataUrl = "";
+  try {
+    dataUrl = canvas.toDataURL("image/webp", 0.8);
+    if (!dataUrl.startsWith("data:image/webp")) {
+      dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+    }
+  } catch {
+    dataUrl = canvas.toDataURL("image/png");
+  }
+  if (!dataUrl || !dataUrl.startsWith("data:image/")) {
+    dataUrl = canvas.toDataURL("image/png");
+  }
+
+  const bytes = Math.round((dataUrl.length * 3) / 4);
+  return { dataUrl, bytes, w, h };
+}
+
+/** Draws ink onto a white image for Gemini. Backward-compatible wrapper. */
+export function renderInkPng(strokes: InkStroke[], pad = 16): string | null {
+  const rendered = renderInkImage(strokes, pad);
+  return rendered ? rendered.dataUrl : null;
 }
 
 const RECOGNITION_TIMEOUT_MS = 20000;
@@ -384,6 +445,14 @@ function fail(status: RecognizerStatus, message: string): null {
   return null;
 }
 
+export type RecognizeInkOptions = {
+  preContext?: string;
+  translateTo?: string;
+  signal?: AbortSignal;
+  penLiftedAt?: number;
+  prefix?: string;
+};
+
 /**
  * Recognise a group of strokes (one word or line) online with Gemini.
  * Returns null when nothing could be read; the reason is in useInk().lastError.
@@ -391,13 +460,33 @@ function fail(status: RecognizerStatus, message: string): null {
  */
 export async function recognizeInk(
   strokes: InkStroke[],
-  opts: { preContext?: string; translateTo?: string } = {},
+  opts: RecognizeInkOptions = {},
 ): Promise<Recognition | null> {
   if (!strokes.length) return null;
   const translateTo = opts.translateTo;
   const key = cacheKey(strokes, translateTo);
   const cached = cache.get(key);
-  if (cached) return cached;
+  if (cached) {
+    if (opts.penLiftedAt) {
+      useTranslationMetrics.getState().recordMetric({
+        id: key,
+        penLiftedAt: opts.penLiftedAt,
+        requestSentAt: Date.now(),
+        replyReceivedAt: Date.now(),
+        uiRenderedAt: Date.now(),
+        totalLatencyMs: Date.now() - opts.penLiftedAt,
+        pauseWaitMs: Math.max(0, Date.now() - opts.penLiftedAt),
+        networkLatencyMs: 0,
+        imageBytes: 0,
+        imageDimensions: { w: 0, h: 0 },
+        sourceText: cached.original || cached.text,
+        translatedText: cached.text,
+        targetLanguage: translateTo,
+        cached: true,
+      });
+    }
+    return cached;
+  }
   const pending = inFlight.get(key);
   if (pending) return pending;
 
@@ -406,14 +495,26 @@ export async function recognizeInk(
     let text: string | null = null;
     let original: string | undefined;
     let fromLanguage: string | undefined;
+    let alternatives: string[] = [];
+    const requestSentAt = Date.now();
+    let imgBytes = 0;
+    let imgW = 0;
+    let imgH = 0;
+
     if (hook) {
       text = await hook(strokes, { translateTo });
       if (!text) return fail("error", "Couldn't read that — try writing a little larger.");
     } else {
       if (!isOnline()) return fail("offline", "You're offline — handwriting needs internet.");
       if (!aiConfigured()) return fail("unavailable", "AI isn't set up — sign in or add a Gemini key in Settings.");
-      const png = renderInkPng(strokes);
-      if (!png) return null;
+      const rendered = renderInkImage(strokes);
+      if (!rendered) {
+        return null;
+      }
+      imgBytes = rendered.bytes;
+      imgW = rendered.w;
+      imgH = rendered.h;
+
       const lang = findLanguage(useInk.getState().language);
       const timeout = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new AIError("timeout", "The AI took too long to read your writing.")), RECOGNITION_TIMEOUT_MS),
@@ -423,21 +524,39 @@ export async function recognizeInk(
           // One request: read the handwriting and translate it into the target language/script
           const target = findLanguage(translateTo);
           const r = await Promise.race([
-            AIEngine.translateHandwriting(png, `${target.name} (${target.nativeName})`, scriptFor(target.code).script, {
-              timeoutMs: 15000,
-            }),
+            AIEngine.translateHandwriting(
+              rendered.dataUrl,
+              `${target.name} (${target.nativeName})`,
+              scriptFor(target.code).script,
+              {
+                timeoutMs: 15000,
+                signal: opts.signal,
+                context: opts.preContext,
+                prefix: opts.prefix,
+                thinkingBudget: 0,
+              },
+            ),
             timeout,
           ]);
           text = r.translation;
           original = r.source;
           fromLanguage = r.sourceLanguage;
+          alternatives = r.alternatives || [];
         } else {
           text = await Promise.race([
-            AIEngine.transcribeHandwriting(png, `${lang.name} (${lang.nativeName})`, { timeoutMs: 15000 }),
+            AIEngine.transcribeHandwriting(rendered.dataUrl, `${lang.name} (${lang.nativeName})`, {
+              timeoutMs: 15000,
+              signal: opts.signal,
+              thinkingBudget: 0,
+            }),
             timeout,
           ]);
         }
       } catch (err) {
+        console.error("[recognizeInk error]", err);
+        if (opts.signal?.aborted || (err instanceof AIError && err.code === "aborted")) {
+          return null;
+        }
         const code = err instanceof AIError ? err.code : "";
         if (code === "bad_response") {
           useInk.setState({ status: "idle", lastError: null });
@@ -454,10 +573,29 @@ export async function recognizeInk(
     }
     const out: Recognition = {
       text: clean,
-      alternatives: [],
+      alternatives,
       source: "cloud",
       ...(translateTo ? { original: original || undefined, fromLanguage, translatedTo: translateTo } : {}),
     };
+
+    const replyReceivedAt = Date.now();
+    const penLiftedAt = opts.penLiftedAt || requestSentAt;
+    useTranslationMetrics.getState().recordMetric({
+      id: key,
+      penLiftedAt,
+      requestSentAt,
+      replyReceivedAt,
+      uiRenderedAt: replyReceivedAt,
+      totalLatencyMs: replyReceivedAt - penLiftedAt,
+      pauseWaitMs: Math.max(0, requestSentAt - penLiftedAt),
+      networkLatencyMs: replyReceivedAt - requestSentAt,
+      imageBytes: imgBytes,
+      imageDimensions: { w: imgW, h: imgH },
+      sourceText: original || clean,
+      translatedText: clean,
+      targetLanguage: translateTo,
+    });
+
     useInk.setState({ status: "cloud", lastError: null });
     if (cache.size > 300) cache.delete(cache.keys().next().value as string);
     cache.set(key, out);

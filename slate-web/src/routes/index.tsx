@@ -12,7 +12,6 @@ import {
   ArrowRight,
   Clock,
   Star,
-  Wand2,
   FileText,
   GraduationCap,
   Menu,
@@ -26,18 +25,26 @@ import {
   Cloud,
   LogIn,
   User,
+  Bell,
+  SlidersHorizontal,
+  Home,
+  LayoutGrid,
+  Settings,
+  Library as LibraryIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { FeatureTourDialog } from "@/components/whiteboard/FeatureTourDialog";
 import { AuthDialog } from "@/components/auth/AuthDialog";
-import { useAuth } from "@/lib/supabase/authStore";
+import { useAuth, getUserAvatarUrl, getUserDisplayName } from "@/lib/supabase/authStore";
+import { AISheet } from "@/components/whiteboard/AISheet";
+import { BottomNavBar } from "@/components/navigation/BottomNavBar";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Slate — Dashboard" },
-      { name: "description", content: "Your smart whiteboards, notes, and study hub." },
+      { title: "Slate — SNANS TECH" },
+      { name: "description", content: "Smart whiteboard, notes, and study hub by SNANS TECH." },
     ],
   }),
   component: Dashboard,
@@ -68,9 +75,13 @@ function Dashboard() {
     syncWithCloud,
   } = useWhiteboard();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
   const { user } = useAuth();
+  const avatarUrl = getUserAvatarUrl(user);
+  const displayName = getUserDisplayName(user);
   const [authOpen, setAuthOpen] = useState(false);
+  const [aiOpen, setAIOpen] = useState(false);
   const [activeFolderId, setActiveFolderId] = useState<string>("all");
   const [boardSearch, setBoardSearch] = useState("");
   const [newFolderOpen, setNewFolderOpen] = useState(false);
@@ -121,146 +132,110 @@ function Dashboard() {
   }
 
   return (
-    <div className="min-h-dvh w-full bg-background overscroll-y-contain">
+    <div className="min-h-dvh w-full bg-background touch-pan-y pb-[max(7rem,calc(var(--sab,env(safe-area-inset-bottom,0px))+6rem))]">
       {/* Header */}
-      <header className="sticky top-0 z-20 border-b bg-background/95 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
+      <header className="sticky top-0 z-20 border-b border-border/80 bg-background/95 backdrop-blur pt-[max(0.75rem,var(--sat,env(safe-area-inset-top,0px)))]">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
+          {/* Logo & Company Name */}
           <Link to="/" className="flex items-center gap-2.5 font-semibold group">
             <img
               src="/sti-logo.png"
               alt="STI Logo"
-              className="h-9 w-9 rounded-xl object-cover shadow-xs transition group-hover:scale-105 ring-1 ring-border/50"
+              className="h-9 w-9 rounded-xl object-contain shadow-xs transition group-hover:scale-105"
             />
             <div className="flex flex-col leading-tight">
-              <span className="font-bold text-foreground tracking-tight text-base">Slate</span>
-              <span className="text-[9px] font-bold tracking-wider text-[#B48528] uppercase -mt-0.5">
+              <span className="font-extrabold text-foreground tracking-tight text-lg">Slate</span>
+              <span className="text-[9px] font-bold tracking-wider text-muted-foreground uppercase -mt-0.5">
                 SNANS TECH
               </span>
             </div>
           </Link>
 
-          {/* Desktop Nav */}
-          <nav className="hidden md:flex items-center gap-1 sm:gap-2">
-            <Link
-              to="/library"
-              className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium text-foreground hover:bg-accent transition"
-            >
-              <FolderOpen className="h-4 w-4 text-muted-foreground" />
-              <span>Library</span>
-            </Link>
-            <Link
-              to="/notes"
-              className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium text-foreground hover:bg-accent transition"
-            >
-              <FileText className="h-4 w-4 text-muted-foreground" />
-              <span>Notes</span>
-            </Link>
-            <Link
-              to="/learn"
-              className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium text-foreground hover:bg-accent transition"
-            >
-              <GraduationCap className="h-4 w-4 text-muted-foreground" />
-              <span>Learn</span>
-            </Link>
-            <button
-              type="button"
-              onClick={() => setTourOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium text-primary hover:bg-primary/10 transition"
-              title="Feature Tour & Tutorial"
-            >
-              <BookOpen className="h-4 w-4" />
-              <span>Tutorial</span>
-            </button>
-            {user ? (
-              <button
-                type="button"
-                onClick={() => setAuthOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium text-foreground hover:bg-accent transition"
-                title={`Signed in as ${user.email}`}
-              >
-                <div className="grid h-6 w-6 place-items-center rounded-full bg-emerald-500/15 text-emerald-600 font-bold text-xs">
-                  {user.email?.charAt(0).toUpperCase()}
+          {/* Header Action Buttons (Notification Bell, Menu Drawer, User Avatar) */}
+          <div className="flex items-center gap-2">
+            {/* Notification Bell */}
+            <Popover open={notificationsOpen} onOpenChange={setNotificationsOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="grid h-10 w-10 place-items-center rounded-2xl border border-border bg-card text-foreground shadow-2xs hover:bg-accent active:scale-95 transition"
+                  aria-label="Notifications"
+                >
+                  <Bell className="h-4 w-4" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-80 p-3.5 rounded-2xl shadow-xl">
+                <div className="flex items-center justify-between pb-2 border-b border-border">
+                  <h4 className="font-semibold text-xs tracking-tight text-foreground">Notifications</h4>
+                  <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                    2 New
+                  </span>
                 </div>
-                <span className="text-xs font-medium max-w-[100px] truncate">{user.email?.split("@")[0]}</span>
-              </button>
-            ) : (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setAuthOpen(true)}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold h-8"
-              >
-                <LogIn className="h-3.5 w-3.5" />
-                <span>Sign in</span>
-              </Button>
-            )}
-            <button
-              type="button"
-              onClick={async () => {
-                if (!user) {
-                  setAuthOpen(true);
-                  toast.info("Sign in to sync your boards privately to the cloud.");
-                  return;
-                }
-                toast.info("Syncing boards & notes with your cloud account...");
-                await syncWithCloud();
-                toast.success("Cloud database sync complete!");
-              }}
-              className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition"
-              title="Sync with Cloud"
-            >
-              <Cloud className={cn("h-4 w-4", user ? "text-emerald-500" : "text-blue-500")} />
-              <span className="hidden lg:inline text-xs">{user ? "Sync" : "Cloud"}</span>
-            </button>
-            <Button size="sm" onClick={() => openNew()} className="ml-1">
-              <Plus className="h-4 w-4" /> New board
-            </Button>
-          </nav>
+                <div className="mt-2.5 space-y-2 text-xs">
+                  <div className="rounded-xl bg-muted/40 p-2.5">
+                    <p className="font-semibold text-foreground">Welcome to Slate by SNANS TECH</p>
+                    <p className="text-muted-foreground mt-0.5 text-[11px] leading-snug">
+                      Your smart whiteboard, tactile gestures, and Gemini AI assistant are ready.
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-muted/40 p-2.5">
+                    <p className="font-semibold text-foreground">Cloud Sync & Storage</p>
+                    <p className="text-muted-foreground mt-0.5 text-[11px] leading-snug">
+                      Sign in to synchronize your boards and block notes across devices seamlessly.
+                    </p>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
 
-          {/* Mobile Right Bar: Quick Sign in + New + Burger Menu Button */}
-          <div className="flex md:hidden items-center gap-1.5">
-            {user ? (
-              <button
-                type="button"
-                onClick={() => setAuthOpen(true)}
-                className="grid h-8 w-8 place-items-center rounded-lg border border-border bg-card text-emerald-600 font-bold text-xs"
-                title={`Signed in as ${user.email}`}
-              >
-                {user.email?.charAt(0).toUpperCase()}
-              </button>
-            ) : (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setAuthOpen(true)}
-                className="h-8 px-2 text-xs gap-1 font-medium"
-              >
-                <LogIn className="h-3.5 w-3.5" />
-                <span>Sign in</span>
-              </Button>
-            )}
-            <Button size="sm" onClick={() => openNew()} className="h-8 px-2.5 text-xs gap-1">
-              <Plus className="h-3.5 w-3.5" /> New
-            </Button>
+            {/* Hamburger Menu Button */}
             <button
               type="button"
               onClick={() => setMobileMenuOpen((prev) => !prev)}
-              className="grid h-8 w-8 place-items-center rounded-lg border border-border bg-card text-foreground hover:bg-accent active:scale-95 transition"
-              aria-label="Toggle navigation menu"
+              className="grid h-10 w-10 place-items-center rounded-2xl border border-border bg-card text-foreground shadow-2xs hover:bg-accent active:scale-95 transition"
+              aria-label="Navigation menu"
             >
               {mobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
             </button>
+
+            {/* User Profile Avatar */}
+            <Link
+              to="/profile"
+              className="relative h-10 w-10 rounded-full overflow-hidden border border-border bg-card shadow-2xs hover:ring-2 hover:ring-primary/40 active:scale-95 transition flex items-center justify-center shrink-0"
+              title={user ? `Signed in as ${user.email} — Profile` : "Profile & Account"}
+              aria-label="User Profile"
+            >
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={displayName || "User avatar"}
+                  className="h-full w-full object-cover"
+                  referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    e.currentTarget.style.display = "none";
+                  }}
+                />
+              ) : user ? (
+                <div className="grid h-full w-full place-items-center bg-primary/15 text-primary font-bold text-sm">
+                  {displayName ? displayName.charAt(0).toUpperCase() : (user.email?.charAt(0).toUpperCase() || <User className="h-4 w-4" />)}
+                </div>
+              ) : (
+                <div className="relative h-full w-full flex items-center justify-center bg-muted text-muted-foreground">
+                  <User className="h-4 w-4" />
+                </div>
+              )}
+            </Link>
           </div>
         </div>
 
-        {/* Mobile Slide-down Drawer */}
+        {/* Mobile Slide-down Drawer Menu */}
         {mobileMenuOpen && (
           <>
             <div
-              className="fixed inset-0 top-[57px] z-30 bg-background/60 backdrop-blur-sm md:hidden"
+              className="fixed inset-0 top-[max(4.5rem,calc(env(safe-area-inset-top)+4.5rem))] z-30 bg-background/60 backdrop-blur-sm"
               onClick={() => setMobileMenuOpen(false)}
             />
-            <div className="absolute top-full left-0 right-0 z-40 border-b border-border bg-card p-4 shadow-xl md:hidden space-y-3 animate-in slide-in-from-top duration-200">
+            <div className="absolute top-full left-0 right-0 z-40 border-b border-border bg-card p-4 shadow-xl space-y-3 animate-in slide-in-from-top duration-200">
               <div className="space-y-1">
                 <Link
                   to="/library"
@@ -272,9 +247,7 @@ function Dashboard() {
                   </div>
                   <div>
                     <div className="font-semibold">Library</div>
-                    <div className="text-xs text-muted-foreground">
-                      All your boards and archives
-                    </div>
+                    <div className="text-xs text-muted-foreground">All your boards and archives</div>
                   </div>
                 </Link>
                 <Link
@@ -300,9 +273,7 @@ function Dashboard() {
                   </div>
                   <div>
                     <div className="font-semibold">Learning Hub</div>
-                    <div className="text-xs text-muted-foreground">
-                      Flashcards and smart quizzes
-                    </div>
+                    <div className="text-xs text-muted-foreground">Flashcards and smart quizzes</div>
                   </div>
                 </Link>
                 <button
@@ -318,29 +289,42 @@ function Dashboard() {
                   </div>
                   <div className="text-left">
                     <div className="font-semibold">Feature Guide & Tutorial</div>
-                    <div className="text-xs text-muted-foreground">
-                      Inks, widgets, snap & AI overview
-                    </div>
+                    <div className="text-xs text-muted-foreground">Inks, widgets, snap & AI overview</div>
                   </div>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    setAuthOpen(true);
-                  }}
+                <Link
+                  to="/profile"
+                  onClick={() => setMobileMenuOpen(false)}
                   className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-foreground hover:bg-accent transition"
                 >
-                  <div className={cn("grid h-8 w-8 place-items-center rounded-lg", user ? "bg-emerald-500/10 text-emerald-500" : "bg-blue-500/10 text-blue-500")}>
-                    {user ? <User className="h-4 w-4" /> : <LogIn className="h-4 w-4" />}
+                  <div
+                    className={cn(
+                      "grid h-8 w-8 place-items-center rounded-lg overflow-hidden shrink-0",
+                      user ? "bg-primary/10 text-primary" : "bg-blue-500/10 text-blue-500",
+                    )}
+                  >
+                    {avatarUrl ? (
+                      <img
+                        src={avatarUrl}
+                        alt={displayName}
+                        referrerPolicy="no-referrer"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : user ? (
+                      <User className="h-4 w-4" />
+                    ) : (
+                      <LogIn className="h-4 w-4" />
+                    )}
                   </div>
-                  <div className="text-left">
-                    <div className="font-semibold">{user ? "Cloud Account" : "Sign In / Register"}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {user ? `Signed in as ${user.email}` : "Sync boards & unlock cloud AI"}
+                  <div className="text-left min-w-0 flex-1">
+                    <div className="font-semibold truncate">
+                      {user ? displayName || "Profile & Account" : "Sign In / Profile"}
+                    </div>
+                    <div className="text-xs text-muted-foreground truncate">
+                      {user ? user.email : "Sync boards & manage profile"}
                     </div>
                   </div>
-                </button>
+                </Link>
               </div>
 
               <div className="pt-2 border-t border-border">
@@ -359,132 +343,268 @@ function Dashboard() {
         )}
       </header>
 
-      <main className="mx-auto max-w-6xl space-y-8 px-4 py-8 sm:px-6">
-        {/* Welcome */}
-        <section>
-          <h1 className="text-3xl font-bold tracking-tight">Welcome back</h1>
-          <p className="mt-1 text-muted-foreground">
+      <main className="mx-auto max-w-2xl sm:max-w-4xl space-y-6 px-4 py-5 sm:px-6">
+        {/* Universal Search Bar with Filter/Tune Button */}
+        <section className="flex items-center gap-2.5">
+          <div className="relative flex-1 flex items-center rounded-2xl border border-border bg-card px-3.5 py-2.5 shadow-2xs focus-within:border-primary/60 transition">
+            <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+            <input
+              type="text"
+              placeholder="Search boards, notes, and libraries..."
+              value={boardSearch}
+              onChange={(e) => setBoardSearch(e.target.value)}
+              className="w-full bg-transparent px-2.5 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+            />
+            {boardSearch && (
+              <button
+                type="button"
+                onClick={() => setBoardSearch("")}
+                className="text-muted-foreground hover:text-foreground text-xs p-1"
+                aria-label="Clear search"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              const el = document.getElementById("boards-section");
+              if (el) {
+                el.scrollIntoView({ behavior: "smooth" });
+              } else {
+                navigate({ to: "/library" });
+              }
+            }}
+            className="grid h-11 w-11 place-items-center rounded-2xl border border-border bg-card text-foreground shadow-2xs hover:bg-accent active:scale-95 transition shrink-0"
+            title="Filter boards & folders"
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+          </button>
+        </section>
+
+        {/* Hero Welcome Greeting */}
+        <section className="pt-1">
+          <h1 className="text-3xl font-extrabold tracking-tight text-foreground">
+            Welcome back{user && displayName ? `, ${displayName.split(" ")[0]}` : ""},
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground font-medium">
             Pick up where you left off, or start something new.
           </p>
         </section>
 
-        {/* Continue Working - ONLY the most recent board */}
-        {continueBoard ? (
-          <section>
-            <SectionHeader
-              title="Continue working"
-              icon={<Clock className="h-4 w-4" />}
-              action={
-                <Link
-                  to="/library"
-                  className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
-                >
-                  View library <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
-              }
-            />
-            <button
-              onClick={() =>
-                navigate({ to: "/board/$boardId", params: { boardId: continueBoard.id } })
-              }
-              className="group flex w-full items-center justify-between gap-4 rounded-2xl border bg-card p-5 text-left shadow-sm transition hover:border-primary hover:shadow-md"
+        {/* CONTINUE WORKING Section */}
+        <section>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-foreground">
+              <Clock className="h-4 w-4 text-foreground" />
+              CONTINUE WORKING
+            </h2>
+            <Link
+              to="/library"
+              className="flex items-center gap-1 text-xs font-bold text-foreground hover:text-primary transition"
             >
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-lg font-semibold text-foreground">{continueBoard.title}</h3>
-                  {continueBoard.favorite && (
-                    <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                  )}
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Last edited {relTime(continueBoard.updatedAt)}
-                </p>
-              </div>
-              <ArrowRight className="h-5 w-5 text-muted-foreground transition group-hover:translate-x-1 group-hover:text-primary" />
-            </button>
-          </section>
-        ) : (
-          <section>
-            <SectionHeader title="Recent board" icon={<Clock className="h-4 w-4" />} />
-            <EmptyState
-              title="No boards created yet"
-              subtitle="Create your first board to start drawing and sketching."
-              action={
-                <Button size="sm" onClick={() => openNew()}>
-                  <Plus className="h-4 w-4" /> Create new board
-                </Button>
-              }
-            />
-          </section>
-        )}
+              View library <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
 
-        {/* Quick Actions (with New Note and Learning Hub restored) */}
-        <section className="isolate">
-          <SectionHeader title="Quick actions" />
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <QuickCard
-              icon={<Plus className="h-5 w-5" />}
-              title="Blank board"
-              subtitle="Start with a clean canvas"
-              onClick={() => openNew("blank")}
-            />
-            <QuickCard
-              icon={<FolderOpen className="h-5 w-5" />}
-              title="Open library"
-              subtitle="Browse, sort, and organize"
-              onClick={() => navigate({ to: "/library" })}
-            />
-            <QuickCard
-              icon={<Sparkles className="h-5 w-5" />}
-              title="AI-assisted board"
-              subtitle="Start blank and open the AI helper"
-              onClick={() => openNew("blank")}
-            />
-            <QuickCard
-              icon={<FileText className="h-5 w-5" />}
-              title="New note"
-              subtitle="Block-based notes with AI actions"
-              onClick={() => navigate({ to: "/notes" })}
-            />
-            <QuickCard
-              icon={<GraduationCap className="h-5 w-5" />}
-              title="Learning Hub"
-              subtitle="Study flashcards & take quizzes"
-              onClick={() => navigate({ to: "/learn" })}
-            />
-            <QuickCard
-              icon={<BookOpen className="h-5 w-5 text-primary" />}
-              title="Feature Guide & Tutorial"
-              subtitle="Inks, widgets, snap & AI overview"
-              onClick={() => setTourOpen(true)}
-            />
+          {/* Continue Working Card */}
+          <div
+            onClick={() => {
+              if (continueBoard) {
+                navigate({ to: "/board/$boardId", params: { boardId: continueBoard.id } });
+              } else {
+                openNew("blank");
+              }
+            }}
+            className="group relative rounded-3xl border border-border/90 bg-card overflow-hidden shadow-xs hover:border-primary/50 transition cursor-pointer active:scale-[0.99]"
+          >
+            {/* Top Left Title Chip Badge */}
+            <div className="absolute top-3.5 left-3.5 z-10 rounded-xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-md px-3.5 py-1.5 shadow-sm border border-slate-200/80 dark:border-slate-800 text-xs font-bold text-slate-900 dark:text-slate-100">
+              {continueBoard ? continueBoard.title : "Untitled board"}
+            </div>
+
+            {/* Rich Whiteboard Diagram Canvas Preview */}
+            <WhiteboardPreviewCanvas />
+
+            {/* Bottom Bar: Overlapping Avatars & Open Button */}
+            <div className="absolute bottom-3 left-3 right-3 z-10 flex items-center justify-between pointer-events-none">
+              {/* Overlapping User Avatars */}
+              <div className="flex -space-x-2 items-center pointer-events-auto">
+                <div className="h-8 w-8 rounded-full border-2 border-white dark:border-slate-900 bg-amber-500/20 text-amber-700 font-bold text-xs grid place-items-center shadow-xs overflow-hidden">
+                  <img
+                    src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&h=80&fit=crop&crop=faces"
+                    alt="User"
+                    className="h-full w-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                    }}
+                  />
+                  <span>JD</span>
+                </div>
+                <div className="h-8 w-8 rounded-full border-2 border-white dark:border-slate-900 bg-blue-500/20 text-blue-700 font-bold text-xs grid place-items-center shadow-xs overflow-hidden">
+                  <img
+                    src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&h=80&fit=crop&crop=faces"
+                    alt="User"
+                    className="h-full w-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                    }}
+                  />
+                  <span>AK</span>
+                </div>
+                <div className="h-8 w-8 rounded-full border-2 border-white dark:border-slate-900 bg-emerald-500/20 text-emerald-700 font-bold text-xs grid place-items-center shadow-xs overflow-hidden">
+                  <img
+                    src="https://images.unsplash.com/photo-1517841905240-472988babdf9?w=80&h=80&fit=crop&crop=faces"
+                    alt="User"
+                    className="h-full w-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                    }}
+                  />
+                  <span>ST</span>
+                </div>
+              </div>
+
+              {/* Open Pill Button */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (continueBoard) {
+                    navigate({ to: "/board/$boardId", params: { boardId: continueBoard.id } });
+                  } else {
+                    openNew("blank");
+                  }
+                }}
+                className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full bg-slate-950 dark:bg-white text-white dark:text-slate-950 px-4 py-2 text-xs font-bold shadow-md hover:opacity-90 active:scale-95 transition"
+              >
+                Open <ArrowRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
           </div>
         </section>
 
-        {/* My Boards & Folders (Organization & Starred Favorites) */}
-        <section className="isolate space-y-4">
+        {/* QUICK ACTIONS 2x2 Grid */}
+        <section>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-foreground mb-3">QUICK ACTIONS</h2>
+          <div className="grid grid-cols-2 gap-3">
+            {/* Blank Board */}
+            <button
+              type="button"
+              onClick={() => openNew("blank")}
+              className="group relative flex flex-col justify-between rounded-2xl border border-border bg-card p-3 sm:p-3.5 text-left shadow-2xs hover:border-primary/50 transition cursor-pointer active:scale-[0.99]"
+            >
+              <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#E89271]/25 text-[#C85D38] transition group-hover:scale-105">
+                <Plus className="h-5 w-5 stroke-[2.5]" />
+              </div>
+              <div className="mt-2.5">
+                <div className="text-xs sm:text-sm font-bold text-foreground">Blank board</div>
+                <div className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 leading-snug">Start with a clean canvas</div>
+              </div>
+            </button>
+
+            {/* AI-Assisted */}
+            <button
+              type="button"
+              onClick={() => setAIOpen(true)}
+              className="group relative flex flex-col justify-between rounded-2xl border border-border bg-card p-3 sm:p-3.5 text-left shadow-2xs hover:border-primary/50 transition cursor-pointer active:scale-[0.99]"
+            >
+              <span className="absolute top-3 right-3 rounded bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 px-1.5 py-0.5 text-[9px] font-extrabold tracking-wide">
+                AI
+              </span>
+              <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#7EA885]/25 text-[#3F6B43] transition group-hover:scale-105">
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <div className="mt-2.5">
+                <div className="text-xs sm:text-sm font-bold text-foreground">AI-assisted</div>
+                <div className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 leading-snug">Start blank and open the AI helper</div>
+              </div>
+            </button>
+
+            {/* Open Library */}
+            <button
+              type="button"
+              onClick={() => navigate({ to: "/library" })}
+              className="group relative flex flex-col justify-between rounded-2xl border border-border bg-card p-3 sm:p-3.5 text-left shadow-2xs hover:border-primary/50 transition cursor-pointer active:scale-[0.99]"
+            >
+              <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#64748B]/20 text-[#475569] dark:text-slate-300 transition group-hover:scale-105">
+                <FolderOpen className="h-5 w-5" />
+              </div>
+              <div className="mt-2.5">
+                <div className="text-xs sm:text-sm font-bold text-foreground">Open library</div>
+                <div className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 leading-snug">Browse, sort, and organize</div>
+              </div>
+            </button>
+
+            {/* New Note */}
+            <button
+              type="button"
+              onClick={() => navigate({ to: "/notes" })}
+              className="group relative flex flex-col justify-between rounded-2xl border border-border bg-card p-3 sm:p-3.5 text-left shadow-2xs hover:border-primary/50 transition cursor-pointer active:scale-[0.99]"
+            >
+              <span className="absolute top-3 right-3 rounded bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 px-1.5 py-0.5 text-[9px] font-extrabold tracking-wide">
+                NEW
+              </span>
+              <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#E8A57F]/25 text-[#B85827] transition group-hover:scale-105">
+                <FileText className="h-5 w-5" />
+              </div>
+              <div className="mt-2.5">
+                <div className="text-xs sm:text-sm font-bold text-foreground">New note</div>
+                <div className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 leading-snug">Block-based notes with AI actions</div>
+              </div>
+            </button>
+          </div>
+        </section>
+
+        {/* Learning Hub Card (Full Width with Circular Progress Ring) */}
+        <section>
+          <button
+            type="button"
+            onClick={() => navigate({ to: "/learn" })}
+            className="w-full rounded-2xl border border-border bg-card p-4 shadow-2xs flex items-center justify-between hover:border-primary/50 transition cursor-pointer active:scale-[0.99]"
+          >
+            <div className="flex items-center gap-3.5">
+              <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#0F172A] text-white shrink-0 shadow-xs">
+                <GraduationCap className="h-6 w-6" />
+              </div>
+              <div className="text-left">
+                <div className="text-sm font-bold text-foreground">Learning Hub</div>
+                <div className="text-xs text-muted-foreground mt-0.5">Study flashcards & take quizzes</div>
+              </div>
+            </div>
+            <div className="relative flex items-center justify-center shrink-0">
+              <svg className="h-12 w-12 -rotate-90" viewBox="0 0 44 44">
+                <circle cx="22" cy="22" r="18" fill="none" stroke="currentColor" className="text-muted/30" strokeWidth="4" />
+                <circle
+                  cx="22"
+                  cy="22"
+                  r="18"
+                  fill="none"
+                  stroke="#0F172A"
+                  strokeWidth="4"
+                  strokeDasharray="113.1"
+                  strokeDashoffset="28.27"
+                  strokeLinecap="round"
+                  className="dark:stroke-white"
+                />
+              </svg>
+              <span className="absolute text-xs font-bold text-foreground">75%</span>
+            </div>
+          </button>
+        </section>
+
+        {/* My Boards & Folders (Scrollable beneath Quick Actions) */}
+        <section id="boards-section" className="isolate space-y-4 pt-4 border-t border-border/60">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
-              <SectionHeader
-                title="My Boards & Folders"
-                icon={<Folder className="h-4 w-4 text-primary" />}
-              />
+              <SectionHeader title="My Boards & Folders" icon={<Folder className="h-4 w-4 text-primary" />} />
               <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
                 {filteredBoards.length}
               </span>
             </div>
 
             <div className="flex items-center gap-2">
-              <div className="relative w-40 sm:w-52">
-                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                <Input
-                  placeholder="Search boards..."
-                  value={boardSearch}
-                  onChange={(e) => setBoardSearch(e.target.value)}
-                  className="pl-8 h-8 text-xs rounded-xl"
-                />
-              </div>
-
               {/* New Folder Popover */}
               <Popover open={newFolderOpen} onOpenChange={setNewFolderOpen}>
                 <PopoverTrigger asChild>
@@ -552,7 +672,9 @@ function Dashboard() {
                   : "bg-card border text-muted-foreground hover:text-foreground"
               }`}
             >
-              <Star className={`h-3.5 w-3.5 ${activeFolderId === "starred" ? "fill-white" : "fill-amber-400 text-amber-400"}`} />
+              <Star
+                className={`h-3.5 w-3.5 ${activeFolderId === "starred" ? "fill-white" : "fill-amber-400 text-amber-400"}`}
+              />
               <span>Starred ({starredBoards.length})</span>
             </button>
 
@@ -570,7 +692,9 @@ function Dashboard() {
                   }`}
                 >
                   <Folder className="h-3.5 w-3.5" />
-                  <span>{f.name} ({count})</span>
+                  <span>
+                    {f.name} ({count})
+                  </span>
                 </button>
               );
             })}
@@ -585,19 +709,14 @@ function Dashboard() {
                   ? "Star your favorite boards to access them quickly here."
                   : "Create a new board in this folder to get started."}
               </p>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => openNew()}
-                className="mt-3 gap-1.5 text-xs rounded-xl"
-              >
+              <Button size="sm" variant="outline" onClick={() => openNew()} className="mt-3 gap-1.5 text-xs rounded-xl">
                 <Plus className="h-3.5 w-3.5" /> Create Board
               </Button>
             </div>
           ) : (
             <div className="space-y-2">
-              <div className="max-h-[272px] overflow-y-auto pr-1 scrollbar-thin">
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="max-h-[280px] overflow-y-auto pr-1 scrollbar-thin">
+                <div className="grid gap-3 sm:grid-cols-2">
                   {filteredBoards.map((b) => {
                     const folderObj = folders.find((f) => f.id === b.folderId);
                     return (
@@ -614,7 +733,6 @@ function Dashboard() {
                             >
                               {b.title}
                             </Link>
-                            {/* Star Favorite Toggle */}
                             <button
                               type="button"
                               onClick={(e) => {
@@ -635,9 +753,7 @@ function Dashboard() {
                             </button>
                           </div>
 
-                          {/* Folder & Tags Bar */}
                           <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                            {/* Folder Picker Popover */}
                             <Popover>
                               <PopoverTrigger asChild>
                                 <button
@@ -646,54 +762,61 @@ function Dashboard() {
                                   className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-primary/10 text-primary hover:bg-primary/20 transition"
                                 >
                                   <Folder className="h-3 w-3" />
-                                  <span className="truncate max-w-[90px]">{folderObj ? folderObj.name : "No folder"}</span>
+                                  <span className="truncate max-w-[90px]">
+                                    {folderObj ? folderObj.name : "No folder"}
+                                  </span>
                                 </button>
                               </PopoverTrigger>
                               <PopoverContent align="start" className="w-48 p-2">
-                                <div className="text-[11px] font-semibold text-muted-foreground px-2 py-1 uppercase tracking-wider">
-                                  Move to folder
+                                <div className="text-[11px] font-semibold text-muted-foreground px-2 py-1">
+                                  Assign to folder:
                                 </div>
                                 <button
                                   type="button"
                                   onClick={() => setBoardFolder(b.id, null)}
-                                  className="w-full flex items-center justify-between px-2 py-1.5 rounded-md text-xs hover:bg-accent text-left"
+                                  className={`w-full flex items-center justify-between px-2 py-1.5 rounded-md text-xs hover:bg-accent text-left ${
+                                    !b.folderId ? "font-bold text-primary" : ""
+                                  }`}
                                 >
                                   <span>None</span>
-                                  {!b.folderId && <Check className="h-3.5 w-3.5 text-primary" />}
+                                  {!b.folderId && <Check className="h-3.5 w-3.5" />}
                                 </button>
                                 {folders.map((f) => (
                                   <button
                                     key={f.id}
                                     type="button"
                                     onClick={() => setBoardFolder(b.id, f.id)}
-                                    className="w-full flex items-center justify-between px-2 py-1.5 rounded-md text-xs hover:bg-accent text-left"
+                                    className={`w-full flex items-center justify-between px-2 py-1.5 rounded-md text-xs hover:bg-accent text-left ${
+                                      b.folderId === f.id ? "font-bold text-primary" : ""
+                                    }`}
                                   >
                                     <span className="truncate">{f.name}</span>
-                                    {b.folderId === f.id && <Check className="h-3.5 w-3.5 text-primary" />}
+                                    {b.folderId === f.id && <Check className="h-3.5 w-3.5" />}
                                   </button>
                                 ))}
                               </PopoverContent>
                             </Popover>
 
-                            {b.tags.slice(0, 2).map((t) => (
+                            {b.tags.slice(0, 2).map((tag) => (
                               <span
-                                key={t}
+                                key={tag}
                                 className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-muted text-muted-foreground"
                               >
-                                <Tag className="h-2.5 w-2.5" /> {t}
+                                <Tag className="h-2.5 w-2.5" />
+                                {tag}
                               </span>
                             ))}
                           </div>
                         </div>
 
-                        <div className="mt-4 flex items-center justify-between border-t border-border/50 pt-2.5 text-xs text-muted-foreground">
-                          <span className="text-[11px]">{relTime(b.updatedAt)}</span>
+                        <div className="mt-3 flex items-center justify-between pt-2 border-t text-[11px] text-muted-foreground">
+                          <span>{relTime(b.updatedAt)}</span>
                           <Link
                             to="/board/$boardId"
                             params={{ boardId: b.id }}
-                            className="inline-flex items-center gap-1 font-semibold text-primary hover:underline text-xs"
+                            className="font-medium text-primary hover:underline flex items-center gap-1"
                           >
-                            Open <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
+                            Open <ArrowRight className="h-3 w-3" />
                           </Link>
                         </div>
                       </div>
@@ -701,62 +824,33 @@ function Dashboard() {
                   })}
                 </div>
               </div>
-
-              {filteredBoards.length > 2 && (
-                <div className="flex items-center justify-between px-1 pt-1 text-xs text-muted-foreground">
-                  <span className="text-[11px]">
-                    Showing 2 of {filteredBoards.length} boards • Scroll to view more
-                  </span>
-                  <Link
-                    to="/library"
-                    className="inline-flex items-center gap-1 font-semibold text-primary hover:underline text-xs"
-                  >
-                    View all in Library <ArrowRight className="h-3.5 w-3.5" />
-                  </Link>
-                </div>
-              )}
             </div>
           )}
         </section>
 
-        {/* Recent AI Creations - Scrollable, max 2 items */}
-        <section className="isolate pb-16">
-          <SectionHeader
-            title="Recent AI creations"
-            icon={<Wand2 className="h-4 w-4" />}
-            action={
-              recentAI.length > 0 ? (
-                <span className="text-xs text-muted-foreground font-medium">
-                  {Math.min(2, recentAI.length)} of {recentAI.length}
-                </span>
-              ) : undefined
-            }
-          />
+        {/* Recent AI Activity */}
+        <section className="isolate space-y-2 pt-2 border-t border-border/60">
+          <SectionHeader title="Recent AI Activity" icon={<Sparkles className="h-4 w-4 text-primary" />} />
           {recentAI.length === 0 ? (
-            <EmptyState
-              title="Nothing here yet"
-              subtitle="Ask the AI assistant inside a board and your prompts will appear here."
-            />
+            <p className="text-xs text-muted-foreground">No AI questions yet. Open a board and ask anything.</p>
           ) : (
-            <div className="max-h-[220px] overflow-y-auto space-y-2.5 pr-1 scrollbar-thin overscroll-contain rounded-xl">
+            <div className="max-h-[190px] overflow-y-auto space-y-2 pr-1 scrollbar-thin rounded-xl">
               {recentAI.slice(0, 2).map((r) => (
-                <div key={r.id} className="rounded-xl border bg-card p-4 transition hover:border-primary/50 shadow-2xs">
+                <div key={r.id} className="rounded-xl border bg-card p-3.5 transition hover:border-primary/50 shadow-2xs">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-semibold text-foreground">{r.prompt}</div>
-                      <div className="mt-1 line-clamp-3 text-xs text-muted-foreground whitespace-pre-wrap">
+                      <div className="truncate text-xs font-semibold text-foreground">{r.prompt}</div>
+                      <div className="mt-1 line-clamp-2 text-xs text-muted-foreground whitespace-pre-wrap">
                         {r.response}
                       </div>
                     </div>
-                    <div className="shrink-0 text-[11px] text-muted-foreground">
-                      {relTime(r.createdAt)}
-                    </div>
+                    <div className="shrink-0 text-[10px] text-muted-foreground">{relTime(r.createdAt)}</div>
                   </div>
                   {r.boardId && boards[r.boardId] && (
                     <Link
                       to="/board/$boardId"
                       params={{ boardId: r.boardId }}
-                      className="mt-2.5 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                      className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline"
                     >
                       Open {boards[r.boardId].title} <ArrowRight className="h-3 w-3" />
                     </Link>
@@ -768,6 +862,14 @@ function Dashboard() {
         </section>
       </main>
 
+      {/* Docked Bottom Navigation Bar */}
+      <BottomNavBar
+        activeTab="home"
+        onOpenAI={() => setAIOpen(true)}
+        boardId={continueBoard?.id}
+      />
+
+      <AISheet open={aiOpen} onOpenChange={setAIOpen} boardId={continueBoard?.id} />
       <FeatureTourDialog open={tourOpen} onOpenChange={setTourOpen} />
       <AuthDialog open={authOpen} onOpenChange={setAuthOpen} />
     </div>
@@ -784,8 +886,8 @@ function SectionHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="mb-3 flex items-center justify-between">
-      <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+    <div className="mb-2 flex items-center justify-between">
+      <h2 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
         {icon}
         {title}
       </h2>
@@ -794,47 +896,116 @@ function SectionHeader({
   );
 }
 
-function QuickCard({
-  icon,
-  title,
-  subtitle,
-  onClick,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  subtitle: string;
-  onClick: () => void;
-}) {
+function WhiteboardPreviewCanvas() {
   return (
-    <button
-      onClick={onClick}
-      className="group flex items-start gap-3 rounded-xl border bg-card p-4 text-left transition hover:border-primary hover:shadow-sm"
-    >
-      <span className="grid h-10 w-10 place-items-center rounded-lg bg-primary/10 text-primary">
-        {icon}
-      </span>
-      <div>
-        <div className="text-sm font-semibold">{title}</div>
-        <div className="text-xs text-muted-foreground">{subtitle}</div>
-      </div>
-    </button>
-  );
-}
+    <div className="relative w-full h-[175px] sm:h-[195px] bg-[#F8FAFC] dark:bg-slate-900/60 overflow-hidden select-none">
+      {/* Canvas Dot Grid Background */}
+      <svg className="absolute inset-0 h-full w-full opacity-40" width="100%" height="100%">
+        <defs>
+          <pattern id="dot-grid" x="0" y="0" width="16" height="16" patternUnits="userSpaceOnUse">
+            <circle cx="2" cy="2" r="1" fill="#94A3B8" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#dot-grid)" />
+      </svg>
 
-function EmptyState({
-  title,
-  subtitle,
-  action,
-}: {
-  title: string;
-  subtitle: string;
-  action?: React.ReactNode;
-}) {
-  return (
-    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed p-8 text-center">
-      <p className="text-sm font-medium">{title}</p>
-      <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p>
-      {action && <div className="mt-3">{action}</div>}
+      {/* Mini Whiteboard Top Bar */}
+      <div className="absolute top-2.5 right-3 flex items-center gap-2 opacity-80 z-5">
+        <div className="flex -space-x-1">
+          <div className="h-4 w-4 rounded-full bg-blue-500 border border-white" />
+          <div className="h-4 w-4 rounded-full bg-emerald-500 border border-white" />
+          <div className="h-4 w-4 rounded-full bg-amber-500 border border-white" />
+        </div>
+        <div className="rounded-md bg-blue-600 px-2 py-0.5 text-[8px] font-bold text-white shadow-2xs">Share</div>
+      </div>
+
+      {/* Mini Left Tools Strip */}
+      <div className="absolute left-2.5 top-12 flex flex-col gap-1.5 rounded-lg border border-slate-200/80 bg-white/95 dark:border-slate-800 dark:bg-slate-900/90 p-1 shadow-xs opacity-75 z-5">
+        <div className="h-3 w-3 rounded-xs bg-slate-300 dark:bg-slate-700" />
+        <div className="h-3 w-3 rounded-xs bg-blue-500/30" />
+        <div className="h-3 w-3 rounded-xs bg-amber-500/30" />
+        <div className="h-3 w-3 rounded-xs bg-slate-300 dark:bg-slate-700" />
+        <div className="h-3 w-3 rounded-xs bg-slate-300 dark:bg-slate-700" />
+      </div>
+
+      {/* SVG Curved Connectors */}
+      <svg className="absolute inset-0 h-full w-full pointer-events-none z-1">
+        <defs>
+          <marker
+            id="wb-arrow"
+            viewBox="0 0 10 10"
+            refX="6"
+            refY="5"
+            markerWidth="5"
+            markerHeight="5"
+            orient="auto-start-reverse"
+          >
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748B" />
+          </marker>
+        </defs>
+        <path
+          d="M 95 65 C 135 65, 160 48, 225 50"
+          fill="none"
+          stroke="#64748B"
+          strokeWidth="1.5"
+          markerEnd="url(#wb-arrow)"
+        />
+        <path
+          d="M 165 95 C 185 95, 200 80, 235 80"
+          fill="none"
+          stroke="#64748B"
+          strokeWidth="1.5"
+          markerEnd="url(#wb-arrow)"
+        />
+      </svg>
+
+      {/* Blue Sticky Note */}
+      <div className="absolute left-14 top-10 w-24 sm:w-28 rounded-lg bg-[#CBE4FC] p-2 shadow-xs border border-blue-200/60 transform -rotate-1 text-[9px] text-slate-800 leading-tight font-medium z-2">
+        <div className="h-1.5 w-6 rounded-full bg-blue-400 mb-1" />
+        Whiteboard gestures, pinch zoom & pan
+      </div>
+
+      {/* Purple Flow Tag */}
+      <div className="absolute left-40 sm:left-44 top-7 rounded-md bg-[#818CF8] px-1.5 py-0.5 text-[8px] font-bold text-white shadow-xs z-2">
+        Flow
+      </div>
+
+      {/* Yellow Sticky Note */}
+      <div className="absolute left-36 sm:left-40 top-15 w-24 rounded-lg bg-[#FEF08A] p-2 shadow-xs border border-yellow-300/60 text-[9px] text-slate-800 leading-tight font-medium z-2">
+        Sync between devices & web
+      </div>
+
+      {/* Pink/Coral Sticky Note */}
+      <div className="absolute left-16 top-24 w-24 sm:w-26 rounded-lg bg-[#FBCFE8] p-2 shadow-xs border border-pink-200/60 transform rotate-1 text-[9px] text-slate-800 leading-tight font-medium z-2">
+        AI teaching & smart widgets
+      </div>
+
+      {/* Wireframe Box */}
+      <div className="absolute right-3 sm:right-6 top-8 w-44 sm:w-56 rounded-xl border border-slate-300/80 bg-white dark:border-slate-700 dark:bg-slate-900 p-2 shadow-sm z-2">
+        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-1.5 mb-1.5">
+          <span className="text-[9px] font-bold text-slate-600 dark:text-slate-400">Wireframe</span>
+          <div className="flex gap-1">
+            <div className="h-1.5 w-1.5 rounded-full bg-slate-300" />
+            <div className="h-1.5 w-1.5 rounded-full bg-slate-300" />
+            <div className="h-1.5 w-1.5 rounded-full bg-slate-300" />
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-1.5">
+          <div className="h-12 rounded-md border border-dashed border-slate-200 dark:border-slate-700 flex items-center justify-center bg-slate-50 dark:bg-slate-800/40">
+            <span className="text-[7px] text-slate-400 font-medium">Header</span>
+          </div>
+          <div className="h-12 rounded-md border border-dashed border-slate-200 dark:border-slate-700 flex items-center justify-center bg-slate-50 dark:bg-slate-800/40">
+            <span className="text-[7px] text-slate-400 font-medium">Canvas</span>
+          </div>
+          <div className="h-12 rounded-md border border-dashed border-slate-200 dark:border-slate-700 flex items-center justify-center bg-slate-50 dark:bg-slate-800/40">
+            <span className="text-[7px] text-slate-400 font-medium">Widgets</span>
+          </div>
+        </div>
+        <div className="mt-1.5 flex gap-1">
+          <div className="h-2 w-12 rounded-sm bg-slate-200 dark:bg-slate-700" />
+          <div className="h-2 w-8 rounded-sm bg-blue-200 dark:bg-blue-900" />
+        </div>
+      </div>
     </div>
   );
 }

@@ -28,6 +28,8 @@ import {
   type ChemicalElement,
 } from "@/lib/whiteboard/periodicTableData";
 import { recognizeShape, isPointInPolygon } from "@/lib/whiteboard/shapeRecognition";
+import { useStrokeRecorderStore } from "@/lib/whiteboard/strokeRecorderStore";
+import { StrokeRecorderDialog } from "@/components/whiteboard/StrokeRecorderDialog";
 import {
   Copy,
   Trash2,
@@ -70,7 +72,7 @@ import { InkChip, useHandwriting } from "./useHandwriting";
 import { FindOnBoard } from "./FindOnBoard";
 import { ensureHandwritingFont, fontStack, handwritingFontReady, handwritingScale, scriptFor } from "@/lib/ink/handwritingFonts";
 import { findLanguage, useInk } from "@/lib/ink/recognizer";
-import { textBoxForInk, typicalLetterHeight } from "@/lib/ink/inkGeometry";
+import { boundsOf, clusterIntoLines, textBoxForInk, typicalLetterHeight, unionRect } from "@/lib/ink/inkGeometry";
 
 import { registerCanvasSnapshotCapture } from "@/lib/whiteboard/canvasSnapshot";
 
@@ -1671,7 +1673,15 @@ export function WhiteboardCanvas({
       ctx.ellipse(x + w / 2, y + h / 2, Math.abs(w / 2), Math.abs(h / 2), 0, 0, Math.PI * 2);
       ctx.stroke();
     } else if (s.shape === "ellipse") {
-      drawEllipseShape(ctx, x, y, w, h);
+      if (s.rotation) {
+        ctx.save();
+        ctx.translate(x + w / 2, y + h / 2);
+        ctx.rotate(s.rotation);
+        drawEllipseShape(ctx, -w / 2, -h / 2, w, h);
+        ctx.restore();
+      } else {
+        drawEllipseShape(ctx, x, y, w, h);
+      }
     } else if (s.shape === "triangle") {
       if (s.vertices && s.vertices.length >= 3) {
         ctx.beginPath();
@@ -4992,6 +5002,10 @@ export function WhiteboardCanvas({
 
       if (d.points.length < 2) return;
 
+      if (d.points.length >= 3 && useStrokeRecorderStore.getState().isRecording) {
+        useStrokeRecorderStore.getState().recordStroke(d.points);
+      }
+
       // Handwriting: a scribble over ink erases it; letters of a word must not snap into shapes
       const inkIntent = d.snappedShape || tool === "shape" ? null : handwriting.beforeCommit(tool, d.points);
       if (inkIntent === "erased") return;
@@ -5347,7 +5361,9 @@ export function WhiteboardCanvas({
     const rawW = w + pad * 2;
     const rawH = h + pad * 2;
     const maxDim = Math.max(rawW, rawH);
-    const scale = Math.min(4, Math.max(1, 1024 / maxDim));
+    // Scale so max dimension is around 540px — sharp for Gemini OCR while 4-6x smaller than 1024px PNG
+    const targetMaxDim = 540;
+    const scale = Math.min(2.5, Math.max(0.6, targetMaxDim / maxDim));
 
     const offscreen = document.createElement("canvas");
     offscreen.width = Math.round(rawW * scale);
@@ -5364,8 +5380,18 @@ export function WhiteboardCanvas({
       drawObject(offCtx, obj, false);
     }
 
+    let dataUrl = "";
+    try {
+      dataUrl = offscreen.toDataURL("image/webp", 0.82);
+      if (!dataUrl.startsWith("data:image/webp")) {
+        dataUrl = offscreen.toDataURL("image/jpeg", 0.82);
+      }
+    } catch {
+      dataUrl = offscreen.toDataURL("image/png");
+    }
+
     return {
-      dataUrl: offscreen.toDataURL("image/png"),
+      dataUrl,
       scale,
       pad,
       minX,
@@ -5452,16 +5478,32 @@ export function WhiteboardCanvas({
     const { script, font } = scriptFor(target.code);
     const toastId = toast.loading(`Translating to ${target.name}…`);
 
+    // Pre-warm target handwriting font immediately
+    void ensureHandwritingFont(font, "A").catch(() => {});
+
+    // Collect surrounding board text as context (up to 4 recent text items)
+    const contextText = objects
+      .filter((o) => !targetIds.includes(o.id) && (o.kind === "text" || (o as any).inkText))
+      .map((o) => (o as { text?: string }).text || (o as any).inkText || "")
+      .filter(Boolean)
+      .slice(-4)
+      .join(". ");
+
     // Typed text (text boxes, sticky notes) is translated as text; anything with ink is read from an image
     const typedOnly = selected.every((o) => o.kind === "text" || o.kind === "sticky");
     let result;
     try {
       if (typedOnly) {
         const text = selected.map((o) => (o as { text?: string }).text || "").filter(Boolean).join("\n");
-        result = await AIEngine.translateText(text, `${target.name} (${target.nativeName})`, script);
+        result = await AIEngine.translateText(text, `${target.name} (${target.nativeName})`, script, { thinkingBudget: 0 });
       } else {
         const img = exportSelectedRegionAsImage(targetIds);
-        result = await AIEngine.translateHandwriting(img || undefined, `${target.name} (${target.nativeName})`, script);
+        result = await AIEngine.translateHandwriting(
+          img || undefined,
+          `${target.name} (${target.nativeName})`,
+          script,
+          { context: contextText || undefined, thinkingBudget: 0 },
+        );
       }
     } catch (err) {
       toast.error(`${aiErrorMessage(err)} Your writing was kept.`, { id: toastId });
@@ -5485,20 +5527,51 @@ export function WhiteboardCanvas({
       .map((o) => ({ id: o.id, points: (o as { points: { x: number; y: number }[] }).points }));
     const typedSize = Math.max(0, ...selected.map((o) => (o as { fontSize?: number }).fontSize || 0));
     const letterHeight = strokes.length ? typicalLetterHeight(strokes) : typedSize ? typedSize / 1.05 : 24;
-    const box = textBoxForInk(
-      { x: minX, y: minY, w: maxX - minX, h: maxY - minY },
-      result.translation,
-      letterHeight * handwritingScale(font),
-    );
     const color = (selected.find((o) => "color" in o && typeof (o as { color?: unknown }).color === "string") as { color?: string } | undefined)?.color;
+
     await Promise.race([ensureHandwritingFont(font, result.translation.slice(0, 8)), new Promise((r) => setTimeout(r, 2500))]);
+
+    // Check if there are multiple lines in both the stroke clusters and the translated output
+    const strokeClusters = strokes.length > 0 ? clusterIntoLines(strokes).sort((a, b) => boundsOf(a[0].points).y - boundsOf(b[0].points).y) : [];
+    const translatedLines = result.translation.split("\n").map((l) => l.trim()).filter(Boolean);
 
     const ids = new Set(targetIds);
     const latest = useWhiteboard.getState();
     const latestObjects = (latest.pages.find((p) => p.id === latest.activePageId) || latest.pages[0])?.objects ?? [];
-    setObjects([
-      ...latestObjects.filter((o) => !ids.has(o.id)),
-      {
+    const remaining = latestObjects.filter((o) => !ids.has(o.id));
+
+    const newObjects: CanvasObject[] = [];
+    if (strokeClusters.length > 1 && strokeClusters.length === translatedLines.length) {
+      // In-place line-by-line replacement matching vertical positions
+      for (let i = 0; i < strokeClusters.length; i++) {
+        const cluster = strokeClusters[i];
+        let cb = boundsOf(cluster[0].points);
+        for (let j = 1; j < cluster.length; j++) cb = unionRect(cb, boundsOf(cluster[j].points));
+        const clh = typicalLetterHeight(cluster);
+        const lBox = textBoxForInk(cb, translatedLines[i], clh * handwritingScale(font));
+        newObjects.push({
+          id: uid(),
+          kind: "text",
+          x: lBox.x,
+          y: lBox.y,
+          w: lBox.w,
+          h: lBox.h,
+          text: translatedLines[i],
+          color: color && color !== "#ffffff" ? color : "#0f172a",
+          fontSize: lBox.fontSize,
+          fontFamily: font,
+          lang: target.code,
+          translatedFrom: result.source || undefined,
+        } as CanvasObject);
+      }
+    } else {
+      // Single box replacement
+      const box = textBoxForInk(
+        { x: minX, y: minY, w: maxX - minX, h: maxY - minY },
+        result.translation,
+        letterHeight * handwritingScale(font),
+      );
+      newObjects.push({
         id: uid(),
         kind: "text",
         x: box.x,
@@ -5511,8 +5584,10 @@ export function WhiteboardCanvas({
         fontFamily: font,
         lang: target.code,
         translatedFrom: result.source || undefined,
-      } as CanvasObject,
-    ]);
+      } as CanvasObject);
+    }
+
+    setObjects([...remaining, ...newObjects]);
     setSelectedIds([]);
     pushHistory();
     toast.success(
@@ -6722,6 +6797,8 @@ export function WhiteboardCanvas({
           />
         </div>
       )}
+      {/* Benchmark Stroke Recorder Dev Tool */}
+      <StrokeRecorderDialog />
     </div>
   );
 }

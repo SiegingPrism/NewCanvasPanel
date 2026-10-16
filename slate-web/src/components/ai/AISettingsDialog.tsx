@@ -31,8 +31,12 @@ import {
   Languages,
   PenLine,
   ChevronRight,
+  Flame,
+  Zap,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useStrokeRecorderStore } from "@/lib/whiteboard/strokeRecorderStore";
+import { useTranslationMetrics } from "@/lib/ink/translationMetrics";
 
 export function AISettingsDialog({
   open,
@@ -51,6 +55,9 @@ export function AISettingsDialog({
     autoSnapEnabled,
     setAutoSnapEnabled,
   } = useWhiteboard();
+
+  const showMetrics = useTranslationMetrics((s) => s.showMetrics);
+  const setShowMetrics = useTranslationMetrics((s) => s.setShowMetrics);
 
   const { livePreview, autoType, scratchOut, language, set: setInk } = useInk();
   const [langDialogOpen, setLangDialogOpen] = useState(false);
@@ -86,7 +93,7 @@ export function AISettingsDialog({
 
   const hasPersonalKey = Boolean(tempKey.trim());
   const usingCloudProxy = !hasPersonalKey && Boolean(user);
-  const notConfigured = !hasPersonalKey && !usingCloudProxy;
+  const notConfigured = !hasPersonalKey && !usingCloudProxy && !hasBuiltInKey;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -163,6 +170,55 @@ export function AISettingsDialog({
                     );
                   }}
                   aria-label="Toggle Auto-Snap"
+                />
+              </div>
+            </div>
+
+            {/* Stroke Benchmark Recorder (Dev Tool) */}
+            <div className="rounded-xl border bg-card/60 p-3 space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <div className="space-y-0.5 min-w-0 flex-1">
+                  <div className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <Flame className="h-3.5 w-3.5 text-orange-500 shrink-0" />
+                    <span>Stroke Benchmark Recorder</span>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground leading-snug">
+                    Record, tag, and export hand-drawn strokes for continuous recognizer accuracy tuning.
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 text-xs font-medium gap-1 shrink-0"
+                  onClick={() => {
+                    useStrokeRecorderStore.getState().openRecorder();
+                    onOpenChange(false);
+                  }}
+                >
+                  Launch
+                </Button>
+              </div>
+            </div>
+
+            {/* Translation Speed & Metrics (Benchmark Tool) */}
+            <div className="rounded-xl border bg-card/60 p-3 space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <div className="space-y-0.5 min-w-0 flex-1">
+                  <div className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <Zap className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                    <span>Translation Latency & Metrics</span>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground leading-snug">
+                    Displays live timing readout (pen lifted → request sent → reply → shown, payload size & request count).
+                  </div>
+                </div>
+                <Switch
+                  checked={showMetrics}
+                  onCheckedChange={(checked) => {
+                    setShowMetrics(checked);
+                    toast.info(checked ? "Translation metrics readout enabled" : "Metrics readout hidden");
+                  }}
+                  aria-label="Toggle Translation Metrics"
                 />
               </div>
             </div>
@@ -261,9 +317,11 @@ export function AISettingsDialog({
                 <Input
                   type="password"
                   placeholder={
-                    user
-                      ? "Leave blank to use Slate cloud AI (signed in)"
-                      : "Paste your Gemini API key (optional)"
+                    hasBuiltInKey
+                      ? "Using configured Gemini key (or enter a personal key)"
+                      : user
+                        ? "Leave blank to use Slate cloud AI (signed in)"
+                        : "Paste your Gemini API key (optional)"
                   }
                   value={tempKey}
                   onChange={(e) => setTempKey(e.target.value)}
@@ -289,9 +347,11 @@ export function AISettingsDialog({
               <span>
                 {hasPersonalKey
                   ? "Using your personal Gemini API key. AI features need an internet connection."
-                  : usingCloudProxy
-                    ? `Signed in as ${user?.email}. Using Slate cloud AI proxy.`
-                    : "Sign in with Google/Email or paste a personal Gemini key above to use AI features."}
+                  : hasBuiltInKey
+                    ? "Using configured Gemini API key. AI features need an internet connection."
+                    : usingCloudProxy
+                      ? `Signed in as ${user?.email}. Using Slate cloud AI proxy.`
+                      : "Sign in with Google/Email or paste a personal Gemini key above to use AI features."}
               </span>
             </div>
 

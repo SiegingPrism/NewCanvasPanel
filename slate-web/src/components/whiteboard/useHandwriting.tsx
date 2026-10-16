@@ -7,12 +7,13 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { AlertCircle, Check, Languages, Loader2, RotateCw, Type, X } from "lucide-react";
+import { AlertCircle, Check, Languages, Loader2, RotateCw, Type, Volume2, X } from "lucide-react";
 import type { CanvasObject, Point } from "@/lib/whiteboard/types";
 import {
   WRITING_KINDS,
   boundsOf,
   continuesGroup,
+  continuesLine,
   scratchOutTargets,
   strokesBounds,
   textBoxForInk,
@@ -24,8 +25,9 @@ import {
 import { findLanguage, recognitionAvailable, recognizeInk, useInk } from "@/lib/ink/recognizer";
 import { recognizeShape } from "@/lib/whiteboard/shapeRecognition";
 import { ensureHandwritingFont, fontStack, handwritingScale, scriptFor } from "@/lib/ink/handwritingFonts";
+import { useTranslationMetrics } from "@/lib/ink/translationMetrics";
 
-const GROUP_WINDOW_MS = 2500;
+const GROUP_WINDOW_MS = 3200;
 const AUTO_CONVERT_IDLE_MS = 1500;
 
 type Group = { id: string; ids: string[]; rect: Rect; lastAt: number; color: string };
@@ -65,6 +67,7 @@ export function useHandwriting(opts: {
   const genRef = useRef(0);
   const recogTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inFlightAbortRef = useRef<AbortController | null>(null);
   const penDownRef = useRef(false);
   /** Latest recognition result (state updates land a render later; timers need it now). */
   const resultRef = useRef<{ groupId: string; text: string; original?: string; translatedTo?: string } | null>(null);
@@ -76,7 +79,9 @@ export function useHandwriting(opts: {
   const clearTimers = () => {
     if (recogTimer.current) clearTimeout(recogTimer.current);
     if (autoTimer.current) clearTimeout(autoTimer.current);
+    if (inFlightAbortRef.current) inFlightAbortRef.current.abort();
     recogTimer.current = autoTimer.current = null;
+    inFlightAbortRef.current = null;
   };
 
   const groupStrokes = (g: Group): InkStroke[] => {
@@ -150,8 +155,8 @@ export function useHandwriting(opts: {
   const scheduleAutoConvert = (g: Group, gen: number) => {
     if (autoTimer.current) clearTimeout(autoTimer.current);
     if (penDownRef.current) return; // penUp re-arms it
-    const remainingAfterPenUp = Math.max(0, Math.max(g.lastAt, lastUpRef.current) + AUTO_CONVERT_IDLE_MS - Date.now());
-    const wait = Math.max(800, remainingAfterPenUp);
+    // Convert quickly (350ms) now that the text is already recognized and ready
+    const wait = 350;
     autoTimer.current = setTimeout(() => {
       if (!penDownRef.current && groupRef.current?.id === g.id && gen === genRef.current) convert(g.id);
     }, wait);
@@ -178,13 +183,19 @@ export function useHandwriting(opts: {
       return;
     }
 
-    const { livePreview } = useInk.getState();
+    // Cancel any stale in-flight recognition for superseded strokes
+    if (inFlightAbortRef.current) {
+      inFlightAbortRef.current.abort();
+      inFlightAbortRef.current = null;
+    }
+
+    const { livePreview, translateLive, translateTo } = useInk.getState();
+    const shouldShowPreview = livePreview || translateLive;
     const gen = ++genRef.current;
     if (recogTimer.current) clearTimeout(recogTimer.current);
-    const { translateLive, translateTo } = useInk.getState();
     const busyMsg = translateLive ? `Translating to ${findLanguage(translateTo).name}…` : "Reading…";
 
-    if (livePreview) {
+    if (shouldShowPreview) {
       if (chipRef.current?.groupId === g.id && chipRef.current?.text) {
         // Keep existing recognized text anchored while user is continuing the word
         setChip((prev) => (prev ? { ...prev, rect: g.rect } : null));
@@ -194,8 +205,8 @@ export function useHandwriting(opts: {
     } else {
       setChip(null);
     }
-    // Wait for a deliberate pause so slow/deliberate writers don't send individual requests per letter
-    const debounceMs = 1100;
+    // Responsive debounce: 500ms when live preview/translate is on; 750ms otherwise
+    const debounceMs = shouldShowPreview ? 500 : 750;
     recogTimer.current = setTimeout(async () => {
       try {
         const strokes = groupStrokes(g);
@@ -204,15 +215,19 @@ export function useHandwriting(opts: {
           return;
         }
 
-        // Geometric shape safety check: verify stroke group does not contain geometric shapes (circles, arrows, lines...)
-        for (const s of strokes) {
-          if (s.points.length >= 5 && recognizeShape(s.points, "#000000", 2)) {
-            setChip(null);
-            return;
+        // Geometric shape safety check: verify stroke group is not an isolated geometric drawing (arrows, stars, diagrams...)
+        if (strokes.length === 1) {
+          const s = strokes[0];
+          if (s.points.length >= 8) {
+            const shape = recognizeShape(s.points, "#000000", 2);
+            if (shape && (shape.shapeType === "arrow" || shape.shapeType === "doubleArrow" || shape.shapeType === "star" || shape.shapeType === "heart")) {
+              setChip(null);
+              return;
+            }
           }
         }
 
-        if (useInk.getState().livePreview) {
+        if (shouldShowPreview) {
           setChip({
             rect: strokesBounds(strokes),
             text: null,
@@ -222,7 +237,30 @@ export function useHandwriting(opts: {
             groupId: g.id,
           });
         }
-        const res = await recognizeInk(strokes, translateLive ? { translateTo } : {});
+
+        const abortController = new AbortController();
+        inFlightAbortRef.current = abortController;
+
+        // Contextual preceding text from nearby lines for fluent sentence-level grammar
+        let preContext = "";
+        const objects = optsRef.current.getObjects();
+        const nearbyText = objects
+          .filter(
+            (o): o is Extract<CanvasObject, { kind: "text" }> =>
+              o.kind === "text" && Math.abs(o.y - g.rect.y) < 160 && o.x <= g.rect.x + 50,
+          )
+          .sort((a, b) => (a.y === b.y ? a.x - b.x : a.y - b.y))
+          .map((t) => t.text)
+          .join(" ");
+        if (nearbyText) preContext = nearbyText.slice(-300);
+
+        const res = await recognizeInk(strokes, {
+          translateTo: translateLive ? translateTo : undefined,
+          signal: abortController.signal,
+          penLiftedAt: lastUpRef.current,
+          preContext,
+        });
+
         if (gen !== genRef.current || groupRef.current?.id !== g.id) return; // a newer stroke arrived
         if (!res?.text) {
           // Unreadable drawings, doodles, or circles that were rejected: silently dismiss without error pill
@@ -234,7 +272,7 @@ export function useHandwriting(opts: {
         tagGroup(g, res.original && res.original !== res.text ? `${res.original} · ${res.text}` : res.text);
         if (res.translatedTo) void ensureHandwritingFont(scriptFor(res.translatedTo).font, res.text.slice(0, 8));
         const s = useInk.getState();
-        if (s.livePreview) {
+        if (s.livePreview || s.translateLive) {
           setChip({
             rect: strokesBounds(strokes),
             text: res.text,
@@ -288,11 +326,19 @@ export function useHandwriting(opts: {
     }
     const b = boundsOf(points);
     const g = groupRef.current;
-    if (g && Date.now() - g.lastAt < GROUP_WINDOW_MS && continuesGroup(g.rect, b, typicalLetterHeight(groupStrokes(g)))) {
-      return "writing";
+    if (g && Date.now() - g.lastAt < GROUP_WINDOW_MS) {
+      const lh = typicalLetterHeight(groupStrokes(g));
+      const isContinuation = useInk.getState().translateLive
+        ? continuesLine(g.rect, b, lh) || continuesGroup(g.rect, b, lh)
+        : continuesGroup(g.rect, b, lh);
+      if (isContinuation) return "writing";
+    }
+    const { livePreview, translateLive } = useInk.getState();
+    if (livePreview || translateLive) {
+      if (Math.max(b.w, b.h) * optsRef.current.getZoom() < 360) return "writing";
     }
     // Small on screen = a letter, not a diagram
-    if (Math.max(b.w, b.h) * optsRef.current.getZoom() < 56) return "writing";
+    if (Math.max(b.w, b.h) * optsRef.current.getZoom() < 120) return "writing";
     return null;
   }, [dismiss]);
 
@@ -302,12 +348,18 @@ export function useHandwriting(opts: {
     if (autoTimer.current) clearTimeout(autoTimer.current);
 
     // If AI is not available, never attempt handwriting grouping or recognition
-    if (!recognitionAvailable()) return;
-
-    // Geometric shape discrimination: if this stroke forms a circle, ellipse, arrow, line, rectangle, etc.
-    // it is a drawing/diagram, NOT handwriting.
-    if (points.length >= 5 && recognizeShape(points, color, 2)) {
+    if (!recognitionAvailable()) {
       return;
+    }
+
+    let g = groupRef.current;
+
+    // Geometric shape discrimination: if this isolated stroke forms an arrow, star, heart, or diagram shape
+    if (!g && points.length >= 8) {
+      const shape = recognizeShape(points, color, 2);
+      if (shape && (shape.shapeType === "arrow" || shape.shapeType === "doubleArrow" || shape.shapeType === "star" || shape.shapeType === "heart")) {
+        return;
+      }
     }
 
     const b = boundsOf(points);
@@ -317,8 +369,15 @@ export function useHandwriting(opts: {
     }
 
     const now = Date.now();
-    let g = groupRef.current;
-    if (g && now - g.lastAt < GROUP_WINDOW_MS && continuesGroup(g.rect, b, typicalLetterHeight(groupStrokes(g)))) {
+    const isTranslate = useInk.getState().translateLive;
+    const lh = g ? typicalLetterHeight(groupStrokes(g)) : 24;
+    const isContinuation = g
+      ? isTranslate
+        ? continuesLine(g.rect, b, lh) || continuesGroup(g.rect, b, lh)
+        : continuesGroup(g.rect, b, lh)
+      : false;
+
+    if (g && now - g.lastAt < GROUP_WINDOW_MS && isContinuation) {
       g.ids.push(id);
       g.rect = unionRect(g.rect, b);
       g.lastAt = now;
@@ -520,6 +579,28 @@ export function InkChip({
         )}
       </button>
 
+      {/* Speaker button to read translation/text aloud */}
+      {chip.text && (
+        <button
+          type="button"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (typeof window !== "undefined" && "speechSynthesis" in window) {
+              window.speechSynthesis.cancel();
+              const u = new SpeechSynthesisUtterance(chip.text!);
+              if (chip.translatedTo) u.lang = chip.translatedTo;
+              window.speechSynthesis.speak(u);
+            }
+          }}
+          className="rounded-full p-1 text-sky-300 dark:text-sky-700 hover:text-white hover:bg-white/10 dark:hover:bg-black/5 active:scale-90 transition-all cursor-pointer shrink-0"
+          title="Read aloud with text-to-speech"
+          aria-label="Read aloud"
+        >
+          <Volume2 className="h-3 w-3" />
+        </button>
+      )}
+
       {/* Alternative candidate choices if available */}
       {chip.alternatives && chip.alternatives.length > 0 && (
         <div className="flex items-center gap-1 overflow-x-auto scrollbar-none max-w-[120px]">
@@ -543,6 +624,16 @@ export function InkChip({
         </div>
       )}
 
+      {/* Timing and performance readout badge */}
+      {useTranslationMetrics.getState().showMetrics && useTranslationMetrics.getState().latest && (
+        <span
+          className="hidden sm:inline-flex shrink-0 items-center gap-0.5 rounded px-1.5 py-0.5 font-mono text-[9px] font-bold text-amber-300 bg-amber-400/20 border border-amber-400/30 dark:text-amber-800"
+          title={`Total: ${useTranslationMetrics.getState().latest?.totalLatencyMs}ms\nPause: ${useTranslationMetrics.getState().latest?.pauseWaitMs}ms\nNet: ${useTranslationMetrics.getState().latest?.networkLatencyMs}ms\nSize: ${useTranslationMetrics.getState().latest?.imageBytes} B\nReq: #${useTranslationMetrics.getState().latest?.requestCount}`}
+        >
+          ⚡ {((useTranslationMetrics.getState().latest?.totalLatencyMs || 0) / 1000).toFixed(1)}s
+        </span>
+      )}
+
       {/* Current language pill (tap to change handwriting language instantly) */}
       <button
         type="button"
@@ -554,7 +645,11 @@ export function InkChip({
           setLangPickerOpen(true);
         }}
         className="flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold text-orange-300 dark:text-orange-700 hover:bg-white/10 dark:hover:bg-black/5 transition-colors cursor-pointer shrink-0"
-        title="Tap to switch handwriting language"
+        title="Tap to switch handwriting language (double click for timing metrics)"
+        onDoubleClick={(e) => {
+          e.stopPropagation();
+          useTranslationMetrics.getState().toggleMetrics();
+        }}
       >
         <Languages className="h-2.5 w-2.5" />
         <span className="max-w-[60px] truncate">

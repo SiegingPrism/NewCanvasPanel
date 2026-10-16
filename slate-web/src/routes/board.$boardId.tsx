@@ -231,7 +231,7 @@ function BoardPage() {
 
       <div
         className={cn(
-          "pointer-events-none absolute inset-x-0 bottom-[max(0.75rem,calc(var(--sab,env(safe-area-inset-bottom,0px))+0.5rem))] sm:bottom-[max(1rem,calc(var(--sab,env(safe-area-inset-bottom,0px))+0.75rem))] flex justify-center px-2 z-30 transition-opacity duration-300",
+          "pointer-events-none absolute inset-x-0 bottom-[max(1rem,calc(var(--sab,0px)+0.75rem))] flex justify-center px-2 z-30 transition-opacity duration-300",
           isPresenting ? "opacity-0 pointer-events-none" : "opacity-100",
         )}
       >
@@ -239,7 +239,7 @@ function BoardPage() {
       </div>
 
       {selectedId && (
-        <div className="pointer-events-none absolute bottom-[max(6.5rem,calc(var(--sab,env(safe-area-inset-bottom,0px))+5.25rem))] left-1/2 -translate-x-1/2 lg:bottom-4 lg:left-auto lg:right-4 lg:translate-x-0">
+        <div className="pointer-events-none absolute bottom-[max(5.5rem,calc(var(--sab,0px)+5rem))] left-1/2 -translate-x-1/2 lg:bottom-4 lg:left-auto lg:right-4 lg:translate-x-0">
           <div className="pointer-events-auto flex items-center gap-1 rounded-full bg-card px-2 py-1 shadow-lg ring-1 ring-border">
             <button
               onClick={() => handleOpenAI()}
