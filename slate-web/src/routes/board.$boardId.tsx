@@ -269,7 +269,7 @@ function BoardPage() {
         {page && page.objects.length === 0 && !isPresenting && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center select-none z-10 transition-opacity duration-300">
             <p className="text-base sm:text-lg font-medium text-muted-foreground/35 tracking-wide">
-              Write anywhere. Tap Help for a tour.
+              {boardMode ? "Write anywhere. Tap Help for a tour." : "Write anywhere."}
             </p>
           </div>
         )}

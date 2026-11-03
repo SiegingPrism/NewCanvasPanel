@@ -144,7 +144,7 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
         isLeft ? "left-3" : "right-3",
         verticalAlign === "mid" && "top-1/2 -translate-y-1/2",
         verticalAlign === "top" && "top-16",
-        verticalAlign === "bottom" && "bottom-28",
+        verticalAlign === "bottom" && "bottom-32",
         "max-h-[calc(100vh-140px)] overflow-visible"
       )}
       style={{
@@ -240,9 +240,9 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
         </PopoverContent>
       </Popover>
 
-      {/* 4 Quick-Access Color Dots under Pen: always visible for 1-tap switching */}
+      {/* 4 Quick-Access Color Dots under Pen: 2x2 grid, each >= 32px for confident finger touch */}
       <div
-        className="flex items-center justify-between px-1 py-0.5 rounded-lg bg-muted/30 border border-border/50"
+        className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-muted/30 border border-border/50 place-items-center"
         style={{ width: `${targetSizePx}px` }}
       >
         {QUICK_COLORS.map((c) => {
@@ -257,9 +257,11 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
               }}
               title={`${c.name} Pen`}
               className={cn(
-                "h-4 w-4 rounded-full border transition-all active:scale-90",
+                "h-8 w-8 rounded-full border-2 transition-all active:scale-90 flex items-center justify-center cursor-pointer",
                 c.bgClass,
-                isActive ? "ring-2 ring-primary ring-offset-1 scale-110" : "hover:scale-105 opacity-80 hover:opacity-100"
+                isActive
+                  ? "ring-2 ring-primary ring-offset-1 scale-105 shadow-sm"
+                  : "opacity-85 hover:opacity-100 hover:scale-105"
               )}
             />
           );
@@ -439,9 +441,9 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
                   <ArrowDownToLine className="h-5 w-5 text-muted-foreground shrink-0" />
                 )}
                 <div className="flex flex-col">
-                  <span className="text-xs font-bold">Reachability Lower</span>
+                  <span className="text-xs font-bold">Lower the board</span>
                   <span className="text-[11px] text-muted-foreground font-normal">
-                    {reachabilityOffset > 0 ? "Lowered (tap to reset)" : "Lower top half of board"}
+                    {reachabilityOffset > 0 ? "Lowered (tap to reset)" : "Pulls down the top half for easy reach"}
                   </span>
                 </div>
               </div>
