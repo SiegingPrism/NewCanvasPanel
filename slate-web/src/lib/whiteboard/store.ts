@@ -1,6 +1,7 @@
 import { create } from "zustand";
-import type { CanvasObject, Page, ToolId, WhiteboardState } from "./types";
+import type { CanvasObject, Page, ToolId, WhiteboardState, PanelDiagonal } from "./types";
 import { pagesForTemplate, type TemplateKey } from "./templates";
+import { detectSmartBoardProfile } from "./smartBoardProfiles";
 import {
   syncBoardToSupabase,
   fetchBoardsFromSupabase,
@@ -111,6 +112,14 @@ type Actions = {
   // Supabase Cloud Sync
   syncWithCloud: () => Promise<void>;
   clearOnSignOut: () => void;
+  // Smart Board Actions
+  setBoardMode: (enabled: boolean) => void;
+  setPanelSize: (size: PanelDiagonal) => void;
+  setLockBoard: (locked: boolean) => void;
+  setSimpleMode: (simple: boolean) => void;
+  setReachabilityOffset: (offset: number) => void;
+  setSplitBoardZones: (zones: number) => void;
+  toggleBoardMode: () => void;
 };
 
 type State = WhiteboardState & PersistShape & { activeBoardId: string | null; hydrated: boolean };
@@ -204,6 +213,53 @@ function loadShowZoomDock(): boolean {
   }
 }
 
+function loadSmartBoardSettings(): {
+  boardMode: boolean;
+  panelSize: PanelDiagonal;
+  lockBoard: boolean;
+  simpleMode: boolean;
+  reachabilityOffset: number;
+  splitBoardZones: number;
+} {
+  const detected = detectSmartBoardProfile();
+  if (typeof window === "undefined") {
+    const isBoard = !!detected;
+    return {
+      boardMode: isBoard,
+      panelSize: detected || "75",
+      lockBoard: isBoard,
+      simpleMode: false,
+      reachabilityOffset: 0,
+      splitBoardZones: 1,
+    };
+  }
+  try {
+    const rawMode = localStorage.getItem("slate_board_mode");
+    const rawSize = localStorage.getItem("slate_panel_size") as PanelDiagonal | null;
+    const rawSimple = localStorage.getItem("slate_simple_mode");
+    const validSizes: PanelDiagonal[] = ["55", "65", "75", "86", "98", "110"];
+    const isBoard = rawMode !== null ? rawMode === "true" : !!detected;
+    return {
+      boardMode: isBoard,
+      panelSize: rawSize && validSizes.includes(rawSize) ? rawSize : (detected || "75"),
+      lockBoard: isBoard,
+      simpleMode: rawSimple === "true",
+      reachabilityOffset: 0,
+      splitBoardZones: 1,
+    };
+  } catch {
+    const isBoard = !!detected;
+    return {
+      boardMode: isBoard,
+      panelSize: detected || "75",
+      lockBoard: isBoard,
+      simpleMode: false,
+      reachabilityOffset: 0,
+      splitBoardZones: 1,
+    };
+  }
+}
+
 export const useWhiteboard = create<State & Actions>((set, get) => {
   return {
     // persist
@@ -223,6 +279,8 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
     autoSnapEnabled: false,
     showZoomDock: loadShowZoomDock(),
     camera: { x: 0, y: 0, zoom: 1 },
+    // Smart Board runtime
+    ...loadSmartBoardSettings(),
 
     setTool: (tool) =>
       set({
@@ -843,6 +901,32 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
       };
       persistMeta(next);
       set(next);
+    },
+
+    setBoardMode: (boardMode) => {
+      set((s) => ({ boardMode, lockBoard: boardMode ? true : s.lockBoard }));
+      try {
+        localStorage.setItem("slate_board_mode", String(boardMode));
+      } catch {}
+    },
+    setPanelSize: (panelSize) => {
+      set({ panelSize });
+      try {
+        localStorage.setItem("slate_panel_size", panelSize);
+      } catch {}
+    },
+    setLockBoard: (lockBoard) => set({ lockBoard }),
+    setSimpleMode: (simpleMode) => {
+      set({ simpleMode });
+      try {
+        localStorage.setItem("slate_simple_mode", String(simpleMode));
+      } catch {}
+    },
+    setReachabilityOffset: (reachabilityOffset) => set({ reachabilityOffset }),
+    setSplitBoardZones: (splitBoardZones) => set({ splitBoardZones }),
+    toggleBoardMode: () => {
+      const next = !get().boardMode;
+      get().setBoardMode(next);
     },
   };
 });

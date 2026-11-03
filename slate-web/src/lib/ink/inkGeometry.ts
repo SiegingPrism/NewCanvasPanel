@@ -50,38 +50,73 @@ export function continuesGroup(group: Rect, stroke: Rect, lineHeight: number): b
   const lh = Math.max(16, lineHeight);
   const vOverlap = overlap1d(group.y, group.y + group.h, stroke.y, stroke.y + stroke.h);
   const sameLine =
-    vOverlap >= Math.min(group.h, stroke.h) * 0.3 ||
+    vOverlap >= Math.min(group.h, stroke.h) * 0.2 ||
     // i-dots, t-crosses, accents: small marks just above or inside the line
-    (stroke.y + stroke.h >= group.y - lh * 0.8 && stroke.y <= group.y + group.h);
-  if (!sameLine) return false;
-  // Horizontal gap to the group (0 when overlapping)
-  const gap =
+    (stroke.y + stroke.h >= group.y - lh * 0.8 && stroke.y <= group.y + group.h + lh * 0.5);
+  
+  const gapX =
     stroke.x > group.x + group.w
       ? stroke.x - (group.x + group.w)
       : group.x > stroke.x + stroke.w
         ? group.x - (stroke.x + stroke.w)
         : 0;
-  return gap <= Math.max(60, lh * 1.6);
+
+  if (sameLine && gapX <= Math.max(70, lh * 1.8)) return true;
+
+  // Slanted / diagonal continuation: stroke progresses forward (to the right of group's middle)
+  // and sits within a modest diagonal gap (e.g. slanted cursive word)
+  const isProgressingForward = stroke.x + stroke.w >= group.x + group.w * 0.6;
+  if (isProgressingForward) {
+    const gapY =
+      stroke.y > group.y + group.h
+        ? stroke.y - (group.y + group.h)
+        : group.y > stroke.y + stroke.h
+          ? group.y - (stroke.y + stroke.h)
+          : 0;
+    if (gapY <= lh * 0.8) {
+      const euclideanGap = Math.hypot(gapX, gapY);
+      return euclideanGap <= Math.max(45, lh * 1.3);
+    }
+  }
+  return false;
 }
 
 /**
  * Does `stroke` continue the current line of writing/sentence? True when it sits on the
- * same horizontal line with normal word spacing (gap up to 3.2x letter height).
+ * same horizontal line with normal word spacing (gap up to 3.5x letter height) or along
+ * a slanted trajectory.
  */
 export function continuesLine(group: Rect, stroke: Rect, lineHeight: number): boolean {
   const lh = Math.max(16, lineHeight);
   const vOverlap = overlap1d(group.y, group.y + group.h, stroke.y, stroke.y + stroke.h);
   const sameLine =
-    vOverlap >= Math.min(group.h, stroke.h) * 0.25 ||
-    (stroke.y + stroke.h >= group.y - lh * 1.0 && stroke.y <= group.y + group.h + lh * 0.4);
-  if (!sameLine) return false;
-  const gap =
+    vOverlap >= Math.min(group.h, stroke.h) * 0.2 ||
+    (stroke.y + stroke.h >= group.y - lh * 1.0 && stroke.y <= group.y + group.h + lh * 0.6);
+
+  const gapX =
     stroke.x > group.x + group.w
       ? stroke.x - (group.x + group.w)
       : group.x > stroke.x + stroke.w
         ? group.x - (stroke.x + stroke.w)
         : 0;
-  return gap <= Math.max(140, lh * 3.2);
+
+  if (sameLine && gapX <= Math.max(150, lh * 3.5)) return true;
+
+  // Slanted line continuation: progressing forward along diagonal
+  const isProgressingForward = stroke.x + stroke.w >= group.x + group.w * 0.6;
+  if (isProgressingForward) {
+    const gapY =
+      stroke.y > group.y + group.h
+        ? stroke.y - (group.y + group.h)
+        : group.y > stroke.y + stroke.h
+          ? group.y - (stroke.y + stroke.h)
+          : 0;
+    if (gapY <= lh * 1.0) {
+      const euclideanGap = Math.hypot(gapX, gapY);
+      return euclideanGap <= Math.max(90, lh * 2.2);
+    }
+  }
+  return false;
 }
 
 /** Typical letter height of a set of strokes (median stroke height, ignoring dots). */

@@ -35,10 +35,20 @@ import {
   LayoutGrid,
   Cloud,
   ShieldCheck,
+  Tv,
+  Vote,
+  Share2,
+  Layers,
+  Sliders,
+  KeyRound,
+  FolderOpen,
+  Save,
 } from "lucide-react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { TeacherQRLoginDialog } from "@/components/whiteboard/smartboard/TeacherQRLoginDialog";
+import { exportLessonFile, importLessonFile } from "@/lib/whiteboard/lessonFiles";
 import jsPDF from "jspdf";
 import QRCode from "qrcode";
 import { toast } from "sonner";
@@ -50,6 +60,7 @@ import { AISettingsDialog } from "@/components/ai/AISettingsDialog";
 import { DocumentViewerDialog } from "@/components/document/DocumentViewerDialog";
 import { MathFormulaDialog } from "./MathFormulaDialog";
 import { FeatureTourDialog } from "./FeatureTourDialog";
+import { GenerateMindMapDialog } from "./GenerateMindMapDialog";
 import { AIEngine, aiErrorMessage } from "@/lib/ai/aiEngine";
 import { extractBoardSearchStrings } from "@/lib/ai/localRAG";
 import type { MindMapNodeObject } from "@/lib/whiteboard/types";
@@ -70,6 +81,9 @@ const PAPER_TEMPLATES: { id: PageBackground; label: string; icon: string }[] = [
   { id: "dots", label: "Dot Journal", icon: "📓" },
   { id: "lined", label: "Notebook Lined", icon: "📝" },
   { id: "isometric", label: "Isometric 3D", icon: "🔺" },
+  { id: "four-line", label: "4-Line Ruling (Eng/Hin)", icon: "✍️" },
+  { id: "music-staves", label: "Music Theory Staves", icon: "🎼" },
+  { id: "millimeter-graph", label: "Millimeter Graph", icon: "📊" },
 ];
 
 export function TopBar({
@@ -97,13 +111,19 @@ export function TopBar({
     pushHistory,
     setAllTapeReveal,
     syncWithCloud,
+    boardMode,
+    toggleBoardMode,
+    panelSize,
+    simpleMode,
   } = useWhiteboard();
 
   const navigate = useNavigate();
   const fileRef = useRef<HTMLInputElement>(null);
+  const lessonFileInputRef = useRef<HTMLInputElement>(null);
   const titleClicksRef = useRef<number>(0);
   const { user } = useAuth();
   const [authOpen, setAuthOpen] = useState(false);
+  const [teacherLoginOpen, setTeacherLoginOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
   const [qrData, setQrData] = useState<string>("");
   const [qrUrl, setQrUrl] = useState<string>("");
@@ -112,6 +132,24 @@ export function TopBar({
   const [menuOpen, setMenuOpen] = useState(false);
   const [mathFormulaOpen, setMathFormulaOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
+  const [mindMapDialogOpen, setMindMapDialogOpen] = useState(false);
+
+  const handleOpenLessonFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const bundle = await importLessonFile(file);
+      useWhiteboard.setState((prev) => ({
+        ...prev,
+        pages: bundle.pages.length ? bundle.pages : prev.pages,
+        activePageId: bundle.pages[0]?.id || prev.activePageId,
+      }));
+      pushHistory();
+      toast.success(`Loaded lesson "${bundle.title}" (${bundle.pages.length} pages)!`);
+    } catch {
+      toast.error("Could not load .slate lesson file.");
+    }
+  };
 
   const [aiSettingsOpen, setAiSettingsOpen] = useState(false);
   const [docViewerOpen, setDocViewerOpen] = useState(false);
@@ -152,37 +190,8 @@ export function TopBar({
     }
   }
 
-  async function handleGenerateMindMap() {
-    const topic = prompt("Enter a topic for the AI Mind-Map:", boardTitle || "Core Concept");
-    if (!topic || !topic.trim()) return;
-
-    toast.info("Generating AI Mind-Map...");
-    try {
-      const tree = await AIEngine.generateMindMap(topic.trim(), 650, 450);
-      pushHistory();
-
-      function addNodes(node: typeof tree) {
-        addObject({
-          id: node.id,
-          kind: "mindmap-node",
-          x: node.x - 70,
-          y: node.y - 25,
-          w: Math.max(140, node.label.length * 10 + 24),
-          h: 46,
-          label: node.label,
-          level: node.level,
-          color: node.color,
-          parentId: node.parentId,
-        });
-        (node.children || []).forEach(addNodes);
-      }
-
-      addNodes(tree);
-      toast.success("AI Mind-Map generated and placed on canvas!");
-    } catch (e) {
-      console.error(e);
-      toast.error(aiErrorMessage(e, "Mind map generation failed"));
-    }
+  function handleGenerateMindMap() {
+    setMindMapDialogOpen(true);
   }
 
   function handleAddGraph() {
@@ -328,9 +337,10 @@ export function TopBar({
     reader.readAsDataURL(file);
   }
 
-  const iconBtn =
-    "grid h-7 w-7 sm:h-8 sm:w-8 place-items-center rounded-lg text-foreground hover:bg-accent/80 transition active:scale-95 shrink-0";
-  const iconSize = "h-3.5 w-3.5 sm:h-4 sm:w-4";
+  const iconBtn = boardMode
+    ? "grid h-16 w-16 place-items-center rounded-2xl text-foreground hover:bg-accent/80 transition active:scale-95 shrink-0"
+    : "grid h-7 w-7 sm:h-8 sm:w-8 place-items-center rounded-lg text-foreground hover:bg-accent/80 transition active:scale-95 shrink-0";
+  const iconSize = boardMode ? "h-7 w-7" : "h-3.5 w-3.5 sm:h-4 sm:w-4";
 
   return (
     <div className="pointer-events-auto flex items-center gap-0.5 sm:gap-1.5 rounded-full bg-card px-2 py-1 sm:px-3 sm:py-1.5 shadow-lg ring-1 ring-border max-w-[calc(100vw-16px)]">
@@ -522,23 +532,25 @@ export function TopBar({
         <MonitorPlay className={iconSize} />
       </button>
 
-      {/* Radar Minimap */}
+      {/* Board map (renamed from Radar Minimap) */}
       <button
         className={cn(iconBtn, "hidden sm:grid text-sky-500 hover:text-sky-600 hover:bg-sky-50 dark:hover:bg-sky-950/30")}
-        title="Toggle Radar Minimap"
+        title="Board map"
         onClick={() => window.dispatchEvent(new CustomEvent("slate:toggle-minimap"))}
       >
         <Compass className={iconSize} />
       </button>
 
-      {/* Direct AI Assistant Button */}
-      <button
-        className={cn(iconBtn, "text-primary hover:bg-primary/10")}
-        title="AI Assistant & Copilot"
-        onClick={onOpenAI}
-      >
-        <Bot className={iconSize} />
-      </button>
+      {/* Direct AI Assistant Button (hidden in Simple Mode) */}
+      {!simpleMode && (
+        <button
+          className={cn(iconBtn, "text-primary hover:bg-primary/10")}
+          title="AI Assistant & Copilot"
+          onClick={onOpenAI}
+        >
+          <Bot className={iconSize} />
+        </button>
+      )}
 
       {/* Burger Menu */}
       <Popover modal={false} open={menuOpen} onOpenChange={setMenuOpen}>
@@ -630,6 +642,85 @@ export function TopBar({
             <span>Settings</span>
           </button>
 
+          {/* Smart Board Classroom Controls */}
+          <div className="h-px w-full bg-border/60 my-1" />
+          <button
+            className="flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-xs font-bold hover:bg-accent text-primary transition"
+            onClick={() => {
+              setMenuOpen(false);
+              toggleBoardMode();
+              toast(boardMode ? "Switched to Standard Toolbar" : "Switched to Smart Board Mode (Dual Docks)");
+            }}
+          >
+            <div className="flex items-center gap-2">
+              <Tv className="h-3.5 w-3.5" />
+              <span>Smart Board Layout</span>
+            </div>
+            <span className="text-[10px] bg-primary/10 px-1.5 py-0.5 rounded font-mono">
+              {boardMode ? "Active" : "Off"}
+            </span>
+          </button>
+          <button
+            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-accent text-foreground transition"
+            onClick={() => {
+              setMenuOpen(false);
+              window.dispatchEvent(new CustomEvent("slate:open-board-settings"));
+            }}
+          >
+            <Sliders className="h-3.5 w-3.5 text-sky-500" />
+            <span>Board Setup ({panelSize}&quot;)</span>
+          </button>
+          <button
+            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-accent text-foreground transition"
+            onClick={() => {
+              setMenuOpen(false);
+              window.dispatchEvent(new CustomEvent("slate:open-tour"));
+            }}
+          >
+            <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+            <span>60s Smart Board Tour</span>
+          </button>
+          <button
+            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-accent text-foreground transition"
+            onClick={() => {
+              setMenuOpen(false);
+              window.dispatchEvent(new CustomEvent("slate:open-poll"));
+            }}
+          >
+            <Vote className="h-3.5 w-3.5 text-primary" />
+            <span>Classroom Live Poll</span>
+          </button>
+          <button
+            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-accent text-foreground transition"
+            onClick={() => {
+              setMenuOpen(false);
+              window.dispatchEvent(new CustomEvent("slate:share-notes"));
+            }}
+          >
+            <Share2 className="h-3.5 w-3.5 text-emerald-600" />
+            <span>Share Notes via QR</span>
+          </button>
+          <button
+            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-accent text-foreground transition"
+            onClick={() => {
+              setMenuOpen(false);
+              window.dispatchEvent(new CustomEvent("slate:open-teacher-login"));
+            }}
+          >
+            <KeyRound className="h-3.5 w-3.5 text-indigo-400" />
+            <span>Teacher Fast QR Login</span>
+          </button>
+          <button
+            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-accent text-foreground transition"
+            onClick={() => {
+              setMenuOpen(false);
+              window.dispatchEvent(new CustomEvent("slate:open-page-sorter"));
+            }}
+          >
+            <Layers className="h-3.5 w-3.5 text-indigo-500" />
+            <span>Page Sorter Grid</span>
+          </button>
+
           <div className="h-px w-full bg-border/60 my-1" />
 
           {/* Tools & Files */}
@@ -681,7 +772,7 @@ export function TopBar({
             }}
           >
             <Compass className="h-3.5 w-3.5 text-sky-500" />
-            <span>Radar Minimap</span>
+            <span>Board map</span>
           </button>
           <button
             className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-accent text-foreground transition"
@@ -692,6 +783,26 @@ export function TopBar({
           >
             <LayoutGrid className="h-3.5 w-3.5 text-indigo-400" />
             <span>Auto-Frame Slides</span>
+          </button>
+          <button
+            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-accent text-foreground transition"
+            onClick={() => {
+              setMenuOpen(false);
+              exportLessonFile(activeBoardId && boards?.[activeBoardId]?.title ? boards[activeBoardId].title : "Lesson", pages);
+            }}
+          >
+            <Save className="h-3.5 w-3.5 text-indigo-400" />
+            <span>Save Lesson File (.slate)</span>
+          </button>
+          <button
+            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-accent text-foreground transition"
+            onClick={() => {
+              setMenuOpen(false);
+              lessonFileInputRef.current?.click();
+            }}
+          >
+            <FolderOpen className="h-3.5 w-3.5 text-amber-500" />
+            <span>Open Lesson File (.slate)</span>
           </button>
           <button
             className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-accent text-foreground transition"
@@ -740,6 +851,19 @@ export function TopBar({
             className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-accent text-foreground transition"
             onClick={() => {
               setMenuOpen(false);
+              setTeacherLoginOpen(true);
+            }}
+          >
+            <KeyRound className="h-3.5 w-3.5 text-indigo-500" />
+            <span>Teacher Fast QR Login</span>
+          </button>
+
+          <div className="h-px w-full bg-border/60 my-1" />
+
+          <button
+            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-accent text-foreground transition"
+            onClick={() => {
+              setMenuOpen(false);
               setAuthOpen(true);
             }}
           >
@@ -756,6 +880,16 @@ export function TopBar({
         className="hidden"
         onChange={(e) => importFile(e.target.files)}
       />
+
+      <input
+        ref={lessonFileInputRef}
+        type="file"
+        accept=".slate,.json"
+        className="hidden"
+        onChange={handleOpenLessonFile}
+      />
+
+      <TeacherQRLoginDialog open={teacherLoginOpen} onOpenChange={setTeacherLoginOpen} />
 
       <Dialog open={qrOpen} onOpenChange={setQrOpen}>
         <DialogContent className="max-w-sm">
@@ -894,6 +1028,12 @@ export function TopBar({
       <FeatureTourDialog
         open={tourOpen}
         onOpenChange={setTourOpen}
+      />
+
+      {/* AI Mind-Map Generator Dialog */}
+      <GenerateMindMapDialog
+        open={mindMapDialogOpen}
+        onOpenChange={setMindMapDialogOpen}
       />
 
       {/* Account & Cloud Sync Dialog */}

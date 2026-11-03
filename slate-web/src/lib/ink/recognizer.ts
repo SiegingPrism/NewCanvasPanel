@@ -12,7 +12,7 @@ import { AIEngine, AIError, aiErrorMessage } from "@/lib/ai/aiEngine";
 import { useAISettings } from "@/lib/ai/aiSettingsStore";
 import { useAuth } from "@/lib/supabase/authStore";
 import { boundsOf, type InkStroke } from "./inkGeometry";
-import { ensureHandwritingFont, scriptFor } from "./handwritingFonts";
+import { ensureHandwritingFont, scriptFor, textFontById } from "./handwritingFonts";
 import { useTranslationMetrics } from "./translationMetrics";
 
 // ---------------------------------------------------------------------------
@@ -146,6 +146,8 @@ export type InkSettings = {
   scratchOut: boolean;
   /** Translate each word as you write it (into `translateTo`). */
   translateLive: boolean;
+  /** Lettering style for converted text (id from TEXT_FONTS; "plain" = app font). */
+  textFont: string;
 };
 
 export type RecognizerStatus =
@@ -157,7 +159,7 @@ export type RecognizerStatus =
 
 const SETTINGS_KEY = "slate_ink_settings_v1";
 const LANGUAGE_KEY = "slate_ink_language_v1";
-const DEFAULTS: InkSettings = { livePreview: true, autoType: false, scratchOut: true, translateLive: false };
+const DEFAULTS: InkSettings = { livePreview: true, autoType: false, scratchOut: true, translateLive: false, textFont: "plain" };
 const TRANSLATE_KEY = "slate_ink_translate_to_v1";
 
 function loadTranslateTo(): string {
@@ -182,6 +184,7 @@ function loadSettings(): InkSettings {
         autoType: typeof parsed.autoType === "boolean" ? parsed.autoType : DEFAULTS.autoType,
         scratchOut: typeof parsed.scratchOut === "boolean" ? parsed.scratchOut : DEFAULTS.scratchOut,
         translateLive: typeof parsed.translateLive === "boolean" ? parsed.translateLive : DEFAULTS.translateLive,
+        textFont: typeof parsed.textFont === "string" ? parsed.textFont : DEFAULTS.textFont,
       };
     }
   } catch {
@@ -213,7 +216,7 @@ type InkState = InkSettings & {
   translatePickerOpen: boolean;
   /** True when opened for a one-off selection translation rather than changing live writing settings */
   translatePickerForSelection: boolean;
-  set: (patch: Partial<InkSettings>) => void;
+  set: (patch: Partial<InkSettings> & { translateTo?: string }) => void;
   setTranslateTo: (code: string) => void;
   /** Chooses translation language; returns true if live translation setting changed, false if handled by selection callback */
   chooseTranslateLanguage: (code: string) => boolean;
@@ -239,13 +242,21 @@ export const useInk = create<InkState>((set, get) => ({
   translatePickerForSelection: false,
   set: (patch) => {
     set(patch);
-    const { livePreview, autoType, scratchOut, translateLive } = { ...get(), ...patch };
+    const { livePreview, autoType, scratchOut, translateLive, textFont } = { ...get(), ...patch };
+    if (patch.textFont) void ensureHandwritingFont(textFontById(patch.textFont).font || undefined);
     if (patch.translateLive || patch.translateTo) {
       const code = patch.translateTo || get().translateTo;
       if (code) void ensureHandwritingFont(scriptFor(code).font);
     }
+    if (patch.translateTo) {
+      try {
+        localStorage.setItem(TRANSLATE_KEY, patch.translateTo);
+      } catch {
+        /* ignore */
+      }
+    }
     try {
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify({ livePreview, autoType, scratchOut, translateLive }));
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify({ livePreview, autoType, scratchOut, translateLive, textFont }));
     } catch {
       /* ignore */
     }
@@ -281,6 +292,11 @@ export const useInk = create<InkState>((set, get) => ({
       cb(code);
       return false;
     }
+    set({ translateLive: true });
+    try {
+      const currentSettings = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}");
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...currentSettings, translateLive: true }));
+    } catch {}
     get().setTranslateTo(code);
     return true;
   },

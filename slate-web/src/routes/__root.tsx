@@ -187,6 +187,30 @@ function AndroidBackHandler() {
   return null;
 }
 
+function AndroidInsetsHandler() {
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const isMobile = /android|iphone|ipad|ipod/i.test(navigator.userAgent) || Boolean((window as any).Capacitor?.isNativePlatform?.());
+    if (!isMobile) return;
+
+    const apply = () => {
+      const root = document.documentElement;
+      const currentSab = root.style.getPropertyValue("--sab");
+      if (!currentSab || currentSab === "0px") {
+        root.style.setProperty("--sab", "56px");
+      }
+      const currentSat = root.style.getPropertyValue("--sat");
+      if (!currentSat || currentSat === "0px") {
+        root.style.setProperty("--sat", "24px");
+      }
+    };
+    apply();
+    const timer = setInterval(apply, 1000);
+    return () => clearInterval(timer);
+  }, []);
+  return null;
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
@@ -194,6 +218,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
+      <AndroidInsetsHandler />
       <AndroidBackHandler />
       <SplashScreen />
       <Toaster richColors position="top-center" offset="68px" />

@@ -23,8 +23,30 @@ import {
   type Rect,
 } from "@/lib/ink/inkGeometry";
 import { findLanguage, recognitionAvailable, recognizeInk, useInk } from "@/lib/ink/recognizer";
+import { AIEngine, aiErrorMessage } from "@/lib/ai/aiEngine";
 import { recognizeShape } from "@/lib/whiteboard/shapeRecognition";
-import { ensureHandwritingFont, fontStack, handwritingScale, scriptFor } from "@/lib/ink/handwritingFonts";
+import {
+  ensureHandwritingFont,
+  fontStack,
+  handwritingFontReady,
+  handwritingScale,
+  isLatinText,
+  scriptFor,
+  textFontById,
+} from "@/lib/ink/handwritingFonts";
+
+let measureCtx: CanvasRenderingContext2D | null = null;
+/** Widest line of `text` in canvas pixels, or 0 if it can't be measured. */
+function measureTextWidth(text: string, fontSize: number, font: string | undefined): number {
+  try {
+    measureCtx ??= document.createElement("canvas").getContext("2d");
+    if (!measureCtx) return 0;
+    measureCtx.font = `${fontSize}px ${fontStack(font)}`;
+    return Math.ceil(Math.max(...text.split("\n").map((l) => measureCtx!.measureText(l).width)));
+  } catch {
+    return 0;
+  }
+}
 import { useTranslationMetrics } from "@/lib/ink/translationMetrics";
 
 const GROUP_WINDOW_MS = 3200;
@@ -121,7 +143,13 @@ export function useHandwriting(opts: {
     const text = overrideText || result?.text || chipRef.current?.text;
     // Translations are written in a handwriting font for the target script
     const translatedTo = result?.translatedTo;
-    const font = translatedTo ? scriptFor(translatedTo).font : undefined;
+    // Otherwise the lettering style picked in the pen menu (Latin-only fonts; other scripts stay plain)
+    const chosen = textFontById(useInk.getState().textFont).font;
+    const font = translatedTo
+      ? scriptFor(translatedTo).font
+      : chosen && text && isLatinText(text)
+        ? chosen
+        : undefined;
     if (!g || !text || (groupId && g.id !== groupId)) return false;
     const strokes = groupStrokes(g);
     if (!strokes.length) {
@@ -142,11 +170,28 @@ export function useHandwriting(opts: {
       text,
       color: g.color,
       fontSize: box.fontSize,
-      ...(translatedTo ? { fontFamily: font, lang: translatedTo, translatedFrom: result?.original } : {}),
+      ...(font ? { fontFamily: font } : {}),
+      ...(translatedTo ? { lang: translatedTo, translatedFrom: result?.original } : {}),
     };
-    if (font) void ensureHandwritingFont(font, text.slice(0, 8));
-    setObjects([...getObjects().filter((o) => !ids.has(o.id)), typed]);
+    // Fit the box to the real width of the lettering (estimate until the font is ready)
+    const fit = (o: CanvasObject): CanvasObject => {
+      if (o.kind !== "text") return o;
+      const w = measureTextWidth(text, box.fontSize, font);
+      return w ? { ...o, w: w + 14 } : o; // wrap width is w-8; keep a little slack
+    };
+    const fontReady = !font || handwritingFontReady(font);
+    setObjects([...getObjects().filter((o) => !ids.has(o.id)), fontReady ? fit(typed) : typed]);
     pushHistory();
+    if (!fontReady) {
+      void ensureHandwritingFont(font, text.slice(0, 8)).then((ok) => {
+        if (!ok) return;
+        const cur = optsRef.current.getObjects();
+        const o = cur.find((x) => x.id === typed.id);
+        if (o && o.kind === "text" && o.w === typed.w && o.fontSize === typed.fontSize && o.text === text) {
+          optsRef.current.setObjects(cur.map((x) => (x.id === typed.id ? fit(x) : x)));
+        }
+      });
+    }
     dismiss();
     return true;
   }, [dismiss]);
@@ -220,7 +265,7 @@ export function useHandwriting(opts: {
           const s = strokes[0];
           if (s.points.length >= 8) {
             const shape = recognizeShape(s.points, "#000000", 2);
-            if (shape && (shape.shapeType === "arrow" || shape.shapeType === "doubleArrow" || shape.shapeType === "star" || shape.shapeType === "heart")) {
+            if (shape && (shape.shape === "arrow" || shape.shape === "double-arrow" || shape.shape === "star" || shape.shape === "heart")) {
               setChip(null);
               return;
             }
@@ -263,8 +308,14 @@ export function useHandwriting(opts: {
 
         if (gen !== genRef.current || groupRef.current?.id !== g.id) return; // a newer stroke arrived
         if (!res?.text) {
-          // Unreadable drawings, doodles, or circles that were rejected: silently dismiss without error pill
-          setChip(null);
+          // Drawings / unreadable ink: stay quiet. Real failures (rejected key, quota, network) are shown
+          // so the user knows why nothing was converted.
+          const { lastError, livePreview, translateLive } = useInk.getState();
+          if (lastError && (livePreview || translateLive)) {
+            setChip({ rect: strokesBounds(strokes), text: null, busy: false, error: lastError, groupId: g.id });
+          } else {
+            setChip(null);
+          }
           return;
         }
         resultRef.current = { groupId: g.id, text: res.text, original: res.original, translatedTo: res.translatedTo };
@@ -335,10 +386,10 @@ export function useHandwriting(opts: {
     }
     const { livePreview, translateLive } = useInk.getState();
     if (livePreview || translateLive) {
-      if (Math.max(b.w, b.h) * optsRef.current.getZoom() < 360) return "writing";
+      if (Math.max(b.w, b.h) * optsRef.current.getZoom() < 900) return "writing";
     }
     // Small on screen = a letter, not a diagram
-    if (Math.max(b.w, b.h) * optsRef.current.getZoom() < 120) return "writing";
+    if (Math.max(b.w, b.h) * optsRef.current.getZoom() < 180) return "writing";
     return null;
   }, [dismiss]);
 
@@ -357,14 +408,14 @@ export function useHandwriting(opts: {
     // Geometric shape discrimination: if this isolated stroke forms an arrow, star, heart, or diagram shape
     if (!g && points.length >= 8) {
       const shape = recognizeShape(points, color, 2);
-      if (shape && (shape.shapeType === "arrow" || shape.shapeType === "doubleArrow" || shape.shapeType === "star" || shape.shapeType === "heart")) {
+      if (shape && (shape.shape === "arrow" || shape.shape === "double-arrow" || shape.shape === "star" || shape.shape === "heart")) {
         return;
       }
     }
 
     const b = boundsOf(points);
-    // Large strokes (> 360px on board) are drawings, borders, or sketches, not a single handwriting letter
-    if (b.w > 360 || b.h > 360) {
+    // Ignore massive full-board sketches, borders, or backgrounds (>1200x800 or >650x650 square)
+    if ((b.w > 1200 && b.h > 800) || (b.w > 650 && b.h > 650)) {
       return;
     }
 
@@ -418,7 +469,31 @@ export function useHandwriting(opts: {
 
   useEffect(() => () => clearTimers(), []);
 
-  return { chip, convert, dismiss, retry, beforeCommit, afterCommit, penDown, penUp };
+  /** Pill's quick-translate button: translate the recognised word into the chosen language. */
+  const translateChip = useCallback(async () => {
+    const c = chipRef.current;
+    if (!c?.text || c.translatedTo) return;
+    const original = c.text;
+    const target = findLanguage(useInk.getState().translateTo);
+    setChip((prev) => (prev ? { ...prev, busy: true, busyText: `Translating to ${target.nativeName || target.name}…` } : null));
+    try {
+      const { script, font } = scriptFor(target.code);
+      const res = await AIEngine.translateText(original, `${target.name} (${target.nativeName})`, script);
+      void ensureHandwritingFont(font, res.translation.slice(0, 8));
+      if (groupRef.current?.id !== c.groupId) return; // the word changed meanwhile
+      resultRef.current = { groupId: c.groupId, text: res.translation, original, translatedTo: target.code };
+      setChip((prev) =>
+        prev && prev.groupId === c.groupId
+          ? { ...prev, text: res.translation, original, translatedTo: target.code, busy: false, alternatives: res.alternatives ?? [] }
+          : prev,
+      );
+    } catch (err) {
+      toast.error(aiErrorMessage(err, "Translation failed. Check your connection or AI settings."));
+      setChip((prev) => (prev ? { ...prev, busy: false } : null));
+    }
+  }, []);
+
+  return { chip, convert, dismiss, retry, translateChip, beforeCommit, afterCommit, penDown, penUp };
 }
 
 /** The floating "recognised text" pill above the word being written. */
@@ -428,13 +503,22 @@ export function InkChip({
   onConvert,
   onDismiss,
   onRetry,
+  onTranslate,
 }: {
   chip: InkChipState;
   camera: { x: number; y: number; zoom: number };
   onConvert: (overrideText?: string) => void;
   onDismiss: () => void;
   onRetry?: () => void;
+  onTranslate?: () => void;
 }) {
+  const textFontId = useInk((s) => s.textFont);
+  const chosenFont = textFontById(textFontId).font;
+  const previewFont = chosenFont && chip?.text && isLatinText(chip.text) ? chosenFont : undefined;
+  useEffect(() => {
+    if (chosenFont) void ensureHandwritingFont(chosenFont);
+  }, [chosenFont]);
+
   const autoType = useInk((s) => s.autoType);
   const livePreview = useInk((s) => s.livePreview);
   const writingLang = findLanguage(useInk((s) => s.language));
@@ -572,12 +656,35 @@ export function InkChip({
             </span>
           </span>
         ) : (
-          <span className="truncate max-w-[140px] text-xs font-bold">{chip.text ?? chip.busyText ?? "Reading…"}</span>
+          <span
+            className={`truncate max-w-[140px] font-bold ${chip.text && previewFont ? "text-sm" : "text-xs"}`}
+            style={chip.text && previewFont ? { fontFamily: fontStack(previewFont) } : undefined}
+          >
+            {chip.text ?? chip.busyText ?? "Reading…"}
+          </span>
         )}
         {chip.text && (
           <Check className="h-3.5 w-3.5 shrink-0 text-emerald-400 dark:text-emerald-600" />
         )}
       </button>
+
+      {/* Quick translate pill to instantly translate into target language on demand */}
+      {chip.text && !chip.translatedTo && onTranslate && (
+        <button
+          type="button"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onTranslate?.();
+          }}
+          className="flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold bg-violet-600/25 text-violet-200 hover:bg-violet-600/40 dark:bg-violet-500/20 dark:text-violet-700 transition-all cursor-pointer active:scale-95 shrink-0 border border-violet-500/40 shadow-xs"
+          title={`Translate into ${targetLang.name} (${targetLang.nativeName})`}
+        >
+          <Languages className="h-3 w-3 text-violet-300 dark:text-violet-600" />
+          <span className="text-[10px] uppercase font-bold tracking-tight opacity-75">➔</span>
+          <span className="font-bold">{targetLang.nativeName || targetLang.name}</span>
+        </button>
+      )}
 
       {/* Speaker button to read translation/text aloud */}
       {chip.text && (

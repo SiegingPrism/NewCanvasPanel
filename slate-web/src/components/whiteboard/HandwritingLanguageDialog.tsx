@@ -27,17 +27,20 @@ export function HandwritingLanguageDialog({
   mode?: "write" | "translate";
 }) {
   const { language: writeLanguage, setLanguage, translateTo, chooseTranslateLanguage, translatePickerForSelection } = useInk();
-  const isTranslate = mode === "translate";
+  const [currentMode, setCurrentMode] = useState<"write" | "translate">(mode);
+
+  useEffect(() => {
+    if (open) {
+      setCurrentMode(mode);
+      openedAtRef.current = Date.now();
+    }
+  }, [open, mode]);
+
+  const isTranslate = currentMode === "translate";
   const language = isTranslate ? translateTo : writeLanguage;
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<"all" | "indian" | "international">("all");
   const openedAtRef = useRef(0);
-
-  useEffect(() => {
-    if (open) {
-      openedAtRef.current = Date.now();
-    }
-  }, [open]);
 
   const current = findLanguage(language);
 
@@ -58,7 +61,8 @@ export function HandwritingLanguageDialog({
     if (isTranslate) {
       const changedLive = chooseTranslateLanguage(item.code);
       if (changedLive) {
-        toast.success(`Slate Translate set to ${item.name} (${item.nativeName}) — Ready!`);
+        useInk.getState().set({ translateLive: true, translateTo: item.code });
+        toast.success(`Slate Translate ON — Translating into ${item.name} (${item.nativeName})`);
       }
       onOpenChange(false);
       return;
@@ -89,24 +93,54 @@ export function HandwritingLanguageDialog({
         className="max-w-md w-[92vw] max-h-[85vh] flex flex-col p-0 gap-0 overflow-hidden rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 z-[100] pointer-events-auto"
       >
         <DialogHeader className="p-4 pb-2 border-b border-slate-100 dark:border-slate-800 space-y-1">
-          <div className="flex items-center gap-2">
-            <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${isTranslate ? "bg-violet-500/10 text-violet-600 dark:bg-violet-500/20 dark:text-violet-400" : "bg-orange-500/10 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400"}`}>
-              <Languages className="h-4 w-4" />
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${isTranslate ? "bg-violet-500/10 text-violet-600 dark:bg-violet-500/20 dark:text-violet-400" : "bg-orange-500/10 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400"}`}>
+                <Languages className="h-4 w-4" />
+              </div>
+              <div>
+                <DialogTitle className="text-base font-semibold">
+                  {isTranslate
+                    ? (translatePickerForSelection ? "Translate Selection — Target" : "Slate Translate — Target")
+                    : "Handwriting Language"}
+                </DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground">
+                  {isTranslate
+                    ? (translatePickerForSelection
+                        ? "Translate selected ink or text into this language"
+                        : "Converts writing into authentic native handwriting")
+                    : "Select script for direct handwriting transcription"}
+                </DialogDescription>
+              </div>
             </div>
-            <div>
-              <DialogTitle className="text-base font-semibold">
-                {isTranslate
-                  ? (translatePickerForSelection ? "Translate Selection — Choose Language" : "Slate Translate — Translate into")
-                  : "Handwriting Language"}
-              </DialogTitle>
-              <DialogDescription className="text-xs text-muted-foreground">
-                {isTranslate
-                  ? (translatePickerForSelection
-                      ? "Translate the selected handwriting or text into this language"
-                      : "Write in any language — text is converted into this language in proper handwriting")
-                  : "All 22 constitutional Indian languages + world languages"}
-              </DialogDescription>
-            </div>
+
+            {/* Mode switcher tabs (Writing vs Slate Translate) */}
+            {!translatePickerForSelection && (
+              <div className="flex rounded-lg bg-slate-100 dark:bg-slate-800 p-0.5 text-[11px] font-semibold shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setCurrentMode("write")}
+                  className={`px-2 py-1 rounded-md transition-all cursor-pointer ${
+                    !isTranslate
+                      ? "bg-white text-orange-600 shadow-xs dark:bg-slate-700 dark:text-orange-400 font-bold"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Write
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCurrentMode("translate")}
+                  className={`px-2 py-1 rounded-md transition-all cursor-pointer ${
+                    isTranslate
+                      ? "bg-violet-600 text-white shadow-xs font-bold"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  ➔ Translate
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Search box */}

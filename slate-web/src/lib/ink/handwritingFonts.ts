@@ -76,6 +76,34 @@ export function scriptFor(languageCode: string): ScriptInfo {
   return SCRIPTS[LANGUAGE_SCRIPT[base] ?? "latin"];
 }
 
+/**
+ * Lettering styles for handwriting → text conversion (Latin script).
+ * `font: ""` is the plain app font. `scale` evens out each font's optical size
+ * so converted text comes out about as tall as the writing it replaces.
+ */
+export type TextFontOption = { id: string; label: string; font: string; scale: number };
+export const TEXT_FONTS: TextFontOption[] = [
+  { id: "plain", label: "Plain", font: "", scale: 1 },
+  { id: "caveat", label: "Caveat", font: "Caveat", scale: 1.3 },
+  { id: "patrick", label: "Patrick Hand", font: "Patrick Hand", scale: 1.15 },
+  { id: "kalam", label: "Kalam", font: "Kalam", scale: 1.1 },
+  { id: "indie", label: "Indie Flower", font: "Indie Flower", scale: 1.1 },
+  { id: "shadows", label: "Shadows Into Light", font: "Shadows Into Light", scale: 1.15 },
+  { id: "gochi", label: "Gochi Hand", font: "Gochi Hand", scale: 1.15 },
+  { id: "architects", label: "Architects Daughter", font: "Architects Daughter", scale: 1.05 },
+  { id: "dancing", label: "Dancing Script", font: "Dancing Script", scale: 1.25 },
+  { id: "marker", label: "Permanent Marker", font: "Permanent Marker", scale: 1.0 },
+];
+
+export function textFontById(id: string | undefined): TextFontOption {
+  return TEXT_FONTS.find((f) => f.id === id) ?? TEXT_FONTS[0];
+}
+
+/** True when every letter is Latin, so a Latin-only lettering font can draw it. */
+export function isLatinText(text: string): boolean {
+  return !/[^\p{Script=Latin}\p{Script=Common}\p{Script=Inherited}]/u.test(text);
+}
+
 /** CSS / canvas font-family stack for a handwriting font. */
 export function fontStack(font: string | undefined): string {
   if (!font) return "system-ui, -apple-system, sans-serif";
@@ -85,7 +113,9 @@ export function fontStack(font: string | undefined): string {
 
 /** Handwriting fonts render a little smaller than system text at the same size. */
 export function handwritingScale(font: string | undefined): number {
-  return font === "Caveat" ? 1.3 : font === "Gurajada" ? 1.4 : 1.1;
+  const opt = TEXT_FONTS.find((f) => f.font && f.font === font);
+  if (opt) return opt.scale;
+  return font === "Gurajada" ? 1.4 : 1.1;
 }
 
 const requested = new Map<string, Promise<boolean>>();

@@ -31,10 +31,16 @@ public class MainActivity extends BridgeActivity {
             int bottom = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom;
             int top = insets.getInsets(WindowInsetsCompat.Type.systemBars()).top;
             float density = getResources().getDisplayMetrics().density;
-            mBottomDp = density > 0 ? Math.round(bottom / density) : 48;
-            mTopDp = density > 0 ? Math.round(top / density) : 24;
+            int calcBottom = density > 0 ? Math.round(bottom / density) : 48;
+            int calcTop = density > 0 ? Math.round(top / density) : 24;
+            mBottomDp = Math.max(48, calcBottom);
+            mTopDp = Math.max(24, calcTop);
 
             injectInsets();
+            if (getBridge() != null && getBridge().getWebView() != null) {
+                getBridge().getWebView().postDelayed(this::injectInsets, 500);
+                getBridge().getWebView().postDelayed(this::injectInsets, 1500);
+            }
             return insets;
         });
 

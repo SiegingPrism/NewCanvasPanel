@@ -9,7 +9,10 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TeacherLoginRouteImport } from './routes/teacher-login'
+import { Route as ShareRouteImport } from './routes/share'
 import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as PollRouteImport } from './routes/poll'
 import { Route as NotesRouteImport } from './routes/notes'
 import { Route as LibraryRouteImport } from './routes/library'
 import { Route as LearnRouteImport } from './routes/learn'
@@ -17,12 +20,30 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as NoteNoteIdRouteImport } from './routes/note.$noteId'
 import { Route as BoardBoardIdRouteImport } from './routes/board.$boardId'
 import { Route as ApiVisionRouteImport } from './routes/api/vision'
+import { Route as ApiTeacherAuthRouteImport } from './routes/api/teacher-auth'
+import { Route as ApiPollRouteImport } from './routes/api/poll'
+import { Route as ApiNotesShareRouteImport } from './routes/api/notes-share'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as ApiAiRouteImport } from './routes/api/ai'
 
+const TeacherLoginRoute = TeacherLoginRouteImport.update({
+  id: '/teacher-login',
+  path: '/teacher-login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ShareRoute = ShareRouteImport.update({
+  id: '/share',
+  path: '/share',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PollRoute = PollRouteImport.update({
+  id: '/poll',
+  path: '/poll',
   getParentRoute: () => rootRouteImport,
 } as any)
 const NotesRoute = NotesRouteImport.update({
@@ -60,6 +81,21 @@ const ApiVisionRoute = ApiVisionRouteImport.update({
   path: '/api/vision',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiTeacherAuthRoute = ApiTeacherAuthRouteImport.update({
+  id: '/api/teacher-auth',
+  path: '/api/teacher-auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPollRoute = ApiPollRouteImport.update({
+  id: '/api/poll',
+  path: '/api/poll',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiNotesShareRoute = ApiNotesShareRouteImport.update({
+  id: '/api/notes-share',
+  path: '/api/notes-share',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiChatRoute = ApiChatRouteImport.update({
   id: '/api/chat',
   path: '/api/chat',
@@ -76,9 +112,15 @@ export interface FileRoutesByFullPath {
   '/learn': typeof LearnRoute
   '/library': typeof LibraryRoute
   '/notes': typeof NotesRoute
+  '/poll': typeof PollRoute
   '/profile': typeof ProfileRoute
+  '/share': typeof ShareRoute
+  '/teacher-login': typeof TeacherLoginRoute
   '/api/ai': typeof ApiAiRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/notes-share': typeof ApiNotesShareRoute
+  '/api/poll': typeof ApiPollRoute
+  '/api/teacher-auth': typeof ApiTeacherAuthRoute
   '/api/vision': typeof ApiVisionRoute
   '/board/$boardId': typeof BoardBoardIdRoute
   '/note/$noteId': typeof NoteNoteIdRoute
@@ -88,9 +130,15 @@ export interface FileRoutesByTo {
   '/learn': typeof LearnRoute
   '/library': typeof LibraryRoute
   '/notes': typeof NotesRoute
+  '/poll': typeof PollRoute
   '/profile': typeof ProfileRoute
+  '/share': typeof ShareRoute
+  '/teacher-login': typeof TeacherLoginRoute
   '/api/ai': typeof ApiAiRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/notes-share': typeof ApiNotesShareRoute
+  '/api/poll': typeof ApiPollRoute
+  '/api/teacher-auth': typeof ApiTeacherAuthRoute
   '/api/vision': typeof ApiVisionRoute
   '/board/$boardId': typeof BoardBoardIdRoute
   '/note/$noteId': typeof NoteNoteIdRoute
@@ -101,9 +149,15 @@ export interface FileRoutesById {
   '/learn': typeof LearnRoute
   '/library': typeof LibraryRoute
   '/notes': typeof NotesRoute
+  '/poll': typeof PollRoute
   '/profile': typeof ProfileRoute
+  '/share': typeof ShareRoute
+  '/teacher-login': typeof TeacherLoginRoute
   '/api/ai': typeof ApiAiRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/notes-share': typeof ApiNotesShareRoute
+  '/api/poll': typeof ApiPollRoute
+  '/api/teacher-auth': typeof ApiTeacherAuthRoute
   '/api/vision': typeof ApiVisionRoute
   '/board/$boardId': typeof BoardBoardIdRoute
   '/note/$noteId': typeof NoteNoteIdRoute
@@ -115,9 +169,15 @@ export interface FileRouteTypes {
     | '/learn'
     | '/library'
     | '/notes'
+    | '/poll'
     | '/profile'
+    | '/share'
+    | '/teacher-login'
     | '/api/ai'
     | '/api/chat'
+    | '/api/notes-share'
+    | '/api/poll'
+    | '/api/teacher-auth'
     | '/api/vision'
     | '/board/$boardId'
     | '/note/$noteId'
@@ -127,9 +187,15 @@ export interface FileRouteTypes {
     | '/learn'
     | '/library'
     | '/notes'
+    | '/poll'
     | '/profile'
+    | '/share'
+    | '/teacher-login'
     | '/api/ai'
     | '/api/chat'
+    | '/api/notes-share'
+    | '/api/poll'
+    | '/api/teacher-auth'
     | '/api/vision'
     | '/board/$boardId'
     | '/note/$noteId'
@@ -139,9 +205,15 @@ export interface FileRouteTypes {
     | '/learn'
     | '/library'
     | '/notes'
+    | '/poll'
     | '/profile'
+    | '/share'
+    | '/teacher-login'
     | '/api/ai'
     | '/api/chat'
+    | '/api/notes-share'
+    | '/api/poll'
+    | '/api/teacher-auth'
     | '/api/vision'
     | '/board/$boardId'
     | '/note/$noteId'
@@ -152,9 +224,15 @@ export interface RootRouteChildren {
   LearnRoute: typeof LearnRoute
   LibraryRoute: typeof LibraryRoute
   NotesRoute: typeof NotesRoute
+  PollRoute: typeof PollRoute
   ProfileRoute: typeof ProfileRoute
+  ShareRoute: typeof ShareRoute
+  TeacherLoginRoute: typeof TeacherLoginRoute
   ApiAiRoute: typeof ApiAiRoute
   ApiChatRoute: typeof ApiChatRoute
+  ApiNotesShareRoute: typeof ApiNotesShareRoute
+  ApiPollRoute: typeof ApiPollRoute
+  ApiTeacherAuthRoute: typeof ApiTeacherAuthRoute
   ApiVisionRoute: typeof ApiVisionRoute
   BoardBoardIdRoute: typeof BoardBoardIdRoute
   NoteNoteIdRoute: typeof NoteNoteIdRoute
@@ -162,11 +240,32 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/teacher-login': {
+      id: '/teacher-login'
+      path: '/teacher-login'
+      fullPath: '/teacher-login'
+      preLoaderRoute: typeof TeacherLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/share': {
+      id: '/share'
+      path: '/share'
+      fullPath: '/share'
+      preLoaderRoute: typeof ShareRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/profile': {
       id: '/profile'
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/poll': {
+      id: '/poll'
+      path: '/poll'
+      fullPath: '/poll'
+      preLoaderRoute: typeof PollRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/notes': {
@@ -218,6 +317,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiVisionRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/teacher-auth': {
+      id: '/api/teacher-auth'
+      path: '/api/teacher-auth'
+      fullPath: '/api/teacher-auth'
+      preLoaderRoute: typeof ApiTeacherAuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/poll': {
+      id: '/api/poll'
+      path: '/api/poll'
+      fullPath: '/api/poll'
+      preLoaderRoute: typeof ApiPollRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/notes-share': {
+      id: '/api/notes-share'
+      path: '/api/notes-share'
+      fullPath: '/api/notes-share'
+      preLoaderRoute: typeof ApiNotesShareRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/chat': {
       id: '/api/chat'
       path: '/api/chat'
@@ -240,9 +360,15 @@ const rootRouteChildren: RootRouteChildren = {
   LearnRoute: LearnRoute,
   LibraryRoute: LibraryRoute,
   NotesRoute: NotesRoute,
+  PollRoute: PollRoute,
   ProfileRoute: ProfileRoute,
+  ShareRoute: ShareRoute,
+  TeacherLoginRoute: TeacherLoginRoute,
   ApiAiRoute: ApiAiRoute,
   ApiChatRoute: ApiChatRoute,
+  ApiNotesShareRoute: ApiNotesShareRoute,
+  ApiPollRoute: ApiPollRoute,
+  ApiTeacherAuthRoute: ApiTeacherAuthRoute,
   ApiVisionRoute: ApiVisionRoute,
   BoardBoardIdRoute: BoardBoardIdRoute,
   NoteNoteIdRoute: NoteNoteIdRoute,

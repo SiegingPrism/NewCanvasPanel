@@ -31,6 +31,10 @@ describe("continuesGroup", () => {
   it("does not join a stroke on the next line", () => {
     expect(continuesGroup(word, boundsOf(letter("e", 100, 150).points), 20)).toBe(false);
   });
+  it("joins a letter written along a slanted trajectory (diagonal handwriting)", () => {
+    // word is at x: 100..148, y: 100..120. Next letter 'd' is written slanted downwards at x: 160, y: 128
+    expect(continuesGroup(word, { x: 160, y: 128, w: 14, h: 22 }, 20)).toBe(true);
+  });
   it("does not join a stroke far to the right", () => {
     expect(continuesGroup(word, boundsOf(letter("f", 400, 100).points), 20)).toBe(false);
   });

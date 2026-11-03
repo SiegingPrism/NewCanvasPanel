@@ -33,8 +33,12 @@ export interface FlashcardItem {
 export interface MindMapNode {
   id: string;
   label: string;
+  /** Top-left corner of the block (after layout). */
   x: number;
   y: number;
+  /** Block size, sized to fit the label. */
+  w: number;
+  h: number;
   level: number;
   color: string;
   parentId?: string;
@@ -137,9 +141,16 @@ const API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 
 /** Model used for every request. Override with VITE_GEMINI_MODEL in .env if needed. */
 export const GEMINI_MODEL: string =
-  ((import.meta.env?.VITE_GEMINI_MODEL as string | undefined) || "").trim() || "gemini-3.5-flash-lite";
+  ((import.meta.env?.VITE_GEMINI_MODEL as string | undefined) || "").trim() || "gemini-flash-lite-latest";
 
-const FALLBACK_MODELS: string[] = ["gemini-3.5-flash-lite", "gemini-3.8-flash", "gemini-3.5-flash"];
+const FALLBACK_MODELS: string[] = [
+  "gemini-flash-lite-latest",
+  "gemini-3.5-flash",
+  "gemini-3.6-flash",
+  "gemini-3.8-flash",
+  "gemini-3.5-flash-lite",
+  "gemini-flash-latest",
+];
 
 type Part = { text: string } | { inlineData: { mimeType: string; data: string } };
 type Content = { role: "user" | "model"; parts: Part[] };
@@ -230,7 +241,8 @@ function buildBody(contents: Content[], opts: CallOptions) {
     temperature: opts.temperature ?? 0.4,
   };
   if (opts.maxOutputTokens) generationConfig.maxOutputTokens = opts.maxOutputTokens;
-  if (opts.thinkingBudget !== undefined) {
+  // Gemini API rejects thinkingBudget <= 0 with HTTP 400. Only send when positive.
+  if (opts.thinkingBudget !== undefined && opts.thinkingBudget > 0) {
     generationConfig.thinkingConfig = { thinkingBudget: opts.thinkingBudget };
   }
   if (opts.json) {
@@ -436,9 +448,10 @@ async function callGemini(contents: Content[], opts: CallOptions = {}): Promise<
         if (err.code === "quota" || err.code === "invalid_key" || res.status === 429) {
           throw err;
         }
-        // If server is overloaded (500/503) or model unavailable (404), fall back to next model
-        if (res.status >= 500 || res.status === 404) {
+        // If server is overloaded (500/503), model unavailable (404), or model-specific arg rejected (400), fall back to next model
+        if (res.status >= 500 || res.status === 404 || res.status === 400) {
           lastErr = err;
+          if (res.status >= 500) await new Promise((r) => setTimeout(r, 200));
           continue;
         }
         throw err;
@@ -590,8 +603,9 @@ async function streamGemini(
         if (err.code === "quota" || err.code === "invalid_key" || res.status === 429) {
           throw err;
         }
-        if (res.status >= 500 || res.status === 404) {
+        if (res.status >= 500 || res.status === 404 || res.status === 400) {
           lastErr = err;
+          if (res.status >= 500) await new Promise((r) => setTimeout(r, 200));
           continue;
         }
         throw err;
@@ -901,14 +915,44 @@ function matchesExpectedScript(text: string, script: string): boolean {
   if (s.includes("cyrillic")) return /[\u0400-\u04FF]/.test(text);
   if (s.includes("japanese")) return /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(text);
   if (s.includes("chinese")) return /[\u4E00-\u9FFF]/.test(text);
+  if (s.includes("ol chiki") || s.includes("olchiki")) return /[\u1C50-\u1C7F]/.test(text);
+  if (s.includes("meetei")) return /[\uAAE0-\uAAFF\uABC0-\uABFF]/.test(text);
   return true;
 }
 
 function parseTranslation(raw: string): TranslationResult {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const p = parseJSON<any>(raw);
-  const translation = String(p?.translation ?? "").replace(/^["'`]+|["'`]+$/g, "").trim();
-  if (!translation) {
+  const translation = String(
+    p?.translation ??
+    p?.translated_text ??
+    p?.translatedText ??
+    p?.translated ??
+    p?.target ??
+    p?.result ??
+    ""
+  )
+    .replace(/^["'`]+|["'`]+$/g, "")
+    .trim();
+
+  const source = String(
+    p?.source ??
+    p?.original ??
+    p?.source_text ??
+    p?.sourceText ??
+    p?.text ??
+    ""
+  ).trim();
+
+  const sourceLanguage = String(
+    p?.sourceLanguage ??
+    p?.source_language ??
+    p?.language ??
+    p?.sourceLang ??
+    ""
+  ).trim();
+
+  if (!translation && !source) {
     throw new AIError("bad_response", "Couldn't read that — try writing a little larger or clearer.");
   }
   const alternatives = Array.isArray(p?.alternatives)
@@ -917,9 +961,9 @@ function parseTranslation(raw: string): TranslationResult {
         .filter((a: string) => a && a !== translation)
     : [];
   return {
-    source: String(p?.source ?? "").trim(),
-    sourceLanguage: String(p?.sourceLanguage ?? "").trim(),
-    translation,
+    source,
+    sourceLanguage,
+    translation: translation || source,
     alternatives: alternatives.slice(0, 3),
   };
 }
@@ -942,6 +986,60 @@ Respond only with JSON matching the schema:
 // ---------------------------------------------------------------------------
 // Engine
 // ---------------------------------------------------------------------------
+
+/** Block size for a mind-map label (fits 12–13px system text with padding). */
+export function mindMapNodeSize(label: string, level: number): { w: number; h: number } {
+  const charW = level === 0 ? 8 : 7.2;
+  return { w: Math.round(Math.max(110, label.length * charW + 40)), h: level === 0 ? 48 : 42 };
+}
+
+/**
+ * Turns the radial sketch (x/y = block centres) into final blocks: sizes each one
+ * to its label, pushes overlapping blocks apart so no text is hidden, then
+ * converts x/y to top-left corners.
+ */
+export function layoutMindMap(root: MindMapNode): void {
+  const all: MindMapNode[] = [];
+  const walk = (n: MindMapNode) => {
+    Object.assign(n, mindMapNodeSize(n.label, n.level));
+    all.push(n);
+    n.children?.forEach(walk);
+  };
+  walk(root);
+  const GAP = 18;
+  for (let iter = 0; iter < 80; iter++) {
+    let moved = false;
+    for (let i = 0; i < all.length; i++) {
+      for (let j = i + 1; j < all.length; j++) {
+        const a = all[i];
+        const b = all[j];
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const ox = (a.w + b.w) / 2 + GAP - Math.abs(dx);
+        const oy = (a.h + b.h) / 2 + GAP - Math.abs(dy);
+        if (ox <= 0 || oy <= 0) continue;
+        moved = true;
+        // Separate along the axis that needs the smaller push; the root stays put
+        const wa = a === root ? 0 : b === root ? 1 : 0.5;
+        const wb = 1 - wa;
+        if (ox < oy) {
+          const sgn = dx === 0 ? (j % 2 ? 1 : -1) : Math.sign(dx);
+          a.x -= sgn * ox * wa;
+          b.x += sgn * ox * wb;
+        } else {
+          const sgn = dy === 0 ? (j % 2 ? 1 : -1) : Math.sign(dy);
+          a.y -= sgn * oy * wa;
+          b.y += sgn * oy * wb;
+        }
+      }
+    }
+    if (!moved) break;
+  }
+  for (const n of all) {
+    n.x = Math.round(n.x - n.w / 2);
+    n.y = Math.round(n.y - n.h / 2);
+  }
+}
 
 export class AIEngine {
   /** True when a Gemini key is configured (built-in or user-provided). */
@@ -1098,11 +1196,15 @@ Only return empty strings if the image is a drawing/shape, completely blank, acc
     );
     const parsed = parseTranslation(raw);
 
-    // Auto-repair if translation returned in wrong script (e.g. English returned for Hindi target)
-    if (!matchesExpectedScript(parsed.translation, script) && parsed.translation.trim()) {
+    // Auto-repair if translation returned in wrong script (e.g. English returned for Hindi target) or if translation is empty while source was recognized
+    if (
+      (!matchesExpectedScript(parsed.translation, script) || !parsed.translation.trim()) &&
+      (parsed.source.trim() || parsed.translation.trim())
+    ) {
       try {
+        const textToTranslate = parsed.source.trim() || parsed.translation.trim();
         const fixed = await AIEngine.translateText(
-          parsed.translation,
+          textToTranslate,
           target,
           script,
           { timeoutMs: 5000, signal: opts.signal, thinkingBudget: 0 },
@@ -1369,13 +1471,27 @@ ${content.slice(0, 60000)}`,
   }
 
   // ---- Mind map ----
-  static async generateMindMap(topic: string, startX = 600, startY = 400): Promise<MindMapNode> {
-    if (!topic.trim()) throw new AIError("bad_input", "Enter a topic for the mind map.");
+  static async generateMindMap(
+    topicOrContext: string,
+    startX = 600,
+    startY = 400,
+    opts?: { imageDataUrl?: string; isScreenWork?: boolean },
+  ): Promise<MindMapNode> {
+    if (!topicOrContext.trim() && !opts?.imageDataUrl) {
+      throw new AIError("bad_input", "Please enter a topic or write content on the canvas.");
+    }
+    const promptText = opts?.isScreenWork
+      ? `You are an expert educational mind-map architect.
+Analyze the user's current whiteboard screen, notes, handwriting, equations, and diagrams.
+${topicOrContext.trim() ? `Extracted content from screen:\n"""\n${topicOrContext.trim().slice(0, 3000)}\n"""\n` : ""}
+Extract the central theme and synthesize a clear, structured concept mind map explaining their work.
+label: the overarching central concept or theme in 1–5 words.
+children: 4–6 key branches covering the main aspects/principles/steps, each with 2–4 short sub-concepts (1–5 words each).`
+      : `Create a concept mind map for: "${topicOrContext.trim().slice(0, 2000)}".
+label: the central topic in 1–5 words. children: 4–6 main branches, each with 2–4 short sub-concepts (1–5 words each).`;
+
     const raw = await callGemini(
-      userContent(
-        `Create a concept mind map for: "${topic.trim().slice(0, 2000)}".
-label: the central topic in 1–5 words. children: 4–6 main branches, each with 2–4 short sub-concepts (1–5 words each).`,
-      ),
+      userContent(promptText, opts?.imageDataUrl),
       { system: JSON_SYSTEM, json: true, schema: MINDMAP_SCHEMA, temperature: 0.4 },
     );
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1389,9 +1505,11 @@ label: the central topic in 1–5 words. children: 4–6 main branches, each wit
 
     const root: MindMapNode = {
       id: newId("mm-root"),
-      label: str(p.label) || topic.trim().slice(0, 40),
+      label: str(p.label) || topicOrContext.trim().slice(0, 40) || "Central Concept",
       x: startX,
       y: startY,
+      w: 0,
+      h: 0,
       level: 0,
       color: "#6366f1",
       children: [],
@@ -1399,14 +1517,16 @@ label: the central topic in 1–5 words. children: 4–6 main branches, each wit
     const colors = ["#3b82f6", "#10b981", "#8b5cf6", "#f59e0b", "#ec4899", "#06b6d4"];
     branches.forEach((b, i) => {
       const angle = (i * 2 * Math.PI) / branches.length - Math.PI / 2;
-      const bx = startX + Math.cos(angle) * 260;
-      const by = startY + Math.sin(angle) * 220;
+      const bx = startX + Math.cos(angle) * 300;
+      const by = startY + Math.sin(angle) * 230;
       const col = colors[i % colors.length];
       const bNode: MindMapNode = {
         id: newId("mm-b"),
         label: str(b.label),
         x: bx,
         y: by,
+        w: 0,
+        h: 0,
         level: 1,
         color: col,
         parentId: root.id,
@@ -1422,8 +1542,10 @@ label: the central topic in 1–5 words. children: 4–6 main branches, each wit
         bNode.children!.push({
           id: newId("mm-s"),
           label,
-          x: bx + Math.cos(subAngle) * 180,
-          y: by + Math.sin(subAngle) * 120,
+          x: bx + Math.cos(subAngle) * 210,
+          y: by + Math.sin(subAngle) * 150,
+          w: 0,
+          h: 0,
           level: 2,
           color: col,
           parentId: bNode.id,
@@ -1431,6 +1553,7 @@ label: the central topic in 1–5 words. children: 4–6 main branches, each wit
       });
       root.children!.push(bNode);
     });
+    layoutMindMap(root);
     return root;
   }
 

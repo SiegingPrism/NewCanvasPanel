@@ -55,7 +55,8 @@ function ProfilePage() {
   const { user, signOut, deleteAccount, signInWithGoogle, loading } = useAuth();
   const { boards, boardOrder, syncWithCloud } = useWhiteboard();
   const { notes } = useNotes();
-  const { userApiKey } = useAISettings();
+  // A personal key the user typed (the built-in build key is not "personal")
+  const userApiKey = useAISettings((s) => (s.geminiKey && !s.hasBuiltInKey() ? s.geminiKey : ""));
 
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
   const [aiSettingsOpen, setAiSettingsOpen] = useState(false);

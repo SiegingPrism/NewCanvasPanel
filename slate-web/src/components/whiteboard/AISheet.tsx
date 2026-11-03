@@ -294,7 +294,6 @@ export function AISheet({
     pushHistory();
     setTool("select");
     setSelected(newId);
-    setSelectedIds([]);
     onOpenChange(false);
     toast.success("AI answer placed on board! Drag to move it where you want.", {
       icon: "✨",
@@ -318,7 +317,6 @@ export function AISheet({
     pushHistory();
     setTool("select");
     setSelected(id);
-    setSelectedIds([]);
     onOpenChange(false);
     toast.success("Added to the board! Drag to move it where you want.", { icon: "✨" });
   }
@@ -341,7 +339,6 @@ export function AISheet({
     pushHistory();
     setTool("select");
     setSelected(id);
-    setSelectedIds([]);
     onOpenChange(false);
     toast.success("Flashcard added to board! Drag to move it where you want.", { icon: "✨" });
   }
@@ -363,7 +360,6 @@ export function AISheet({
     pushHistory();
     setTool("select");
     setSelected(id);
-    setSelectedIds([]);
     onOpenChange(false);
     toast.success("Formula added to board! Drag to move it where you want.", { icon: "✨" });
   }

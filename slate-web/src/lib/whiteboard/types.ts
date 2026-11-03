@@ -344,7 +344,14 @@ export type PageBackground =
   | "dark"
   | "blackboard"
   | "oled"
-  | "isometric";
+  | "isometric"
+  | "four-line"
+  | "music-staves"
+  | "millimeter-graph"
+  | "india-map"
+  | "world-map";
+
+export type PanelDiagonal = "55" | "65" | "75" | "86" | "98" | "110";
 
 export type Page = {
   id: string;
@@ -365,4 +372,11 @@ export type WhiteboardState = {
   autoSnapEnabled: boolean;
   showZoomDock: boolean;
   camera: { x: number; y: number; zoom: number };
+  // Smart Board properties
+  boardMode: boolean;
+  panelSize: PanelDiagonal;
+  lockBoard: boolean;
+  simpleMode: boolean;
+  reachabilityOffset: number;
+  splitBoardZones: number;
 };

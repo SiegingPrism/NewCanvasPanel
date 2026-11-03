@@ -21,6 +21,17 @@ import { RulerWidget } from "@/components/whiteboard/widgets/RulerWidget";
 import { CurtainWidget } from "@/components/whiteboard/widgets/CurtainWidget";
 import { ProtractorWidget } from "@/components/whiteboard/widgets/ProtractorWidget";
 import { Shapes3DWidget } from "@/components/whiteboard/widgets/Shapes3DWidget";
+import { SpotlightWidget } from "@/components/whiteboard/widgets/SpotlightWidget";
+import { MagnifierWidget } from "@/components/whiteboard/widgets/MagnifierWidget";
+import { RandomPickerWidget } from "@/components/whiteboard/widgets/RandomPickerWidget";
+import { ClassroomManagerWidget } from "@/components/whiteboard/widgets/ClassroomManagerWidget";
+import { GeometryKitWidget } from "@/components/whiteboard/widgets/GeometryKitWidget";
+import { PrimaryManipulativesWidget } from "@/components/whiteboard/widgets/PrimaryManipulativesWidget";
+import { EmbeddedMediaWidget } from "@/components/whiteboard/widgets/EmbeddedMediaWidget";
+import { SmartBoardSideDock } from "@/components/whiteboard/smartboard/SmartBoardSideDock";
+import { SmartBoardCornerControls } from "@/components/whiteboard/smartboard/SmartBoardCornerControls";
+import { RadialMenu } from "@/components/whiteboard/smartboard/RadialMenu";
+import { SplitBoardDivider } from "@/components/whiteboard/smartboard/SplitBoardDivider";
 import { useWhiteboard } from "@/lib/whiteboard/store";
 import { fetchBoardById } from "@/lib/supabase/dbService";
 import { Wand2 } from "lucide-react";
@@ -57,10 +68,32 @@ function BoardPage() {
   const [isPresenting, setIsPresenting] = useState(false);
   const { langPickerOpen, setLangPickerOpen, translatePickerOpen, closeTranslatePicker } = useInk();
   const { openWidgets, launch, close } = useWidgetLauncher();
-  const { selectedId, pages, activePageId, activeBoardId, boards, boardData, openBoard, hydrated } =
-    useWhiteboard();
+  const {
+    selectedId,
+    pages,
+    activePageId,
+    activeBoardId,
+    boards,
+    boardData,
+    openBoard,
+    hydrated,
+    boardMode,
+    reachabilityOffset,
+  } = useWhiteboard();
 
+  const [radialMenuPos, setRadialMenuPos] = useState<{ x: number; y: number } | null>(null);
   const [loadTimedOut, setLoadTimedOut] = useState(false);
+
+  useEffect(() => {
+    const handleRadial = (e: Event) => {
+      const customEvent = e as CustomEvent<{ x: number; y: number }>;
+      if (customEvent.detail?.x && customEvent.detail?.y) {
+        setRadialMenuPos({ x: customEvent.detail.x, y: customEvent.detail.y });
+      }
+    };
+    window.addEventListener("slate:open-radial-menu", handleRadial);
+    return () => window.removeEventListener("slate:open-radial-menu", handleRadial);
+  }, []);
 
   // Auto-open AI panel if query parameter ?ai=1 is present
   useEffect(() => {
@@ -214,7 +247,16 @@ function BoardPage() {
 
   return (
     <div className="relative h-dvh w-screen overflow-hidden bg-background">
-      <WhiteboardCanvas onOpenAI={handleOpenAI} onPresentationChange={setIsPresenting} />
+      {/* Canvas Viewport with Reachability Pull-Down Support for tall 75", 86", 98", 110" boards */}
+      <div
+        className="h-full w-full transition-transform duration-300 ease-out"
+        style={{
+          transform: reachabilityOffset > 0 ? `translateY(${reachabilityOffset * 100}%)` : undefined,
+        }}
+      >
+        <WhiteboardCanvas onOpenAI={handleOpenAI} onPresentationChange={setIsPresenting} />
+        {boardMode && <SplitBoardDivider />}
+      </div>
 
       <div
         className={cn(
@@ -229,17 +271,32 @@ function BoardPage() {
         />
       </div>
 
-      <div
-        className={cn(
-          "pointer-events-none absolute inset-x-0 bottom-[max(1rem,calc(var(--sab,0px)+0.75rem))] flex justify-center px-2 z-30 transition-opacity duration-300",
-          isPresenting ? "opacity-0 pointer-events-none" : "opacity-100",
-        )}
-      >
-        <Toolbar />
-      </div>
+      {/* Smart Board Mode: Mirrored Left & Right Side Docks + High-Visibility Corner Controls */}
+      {boardMode ? (
+        <>
+          <SmartBoardSideDock side="left" onOpenWidgets={() => setWidgetsOpen(true)} />
+          <SmartBoardSideDock side="right" onOpenWidgets={() => setWidgetsOpen(true)} />
+          <SmartBoardCornerControls onOpenSorter={() => setWidgetsOpen(true)} />
+        </>
+      ) : (
+        /* Standard Bottom Floating Toolbar for Mobile & Laptop */
+        <div
+          className={cn(
+            "pointer-events-none absolute inset-x-0 bottom-[max(4.25rem,calc(var(--sab,56px)+0.75rem))] sm:bottom-4 flex justify-center px-2 z-30 transition-opacity duration-300",
+            isPresenting ? "opacity-0 pointer-events-none" : "opacity-100",
+          )}
+        >
+          <Toolbar />
+        </div>
+      )}
+
+      {/* Floating Radial Menu on Long-Press / In-place gesture */}
+      {radialMenuPos && (
+        <RadialMenu position={radialMenuPos} onClose={() => setRadialMenuPos(null)} />
+      )}
 
       {selectedId && (
-        <div className="pointer-events-none absolute bottom-[max(5.5rem,calc(var(--sab,0px)+5rem))] left-1/2 -translate-x-1/2 lg:bottom-4 lg:left-auto lg:right-4 lg:translate-x-0">
+        <div className="pointer-events-none absolute bottom-[max(8.5rem,calc(var(--sab,56px)+5rem))] sm:bottom-20 left-1/2 -translate-x-1/2 lg:bottom-4 lg:left-auto lg:right-4 lg:translate-x-0">
           <div className="pointer-events-auto flex items-center gap-1 rounded-full bg-card px-2 py-1 shadow-lg ring-1 ring-border">
             <button
               onClick={() => handleOpenAI()}
@@ -252,9 +309,7 @@ function BoardPage() {
         </div>
       )}
 
-      {widgetsOpen && (
-        <WidgetsSheet open={widgetsOpen} onOpenChange={setWidgetsOpen} onLaunch={launch} />
-      )}
+      <WidgetsSheet open={widgetsOpen} onOpenChange={setWidgetsOpen} onLaunch={launch} />
       <AISheet
         open={aiOpen}
         onOpenChange={(b) => {
@@ -275,26 +330,39 @@ function BoardPage() {
         }}
       />
 
-      {openWidgets.map((w) => (
-        <FloatingWidget
-          key={w.id}
-          title={titleFor(w.kind)}
-          initial={{ x: w.x, y: w.y }}
-          onClose={() => close(w.id)}
-        >
-          {w.kind === "timer" && <TimerWidget />}
-          {w.kind === "stopwatch" && <StopwatchWidget />}
-          {w.kind === "dice" && <DiceWidget />}
-          {w.kind === "score" && <ScoreWidget />}
-          {w.kind === "calculator" && <CalculatorWidget />}
-          {w.kind === "voice" && <VoiceNoteWidget />}
-          {w.kind === "graph" && <MathGraphWidget />}
-          {w.kind === "ruler" && <RulerWidget />}
-          {w.kind === "curtain" && <CurtainWidget />}
-          {w.kind === "protractor" && <ProtractorWidget />}
-          {w.kind === "shapes3d" && <Shapes3DWidget />}
-        </FloatingWidget>
-      ))}
+      {openWidgets.map((w) => {
+        if (w.kind === "spotlight") {
+          return <SpotlightWidget key={w.id} onClose={() => close(w.id)} />;
+        }
+        if (w.kind === "magnifier") {
+          return <MagnifierWidget key={w.id} onClose={() => close(w.id)} />;
+        }
+        return (
+          <FloatingWidget
+            key={w.id}
+            title={titleFor(w.kind)}
+            initial={{ x: w.x, y: w.y }}
+            onClose={() => close(w.id)}
+          >
+            {w.kind === "timer" && <TimerWidget />}
+            {w.kind === "stopwatch" && <StopwatchWidget />}
+            {w.kind === "dice" && <DiceWidget />}
+            {w.kind === "score" && <ScoreWidget />}
+            {w.kind === "calculator" && <CalculatorWidget />}
+            {w.kind === "voice" && <VoiceNoteWidget />}
+            {w.kind === "graph" && <MathGraphWidget />}
+            {w.kind === "ruler" && <RulerWidget />}
+            {w.kind === "curtain" && <CurtainWidget />}
+            {w.kind === "protractor" && <ProtractorWidget />}
+            {w.kind === "shapes3d" && <Shapes3DWidget />}
+            {w.kind === "random-picker" && <RandomPickerWidget />}
+            {w.kind === "classroom-manager" && <ClassroomManagerWidget />}
+            {w.kind === "geometry-kit" && <GeometryKitWidget />}
+            {w.kind === "manipulatives" && <PrimaryManipulativesWidget />}
+            {w.kind === "embedded-media" && <EmbeddedMediaWidget />}
+          </FloatingWidget>
+        );
+      })}
     </div>
   );
 }
@@ -323,6 +391,20 @@ function titleFor(k: string) {
       return "Protractor & Angle Dial";
     case "shapes3d":
       return "3D Geometric Solids";
+    case "spotlight":
+      return "Spotlight & Screen Shade";
+    case "magnifier":
+      return "Magnifier Zoom Lens";
+    case "random-picker":
+      return "Random Student Picker & Teams";
+    case "classroom-manager":
+      return "Traffic Light & Noise Meter";
+    case "geometry-kit":
+      return "Geometry Kit (Compass & Set-Square)";
+    case "manipulatives":
+      return "Primary Math Manipulatives";
+    case "embedded-media":
+      return "Embedded Video & Web Viewer";
     default:
       return k;
   }

@@ -1,7 +1,9 @@
 import { AlertCircle, ArrowRightLeft, Check, ChevronDown, Eraser, Languages, PenLine, Type, WifiOff } from "lucide-react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
+import { useEffect } from "react";
 import { findLanguage, recognitionAvailable, useInk } from "@/lib/ink/recognizer";
+import { ensureHandwritingFont, fontStack, TEXT_FONTS } from "@/lib/ink/handwritingFonts";
 
 /** Handwriting toggles shown in the pen menu and settings. */
 export function HandwritingSettings({
@@ -11,8 +13,12 @@ export function HandwritingSettings({
   className?: string;
   compact?: boolean;
 }) {
-  const { livePreview, autoType, scratchOut, translateLive, translateTo, openTranslatePicker, status, lastError, language, set, setLangPickerOpen } = useInk();
+  const { livePreview, autoType, scratchOut, translateLive, translateTo, textFont, openTranslatePicker, status, lastError, language, set, setLangPickerOpen } = useInk();
   const targetLang = findLanguage(translateTo);
+  // Load the lettering fonts so each choice previews in its own style
+  useEffect(() => {
+    for (const f of TEXT_FONTS) if (f.font) void ensureHandwritingFont(f.font, f.label);
+  }, []);
   const currentLang = findLanguage(language);
 
   // Online only: recognition is done by Gemini, so the status is about the connection / AI setup
@@ -177,6 +183,48 @@ export function HandwritingSettings({
           onChange={(v) => set({ autoType: v })}
           testId="ink-auto-toggle"
         />
+        <div className="px-1 py-1.5" data-testid="ink-text-font">
+          <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-foreground">
+            <PenLine className="h-3.5 w-3.5 text-muted-foreground" />
+            <span>Text style</span>
+            {!compact && (
+              <span className="text-[10px] font-normal text-muted-foreground">· how converted writing looks</span>
+            )}
+          </div>
+          <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none]">
+            {TEXT_FONTS.map((f) => {
+              const active = (textFont || "plain") === f.id;
+              return (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    set({ textFont: f.id });
+                  }}
+                  aria-pressed={active}
+                  aria-label={`Text style ${f.label}`}
+                  title={f.label}
+                  className={`shrink-0 rounded-lg border px-2.5 py-1 text-left transition active:scale-95 ${
+                    active
+                      ? "border-sky-500 bg-sky-50 text-sky-800 dark:bg-sky-950/40 dark:text-sky-200"
+                      : "border-border bg-background text-foreground hover:bg-muted"
+                  }`}
+                >
+                  <span
+                    className="block whitespace-nowrap text-[15px] leading-tight"
+                    style={{ fontFamily: fontStack(f.font || undefined) }}
+                  >
+                    {f.id === "plain" ? "Aa Plain" : "Hello"}
+                  </span>
+                  {f.id !== "plain" && (
+                    <span className="block whitespace-nowrap text-[9px] text-muted-foreground">{f.label}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
         <Row
           icon={<Eraser className="h-3.5 w-3.5" />}
           title="Scratch out to erase"

@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Ruler, RotateCw, Pencil, Stamp, Compass } from "lucide-react";
 import { useWhiteboard } from "@/lib/whiteboard/store";
 import { toast } from "sonner";
 import type { PenStroke } from "@/lib/whiteboard/types";
+import { registerGuideSegment, unregisterGuideSegment } from "@/lib/whiteboard/geometryGuides";
 
 function uid() {
   return Math.random().toString(36).slice(2, 10);
@@ -16,6 +17,24 @@ export function RulerWidget() {
   const [lengthCm, setLengthCm] = useState(15); // in cm (1 cm = ~20px on board)
 
   const lengthPx = lengthCm * 20;
+
+  // Register on-screen snapping guide so pen/stylus snaps to ruler edge
+  useEffect(() => {
+    const screenW = typeof window !== "undefined" ? window.innerWidth : 400;
+    const screenH = typeof window !== "undefined" ? window.innerHeight : 600;
+    const cx = (screenW / 2 - camera.x) / camera.zoom;
+    const cy = (screenH / 2 - camera.y) / camera.zoom;
+    const rad = (angle * Math.PI) / 180;
+    const half = lengthPx / 2;
+    const x1 = Math.round(cx - half * Math.cos(rad));
+    const y1 = Math.round(cy - half * Math.sin(rad));
+    const x2 = Math.round(cx + half * Math.cos(rad));
+    const y2 = Math.round(cy + half * Math.sin(rad));
+    registerGuideSegment("ruler", x1, y1, x2, y2);
+    return () => {
+      unregisterGuideSegment("ruler");
+    };
+  }, [camera.x, camera.y, camera.zoom, angle, lengthPx]);
 
   function handleDrawLine() {
     const screenW = typeof window !== "undefined" ? window.innerWidth : 400;

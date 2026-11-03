@@ -348,8 +348,8 @@ export function recognizeShape(
     prevAngle = curAngle;
   }
 
-  // Reject spirals: multi-turn loops that do not close onto their start point
-  if ((Math.abs(totalAngleDelta) >= 6.8 && endpointDist > 0.18 * maxSpan) || Math.abs(totalAngleDelta) >= 9.5) {
+  // Reject spirals: multi-turn loops (more than 1.4 turns ~ 8.8 rad) that do not close onto their start point
+  if ((Math.abs(totalAngleDelta) >= 8.8 && endpointDist > 0.20 * maxSpan) || Math.abs(totalAngleDelta) >= 10.5) {
     return null;
   }
 
@@ -525,7 +525,7 @@ export function recognizeShape(
     (rdpCount === 5 || corners === 5) &&
     (isPentagonLike(fivePoints) || (solidity > 0.85 && normRectDev >= 0.09 && !isRectangleAngles(fivePoints)));
 
-  const isHexagon = (rdpCount === 6 || corners === 6) && solidity > 0.86;
+  const isHexagon = (rdpCount === 6 || corners === 6) && solidity > 0.86 && ellipseDev > 0.07;
 
   const isNearlyRound = aspect >= 0.78 && aspect <= 1.28;
   const isCircle =
@@ -554,10 +554,10 @@ export function recognizeShape(
   const isEllipse =
     !isPentagon &&
     !isHexagon &&
-    solidity > 0.80 &&
+    solidity > 0.78 &&
     rotEllipseDev < 0.18 &&
-    (!isTiltedRect || rotEllipseDev < 0.13) &&
-    normRectDev >= 0.05;
+    (!isTiltedRect || rotEllipseDev < 0.10) &&
+    (normRectDev >= 0.03 || rotEllipseDev < 0.08);
 
   if (isEllipse) {
     return {
@@ -648,7 +648,7 @@ export function recognizeShape(
       (aspect > 2.2 && normRectDev < 0.15));
 
   if (isRectangle) {
-    const isSquare = aspect >= 0.82 && aspect <= 1.22;
+    const isSquare = aspect >= 0.78 && aspect <= 1.28;
     let finalW = isSquare ? Math.max(w, h) : w;
     let finalH = isSquare ? Math.max(w, h) : h;
     let finalX = isSquare ? cx - finalW / 2 : minX;
@@ -687,8 +687,10 @@ export function recognizeShape(
 
         const spanW = Math.max(10, rotMaxX - rotMinX);
         const spanH = Math.max(10, rotMaxY - rotMinY);
-        finalW = isSquare ? Math.max(spanW, spanH) : spanW;
-        finalH = isSquare ? Math.max(spanW, spanH) : spanH;
+        const rotAspect = spanW / (spanH || 1);
+        const isRotSquare = isSquare || (rotAspect >= 0.78 && rotAspect <= 1.28);
+        finalW = isRotSquare ? Math.max(spanW, spanH) : spanW;
+        finalH = isRotSquare ? Math.max(spanW, spanH) : spanH;
         finalX = cx - finalW / 2;
         finalY = cy - finalH / 2;
       }

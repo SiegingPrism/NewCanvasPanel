@@ -20,6 +20,7 @@ import type {
   TableObject,
   PeriodicTableObject,
   PageBackground,
+  ToolId,
 } from "@/lib/whiteboard/types";
 import {
   ALL_118_ELEMENTS,
@@ -28,6 +29,9 @@ import {
   type ChemicalElement,
 } from "@/lib/whiteboard/periodicTableData";
 import { recognizeShape, isPointInPolygon } from "@/lib/whiteboard/shapeRecognition";
+import { classifyPointerContact } from "@/lib/whiteboard/palmClassifier";
+import { SMART_BOARD_PROFILES } from "@/lib/whiteboard/smartBoardProfiles";
+import { snapPointToActiveGuides } from "@/lib/whiteboard/geometryGuides";
 import { useStrokeRecorderStore } from "@/lib/whiteboard/strokeRecorderStore";
 import { StrokeRecorderDialog } from "@/components/whiteboard/StrokeRecorderDialog";
 import {
@@ -60,9 +64,11 @@ import {
   Wand2,
   GitBranch,
   Languages,
+  Square,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { GenerateMindMapDialog } from "./GenerateMindMapDialog";
 import { AIEngine, aiErrorMessage } from "@/lib/ai/aiEngine";
 import { compileMathFunction } from "@/lib/whiteboard/safeMath";
 import type { MindMapNode } from "@/lib/ai/aiEngine";
@@ -70,17 +76,26 @@ import { renderMathSolutionCard } from "@/lib/whiteboard/renderMathSolutionImage
 import { formatLatexForDisplay } from "@/lib/whiteboard/mathTypesetting";
 import { InkChip, useHandwriting } from "./useHandwriting";
 import { FindOnBoard } from "./FindOnBoard";
-import { ensureHandwritingFont, fontStack, handwritingFontReady, handwritingScale, scriptFor } from "@/lib/ink/handwritingFonts";
+import {
+  ensureHandwritingFont,
+  fontStack,
+  handwritingFontReady,
+  handwritingScale,
+  isLatinText,
+  scriptFor,
+  textFontById,
+} from "@/lib/ink/handwritingFonts";
 import { findLanguage, useInk } from "@/lib/ink/recognizer";
 import { boundsOf, clusterIntoLines, textBoxForInk, typicalLetterHeight, unionRect } from "@/lib/ink/inkGeometry";
 
-import { registerCanvasSnapshotCapture } from "@/lib/whiteboard/canvasSnapshot";
+import { registerCanvasSnapshotCapture, registerPageRenderer } from "@/lib/whiteboard/canvasSnapshot";
 
 function uid() {
   return Math.random().toString(36).slice(2, 10);
 }
 
-type Handle = { type: "move" } | { type: "resize"; corner: "nw" | "ne" | "sw" | "se" };
+type ResizeDirection = "nw" | "ne" | "sw" | "se" | "n" | "s" | "e" | "w";
+type Handle = { type: "move" } | { type: "resize"; corner: ResizeDirection };
 
 export function WhiteboardCanvas({
   onOpenAI,
@@ -119,6 +134,9 @@ export function WhiteboardCanvas({
     recolorSelected,
     setCamera,
     pushHistory,
+    lockBoard,
+    panelSize,
+    boardMode,
   } = useWhiteboard();
 
   const page = pages.find((p) => p.id === activePageId) ||
@@ -195,6 +213,28 @@ export function WhiteboardCanvas({
     });
   }, [selectedId, selectedIds, page, camera]);
 
+  useEffect(() => {
+    return registerPageRenderer((targetPage, width = 1920, height = 1080) => {
+      const offscreen = document.createElement("canvas");
+      offscreen.width = width;
+      offscreen.height = height;
+      const offCtx = offscreen.getContext("2d");
+      if (!offCtx) return null;
+
+      try {
+        drawBackground(offCtx, width, height, targetPage.background);
+        drawMindMapLinks(offCtx, targetPage.objects);
+        for (const obj of targetPage.objects) {
+          drawObject(offCtx, obj, false);
+        }
+        return offscreen.toDataURL("image/jpeg", 0.9);
+      } catch (err) {
+        console.warn("[Slate] Page snapshot render failed:", err);
+        return null;
+      }
+    });
+  }, []);
+
   // Handwriting: live preview, write-to-type, scratch-out, searchable ink
   const handwriting = useHandwriting({
     getObjects: () => {
@@ -269,15 +309,27 @@ export function WhiteboardCanvas({
     setCamera({ x: 0, y: 0, zoom: 1 });
   };
 
-  // Drawing state
-  const drawingRef = useRef<{
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      (window as any).__useWhiteboard = useWhiteboard;
+    }
+  }, []);
+
+  // Drawing state & multi-pointer session isolation
+  interface DrawingSession {
+    pointerId: number;
     points: Point[];
     color: string;
+    size: number;
+    tool: ToolId;
     startedAt: number;
     lastMoveAt: number;
     holdTimer?: number;
     snappedShape?: Omit<ShapeStroke, "id"> | null;
-  } | null>(null);
+  }
+
+  const drawingRef = useRef<DrawingSession | null>(null);
+  const strokeSessionsRef = useRef<Map<number, DrawingSession>>(new Map());
 
   const laserRef = useRef<Point[]>([]);
   const panRef = useRef<{ x: number; y: number; cam: typeof camera } | null>(null);
@@ -286,19 +338,33 @@ export function WhiteboardCanvas({
     handle: Handle;
     start: Point;
     obj: CanvasObject;
+    origBounds?: { x: number; y: number; w: number; h: number };
+    hasMoved?: boolean;
   } | null>(null);
   const multiDragRef = useRef<{
     start: Point;
-    initialCamera: typeof camera;
+    handle: Handle;
+    initialBounds: { x: number; y: number; w: number; h: number };
+    initialObjs: CanvasObject[];
+    hasMoved?: boolean;
   } | null>(null);
 
   // Lasso polygon
   const lassoRef = useRef<Point[] | null>(null);
 
+  // Smart board long-press radial menu & lock
+  const radialTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pointerDownPosRef = useRef<{ x: number; y: number } | null>(null);
+  const lockBoardRef = useRef(lockBoard);
+  useEffect(() => {
+    lockBoardRef.current = lockBoard;
+  }, [lockBoard]);
+
   // Touch tracking for pinch-to-zoom & pan
   const touchMapRef = useRef<Map<number, { x: number; y: number }>>(new Map());
   const isPenActiveRef = useRef<boolean>(false);
   const wasPinchingRef = useRef<boolean>(false);
+  const ignoredPalmsRef = useRef<Set<number>>(new Set());
   const eraserSessionRef = useRef<{
     active: boolean;
     erasedAny: boolean;
@@ -310,6 +376,8 @@ export function WhiteboardCanvas({
   const [editingText, setEditingText] = useState<{ id: string } | null>(null);
   const [editingTextValue, setEditingTextValue] = useState<string>("");
   const [recolorPickerOpen, setRecolorPickerOpen] = useState(false);
+  const [mindMapDialogOpen, setMindMapDialogOpen] = useState(false);
+  const [mindMapDialogTopic, setMindMapDialogTopic] = useState("");
 
   // Focus textarea when text editing starts
   useEffect(() => {
@@ -788,8 +856,18 @@ export function WhiteboardCanvas({
     let startCenter = { x: 0, y: 0 };
     let isPinching = false;
 
+    const getNonPalmTouches = (touches: TouchList) => {
+      const palmThreshold = SMART_BOARD_PROFILES[panelSize]?.contactPalmMinPx || 95;
+      return Array.from(touches).filter((t: any) => {
+        const r = Math.max(t.radiusX || 0, t.radiusY || 0);
+        return r === 0 || (2 * r) < palmThreshold;
+      });
+    };
+
     const onTouchStart = (e: TouchEvent) => {
-      if (e.touches.length >= 2) {
+      if (lockBoardRef.current) return;
+      const validTouches = getNonPalmTouches(e.touches);
+      if (validTouches.length >= 2) {
         isPinching = true;
         wasPinchingRef.current = true;
         if (drawingRef.current) {
@@ -797,8 +875,14 @@ export function WhiteboardCanvas({
           drawingRef.current = null;
           clearOverlay();
         }
-        const t1 = e.touches[0];
-        const t2 = e.touches[1];
+        if (strokeSessionsRef.current.size > 0) {
+          strokeSessionsRef.current.forEach((s) => {
+            if (s.holdTimer) clearTimeout(s.holdTimer);
+          });
+          strokeSessionsRef.current.clear();
+        }
+        const t1 = validTouches[0];
+        const t2 = validTouches[1];
         startDist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
         startZoom = cameraRef.current.zoom;
         startCam = { ...cameraRef.current };
@@ -810,7 +894,9 @@ export function WhiteboardCanvas({
     };
 
     const onTouchMove = (e: TouchEvent) => {
-      if (e.touches.length >= 2) {
+      if (lockBoardRef.current) return;
+      const validTouches = getNonPalmTouches(e.touches);
+      if (validTouches.length >= 2) {
         if (!isPinching || startDist === 0) {
           isPinching = true;
           wasPinchingRef.current = true;
@@ -819,8 +905,14 @@ export function WhiteboardCanvas({
             drawingRef.current = null;
             clearOverlay();
           }
-          const t1 = e.touches[0];
-          const t2 = e.touches[1];
+          if (strokeSessionsRef.current.size > 0) {
+            strokeSessionsRef.current.forEach((s) => {
+              if (s.holdTimer) clearTimeout(s.holdTimer);
+            });
+            strokeSessionsRef.current.clear();
+          }
+          const t1 = validTouches[0];
+          const t2 = validTouches[1];
           startDist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
           startZoom = cameraRef.current.zoom;
           startCam = { ...cameraRef.current };
@@ -832,8 +924,8 @@ export function WhiteboardCanvas({
         }
 
         if (e.cancelable) e.preventDefault();
-        const t1 = e.touches[0];
-        const t2 = e.touches[1];
+        const t1 = validTouches[0];
+        const t2 = validTouches[1];
         const curDist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
         if (curDist < 4 || startDist < 4) return;
         const curCenter = {
@@ -860,7 +952,8 @@ export function WhiteboardCanvas({
 
     const onTouchEnd = (e: TouchEvent) => {
       flushCameraUpdate();
-      if (e.touches.length < 2) {
+      const validTouches = getNonPalmTouches(e.touches);
+      if (validTouches.length < 2) {
         isPinching = false;
         startDist = 0;
         setTimeout(() => {
@@ -1039,6 +1132,8 @@ export function WhiteboardCanvas({
     const objectsToDraw = eraserSessionRef.current?.active
       ? eraserSessionRef.current.objects
       : page.objects;
+    // Mind-map lines go underneath all nodes so they never cover a block's text
+    drawMindMapLinks(ctx, objectsToDraw);
     for (const obj of objectsToDraw) {
       if (selectedSet.has(obj.id) || isObjectInViewport(obj, viewLeft, viewTop, viewRight, viewBottom)) {
         drawObject(ctx, obj, selectedSet.has(obj.id));
@@ -1216,6 +1311,102 @@ export function WhiteboardCanvas({
         ctx.lineTo(w, y - w * tan30);
         ctx.stroke();
       }
+    } else if (bg === "four-line") {
+      // Primary 4-line notebook ruling (Red, Blue, Blue, Red)
+      const bandHeight = 72 * camera.zoom;
+      const lineGap = bandHeight / 3;
+      const totalBand = bandHeight + 36 * camera.zoom;
+      const oy = camera.y % totalBand;
+
+      for (let y = oy; y < h + totalBand; y += totalBand) {
+        // Line 1: Top Red
+        ctx.strokeStyle = "#f87171";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(w, y);
+        ctx.stroke();
+
+        // Line 2: Middle Blue
+        ctx.strokeStyle = "#60a5fa";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, y + lineGap);
+        ctx.lineTo(w, y + lineGap);
+        ctx.stroke();
+
+        // Line 3: Middle Blue
+        ctx.beginPath();
+        ctx.moveTo(0, y + lineGap * 2);
+        ctx.lineTo(w, y + lineGap * 2);
+        ctx.stroke();
+
+        // Line 4: Bottom Red
+        ctx.strokeStyle = "#f87171";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(0, y + lineGap * 3);
+        ctx.lineTo(w, y + lineGap * 3);
+        ctx.stroke();
+      }
+    } else if (bg === "music-staves") {
+      // 5-line musical staves
+      const staffHeight = 48 * camera.zoom;
+      const lineStep = staffHeight / 4;
+      const totalStaff = staffHeight + 54 * camera.zoom;
+      const oy = camera.y % totalStaff;
+
+      ctx.strokeStyle = "#334155";
+      ctx.lineWidth = 1;
+      for (let y = oy; y < h + totalStaff; y += totalStaff) {
+        ctx.beginPath();
+        for (let i = 0; i < 5; i++) {
+          const ly = y + i * lineStep;
+          ctx.moveTo(0, ly);
+          ctx.lineTo(w, ly);
+        }
+        ctx.stroke();
+      }
+    } else if (bg === "millimeter-graph") {
+      // Engineering millimeter paper
+      const smallStep = 8 * camera.zoom;
+      const medStep = 40 * camera.zoom;
+      const bigStep = 80 * camera.zoom;
+
+      if (smallStep >= 4) {
+        ctx.strokeStyle = "#dcfce7";
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        for (let x = camera.x % smallStep; x < w; x += smallStep) {
+          ctx.moveTo(x, 0); ctx.lineTo(x, h);
+        }
+        for (let y = camera.y % smallStep; y < h; y += smallStep) {
+          ctx.moveTo(0, y); ctx.lineTo(w, y);
+        }
+        ctx.stroke();
+      }
+
+      ctx.strokeStyle = "#86efac";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let x = camera.x % medStep; x < w; x += medStep) {
+        ctx.moveTo(x, 0); ctx.lineTo(x, h);
+      }
+      for (let y = camera.y % medStep; y < h; y += medStep) {
+        ctx.moveTo(0, y); ctx.lineTo(w, y);
+      }
+      ctx.stroke();
+
+      ctx.strokeStyle = "#22c55e";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      for (let x = camera.x % bigStep; x < w; x += bigStep) {
+        ctx.moveTo(x, 0); ctx.lineTo(x, h);
+      }
+      for (let y = camera.y % bigStep; y < h; y += bigStep) {
+        ctx.moveTo(0, y); ctx.lineTo(w, y);
+      }
+      ctx.stroke();
     }
   }
 
@@ -3594,27 +3785,118 @@ export function WhiteboardCanvas({
     ctx.restore();
   }
 
-  function drawMindMapNode(ctx: CanvasRenderingContext2D, o: MindMapNodeObject) {
-    ctx.save();
-    if (o.parentId) {
-      const parent = page.objects.find((x) => x.id === o.parentId && "x" in x) as
-        | MindMapNodeObject
-        | undefined;
-      if (parent) {
-        ctx.strokeStyle = o.color || "#6366f1";
-        ctx.lineWidth = Math.max(1.5, 3.5 - o.level * 0.8);
-        ctx.beginPath();
-        const px = parent.x + (parent.w ?? 0) / 2;
-        const py = parent.y + (parent.h ?? 0) / 2;
-        const cx = o.x + o.w / 2;
-        const cy = o.y + o.h / 2;
-        ctx.moveTo(px, py);
-        const midX = (px + cx) / 2;
-        ctx.bezierCurveTo(midX, py, midX, cy, cx, cy);
-        ctx.stroke();
+  /** Point where the ray from a box's centre towards (tx, ty) leaves the box. */
+  function boxExit(b: { x: number; y: number; w: number; h: number }, tx: number, ty: number) {
+    const cx = b.x + b.w / 2;
+    const cy = b.y + b.h / 2;
+    const dx = tx - cx;
+    const dy = ty - cy;
+    if (!dx && !dy) return { x: cx, y: cy };
+    const t = Math.min(dx ? b.w / 2 / Math.abs(dx) : Infinity, dy ? b.h / 2 / Math.abs(dy) : Infinity);
+    return { x: cx + dx * t, y: cy + dy * t };
+  }
+
+  /**
+   * Discovers all nodes in the connected flowchart or mind-map tree containing the given node.
+   */
+  function getConnectedFlowchartNodes(target: CanvasObject, objects: CanvasObject[]): CanvasObject[] {
+    if (target.kind === "mindmap-node") {
+      const mmNodes = objects.filter((o): o is MindMapNodeObject => o.kind === "mindmap-node");
+      const adj = new Map<string, string[]>();
+      for (const n of mmNodes) {
+        if (!adj.has(n.id)) adj.set(n.id, []);
+        if (n.parentId) {
+          if (!adj.has(n.parentId)) adj.set(n.parentId, []);
+          adj.get(n.id)!.push(n.parentId);
+          adj.get(n.parentId)!.push(n.id);
+        }
       }
+      const visited = new Set<string>();
+      const queue = [target.id];
+      visited.add(target.id);
+      while (queue.length > 0) {
+        const curr = queue.shift()!;
+        const neighbors = adj.get(curr) || [];
+        for (const nxt of neighbors) {
+          if (!visited.has(nxt)) {
+            visited.add(nxt);
+            queue.push(nxt);
+          }
+        }
+      }
+      return mmNodes.filter((o) => visited.has(o.id));
     }
 
+    if (target.kind === "diagram-node") {
+      const diagNodes = objects.filter((o): o is DiagramNodeObject => o.kind === "diagram-node");
+      const adj = new Map<string, string[]>();
+      for (const n of diagNodes) {
+        if (!adj.has(n.id)) adj.set(n.id, []);
+        if (n.connectedTo && Array.isArray(n.connectedTo)) {
+          for (const tid of n.connectedTo) {
+            if (!adj.has(tid)) adj.set(tid, []);
+            adj.get(n.id)!.push(tid);
+            adj.get(tid)!.push(n.id);
+          }
+        }
+      }
+      const visited = new Set<string>();
+      const queue = [target.id];
+      visited.add(target.id);
+      while (queue.length > 0) {
+        const curr = queue.shift()!;
+        const neighbors = adj.get(curr) || [];
+        for (const nxt of neighbors) {
+          if (!visited.has(nxt)) {
+            visited.add(nxt);
+            queue.push(nxt);
+          }
+        }
+      }
+      return diagNodes.filter((o) => visited.has(o.id));
+    }
+
+    return [target];
+  }
+
+  /**
+   * Mind-map branch lines, drawn in one pass beneath every node. Each line runs
+   * edge-to-edge between the two blocks (never through them), so labels stay readable.
+   */
+  function drawMindMapLinks(ctx: CanvasRenderingContext2D, objects: CanvasObject[]) {
+    const nodes = new Map<string, MindMapNodeObject>();
+    for (const o of objects) if (o.kind === "mindmap-node") nodes.set(o.id, o);
+    if (!nodes.size) return;
+    ctx.save();
+    ctx.lineCap = "round";
+    for (const o of nodes.values()) {
+      const parent = o.parentId ? nodes.get(o.parentId) : undefined;
+      if (!parent) continue;
+      const pc = { x: parent.x + parent.w / 2, y: parent.y + parent.h / 2 };
+      const oc = { x: o.x + o.w / 2, y: o.y + o.h / 2 };
+      const a = boxExit(parent, oc.x, oc.y);
+      const b = boxExit(o, pc.x, pc.y);
+      // Skip when the blocks overlap (no gap to draw in)
+      if ((b.x - a.x) * (oc.x - pc.x) + (b.y - a.y) * (oc.y - pc.y) <= 0) continue;
+      ctx.strokeStyle = o.color || "#6366f1";
+      ctx.lineWidth = Math.max(1.5, 3.5 - o.level * 0.8);
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      // Gentle S-curve along the main direction of travel
+      if (Math.abs(b.x - a.x) >= Math.abs(b.y - a.y)) {
+        const midX = (a.x + b.x) / 2;
+        ctx.bezierCurveTo(midX, a.y, midX, b.y, b.x, b.y);
+      } else {
+        const midY = (a.y + b.y) / 2;
+        ctx.bezierCurveTo(a.x, midY, b.x, midY, b.x, b.y);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawMindMapNode(ctx: CanvasRenderingContext2D, o: MindMapNodeObject) {
+    ctx.save();
     ctx.fillStyle = o.level === 0 ? o.color : "#ffffff";
     ctx.strokeStyle = o.color;
     ctx.lineWidth = o.level === 0 ? 3 : 2;
@@ -3626,10 +3908,30 @@ export function WhiteboardCanvas({
     ctx.shadowColor = "transparent";
 
     ctx.fillStyle = o.level === 0 ? "#ffffff" : "#0f172a";
-    ctx.font = o.level === 0 ? "bold 13px system-ui, sans-serif" : "500 12px system-ui, sans-serif";
+    // Keep the label inside its block: shrink a little, then wrap onto more lines
+    const weight = o.level === 0 ? "bold" : "500";
+    const maxW = Math.max(10, o.w - Math.min(24, o.h * 0.6));
+    let size = o.level === 0 ? 13 : 12;
+    ctx.font = `${weight} ${size}px system-ui, sans-serif`;
+    while (size > 9 && ctx.measureText(o.label).width > maxW) {
+      size -= 1;
+      ctx.font = `${weight} ${size}px system-ui, sans-serif`;
+    }
+    let lines = ctx.measureText(o.label).width > maxW ? wrapText(ctx, o.label, maxW) : [o.label];
+    const lineH = size * 1.2;
+    const maxLines = Math.max(1, Math.floor((o.h - 6) / lineH));
+    if (lines.length > maxLines) {
+      lines = lines.slice(0, maxLines);
+      lines[maxLines - 1] = lines[maxLines - 1].replace(/\s*\S?$/, "") + "…";
+    }
+    ctx.save();
+    roundRect(ctx, o.x, o.y, o.w, o.h, o.h / 2);
+    ctx.clip();
     ctx.textAlign = "center";
-    ctx.fillText(o.label, o.x + o.w / 2, o.y + o.h / 2 + 4);
-    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    const top = o.y + o.h / 2 - ((lines.length - 1) * lineH) / 2;
+    lines.forEach((line, i) => ctx.fillText(line, o.x + o.w / 2, top + i * lineH));
+    ctx.restore();
     ctx.restore();
   }
 
@@ -4335,15 +4637,25 @@ export function WhiteboardCanvas({
     ctx.setLineDash([6 / camera.zoom, 4 / camera.zoom]);
     ctx.strokeRect(b.x, b.y, b.w, b.h);
     ctx.setLineDash([]);
-    // Corner handles
-    const handleSize = 8 / camera.zoom;
+
+    // Corner and edge midpoint handles
+    const handleSize = Math.max(7, 9 / camera.zoom);
     ctx.fillStyle = "#ffffff";
-    for (const [cx, cy] of [
+    ctx.strokeStyle = "#2563eb";
+    ctx.lineWidth = 1.5 / camera.zoom;
+    const handles: Array<[number, number]> = [
+      // Corners
       [b.x, b.y],
       [b.x + b.w, b.y],
       [b.x, b.y + b.h],
       [b.x + b.w, b.y + b.h],
-    ] as const) {
+      // Edge midpoints
+      [b.x + b.w / 2, b.y],
+      [b.x + b.w / 2, b.y + b.h],
+      [b.x, b.y + b.h / 2],
+      [b.x + b.w, b.y + b.h / 2],
+    ];
+    for (const [cx, cy] of handles) {
       ctx.fillRect(cx - handleSize / 2, cy - handleSize / 2, handleSize, handleSize);
       ctx.strokeRect(cx - handleSize / 2, cy - handleSize / 2, handleSize, handleSize);
     }
@@ -4357,6 +4669,7 @@ export function WhiteboardCanvas({
     const minY = Math.min(...boxes.map((b) => b.y));
     const maxX = Math.max(...boxes.map((b) => b.x + b.w));
     const maxY = Math.max(...boxes.map((b) => b.y + b.h));
+    const b = { x: minX - 6, y: minY - 6, w: maxX - minX + 12, h: maxY - minY + 12 };
 
     ctx.save();
     ctx.translate(camera.x, camera.y);
@@ -4364,9 +4677,30 @@ export function WhiteboardCanvas({
     ctx.strokeStyle = "#6366f1";
     ctx.lineWidth = 2 / camera.zoom;
     ctx.setLineDash([8 / camera.zoom, 4 / camera.zoom]);
-    ctx.strokeRect(minX - 6, minY - 6, maxX - minX + 12, maxY - minY + 12);
+    ctx.strokeRect(b.x, b.y, b.w, b.h);
     ctx.fillStyle = "rgba(99, 102, 241, 0.06)";
-    ctx.fillRect(minX - 6, minY - 6, maxX - minX + 12, maxY - minY + 12);
+    ctx.fillRect(b.x, b.y, b.w, b.h);
+    ctx.setLineDash([]);
+
+    // Multi-selection resize handles
+    const handleSize = Math.max(7, 9 / camera.zoom);
+    ctx.fillStyle = "#ffffff";
+    ctx.strokeStyle = "#6366f1";
+    ctx.lineWidth = 1.5 / camera.zoom;
+    const handles: Array<[number, number]> = [
+      [b.x, b.y],
+      [b.x + b.w, b.y],
+      [b.x, b.y + b.h],
+      [b.x + b.w, b.y + b.h],
+      [b.x + b.w / 2, b.y],
+      [b.x + b.w / 2, b.y + b.h],
+      [b.x, b.y + b.h / 2],
+      [b.x + b.w, b.y + b.h / 2],
+    ];
+    for (const [cx, cy] of handles) {
+      ctx.fillRect(cx - handleSize / 2, cy - handleSize / 2, handleSize, handleSize);
+      ctx.strokeRect(cx - handleSize / 2, cy - handleSize / 2, handleSize, handleSize);
+    }
     ctx.restore();
   }
 
@@ -4384,62 +4718,156 @@ export function WhiteboardCanvas({
   }
 
   function hitTest(pt: Point): CanvasObject | null {
+    const pad = 12 / camera.zoom;
     for (let i = page.objects.length - 1; i >= 0; i--) {
       const obj = page.objects[i];
       const b = objectBounds(obj);
-      if (pt.x >= b.x && pt.x <= b.x + b.w && pt.y >= b.y && pt.y <= b.y + b.h) {
+      if (
+        pt.x >= b.x - pad &&
+        pt.x <= b.x + b.w + pad &&
+        pt.y >= b.y - pad &&
+        pt.y <= b.y + b.h + pad
+      ) {
         return obj;
       }
     }
     return null;
   }
 
-  function getHandleAt(pt: Point, obj: CanvasObject): Handle {
-    const b = objectBounds(obj);
-    const h = 12 / camera.zoom;
-    const corners: Array<[number, number, "nw" | "ne" | "sw" | "se"]> = [
+  function getHandleAt(
+    pt: Point,
+    boundsOrObj: CanvasObject | { x: number; y: number; w: number; h: number },
+  ): Handle | null {
+    const b = "kind" in boundsOrObj ? objectBounds(boundsOrObj as CanvasObject) : boundsOrObj;
+    // Generous touch and pointer tolerances in screen pixels
+    const hitRadius = 22 / camera.zoom;
+    const edgeRadius = 14 / camera.zoom;
+
+    // Inside the box, only a thin outer band resizes (at most a fifth of each side),
+    // so small objects — a line of text, a mind-map block — can still be grabbed and moved.
+    if (pt.x > b.x && pt.x < b.x + b.w && pt.y > b.y && pt.y < b.y + b.h) {
+      const bandX = Math.min(edgeRadius, b.w * 0.2);
+      const bandY = Math.min(edgeRadius, b.h * 0.2);
+      const l = pt.x - b.x <= bandX;
+      const r = b.x + b.w - pt.x <= bandX;
+      const t = pt.y - b.y <= bandY;
+      const btm = b.y + b.h - pt.y <= bandY;
+      if (t && l) return { type: "resize", corner: "nw" };
+      if (t && r) return { type: "resize", corner: "ne" };
+      if (btm && l) return { type: "resize", corner: "sw" };
+      if (btm && r) return { type: "resize", corner: "se" };
+      if (t) return { type: "resize", corner: "n" };
+      if (btm) return { type: "resize", corner: "s" };
+      if (l) return { type: "resize", corner: "w" };
+      if (r) return { type: "resize", corner: "e" };
+      return { type: "move" };
+    }
+
+    // 1. Corners (highest precedence)
+    const corners: Array<[number, number, ResizeDirection]> = [
       [b.x, b.y, "nw"],
       [b.x + b.w, b.y, "ne"],
       [b.x, b.y + b.h, "sw"],
       [b.x + b.w, b.y + b.h, "se"],
     ];
     for (const [cx, cy, corner] of corners) {
-      if (Math.abs(pt.x - cx) < h && Math.abs(pt.y - cy) < h) return { type: "resize", corner };
+      if (Math.hypot(pt.x - cx, pt.y - cy) <= hitRadius) return { type: "resize", corner };
     }
-    return { type: "move" };
+
+    // 2. Edge midpoints
+    const midpoints: Array<[number, number, ResizeDirection]> = [
+      [b.x + b.w / 2, b.y, "n"],
+      [b.x + b.w / 2, b.y + b.h, "s"],
+      [b.x, b.y + b.h / 2, "w"],
+      [b.x + b.w, b.y + b.h / 2, "e"],
+    ];
+    for (const [cx, cy, corner] of midpoints) {
+      if (Math.hypot(pt.x - cx, pt.y - cy) <= hitRadius) return { type: "resize", corner };
+    }
+
+    // 3. Border edges (drag box border directly to resize)
+    if (
+      Math.abs(pt.y - b.y) <= edgeRadius &&
+      pt.x >= b.x - edgeRadius &&
+      pt.x <= b.x + b.w + edgeRadius
+    ) {
+      return { type: "resize", corner: "n" };
+    }
+    if (
+      Math.abs(pt.y - (b.y + b.h)) <= edgeRadius &&
+      pt.x >= b.x - edgeRadius &&
+      pt.x <= b.x + b.w + edgeRadius
+    ) {
+      return { type: "resize", corner: "s" };
+    }
+    if (
+      Math.abs(pt.x - b.x) <= edgeRadius &&
+      pt.y >= b.y - edgeRadius &&
+      pt.y <= b.y + b.h + edgeRadius
+    ) {
+      return { type: "resize", corner: "w" };
+    }
+    if (
+      Math.abs(pt.x - (b.x + b.w)) <= edgeRadius &&
+      pt.y >= b.y - edgeRadius &&
+      pt.y <= b.y + b.h + edgeRadius
+    ) {
+      return { type: "resize", corner: "e" };
+    }
+
+    // 4. Inside the bounding box -> move
+    if (pt.x >= b.x && pt.x <= b.x + b.w && pt.y >= b.y && pt.y <= b.y + b.h) {
+      return { type: "move" };
+    }
+
+    return null;
   }
 
   // ---- Pointer events with Stylus Palm Rejection & Multi-touch ----
   function onPointerDown(e: React.PointerEvent<HTMLCanvasElement>) {
     if (wasPinchingRef.current) return;
 
-    // Palm Rejection: If user is using a stylus, ignore touch events!
+    // Contact Size Palm Rejection (Phase 0 Fix)
+    const contact = classifyPointerContact(e, panelSize);
+    if (contact.classification === "palm") {
+      // Ignored: contact size corresponds to resting palm or wrist
+      ignoredPalmsRef.current.add(e.pointerId);
+      return;
+    }
+
+    // Stylus Exclusivity (when active pen is present)
     if (e.pointerType === "pen") {
       isPenActiveRef.current = true;
     } else if (e.pointerType === "touch" && isPenActiveRef.current) {
+      ignoredPalmsRef.current.add(e.pointerId);
       return;
     }
 
     touchMapRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
     // Multi-touch pinch-to-zoom check (2 or more fingers)
-    if (touchMapRef.current.size >= 2) {
+    // When lockBoard is enabled, skip pinch-to-zoom to preserve simultaneous writing
+    if (!lockBoardRef.current && touchMapRef.current.size >= 2) {
       wasPinchingRef.current = true;
       if (drawingRef.current) {
         if (drawingRef.current.holdTimer) clearTimeout(drawingRef.current.holdTimer);
         drawingRef.current = null;
         clearOverlay();
       }
+      if (strokeSessionsRef.current.size > 0) {
+        strokeSessionsRef.current.forEach((s) => {
+          if (s.holdTimer) clearTimeout(s.holdTimer);
+        });
+        strokeSessionsRef.current.clear();
+      }
       return;
     }
 
-    // Only set pointer capture for mouse or stylus. NEVER capture touch pointer!
-    if (e.pointerType !== "touch") {
-      try {
-        (e.target as HTMLElement).setPointerCapture(e.pointerId);
-      } catch {
-        // Pointer capture can fail if pointer is released or unsupported; safely ignore.
-      }
+    // Capture all pointer types on canvas for stroke continuity
+    try {
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      // Pointer capture can fail if pointer is released or unsupported; safely ignore.
     }
 
     const rect = canvasRef.current!.getBoundingClientRect();
@@ -4447,6 +4875,50 @@ export function WhiteboardCanvas({
     const sy = e.clientY - rect.top;
     const w = toWorld(sx, sy);
     const ptWithMeta: Point = { x: w.x, y: w.y, p: e.pressure || 0.5, t: Date.now() };
+
+    // Smart Board Fist Eraser (Phase 0 Fix)
+    if (contact.classification === "fist") {
+      const eraseR = Math.max(35, contact.eraserRadiusPx / camera.zoom);
+      const initialObjs: CanvasObject[] = [];
+      let touched = false;
+      for (const obj of page.objects) {
+        if ("points" in obj && Array.isArray((obj as any).points)) {
+          const segs = splitStrokeAlongSegment((obj as any).points, w, w, eraseR);
+          if (segs.length === 1 && segs[0].length === (obj as any).points.length) {
+            initialObjs.push(obj);
+          } else {
+            touched = true;
+            if (segs.length > 0) {
+              initialObjs.push({ ...obj, points: segs[0] } as CanvasObject);
+              for (let i = 1; i < segs.length; i++) {
+                initialObjs.push({ ...obj, id: uid(), points: segs[i] } as CanvasObject);
+              }
+            }
+          }
+        } else {
+          initialObjs.push(obj);
+        }
+      }
+      eraserSessionRef.current = {
+        active: true,
+        erasedAny: touched,
+        objects: initialObjs,
+        lastWorld: w,
+      };
+      if (touched) redraw();
+      return;
+    }
+
+    // Long-press timer for Radial Menu
+    pointerDownPosRef.current = { x: e.clientX, y: e.clientY };
+    if (radialTimerRef.current) clearTimeout(radialTimerRef.current);
+    radialTimerRef.current = setTimeout(() => {
+      window.dispatchEvent(
+        new CustomEvent("slate:open-radial-menu", {
+          detail: { x: e.clientX, y: e.clientY },
+        })
+      );
+    }, 550);
 
     // If currently editing text and clicked outside, close editor and commit text
     if (editingText) {
@@ -4488,20 +4960,42 @@ export function WhiteboardCanvas({
 
     // Select Tool
     if (tool === "select") {
-      // Check multi-selection bounding box hit first
+      // 1. Check multi-selection handles and bounding box first
       const multiBounds = getMultiSelectionBounds();
-      if (
-        multiBounds &&
-        selectedIds.length > 1 &&
-        w.x >= multiBounds.x &&
-        w.x <= multiBounds.x + multiBounds.w &&
-        w.y >= multiBounds.y &&
-        w.y <= multiBounds.y + multiBounds.h
-      ) {
-        multiDragRef.current = { start: w, initialCamera: { ...camera } };
-        return;
+      if (multiBounds && selectedIds.length > 1) {
+        const handle = getHandleAt(w, multiBounds);
+        if (handle) {
+          const selectedObjs = page.objects.filter((o) => selectedIds.includes(o.id));
+          multiDragRef.current = {
+            start: w,
+            handle,
+            initialBounds: multiBounds,
+            initialObjs: structuredClone(selectedObjs),
+          };
+          return;
+        }
       }
 
+      // 2. If a single object is already selected, check if user tapped its handles, borders, or body first
+      if (selectedId && (!selectedIds.length || selectedIds.length === 1)) {
+        const targetId = selectedId || selectedIds[0];
+        const curObj = page.objects.find((o) => o.id === targetId);
+        if (curObj) {
+          const handle = getHandleAt(w, curObj);
+          if (handle) {
+            dragRef.current = {
+              id: curObj.id,
+              handle,
+              start: w,
+              obj: structuredClone(curObj),
+              origBounds: objectBounds(curObj),
+            };
+            return;
+          }
+        }
+      }
+
+      // 3. Hit-test all objects on canvas
       const hit = hitTest(w);
       if (hit) {
         if (hit.kind === "periodic-table") {
@@ -4511,25 +5005,24 @@ export function WhiteboardCanvas({
               new CustomEvent("slate:inspect-element", { detail: { number: clickedEl.number } })
             );
           }
-          const handle = selectedId === hit.id ? getHandleAt(w, hit) : { type: "move" as const };
-          setSelected(hit.id);
-          dragRef.current = { id: hit.id, handle, start: w, obj: structuredClone(hit) };
-          return;
         }
         if (hit.kind === "tape") {
           toggleTapeReveal(hit.id);
           setSelected(hit.id);
           return;
         }
-        if (hit.kind === "text") {
-          setEditingText({ id: hit.id });
-          setEditingTextValue(hit.text);
-          setSelected(hit.id);
-          return;
-        }
-        const handle = selectedId === hit.id ? getHandleAt(w, hit) : { type: "move" as const };
+
+        // Single click selects the object (including text) without immediately opening editing.
+        // Double clicking/tapping or clicking "Edit Text" in the selection toolbar opens editor.
         setSelected(hit.id);
-        dragRef.current = { id: hit.id, handle, start: w, obj: structuredClone(hit) };
+        const handle: Handle = { type: "move" };
+        dragRef.current = {
+          id: hit.id,
+          handle,
+          start: w,
+          obj: structuredClone(hit),
+          origBounds: objectBounds(hit),
+        };
       } else {
         setSelected(null);
         setSelectedIds([]);
@@ -4628,15 +5121,19 @@ export function WhiteboardCanvas({
     }
 
     // Drawing tools
-    const drawingSession = {
+    const drawingSession: DrawingSession = {
+      pointerId: e.pointerId,
       points: [ptWithMeta],
       color,
+      size,
+      tool,
       startedAt: Date.now(),
       lastMoveAt: Date.now(),
       snappedShape: null,
-      holdTimer: undefined as number | undefined,
+      holdTimer: undefined,
     };
     drawingRef.current = drawingSession;
+    strokeSessionsRef.current.set(e.pointerId, drawingSession);
     handwriting.penDown();
 
     if (tool === "laser") laserRef.current = [ptWithMeta];
@@ -4644,8 +5141,37 @@ export function WhiteboardCanvas({
 
   function onPointerMove(e: React.PointerEvent<HTMLCanvasElement>) {
     if (wasPinchingRef.current) return;
+    if (ignoredPalmsRef.current.has(e.pointerId)) return;
     if (e.pointerType === "touch" && isPenActiveRef.current) return;
-    if (e.pointerType === "touch" && touchMapRef.current.size >= 2) return;
+    if (!lockBoardRef.current && e.pointerType === "touch" && touchMapRef.current.size >= 2) return;
+
+    // Dynamic palm rejection during drag in case a touch expanded into a resting palm
+    const contact = classifyPointerContact(e, panelSize);
+    if (contact.classification === "palm") {
+      ignoredPalmsRef.current.add(e.pointerId);
+      touchMapRef.current.delete(e.pointerId);
+      if (strokeSessionsRef.current.has(e.pointerId)) {
+        const sess = strokeSessionsRef.current.get(e.pointerId);
+        if (sess?.holdTimer) clearTimeout(sess.holdTimer);
+        strokeSessionsRef.current.delete(e.pointerId);
+        if (strokeSessionsRef.current.size === 0) {
+          drawingRef.current = null;
+          clearOverlay();
+        } else {
+          drawLive();
+        }
+      }
+      return;
+    }
+
+    // Cancel radial menu long-press if hand moved
+    if (radialTimerRef.current && pointerDownPosRef.current) {
+      const dist = Math.hypot(e.clientX - pointerDownPosRef.current.x, e.clientY - pointerDownPosRef.current.y);
+      if (dist > 12) {
+        clearTimeout(radialTimerRef.current);
+        radialTimerRef.current = null;
+      }
+    }
 
     touchMapRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
@@ -4654,6 +5180,39 @@ export function WhiteboardCanvas({
     const sy = e.clientY - rect.top;
     const w = toWorld(sx, sy);
     const ptWithMeta: Point = { x: w.x, y: w.y, p: e.pressure || 0.5, t: Date.now() };
+
+    // Smart Board Fist Eraser (drag phase)
+    if (contact.classification === "fist" && eraserSessionRef.current?.active) {
+      const eraseR = Math.max(35, contact.eraserRadiusPx / camera.zoom);
+      const currentObjs = eraserSessionRef.current.objects;
+      const nextObjs: CanvasObject[] = [];
+      let touched = false;
+      for (const obj of currentObjs) {
+        if ("points" in obj && Array.isArray((obj as any).points)) {
+          const segs = splitStrokeAlongSegment((obj as any).points, eraserSessionRef.current.lastWorld, w, eraseR);
+          if (segs.length === 1 && segs[0].length === (obj as any).points.length) {
+            nextObjs.push(obj);
+          } else {
+            touched = true;
+            if (segs.length > 0) {
+              nextObjs.push({ ...obj, points: segs[0] } as CanvasObject);
+              for (let i = 1; i < segs.length; i++) {
+                nextObjs.push({ ...obj, id: uid(), points: segs[i] } as CanvasObject);
+              }
+            }
+          }
+        } else {
+          nextObjs.push(obj);
+        }
+      }
+      eraserSessionRef.current.objects = nextObjs;
+      eraserSessionRef.current.lastWorld = w;
+      if (touched) {
+        eraserSessionRef.current.erasedAny = true;
+        redraw();
+      }
+      return;
+    }
 
     if (panRef.current) {
       applyCameraThrottled({
@@ -4664,11 +5223,142 @@ export function WhiteboardCanvas({
       return;
     }
 
+    if (tool === "select" && canvasRef.current && !drawingRef.current) {
+      let desiredCursor = "default";
+      if (dragRef.current) {
+        if (dragRef.current.handle.type === "resize") {
+          const c = dragRef.current.handle.corner;
+          if (c === "nw" || c === "se") desiredCursor = "nwse-resize";
+          else if (c === "ne" || c === "sw") desiredCursor = "nesw-resize";
+          else if (c === "n" || c === "s") desiredCursor = "ns-resize";
+          else if (c === "e" || c === "w") desiredCursor = "ew-resize";
+        } else {
+          desiredCursor = "move";
+        }
+      } else if (multiDragRef.current) {
+        if (multiDragRef.current.handle.type === "resize") {
+          const c = multiDragRef.current.handle.corner;
+          if (c === "nw" || c === "se") desiredCursor = "nwse-resize";
+          else if (c === "ne" || c === "sw") desiredCursor = "nesw-resize";
+          else if (c === "n" || c === "s") desiredCursor = "ns-resize";
+          else if (c === "e" || c === "w") desiredCursor = "ew-resize";
+        } else {
+          desiredCursor = "move";
+        }
+      } else {
+        const multiBounds = getMultiSelectionBounds();
+        let h: Handle | null = null;
+        if (multiBounds && selectedIds.length > 1) {
+          h = getHandleAt(w, multiBounds);
+        } else if (selectedId && (!selectedIds.length || selectedIds.length === 1)) {
+          const curObj = page.objects.find((o) => o.id === (selectedId || selectedIds[0]));
+          if (curObj) h = getHandleAt(w, curObj);
+        }
+        if (h) {
+          if (h.type === "resize" && h.corner) {
+            const c = h.corner;
+            if (c === "nw" || c === "se") desiredCursor = "nwse-resize";
+            else if (c === "ne" || c === "sw") desiredCursor = "nesw-resize";
+            else if (c === "n" || c === "s") desiredCursor = "ns-resize";
+            else if (c === "e" || c === "w") desiredCursor = "ew-resize";
+          } else if (h.type === "move") {
+            desiredCursor = "move";
+          }
+        }
+      }
+      if (canvasRef.current.style.cursor !== desiredCursor) {
+        canvasRef.current.style.cursor = desiredCursor;
+      }
+    }
+
     if (multiDragRef.current) {
-      const dx = w.x - multiDragRef.current.start.x;
-      const dy = w.y - multiDragRef.current.start.y;
-      moveSelected(dx, dy);
-      multiDragRef.current.start = w;
+      const md = multiDragRef.current;
+      const dx = w.x - md.start.x;
+      const dy = w.y - md.start.y;
+      if (Math.hypot(dx, dy) > 2) md.hasMoved = true;
+      if (md.handle.type === "move") {
+        moveSelected(dx, dy);
+        md.start = w;
+      } else {
+        const initB = md.initialBounds;
+        let nx = initB.x;
+        let ny = initB.y;
+        let nw = initB.w;
+        let nh = initB.h;
+        const corner = md.handle.corner;
+        if (corner === "se") {
+          nw = initB.w + dx;
+          nh = initB.h + dy;
+        } else if (corner === "ne") {
+          ny = initB.y + dy;
+          nw = initB.w + dx;
+          nh = initB.h - dy;
+        } else if (corner === "sw") {
+          nx = initB.x + dx;
+          nw = initB.w - dx;
+          nh = initB.h + dy;
+        } else if (corner === "nw") {
+          nx = initB.x + dx;
+          ny = initB.y + dy;
+          nw = initB.w - dx;
+          nh = initB.h - dy;
+        } else if (corner === "n") {
+          ny = initB.y + dy;
+          nh = initB.h - dy;
+        } else if (corner === "s") {
+          nh = initB.h + dy;
+        } else if (corner === "w") {
+          nx = initB.x + dx;
+          nw = initB.w - dx;
+        } else if (corner === "e") {
+          nw = initB.w + dx;
+        }
+
+        const minW = 20;
+        const minH = 20;
+        if (nw < minW) {
+          if (corner === "nw" || corner === "w" || corner === "sw") nx = initB.x + initB.w - minW;
+          nw = minW;
+        }
+        if (nh < minH) {
+          if (corner === "nw" || corner === "n" || corner === "ne") ny = initB.y + initB.h - minH;
+          nh = minH;
+        }
+
+        const sx = initB.w > 0 ? nw / initB.w : 1;
+        const sy = initB.h > 0 ? nh / initB.h : 1;
+
+        for (const orig of md.initialObjs) {
+          if ("points" in orig && Array.isArray((orig as any).points)) {
+            const newPoints = (orig as any).points.map((p: Point) => ({
+              ...p,
+              x: nx + (p.x - initB.x) * sx,
+              y: ny + (p.y - initB.y) * sy,
+            }));
+            updateObject(orig.id, { points: newPoints } as Partial<CanvasObject>);
+          } else {
+            const o = orig as any;
+            const updates: any = {
+              x: nx + (o.x - initB.x) * sx,
+              y: ny + (o.y - initB.y) * sy,
+              w: Math.max(10, o.w * sx),
+              h: Math.max(10, o.h * sy),
+            };
+            if (o.kind === "text" && o.fontSize) {
+              const textScale =
+                corner === "e" || corner === "w"
+                  ? 1
+                  : corner === "n" || corner === "s"
+                    ? sy
+                    : Math.abs(sx - 1) >= Math.abs(sy - 1)
+                      ? sx
+                      : sy;
+              updates.fontSize = Math.round(Math.max(10, Math.min(144, o.fontSize * textScale)));
+            }
+            updateObject(orig.id, updates as Partial<CanvasObject>);
+          }
+        }
+      }
       return;
     }
 
@@ -4676,41 +5366,128 @@ export function WhiteboardCanvas({
       const d = dragRef.current;
       const dx = w.x - d.start.x;
       const dy = w.y - d.start.y;
+      if (Math.hypot(dx, dy) > 2) d.hasMoved = true;
       const orig = d.obj;
+      const origBounds = d.origBounds || objectBounds(orig);
+
       if (d.handle.type === "move") {
-        if ("points" in orig) {
+        if ("points" in orig && Array.isArray((orig as any).points)) {
           updateObject(d.id, {
-            points: orig.points.map((p) => ({ ...p, x: p.x + dx, y: p.y + dy })),
+            points: (orig as any).points.map((p: Point) => ({ ...p, x: p.x + dx, y: p.y + dy })),
           } as Partial<CanvasObject>);
         } else {
-          updateObject(d.id, { x: orig.x + dx, y: orig.y + dy } as Partial<CanvasObject>);
+          updateObject(d.id, { x: (orig as any).x + dx, y: (orig as any).y + dy } as Partial<CanvasObject>);
         }
       } else {
-        if (!("points" in orig)) {
-          let nx = orig.x,
-            ny = orig.y,
-            nw = orig.w,
-            nh = orig.h;
-          if (d.handle.corner === "se") {
-            nw = orig.w + dx;
-            nh = orig.h + dy;
+        const corner = d.handle.corner;
+        let nx = origBounds.x;
+        let ny = origBounds.y;
+        let nw = origBounds.w;
+        let nh = origBounds.h;
+
+        if (corner === "se") {
+          nw = origBounds.w + dx;
+          nh = origBounds.h + dy;
+        } else if (corner === "ne") {
+          ny = origBounds.y + dy;
+          nw = origBounds.w + dx;
+          nh = origBounds.h - dy;
+        } else if (corner === "sw") {
+          nx = origBounds.x + dx;
+          nw = origBounds.w - dx;
+          nh = origBounds.h + dy;
+        } else if (corner === "nw") {
+          nx = origBounds.x + dx;
+          ny = origBounds.y + dy;
+          nw = origBounds.w - dx;
+          nh = origBounds.h - dy;
+        } else if (corner === "n") {
+          ny = origBounds.y + dy;
+          nh = origBounds.h - dy;
+        } else if (corner === "s") {
+          nh = origBounds.h + dy;
+        } else if (corner === "w") {
+          nx = origBounds.x + dx;
+          nw = origBounds.w - dx;
+        } else if (corner === "e") {
+          nw = origBounds.w + dx;
+        }
+
+        const minW = 20;
+        const minH = 20;
+        if (nw < minW) {
+          if (corner === "nw" || corner === "w" || corner === "sw") nx = origBounds.x + origBounds.w - minW;
+          nw = minW;
+        }
+        if (nh < minH) {
+          if (corner === "nw" || corner === "n" || corner === "ne") ny = origBounds.y + origBounds.h - minH;
+          nh = minH;
+        }
+
+        if ("points" in orig && Array.isArray((orig as any).points)) {
+          const sx = origBounds.w > 0 ? nw / origBounds.w : 1;
+          const sy = origBounds.h > 0 ? nh / origBounds.h : 1;
+          const newPoints = (orig as any).points.map((p: Point) => ({
+            ...p,
+            x: nx + (p.x - origBounds.x) * sx,
+            y: ny + (p.y - origBounds.y) * sy,
+          }));
+          updateObject(d.id, { points: newPoints } as Partial<CanvasObject>);
+        } else if (orig.kind === "text") {
+          const baseSize = orig.fontSize || 20;
+          if (corner === "e" || corner === "w") {
+            // Side handles change wrap width and update wrapped height
+            const ctx = canvasRef.current?.getContext("2d");
+            let computedH = orig.h;
+            if (ctx) {
+              ctx.save();
+              ctx.font = `${baseSize}px ${fontStack(orig.fontFamily)}`;
+              const lines = wrapText(ctx, orig.text, Math.max(20, nw) - 8);
+              computedH = Math.max(24, Math.round(lines.length * (baseSize * 1.25) + 12));
+              ctx.restore();
+            }
+            updateObject(d.id, { x: nx, w: nw, h: computedH } as Partial<CanvasObject>);
+          } else {
+            // Corners / top / bottom scale the text uniformly, so the box keeps hugging the words
+            const sx = origBounds.w > 0 ? nw / origBounds.w : 1;
+            const sy = origBounds.h > 0 ? nh / origBounds.h : 1;
+            const raw =
+              corner === "n" || corner === "s"
+                ? sy
+                : Math.abs(sx - 1) >= Math.abs(sy - 1)
+                  ? sx
+                  : sy;
+            const newFontSize = Math.round(Math.max(10, Math.min(144, baseSize * raw)));
+            const k = newFontSize / baseSize;
+            const ow = orig.w ?? origBounds.w;
+            const oh = orig.h ?? origBounds.h;
+            const w2 = ow * k;
+            const h2 = oh * k;
+            // Keep the opposite edge anchored; center horizontally on n/s handle drags
+            const left = corner === "nw" || corner === "sw";
+            const top = corner === "nw" || corner === "ne" || corner === "n";
+            const x2 = corner === "n" || corner === "s" ? orig.x + (ow - w2) / 2 : left ? orig.x + ow - w2 : orig.x;
+            const y2 = top ? orig.y + oh - h2 : orig.y;
+            updateObject(d.id, { x: x2, y: y2, w: w2, h: h2, fontSize: newFontSize } as Partial<CanvasObject>);
           }
-          if (d.handle.corner === "ne") {
-            ny = orig.y + dy;
-            nw = orig.w + dx;
-            nh = orig.h - dy;
+        } else if (orig.kind === "shape") {
+          const updates: Partial<ShapeStroke> = { x: nx, y: ny, w: nw, h: nh };
+          if (orig.vertices && orig.vertices.length >= 3) {
+            const isRel = orig.vertices.every(
+              (v) => v.x >= 0 && v.x <= 1 && v.y >= 0 && v.y <= 1
+            );
+            if (!isRel && origBounds.w > 0 && origBounds.h > 0) {
+              const sx = nw / origBounds.w;
+              const sy = nh / origBounds.h;
+              updates.vertices = orig.vertices.map((v) => ({
+                ...v,
+                x: nx + (v.x - origBounds.x) * sx,
+                y: ny + (v.y - origBounds.y) * sy,
+              }));
+            }
           }
-          if (d.handle.corner === "sw") {
-            nx = orig.x + dx;
-            nw = orig.w - dx;
-            nh = orig.h + dy;
-          }
-          if (d.handle.corner === "nw") {
-            nx = orig.x + dx;
-            ny = orig.y + dy;
-            nw = orig.w - dx;
-            nh = orig.h - dy;
-          }
+          updateObject(d.id, updates as Partial<CanvasObject>);
+        } else {
           updateObject(d.id, {
             x: nx,
             y: ny,
@@ -4778,51 +5555,53 @@ export function WhiteboardCanvas({
       return;
     }
 
-    if (drawingRef.current) {
-      const curDraw = drawingRef.current;
+    const curDraw = strokeSessionsRef.current.get(e.pointerId);
+    if (curDraw) {
       const coalescedEvents = (e.nativeEvent as any)?.getCoalescedEvents?.() as PointerEvent[] | undefined;
       if (coalescedEvents && coalescedEvents.length > 0) {
         for (const cev of coalescedEvents) {
           const csx = cev.clientX - rect.left;
           const csy = cev.clientY - rect.top;
           const cw = toWorld(csx, csy);
+          const snapped = snapPointToActiveGuides(cw);
           curDraw.points.push({
-            x: cw.x,
-            y: cw.y,
+            x: snapped.x,
+            y: snapped.y,
             p: cev.pressure > 0 ? cev.pressure : (e.pressure || 0.5),
             t: Date.now(),
           });
         }
       } else {
-        curDraw.points.push(ptWithMeta);
+        const snapped = snapPointToActiveGuides(ptWithMeta);
+        curDraw.points.push({ ...ptWithMeta, x: snapped.x, y: snapped.y });
       }
       curDraw.lastMoveAt = Date.now();
 
       // Hold-to-snap detection
       const isPenDrawingTool =
-        tool === "pen" ||
-        tool === "fountain" ||
-        tool === "crayon" ||
-        tool === "highlighter" ||
-        tool === "neon" ||
-        tool === "rainbow" ||
-        tool === "dashed";
+        curDraw.tool === "pen" ||
+        curDraw.tool === "fountain" ||
+        curDraw.tool === "crayon" ||
+        curDraw.tool === "highlighter" ||
+        curDraw.tool === "neon" ||
+        curDraw.tool === "rainbow" ||
+        curDraw.tool === "dashed";
 
-      if ((autoSnapEnabled && isPenDrawingTool) || tool === "shape") {
+      if ((autoSnapEnabled && isPenDrawingTool) || curDraw.tool === "shape") {
         if (curDraw.holdTimer) clearTimeout(curDraw.holdTimer);
         // If pointer stops moving for > 400ms, snap to recognized shape!
         curDraw.holdTimer = window.setTimeout(() => {
-          if (drawingRef.current && drawingRef.current.points.length >= 8) {
-            const recognized = recognizeShape(drawingRef.current.points, color, size);
+          if (curDraw.points.length >= 8) {
+            const recognized = recognizeShape(curDraw.points, curDraw.color, curDraw.size);
             if (recognized) {
-              drawingRef.current.snappedShape = recognized;
+              curDraw.snappedShape = recognized;
               drawLive();
             }
           }
         }, 400);
       }
 
-      if (tool === "laser") {
+      if (curDraw.tool === "laser") {
         laserRef.current.push(ptWithMeta);
         const maxAge = 800;
         const drop =
@@ -4919,6 +5698,23 @@ export function WhiteboardCanvas({
           new CustomEvent("slate:inspect-element", { detail: { number: clickedEl.number } })
         );
       }
+    } else if (hit.kind === "diagram-node" || hit.kind === "mindmap-node") {
+      const isMindMap = hit.kind === "mindmap-node";
+      const connected = getConnectedFlowchartNodes(hit, page.objects);
+      if (connected.length > 1) {
+        const isAllSelected = connected.every((o) => selectedIds.includes(o.id));
+        if (isAllSelected) {
+          setSelected(hit.id);
+          setSelectedIds([hit.id]);
+          toast.info("Single box mode: drag to move this box alone.");
+        } else {
+          setSelected(hit.id);
+          setSelectedIds(connected.map((o) => o.id));
+          toast.success(
+            `Selected whole ${isMindMap ? "mind map" : "flowchart"} (${connected.length} boxes). Drag anywhere to move together!`
+          );
+        }
+      }
     }
   }
 
@@ -4931,12 +5727,30 @@ export function WhiteboardCanvas({
   }
 
   function onPointerUp(e: React.PointerEvent<HTMLCanvasElement>) {
+    if (ignoredPalmsRef.current.has(e.pointerId)) {
+      ignoredPalmsRef.current.delete(e.pointerId);
+      touchMapRef.current.delete(e.pointerId);
+      return;
+    }
+
     touchMapRef.current.delete(e.pointerId);
-    if (wasPinchingRef.current || touchMapRef.current.size >= 1) {
+
+    if (radialTimerRef.current) {
+      clearTimeout(radialTimerRef.current);
+      radialTimerRef.current = null;
+    }
+
+    if (!lockBoardRef.current && (wasPinchingRef.current || touchMapRef.current.size >= 1)) {
       if (drawingRef.current) {
         if (drawingRef.current.holdTimer) clearTimeout(drawingRef.current.holdTimer);
         drawingRef.current = null;
         clearOverlay();
+      }
+      if (strokeSessionsRef.current.size > 0) {
+        strokeSessionsRef.current.forEach((s) => {
+          if (s.holdTimer) clearTimeout(s.holdTimer);
+        });
+        strokeSessionsRef.current.clear();
       }
       if (wasPinchingRef.current) return;
     }
@@ -4949,10 +5763,15 @@ export function WhiteboardCanvas({
 
     flushCameraUpdate();
     panRef.current = null;
-    multiDragRef.current = null;
+
+    if (multiDragRef.current) {
+      if (multiDragRef.current.hasMoved) pushHistory();
+      multiDragRef.current = null;
+      return;
+    }
 
     if (dragRef.current) {
-      pushHistory();
+      if (dragRef.current.hasMoved) pushHistory();
       dragRef.current = null;
       return;
     }
@@ -4977,7 +5796,7 @@ export function WhiteboardCanvas({
       return;
     }
 
-    if ((tool === "eraser-pixel" || tool === "eraser-object") && eraserSessionRef.current) {
+    if ((tool === "eraser-pixel" || tool === "eraser-object" || eraserSessionRef.current?.active) && eraserSessionRef.current) {
       const session = eraserSessionRef.current;
       eraserSessionRef.current = null;
       clearOverlay();
@@ -4988,14 +5807,19 @@ export function WhiteboardCanvas({
       return;
     }
 
-    if (drawingRef.current) {
-      const d = drawingRef.current;
+    const d = strokeSessionsRef.current.get(e.pointerId);
+    if (d) {
       if (d.holdTimer) clearTimeout(d.holdTimer);
-      drawingRef.current = null;
-      clearOverlay();
+      strokeSessionsRef.current.delete(e.pointerId);
+      if (strokeSessionsRef.current.size === 0) {
+        drawingRef.current = null;
+        clearOverlay();
+      } else {
+        drawLive();
+      }
       handwriting.penUp();
 
-      if (tool === "laser") {
+      if (d.tool === "laser") {
         fadeLaser();
         return;
       }
@@ -5007,13 +5831,13 @@ export function WhiteboardCanvas({
       }
 
       // Handwriting: a scribble over ink erases it; letters of a word must not snap into shapes
-      const inkIntent = d.snappedShape || tool === "shape" ? null : handwriting.beforeCommit(tool, d.points);
+      const inkIntent = d.snappedShape || d.tool === "shape" ? null : handwriting.beforeCommit(d.tool, d.points);
       if (inkIntent === "erased") return;
 
       // Check for snapped or recognized shape (on hold OR on liftoff if autoSnap is enabled)
       let shapeToCommit: Omit<ShapeStroke, "id"> | null = d.snappedShape || null;
-      if (!shapeToCommit && inkIntent !== "writing" && tool !== "tape" && tool !== "frame" && (autoSnapEnabled || tool === "shape") && d.points.length >= 6) {
-        shapeToCommit = recognizeShape(d.points, color, size);
+      if (!shapeToCommit && inkIntent !== "writing" && d.tool !== "tape" && d.tool !== "frame" && (autoSnapEnabled || d.tool === "shape") && d.points.length >= 6) {
+        shapeToCommit = recognizeShape(d.points, d.color, d.size);
       }
 
       if (shapeToCommit) {
@@ -5022,35 +5846,34 @@ export function WhiteboardCanvas({
       }
 
       const id = uid();
-      if (tool === "shape") {
-        addObject({ id, kind: "pen", color, size, points: d.points });
-      } else if (tool === "pen") {
-        addObject({ id, kind: "pen", color, size, points: d.points });
-      } else if (tool === "fountain") {
-        addObject({ id, kind: "fountain", color, size, points: d.points });
-      } else if (tool === "neon") {
-        addObject({ id, kind: "neon", color, size, points: d.points });
-      } else if (tool === "crayon") {
-        addObject({ id, kind: "crayon", color, size, points: d.points });
-      } else if (tool === "highlighter") {
-        addObject({ id, kind: "highlighter", color, size, points: d.points });
-      } else if (tool === "rainbow") {
-        addObject({ id, kind: "rainbow", color, size, points: d.points });
-      } else if (tool === "dashed") {
-        addObject({ id, kind: "dashed", color, size, points: d.points });
-      } else if (tool === "brush") {
-        addObject({ id, kind: "brush", color, size, points: d.points });
-      } else if (tool === "marker") {
-        addObject({ id, kind: "marker", color, size, points: d.points });
-      } else if (tool === "pencil") {
-        addObject({ id, kind: "pencil", color, size, points: d.points });
-      } else if (tool === "glitter") {
-        addObject({ id, kind: "glitter", color, size, points: d.points });
-      } else if (tool === "dotted") {
-        addObject({ id, kind: "dotted", color, size, points: d.points });
-      } else if (tool === "parallel") {
-        addObject({ id, kind: "parallel", color, size, points: d.points });
-      } else if (tool === "tape") {
+      const strokeProps = { id, color: d.color, size: d.size, points: d.points };
+      if (d.tool === "shape" || d.tool === "pen") {
+        addObject({ ...strokeProps, kind: "pen" });
+      } else if (d.tool === "fountain") {
+        addObject({ ...strokeProps, kind: "fountain" });
+      } else if (d.tool === "neon") {
+        addObject({ ...strokeProps, kind: "neon" });
+      } else if (d.tool === "crayon") {
+        addObject({ ...strokeProps, kind: "crayon" });
+      } else if (d.tool === "highlighter") {
+        addObject({ ...strokeProps, kind: "highlighter" });
+      } else if (d.tool === "rainbow") {
+        addObject({ ...strokeProps, kind: "rainbow" });
+      } else if (d.tool === "dashed") {
+        addObject({ ...strokeProps, kind: "dashed" });
+      } else if (d.tool === "brush") {
+        addObject({ ...strokeProps, kind: "brush" });
+      } else if (d.tool === "marker") {
+        addObject({ ...strokeProps, kind: "marker" });
+      } else if (d.tool === "pencil") {
+        addObject({ ...strokeProps, kind: "pencil" });
+      } else if (d.tool === "glitter") {
+        addObject({ ...strokeProps, kind: "glitter" });
+      } else if (d.tool === "dotted") {
+        addObject({ ...strokeProps, kind: "dotted" });
+      } else if (d.tool === "parallel") {
+        addObject({ ...strokeProps, kind: "parallel" });
+      } else if (d.tool === "tape") {
         const xs = d.points.map((p) => p.x);
         const ys = d.points.map((p) => p.y);
         const minX = Math.min(...xs);
@@ -5082,13 +5905,13 @@ export function WhiteboardCanvas({
           y: minY,
           w: tw,
           h: th,
-          color: color || "#fed7aa",
+          color: d.color || "#fed7aa",
           revealed: false,
           pattern: "diagonal",
           label: "Tap to reveal",
         });
         toast.success("Study Tape placed! Tap to reveal answer.");
-      } else if (tool === "frame") {
+      } else if (d.tool === "frame") {
         const xs = d.points.map((p) => p.x);
         const ys = d.points.map((p) => p.y);
         const minX = Math.min(...xs);
@@ -5107,12 +5930,12 @@ export function WhiteboardCanvas({
           h: fh,
           title: `Slide ${existingFrames.length + 1}`,
           order: existingFrames.length + 1,
-          color: color || "#6366f1",
+          color: d.color || "#6366f1",
         });
         toast.success(`Presentation Slide ${existingFrames.length + 1} created!`);
       }
       pushHistory();
-      handwriting.afterCommit(id, tool, d.points, color);
+      handwriting.afterCommit(id, d.tool, d.points, d.color);
     }
   }
 
@@ -5197,63 +6020,70 @@ export function WhiteboardCanvas({
       return;
     }
 
-    if (!drawingRef.current) return ctx.restore();
+    const sessions = strokeSessionsRef.current.size > 0 
+      ? Array.from(strokeSessionsRef.current.values())
+      : (drawingRef.current ? [drawingRef.current] : []);
 
-    // If shape snapped live preview
-    if (drawingRef.current.snappedShape) {
-      drawShape(ctx, { id: "live", ...drawingRef.current.snappedShape });
-      ctx.restore();
-      return;
-    }
+    if (sessions.length === 0) return ctx.restore();
 
-    const pts = drawingRef.current.points;
-    if (pts.length < 2) return ctx.restore();
+    for (const session of sessions) {
+      if (session.snappedShape) {
+        drawShape(ctx, { id: "live", ...session.snappedShape });
+        continue;
+      }
 
-    const dummyStroke: StrokeBase = { id: "", color, size, points: pts };
+      const pts = session.points;
+      if (pts.length < 2) continue;
 
-    if (tool === "fountain") {
-      drawFountainStroke(ctx, dummyStroke);
-    } else if (tool === "neon") {
-      drawNeonStroke(ctx, dummyStroke);
-    } else if (tool === "crayon") {
-      drawCrayonStroke(ctx, dummyStroke);
-    } else if (tool === "highlighter") {
-      drawHighlighterStroke(ctx, dummyStroke);
-    } else if (tool === "rainbow") {
-      drawRainbow(ctx, dummyStroke);
-    } else if (tool === "dashed") {
-      ctx.setLineDash([size * 3, size * 3]);
-      drawPenStroke(ctx, dummyStroke);
-    } else if (tool === "brush") {
-      drawBrushStroke(ctx, dummyStroke);
-    } else if (tool === "marker") {
-      drawMarkerStroke(ctx, dummyStroke);
-    } else if (tool === "pencil") {
-      drawPencilStroke(ctx, dummyStroke);
-    } else if (tool === "glitter") {
-      drawGlitterStroke(ctx, dummyStroke);
-    } else if (tool === "dotted") {
-      drawDottedStroke(ctx, dummyStroke);
-    } else if (tool === "parallel") {
-      drawParallelStroke(ctx, dummyStroke);
-    } else if (tool === "laser") {
-      ctx.strokeStyle = "#ef4444";
-      ctx.lineWidth = 6;
-      ctx.lineCap = "round";
-      ctx.beginPath();
-      ctx.moveTo(pts[0].x, pts[0].y);
-      for (const p of pts) ctx.lineTo(p.x, p.y);
-      ctx.stroke();
-    } else if (tool === "eraser-pixel") {
-      ctx.strokeStyle = "#94a3b8";
-      ctx.lineWidth = size * 4;
-      ctx.lineCap = "round";
-      ctx.beginPath();
-      ctx.moveTo(pts[0].x, pts[0].y);
-      for (const p of pts) ctx.lineTo(p.x, p.y);
-      ctx.stroke();
-    } else {
-      drawPenStroke(ctx, dummyStroke);
+      const dummyStroke: StrokeBase = { id: "", color: session.color, size: session.size, points: pts };
+      const sTool = session.tool;
+
+      if (sTool === "fountain") {
+        drawFountainStroke(ctx, dummyStroke);
+      } else if (sTool === "neon") {
+        drawNeonStroke(ctx, dummyStroke);
+      } else if (sTool === "crayon") {
+        drawCrayonStroke(ctx, dummyStroke);
+      } else if (sTool === "highlighter") {
+        drawHighlighterStroke(ctx, dummyStroke);
+      } else if (sTool === "rainbow") {
+        drawRainbow(ctx, dummyStroke);
+      } else if (sTool === "dashed") {
+        ctx.save();
+        ctx.setLineDash([session.size * 3, session.size * 3]);
+        drawPenStroke(ctx, dummyStroke);
+        ctx.restore();
+      } else if (sTool === "brush") {
+        drawBrushStroke(ctx, dummyStroke);
+      } else if (sTool === "marker") {
+        drawMarkerStroke(ctx, dummyStroke);
+      } else if (sTool === "pencil") {
+        drawPencilStroke(ctx, dummyStroke);
+      } else if (sTool === "glitter") {
+        drawGlitterStroke(ctx, dummyStroke);
+      } else if (sTool === "dotted") {
+        drawDottedStroke(ctx, dummyStroke);
+      } else if (sTool === "parallel") {
+        drawParallelStroke(ctx, dummyStroke);
+      } else if (sTool === "laser") {
+        ctx.strokeStyle = "#ef4444";
+        ctx.lineWidth = 6;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x, pts[0].y);
+        for (const p of pts) ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+      } else if (sTool === "eraser-pixel") {
+        ctx.strokeStyle = "#94a3b8";
+        ctx.lineWidth = session.size * 4;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x, pts[0].y);
+        for (const p of pts) ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+      } else {
+        drawPenStroke(ctx, dummyStroke);
+      }
     }
     ctx.restore();
   }
@@ -5376,6 +6206,7 @@ export function WhiteboardCanvas({
     offCtx.scale(scale, scale);
     offCtx.translate(pad - minX, pad - minY);
 
+    drawMindMapLinks(offCtx, selectedObjects);
     for (const obj of selectedObjects) {
       drawObject(offCtx, obj, false);
     }
@@ -5406,11 +6237,28 @@ export function WhiteboardCanvas({
     return details?.dataUrl || null;
   }
 
+  /** Removes exactly these objects (safe after an await, unlike deleteSelected). */
+  function removeObjectsById(ids: string[]) {
+    const st = useWhiteboard.getState();
+    const objs = (st.pages.find((p) => p.id === st.activePageId) || st.pages[0])?.objects ?? [];
+    const drop = new Set(ids);
+    setObjects(objs.filter((o) => !drop.has(o.id)));
+    const sel = st.selectedIds.filter((id) => !drop.has(id));
+    if (sel.length !== st.selectedIds.length || (st.selectedId && drop.has(st.selectedId))) setSelectedIds(sel);
+  }
+
   async function handleConvertHandwritingToText() {
     const targetIds = selectedIds.length > 0 ? selectedIds : selectedId ? [selectedId] : [];
     if (targetIds.length === 0) return;
     const selectedObjects = page.objects.filter((o) => targetIds.includes(o.id));
     if (selectedObjects.length === 0) return;
+
+    // Fast-path: if a single text object is selected, clicking Type opens the text editor
+    if (selectedObjects.length === 1 && selectedObjects[0].kind === "text") {
+      setEditingText({ id: selectedObjects[0].id });
+      setEditingTextValue(selectedObjects[0].text);
+      return;
+    }
 
     // Union bounds of all selected items
     let minX = Infinity;
@@ -5428,8 +6276,32 @@ export function WhiteboardCanvas({
     const inkH = Math.max(24, maxY - minY);
     const primaryColor = (selectedObjects.find((o) => "color" in o) as { color?: string })?.color || "#0f172a";
 
-    // Fast path: if the strokes were already recognised by live handwriting recognition
-    const knownText = selectedObjects.map((o) => (o as any).inkText).filter(Boolean).join(" ");
+    // Fast path: reuse live recognition, but only when every selected stroke belongs to a
+    // recognised word (otherwise unrecognised ink would be deleted without being converted)
+    const groups = new Map<string, { text?: string; x: number; y: number }>();
+    let allRecognised = true;
+    for (const o of selectedObjects) {
+      const gid = (o as { inkGroup?: string }).inkGroup;
+      if (!gid) {
+        allRecognised = false;
+        break;
+      }
+      const b = objectBounds(o);
+      const g = groups.get(gid) ?? { x: b.x, y: b.y };
+      g.x = Math.min(g.x, b.x);
+      g.y = Math.min(g.y, b.y);
+      const t = (o as { inkText?: string }).inkText;
+      if (t) g.text = t;
+      groups.set(gid, g);
+    }
+    if ([...groups.values()].some((g) => !g.text)) allRecognised = false;
+    const lineH = Math.max(24, inkH / 4);
+    const knownText = allRecognised
+      ? [...groups.values()]
+          .sort((a, b) => Math.round(a.y / lineH) - Math.round(b.y / lineH) || a.x - b.x)
+          .map((g) => g.text)
+          .join(" ")
+      : "";
 
     let text = knownText;
     if (!text.trim()) {
@@ -5441,10 +6313,18 @@ export function WhiteboardCanvas({
         toast.error(`${aiErrorMessage(err)} Your ink was kept.`);
         return;
       }
+      if (!text.trim()) {
+        toast.error("Couldn't read any handwriting there. Your ink was kept.");
+        return;
+      }
     }
 
+    // Lettering style chosen in the pen menu (Latin text only)
+    const chosenFont = textFontById(useInk.getState().textFont).font;
+    const font = chosenFont && isLatinText(text) ? chosenFont : undefined;
+    if (font) void ensureHandwritingFont(font, text.slice(0, 8));
     const fontSize = Math.round(Math.min(96, Math.max(16, inkH * 0.75)));
-    deleteSelected();
+    removeObjectsById(targetIds);
     addObject({
       id: uid(),
       kind: "text",
@@ -5455,6 +6335,7 @@ export function WhiteboardCanvas({
       text: text.trim(),
       color: primaryColor,
       fontSize,
+      ...(font ? { fontFamily: font } : {}),
     });
     pushHistory();
     toast.success("Converted to editable text!");
@@ -5495,14 +6376,14 @@ export function WhiteboardCanvas({
     try {
       if (typedOnly) {
         const text = selected.map((o) => (o as { text?: string }).text || "").filter(Boolean).join("\n");
-        result = await AIEngine.translateText(text, `${target.name} (${target.nativeName})`, script, { thinkingBudget: 0 });
+        result = await AIEngine.translateText(text, `${target.name} (${target.nativeName})`, script);
       } else {
         const img = exportSelectedRegionAsImage(targetIds);
         result = await AIEngine.translateHandwriting(
           img || undefined,
           `${target.name} (${target.nativeName})`,
           script,
-          { context: contextText || undefined, thinkingBudget: 0 },
+          { context: contextText || undefined },
         );
       }
     } catch (err) {
@@ -5613,7 +6494,7 @@ export function WhiteboardCanvas({
         cy = b.y;
       }
 
-      deleteSelected();
+      removeObjectsById(targetIds);
       addObject({
         id: uid(),
         kind: "formula",
@@ -5797,6 +6678,7 @@ export function WhiteboardCanvas({
       offCtx.fillStyle = "#ffffff";
       offCtx.fillRect(0, 0, w, h);
       offCtx.translate(-b.minX + pad, -b.minY + pad);
+      drawMindMapLinks(offCtx, targetObjects);
       for (const obj of targetObjects) {
         drawObject(offCtx, obj, false);
       }
@@ -5927,9 +6809,13 @@ export function WhiteboardCanvas({
     }
   }
 
-  async function handleGenerateMindMapFromSelection() {
+  function handleGenerateMindMapFromSelection() {
     const targetIds = selectedIds.length > 0 ? selectedIds : selectedId ? [selectedId] : [];
-    if (targetIds.length === 0) return;
+    if (targetIds.length === 0) {
+      setMindMapDialogTopic("");
+      setMindMapDialogOpen(true);
+      return;
+    }
 
     const selectedObjects = page.objects.filter((o) => targetIds.includes(o.id));
     let topic = "";
@@ -5938,48 +6824,8 @@ export function WhiteboardCanvas({
       else if (obj.kind === "formula") topic += " " + obj.latex;
     }
 
-    let bounds = { x: 500, y: 400, w: 200, h: 100 };
-    if (selectedObjects.length > 0) {
-      bounds = objectBounds(selectedObjects[0]);
-    }
-
-    let tree: MindMapNode;
-    try {
-      if (!topic.trim()) {
-        const img = exportSelectedRegionAsImage(targetIds);
-        if (img) {
-          toast.info("Reading the selected handwriting...");
-          topic = await AIEngine.transcribeHandwriting(img);
-        }
-      }
-      toast.info("Generating mind map...");
-      tree = await AIEngine.generateMindMap(topic.trim(), bounds.x + bounds.w + 240, bounds.y);
-    } catch (err) {
-      toast.error(aiErrorMessage(err, "Couldn't generate a mind map."));
-      return;
-    }
-
-    function addTreeNodes(n: MindMapNode) {
-      addObject({
-        id: n.id,
-        kind: "mindmap-node",
-        x: n.x,
-        y: n.y,
-        w: Math.max(120, n.label.length * 8 + 30),
-        h: 44,
-        label: n.label,
-        level: n.level,
-        color: n.color,
-        parentId: n.parentId,
-      });
-      if (n.children) {
-        n.children.forEach(addTreeNodes);
-      }
-    }
-
-    addTreeNodes(tree);
-    pushHistory();
-    toast.success("Concept mind map branches placed on canvas!");
+    setMindMapDialogTopic(topic.trim());
+    setMindMapDialogOpen(true);
   }
 
   async function handleCreateFlashcardsFromSelection() {
@@ -6054,7 +6900,7 @@ export function WhiteboardCanvas({
         return;
       }
 
-      deleteSelected();
+      removeObjectsById(targetIds);
 
       nodes.forEach((n) => {
         addObject({
@@ -6132,6 +6978,7 @@ export function WhiteboardCanvas({
         onConvert={(alt) => handwriting.convert(undefined, alt)}
         onDismiss={handwriting.dismiss}
         onRetry={handwriting.retry}
+        onTranslate={handwriting.translateChip}
       />
 
       {/* Minimap Popup */}
@@ -6519,6 +7366,58 @@ export function WhiteboardCanvas({
 
             <div className="h-3.5 sm:h-4 w-px bg-border mx-0 sm:mx-0.5 shrink-0" />
 
+            {/* Flowchart / Mind Map: Whole vs Single selection toggle */}
+            {(() => {
+              const primaryObj = page.objects.find(
+                (o) =>
+                  targetSelectionIds.includes(o.id) &&
+                  (o.kind === "diagram-node" || o.kind === "mindmap-node")
+              );
+              if (!primaryObj) return null;
+              const isMindMap = primaryObj.kind === "mindmap-node";
+              const connected = getConnectedFlowchartNodes(primaryObj, page.objects);
+              if (connected.length <= 1) return null;
+
+              const isAllConnectedSelected = connected.every((c) =>
+                targetSelectionIds.includes(c.id)
+              );
+
+              if (isAllConnectedSelected) {
+                return (
+                  <SelectionToolBtn
+                    onClick={() => {
+                      const singleId = selectedId || targetSelectionIds[0];
+                      setSelected(singleId);
+                      toast.info("Single box mode: drag to move this box alone.");
+                    }}
+                    icon={<Square className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+                    label="Move Single Box"
+                    description={`Switch to moving only this ${isMindMap ? "node" : "box"}`}
+                    className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-medium transition shrink-0"
+                    placement={tooltipPlacement}
+                  />
+                );
+              } else {
+                return (
+                  <SelectionToolBtn
+                    onClick={() => {
+                      const allIds = connected.map((c) => c.id);
+                      setSelectedIds(allIds);
+                      setSelected(primaryObj.id);
+                      toast.success(
+                        `Selected whole ${isMindMap ? "mind map" : "flowchart"} (${connected.length} boxes). Drag anywhere to move together!`
+                      );
+                    }}
+                    icon={<Workflow className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+                    label={isMindMap ? "Select Whole Mind Map" : "Select Whole Flowchart"}
+                    description={`Select all ${connected.length} connected boxes to move together`}
+                    className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-teal-500/10 text-teal-600 dark:text-teal-400 font-medium transition shrink-0"
+                    placement={tooltipPlacement}
+                  />
+                );
+              }
+            })()}
+
             {/* 4. Ask Slate AI / Explain Selection */}
             {onOpenAI && (
               <SelectionToolBtn
@@ -6554,12 +7453,22 @@ export function WhiteboardCanvas({
               placement={tooltipPlacement}
             />
 
-            {/* 6. Handwriting → Text */}
+            {/* 6. Handwriting → Text / Edit Text */}
             <SelectionToolBtn
               onClick={handleConvertHandwritingToText}
               icon={<Type className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
-              label="Convert to Text"
-              description="Handwriting → editable text box"
+              label={
+                targetSelectionIds.length === 1 &&
+                page.objects.find((o) => o.id === targetSelectionIds[0])?.kind === "text"
+                  ? "Edit Text"
+                  : "Convert to Text"
+              }
+              description={
+                targetSelectionIds.length === 1 &&
+                page.objects.find((o) => o.id === targetSelectionIds[0])?.kind === "text"
+                  ? "Edit text content and font"
+                  : "Handwriting → editable text box"
+              }
               className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-primary/10 text-primary transition shrink-0"
               placement={tooltipPlacement}
             />
@@ -6799,6 +7708,13 @@ export function WhiteboardCanvas({
       )}
       {/* Benchmark Stroke Recorder Dev Tool */}
       <StrokeRecorderDialog />
+
+      {/* AI Mind-Map Generator Dialog */}
+      <GenerateMindMapDialog
+        open={mindMapDialogOpen}
+        onOpenChange={setMindMapDialogOpen}
+        initialTopic={mindMapDialogTopic}
+      />
     </div>
   );
 }

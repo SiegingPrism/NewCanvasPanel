@@ -151,11 +151,11 @@ const PEN_STYLES: {
   { id: "pencil", label: "Pencil", icon: Pencil },
   { id: "neon", label: "Neon Glow", icon: Flame },
   { id: "crayon", label: "Chalk Crayon", icon: Paintbrush },
-  { id: "glitter", label: "Glitter & Shine", icon: Sparkles },
+  { id: "glitter", label: "Sparkle pen", icon: Sparkles },
   { id: "rainbow", label: "Rainbow Ink", icon: Sparkles },
   { id: "dashed", label: "Dashed Line", icon: Minus },
   { id: "dotted", label: "Dotted Line", icon: DottedLineIcon },
-  { id: "parallel", label: "Dual Ribbon", icon: MoveHorizontal },
+  { id: "parallel", label: "Double line", icon: MoveHorizontal },
   { id: "tape", label: "Study Tape", icon: EyeOff },
   { id: "frame", label: "Slide Frame", icon: MonitorPlay },
 ];
@@ -270,6 +270,8 @@ export function Toolbar() {
     selectedId,
     selectedIds,
     pushHistory,
+    simpleMode,
+    boardMode,
   } = useWhiteboard();
 
   const [activeFlyout, setActiveFlyout] = useState<"select" | "pen" | "shapes" | "color" | null>(null);
@@ -391,7 +393,9 @@ export function Toolbar() {
 
   const btnClass = (active: boolean) =>
     cn(
-      "relative grid h-9 w-9 sm:h-10 sm:w-10 place-items-center rounded-full transition active:scale-90 shrink-0",
+      boardMode
+        ? "relative grid h-16 w-16 place-items-center rounded-2xl transition active:scale-90 shrink-0"
+        : "relative grid h-9 w-9 sm:h-10 sm:w-10 place-items-center rounded-full transition active:scale-90 shrink-0",
       active
         ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-md"
         : "text-foreground/80 hover:bg-accent/80",
@@ -494,7 +498,10 @@ export function Toolbar() {
 
           {penFlyoutTab === "styles" ? (
             <div className="grid grid-cols-2 gap-2 pt-1">
-              {PEN_STYLES.map((p) => {
+              {(simpleMode
+                ? PEN_STYLES.filter((p) => ["pen", "fountain", "brush", "marker", "pencil", "dashed", "dotted"].includes(p.id))
+                : PEN_STYLES
+              ).map((p) => {
                 const Icon = p.icon;
                 const active = tool === p.id;
                 return (
@@ -557,18 +564,20 @@ export function Toolbar() {
               >
                 2D Shapes ({SHAPES_2D.length})
               </button>
-              <button
-                type="button"
-                onClick={() => setShapesTab("3d")}
-                className={cn(
-                  "px-2.5 py-1 rounded-md transition text-xs",
-                  shapesTab === "3d"
-                    ? "bg-white dark:bg-slate-900 text-foreground shadow-xs font-semibold"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                3D Solids ({DIAGRAMS_3D.length})
-              </button>
+              {!simpleMode && (
+                <button
+                  type="button"
+                  onClick={() => setShapesTab("3d")}
+                  className={cn(
+                    "px-2.5 py-1 rounded-md transition text-xs",
+                    shapesTab === "3d"
+                      ? "bg-white dark:bg-slate-900 text-foreground shadow-xs font-semibold"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  3D Solids ({DIAGRAMS_3D.length})
+                </button>
+              )}
             </div>
             <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
               Tap to insert
@@ -965,11 +974,14 @@ export function Toolbar() {
         <button
           type="button"
           onClick={() => setActiveFlyout(activeFlyout === "color" ? null : "color")}
-          className="grid h-9 w-9 sm:h-10 sm:w-10 place-items-center rounded-full hover:bg-accent/80 transition active:scale-95 shrink-0"
+          className={cn(
+            "place-items-center rounded-2xl hover:bg-accent/80 transition active:scale-95 shrink-0",
+            boardMode ? "grid h-16 w-16" : "grid h-9 w-9 sm:h-10 sm:w-10 rounded-full"
+          )}
           title="Color & Nib Size"
         >
           <span
-            className="h-5 w-5 rounded-full ring-2 ring-border shadow-inner"
+            className={cn("rounded-full ring-2 ring-border shadow-inner", boardMode ? "h-8 w-8" : "h-5 w-5")}
             style={{ backgroundColor: color }}
           />
         </button>

@@ -11,7 +11,12 @@ export type TemplateKey =
   | "number-line"
   | "lab-report"
   | "kwl"
-  | "drafting-3d";
+  | "drafting-3d"
+  | "four-line"
+  | "music-staves"
+  | "millimeter-graph"
+  | "india-map"
+  | "world-map";
 
 export type Template = {
   key: TemplateKey;
@@ -98,6 +103,41 @@ export const TEMPLATES: Template[] = [
     description: "Know · Want to know · Learned.",
     category: "Language",
     emoji: "📚",
+  },
+  {
+    key: "four-line",
+    title: "4-Line Handwriting",
+    description: "Standard primary 4-line notebook ruling for English and Hindi practice.",
+    category: "Language",
+    emoji: "✍️",
+  },
+  {
+    key: "music-staves",
+    title: "Music Staves",
+    description: "5-line music staves for notation, melody composition, and rhythm lessons.",
+    category: "Built-in",
+    emoji: "🎼",
+  },
+  {
+    key: "millimeter-graph",
+    title: "Millimeter Graph Paper",
+    description: "Precision Cartesian engineering grid with 1mm, 5mm and 10mm divisions.",
+    category: "Math",
+    emoji: "📊",
+  },
+  {
+    key: "india-map",
+    title: "India Political Map",
+    description: "Outline map of India with states for social science and geography.",
+    category: "Science",
+    emoji: "🇮🇳",
+  },
+  {
+    key: "world-map",
+    title: "World Map Outline",
+    description: "Global continents outline for world history, climate zones, and geography.",
+    category: "Science",
+    emoji: "🗺️",
   },
 ];
 
@@ -285,6 +325,111 @@ export function pagesForTemplate(key: TemplateKey): Page[] {
               w: 130,
               h: 160,
             },
+          ],
+        },
+      ];
+    case "four-line":
+      return [
+        {
+          ...base,
+          background: "four-line",
+          objects: [
+            text(60, 40, "Handwriting Practice (4-Line Ruling)", { fontSize: 24, color: "#1e293b" }),
+            text(60, 100, "Aa Bb Cc Dd Ee Ff Gg Hh Ii Jj Kk Ll Mm Nn Oo Pp Qq Rr Ss Tt Uu Vv Ww Xx Yy Zz", {
+              fontSize: 22,
+              color: "#0369a1",
+            }),
+          ],
+        },
+      ];
+    case "music-staves":
+      return [
+        {
+          ...base,
+          background: "music-staves",
+          objects: [
+            text(60, 30, "Music Theory & Staves", { fontSize: 24, color: "#0f172a" }),
+            text(60, 75, "Treble Clef & Key Signature Practice", { fontSize: 16, color: "#64748b" }),
+          ],
+        },
+      ];
+    case "millimeter-graph":
+      return [
+        {
+          ...base,
+          background: "millimeter-graph",
+          objects: [
+            text(60, 30, "Engineering & Physics Graph Paper (1mm / 5mm / 10mm)", {
+              fontSize: 22,
+              color: "#15803d",
+            }),
+            {
+              id: uid(),
+              kind: "graph",
+              fn: "sin(x)",
+              xMin: -10,
+              xMax: 10,
+              yMin: -2,
+              yMax: 2,
+              color: "#2563eb",
+              x: 100,
+              y: 100,
+              w: 520,
+              h: 340,
+              title: "f(x) = sin(x)",
+            },
+          ],
+        },
+      ];
+    case "india-map":
+      return [
+        {
+          ...base,
+          background: "white",
+          objects: [
+            text(60, 30, "Geography of India — Map Activity", { fontSize: 24, color: "#0f172a" }),
+            text(60, 70, "Mark capitals, rivers, mountain ranges, and climate zones.", {
+              fontSize: 15,
+              color: "#64748b",
+            }),
+            {
+              id: uid(),
+              kind: "shape",
+              shape: "rect",
+              x: 80,
+              y: 110,
+              w: 640,
+              h: 460,
+              color: "#3b82f6",
+              size: 2,
+            },
+            text(120, 150, "India Map Outline (States & Union Territories)", { fontSize: 18, color: "#1e3a8a" }),
+          ],
+        },
+      ];
+    case "world-map":
+      return [
+        {
+          ...base,
+          background: "white",
+          objects: [
+            text(60, 30, "World Geography & Continents", { fontSize: 24, color: "#0f172a" }),
+            text(60, 70, "Identify the 7 continents, oceans, and equatorial lines.", {
+              fontSize: 15,
+              color: "#64748b",
+            }),
+            {
+              id: uid(),
+              kind: "shape",
+              shape: "rect",
+              x: 80,
+              y: 110,
+              w: 720,
+              h: 460,
+              color: "#059669",
+              size: 2,
+            },
+            text(120, 150, "World Continents & Oceans Reference", { fontSize: 18, color: "#065f46" }),
           ],
         },
       ];
