@@ -575,9 +575,9 @@ export function AISheet({
           </div>
         )}
 
-        <div ref={scrollRef} className="flex-1 min-h-0 space-y-4 overflow-y-auto px-4 py-3 overscroll-contain flex flex-col">
+        <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto px-4 py-3.5 overscroll-contain flex flex-col gap-4">
           {contextText && (
-            <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-primary">
+            <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-primary shrink-0">
               <span className="font-semibold">Using your selection: </span>
               <span className="italic">
                 "{contextText.slice(0, 100)}
@@ -587,9 +587,9 @@ export function AISheet({
           )}
 
           {messages.length === 0 && (
-            <div className="flex-1 flex flex-col justify-between py-2 sm:py-3 min-h-0">
-              <div className="flex flex-col items-center text-center px-2 pt-2 sm:pt-4 pb-2">
-                <div className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-primary/15 via-primary/10 to-primary/5 text-primary mb-2.5 shadow-2xs border border-primary/20">
+            <div className="flex flex-col gap-4 py-1">
+              <div className="flex flex-col items-center text-center px-2 pt-1 pb-1 shrink-0">
+                <div className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-primary/15 via-primary/10 to-primary/5 text-primary mb-2 shadow-2xs border border-primary/20">
                   <Sparkles className="h-6 w-6" />
                 </div>
                 <h3 className="text-base font-bold text-foreground tracking-tight">Ask Slate AI</h3>
@@ -598,7 +598,7 @@ export function AISheet({
                 </p>
               </div>
 
-              <div className="space-y-2 mt-auto pb-1">
+              <div className="space-y-2">
                 <div className="flex items-center justify-between px-1">
                   <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80">
                     Quick Prompts
@@ -610,7 +610,7 @@ export function AISheet({
                     <button
                       key={q.label}
                       type="button"
-                      className="flex flex-col justify-between rounded-xl border border-border/80 bg-card hover:bg-accent/70 hover:border-primary/40 p-2.5 text-left transition active:scale-[0.98] shadow-2xs cursor-pointer group"
+                      className="flex flex-col justify-between rounded-xl border border-border/80 bg-card hover:bg-accent/70 hover:border-primary/40 p-2.5 text-left transition active:scale-[0.98] shadow-2xs cursor-pointer group min-h-[68px]"
                       onClick={() => {
                         setInput(q.prompt);
                         inputRef.current?.focus();

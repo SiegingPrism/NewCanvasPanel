@@ -37,7 +37,7 @@ import { cn } from "@/lib/utils";
 import { FeatureTourDialog } from "@/components/whiteboard/FeatureTourDialog";
 import { AuthDialog } from "@/components/auth/AuthDialog";
 import { useAuth, getUserAvatarUrl, getUserDisplayName } from "@/lib/supabase/authStore";
-import { AISheet } from "@/components/whiteboard/AISheet";
+import { useAISheetStore } from "@/lib/ai/aiSheetStore";
 import { BottomNavBar } from "@/components/navigation/BottomNavBar";
 
 export const Route = createFileRoute("/")({
@@ -81,7 +81,7 @@ function Dashboard() {
   const avatarUrl = getUserAvatarUrl(user);
   const displayName = getUserDisplayName(user);
   const [authOpen, setAuthOpen] = useState(false);
-  const [aiOpen, setAIOpen] = useState(false);
+  const openAI = useAISheetStore((s) => s.openAI);
   const [activeFolderId, setActiveFolderId] = useState<string>("all");
   const [boardSearch, setBoardSearch] = useState("");
   const [newFolderOpen, setNewFolderOpen] = useState(false);
@@ -507,7 +507,7 @@ function Dashboard() {
             {/* AI-Assisted */}
             <button
               type="button"
-              onClick={() => setAIOpen(true)}
+              onClick={() => openAI({ boardId: continueBoard?.id })}
               className="group relative flex flex-col justify-between rounded-2xl border border-border bg-card p-3 sm:p-3.5 text-left shadow-2xs hover:border-primary/50 transition cursor-pointer active:scale-[0.99]"
             >
               <span className="absolute top-3 right-3 rounded bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 px-1.5 py-0.5 text-[9px] font-extrabold tracking-wide">
@@ -865,11 +865,10 @@ function Dashboard() {
       {/* Docked Bottom Navigation Bar */}
       <BottomNavBar
         activeTab="home"
-        onOpenAI={() => setAIOpen(true)}
+        onOpenAI={() => openAI({ boardId: continueBoard?.id })}
         boardId={continueBoard?.id}
       />
 
-      <AISheet open={aiOpen} onOpenChange={setAIOpen} boardId={continueBoard?.id} />
       <FeatureTourDialog open={tourOpen} onOpenChange={setTourOpen} />
       <AuthDialog open={authOpen} onOpenChange={setAuthOpen} />
     </div>

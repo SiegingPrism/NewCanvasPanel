@@ -14,6 +14,8 @@ import { useEffect, useRef, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { Toaster } from "../components/ui/sonner";
 import { SplashScreen } from "../components/ui/SplashScreen";
+import { AISheet } from "../components/whiteboard/AISheet";
+import { useAISheetStore } from "../lib/ai/aiSheetStore";
 
 function NotFoundComponent() {
   return (
@@ -211,6 +213,26 @@ function AndroidInsetsHandler() {
   return null;
 }
 
+function GlobalAISheet() {
+  const isOpen = useAISheetStore((s) => s.isOpen);
+  const setOpen = useAISheetStore((s) => s.setOpen);
+  const boardId = useAISheetStore((s) => s.boardId);
+  const contextText = useAISheetStore((s) => s.contextText);
+  const initialPrompt = useAISheetStore((s) => s.initialPrompt);
+  const initialSnapshot = useAISheetStore((s) => s.initialSnapshot);
+
+  return (
+    <AISheet
+      open={isOpen}
+      onOpenChange={setOpen}
+      boardId={boardId}
+      contextText={contextText}
+      initialPrompt={initialPrompt}
+      initialSnapshot={initialSnapshot}
+    />
+  );
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
@@ -221,6 +243,7 @@ function RootComponent() {
       <AndroidInsetsHandler />
       <AndroidBackHandler />
       <SplashScreen />
+      <GlobalAISheet />
       <Toaster richColors position="top-center" offset="68px" />
     </QueryClientProvider>
   );

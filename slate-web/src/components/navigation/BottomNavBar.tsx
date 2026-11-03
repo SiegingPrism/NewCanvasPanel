@@ -1,7 +1,6 @@
 import { Link } from "@tanstack/react-router";
-import { useState } from "react";
 import { Home, LayoutGrid, Sparkles, Library as LibraryIcon, Settings } from "lucide-react";
-import { AISheet } from "@/components/whiteboard/AISheet";
+import { useAISheetStore } from "@/lib/ai/aiSheetStore";
 import { cn } from "@/lib/utils";
 
 export type BottomNavTab = "home" | "boards" | "ai" | "library" | "settings";
@@ -21,24 +20,23 @@ export function BottomNavBar({
   boardId,
   className,
 }: BottomNavBarProps) {
-  const [internalAIOpen, setInternalAIOpen] = useState(false);
+  const openAI = useAISheetStore((s) => s.openAI);
 
   const handleAIClick = () => {
     if (onOpenAI) {
       onOpenAI();
     } else {
-      setInternalAIOpen(true);
+      openAI({ boardId });
     }
   };
 
   return (
-    <>
-      <nav
-        className={cn(
-          "fixed bottom-0 left-0 right-0 z-40 bg-card/95 backdrop-blur-md border-t border-border flex items-center justify-around px-2 pt-2 pb-[max(0.75rem,var(--sab,env(safe-area-inset-bottom,0.5rem)))] shadow-lg select-none",
-          className,
-        )}
-      >
+    <nav
+      className={cn(
+        "fixed bottom-0 left-0 right-0 z-40 bg-card/95 backdrop-blur-md border-t border-border flex items-center justify-around px-2 pt-2 pb-[max(0.75rem,var(--sab,env(safe-area-inset-bottom,0.5rem)))] shadow-lg select-none",
+        className,
+      )}
+    >
         <Link
           to="/"
           className={cn(
@@ -121,14 +119,5 @@ export function BottomNavBar({
           </Link>
         )}
       </nav>
-
-      {!onOpenAI && (
-        <AISheet
-          open={internalAIOpen}
-          onOpenChange={setInternalAIOpen}
-          boardId={boardId}
-        />
-      )}
-    </>
   );
 }

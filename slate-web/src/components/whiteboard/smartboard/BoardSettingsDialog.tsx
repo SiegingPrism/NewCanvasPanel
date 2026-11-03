@@ -232,8 +232,11 @@ export function BoardSettingsDialog({ open, onOpenChange }: BoardSettingsDialogP
                       )}
                     >
                       <span className="text-sm font-black">{sizeKey}&quot; Panel</span>
-                      <span className="text-[10px] opacity-80 font-normal">
+                      <span className="text-[10px] opacity-90 font-medium">
                         {p.widthCm} × {p.heightCm} cm
+                      </span>
+                      <span className="text-[9px] text-muted-foreground">
+                        {Math.round(p.widthInches)}″ × {Math.round(p.heightInches)}″ · {p.minTouchTargetPx}px touch
                       </span>
                     </button>
                   );

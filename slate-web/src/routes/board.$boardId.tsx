@@ -4,7 +4,7 @@ import { WhiteboardCanvas } from "@/components/whiteboard/Canvas";
 import { Toolbar } from "@/components/whiteboard/Toolbar";
 import { TopBar } from "@/components/whiteboard/TopBar";
 import { WidgetsSheet, useWidgetLauncher } from "@/components/whiteboard/WidgetsSheet";
-import { AISheet } from "@/components/whiteboard/AISheet";
+import { useAISheetStore } from "@/lib/ai/aiSheetStore";
 import { HandwritingLanguageDialog } from "@/components/whiteboard/HandwritingLanguageDialog";
 import { useInk } from "@/lib/ink/recognizer";
 import { FloatingWidget } from "@/components/whiteboard/FloatingWidget";
@@ -59,12 +59,7 @@ function BoardPage() {
   const { boardId } = Route.useParams();
   const navigate = useNavigate();
   const [widgetsOpen, setWidgetsOpen] = useState(false);
-  const [aiOpen, setAIOpen] = useState(false);
-  const [aiOptions, setAiOptions] = useState<{
-    prompt?: string;
-    snapshot?: string;
-    contextText?: string;
-  } | null>(null);
+  const openAI = useAISheetStore((s) => s.openAI);
   const [isPresenting, setIsPresenting] = useState(false);
   const { langPickerOpen, setLangPickerOpen, translatePickerOpen, closeTranslatePicker } = useInk();
   const { openWidgets, launch, close } = useWidgetLauncher();
@@ -101,18 +96,18 @@ function BoardPage() {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       if (params.get("ai") === "1" || params.get("ai") === "true") {
-        setAIOpen(true);
+        openAI({ boardId });
       }
     }
-  }, []);
+  }, [boardId, openAI]);
 
   function handleOpenAI(opts?: { prompt?: string; snapshot?: string; contextText?: string }) {
-    if (opts) {
-      setAiOptions(opts);
-    } else {
-      setAiOptions(null);
-    }
-    setAIOpen(true);
+    openAI({
+      boardId,
+      contextText: opts?.contextText || contextText,
+      prompt: opts?.prompt,
+      snapshot: opts?.snapshot,
+    });
   }
 
   // Watchdog timer: If loading takes longer than 3.5s, offer manual recovery
@@ -201,14 +196,14 @@ function BoardPage() {
 
   useEffect(() => {
     const handleOpenWidgets = () => setWidgetsOpen(true);
-    const handleOpenAI = () => setAIOpen(true);
+    const handleOpenAIEvt = () => openAI({ boardId });
     window.addEventListener("slate:open-widgets", handleOpenWidgets);
-    window.addEventListener("slate:open-ai", handleOpenAI);
+    window.addEventListener("slate:open-ai", handleOpenAIEvt);
     return () => {
       window.removeEventListener("slate:open-widgets", handleOpenWidgets);
-      window.removeEventListener("slate:open-ai", handleOpenAI);
+      window.removeEventListener("slate:open-ai", handleOpenAIEvt);
     };
-  }, []);
+  }, [boardId, openAI]);
 
   const board = boards[boardId];
   const ready = activeBoardId === boardId && pages.length > 0;
@@ -315,17 +310,6 @@ function BoardPage() {
       )}
 
       <WidgetsSheet open={widgetsOpen} onOpenChange={setWidgetsOpen} onLaunch={launch} />
-      <AISheet
-        open={aiOpen}
-        onOpenChange={(b) => {
-          setAIOpen(b);
-          if (!b) setAiOptions(null);
-        }}
-        contextText={aiOptions?.contextText || contextText}
-        initialPrompt={aiOptions?.prompt}
-        initialSnapshot={aiOptions?.snapshot}
-        boardId={boardId}
-      />
       <HandwritingLanguageDialog open={langPickerOpen} onOpenChange={setLangPickerOpen} />
       <HandwritingLanguageDialog
         mode="translate"

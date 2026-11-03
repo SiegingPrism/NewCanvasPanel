@@ -59,6 +59,7 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
   } = useWhiteboard();
 
   const profile = getSmartBoardProfile(panelSize);
+  const targetPx = Math.max(64, profile.minTouchTargetPx);
   const activePageIndex = pages.findIndex((p) => p.id === activePageId);
   const canUndo = historyIndex > 0;
   const canRedo = historyIndex < history.length - 1;
@@ -122,8 +123,9 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
         <button
           onClick={undo}
           disabled={!canUndo}
+          style={{ height: `${targetPx}px`, width: `${targetPx}px` }}
           className={cn(
-            "flex h-16 w-16 flex-col items-center justify-center rounded-xl font-medium transition-all active:scale-95",
+            "flex flex-col items-center justify-center rounded-xl font-medium transition-all active:scale-95",
             canUndo
               ? "bg-muted/70 text-foreground hover:bg-muted"
               : "opacity-40 cursor-not-allowed text-muted-foreground"
@@ -138,8 +140,9 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
         <button
           onClick={redo}
           disabled={!canRedo}
+          style={{ height: `${targetPx}px`, width: `${targetPx}px` }}
           className={cn(
-            "flex h-16 w-16 flex-col items-center justify-center rounded-xl font-medium transition-all active:scale-95",
+            "flex flex-col items-center justify-center rounded-xl font-medium transition-all active:scale-95",
             canRedo
               ? "bg-muted/70 text-foreground hover:bg-muted"
               : "opacity-40 cursor-not-allowed text-muted-foreground"
@@ -155,7 +158,8 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
         {/* Clear Page with Undo Toast */}
         <button
           onClick={handleClear}
-          className="flex h-16 min-w-16 px-3 flex-col items-center justify-center rounded-xl text-rose-500 hover:bg-rose-500/10 hover:text-rose-600 transition-all active:scale-95"
+          style={{ height: `${targetPx}px`, minWidth: `${targetPx}px` }}
+          className="flex px-3 flex-col items-center justify-center rounded-xl text-rose-500 hover:bg-rose-500/10 hover:text-rose-600 transition-all active:scale-95"
           title="Clear Board (single tap with instant undo)"
         >
           <Trash2 className="h-6 w-6" />
@@ -165,7 +169,8 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
         {/* Help: labels every part of the screen in plain words */}
         <button
           onClick={() => setHelpOpen(true)}
-          className="flex h-16 w-16 flex-col items-center justify-center rounded-xl bg-muted/40 text-foreground hover:bg-muted transition-all active:scale-95"
+          style={{ height: `${targetPx}px`, width: `${targetPx}px` }}
+          className="flex flex-col items-center justify-center rounded-xl bg-muted/40 text-foreground hover:bg-muted transition-all active:scale-95"
           title="Help: what does each button do?"
         >
           <HelpCircle className="h-6 w-6" />
@@ -178,14 +183,15 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
-              className="flex h-16 items-center gap-2 rounded-xl bg-primary/10 px-3 text-primary hover:bg-primary/20 transition-all active:scale-95"
+              style={{ height: `${targetPx}px` }}
+              className="flex items-center gap-2 rounded-xl bg-primary/10 px-3.5 text-primary hover:bg-primary/20 transition-all active:scale-95"
               title="Panel Size and Smart Board Settings"
             >
-              <Tv className="h-6 w-6" />
+              <Tv className="h-6 w-6 shrink-0" />
               <div className="flex flex-col text-left">
                 <span className="text-xs font-black tracking-wide">{panelSize}&quot; Board</span>
-                <span className="text-xs text-muted-foreground font-medium">
-                  {splitBoardZones > 1 ? `${splitBoardZones} Zones` : "Full View"}
+                <span className="text-[11px] text-muted-foreground font-medium">
+                  {splitBoardZones > 1 ? `${splitBoardZones} Zones` : `${Math.round(profile.widthCm)}×${Math.round(profile.heightCm)}cm`}
                 </span>
               </div>
             </button>
@@ -309,8 +315,9 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
         <button
           onClick={prevPage}
           disabled={activePageIndex <= 0}
+          style={{ height: `${targetPx}px`, width: `${Math.round(targetPx * 0.88)}px` }}
           className={cn(
-            "flex h-16 w-14 items-center justify-center rounded-xl transition-all active:scale-95",
+            "flex items-center justify-center rounded-xl transition-all active:scale-95",
             activePageIndex > 0
               ? "bg-muted/70 text-foreground hover:bg-muted"
               : "opacity-40 cursor-not-allowed text-muted-foreground"
@@ -325,7 +332,8 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
           onClick={() => {
             if (onOpenSorter) onOpenSorter();
           }}
-          className="flex h-16 min-w-16 px-3 flex-col items-center justify-center rounded-xl bg-muted/40 hover:bg-muted transition-all"
+          style={{ height: `${targetPx}px`, minWidth: `${targetPx}px` }}
+          className="flex px-3 flex-col items-center justify-center rounded-xl bg-muted/40 hover:bg-muted transition-all"
           title="Page Sorter / Slide Grid"
         >
           <span className="text-xs font-extrabold text-foreground tracking-wider">
@@ -338,8 +346,9 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
         <button
           onClick={nextPage}
           disabled={activePageIndex >= pages.length - 1}
+          style={{ height: `${targetPx}px`, width: `${Math.round(targetPx * 0.88)}px` }}
           className={cn(
-            "flex h-16 w-14 items-center justify-center rounded-xl transition-all active:scale-95",
+            "flex items-center justify-center rounded-xl transition-all active:scale-95",
             activePageIndex < pages.length - 1
               ? "bg-muted/70 text-foreground hover:bg-muted"
               : "opacity-40 cursor-not-allowed text-muted-foreground"
@@ -352,7 +361,8 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
         {/* Add Page */}
         <button
           onClick={addPage}
-          className="flex h-16 w-16 flex-col items-center justify-center rounded-xl bg-primary text-primary-foreground font-bold shadow-md hover:bg-primary/90 transition-all active:scale-95"
+          style={{ height: `${targetPx}px`, width: `${targetPx}px` }}
+          className="flex flex-col items-center justify-center rounded-xl bg-primary text-primary-foreground font-bold shadow-md hover:bg-primary/90 transition-all active:scale-95"
           title="Add New Blank Page"
         >
           <Plus className="h-6 w-6" />
