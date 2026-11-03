@@ -86,6 +86,8 @@ export type WidgetKind =
   | "manipulatives"
   | "embedded-media";
 
+const SIMPLE_MODE_HIDDEN_WIDGETS: string[] = ["shapes3d", "voice"];
+
 export function WidgetsSheet({
   open,
   onOpenChange,
@@ -95,7 +97,7 @@ export function WidgetsSheet({
   onOpenChange: (b: boolean) => void;
   onLaunch: (kind: WidgetKind) => void;
 }) {
-  const { addObject, pushHistory, camera, setTool, pages } = useWhiteboard();
+  const { addObject, pushHistory, camera, setTool, pages, simpleMode } = useWhiteboard();
   const [mathDialogOpen, setMathDialogOpen] = useState(false);
   const [imageSearchOpen, setImageSearchOpen] = useState(false);
   const [tableDialogOpen, setTableDialogOpen] = useState(false);
@@ -315,7 +317,7 @@ export function WidgetsSheet({
     {
       kind: "dice" as const,
       label: "Dice",
-      desc: "Roll 1-4",
+      desc: "Roll 1 to 4 dice",
       icon: Dices,
       color: "bg-purple-500/10 text-purple-500",
     },
@@ -329,7 +331,7 @@ export function WidgetsSheet({
     {
       kind: "calculator" as const,
       label: "Calculator",
-      desc: "Floating calc",
+      desc: "On-board calculator",
       icon: Calculator,
       color: "bg-emerald-500/10 text-emerald-500",
     },
@@ -342,15 +344,15 @@ export function WidgetsSheet({
     },
     {
       kind: "graph" as const,
-      label: "MathPad 2D",
-      desc: "Plot curves",
+      label: "Graph",
+      desc: "Plot y = f(x)",
       icon: LineChart,
       color: "bg-cyan-500/10 text-cyan-500",
     },
     {
       kind: "curtain" as const,
-      label: "Reveal Curtain",
-      desc: "Conceal / reveal",
+      label: "Hide & Reveal",
+      desc: "Cover part of board",
       icon: Eye,
       color: "bg-red-500/10 text-red-500",
     },
@@ -371,7 +373,7 @@ export function WidgetsSheet({
     {
       kind: "spotlight" as const,
       label: "Spotlight",
-      desc: "Focus aperture",
+      desc: "Dim all but one area",
       icon: Sun,
       color: "bg-sky-500/10 text-sky-500",
     },
@@ -384,28 +386,28 @@ export function WidgetsSheet({
     },
     {
       kind: "random-picker" as const,
-      label: "Random Picker",
-      desc: "Students & teams",
+      label: "Pick a Student",
+      desc: "Names & groups",
       icon: Shuffle,
       color: "bg-amber-500/10 text-amber-500",
     },
     {
       kind: "classroom-manager" as const,
-      label: "Noise Meter",
-      desc: "Traffic & decibels",
+      label: "Class Signals",
+      desc: "Lights & noise level",
       icon: Volume2,
       color: "bg-emerald-500/10 text-emerald-500",
     },
     {
       kind: "geometry-kit" as const,
       label: "Geometry Kit",
-      desc: "Compass & square",
+      desc: "Compass & set-square",
       icon: Triangle,
       color: "bg-cyan-500/10 text-cyan-500",
     },
     {
       kind: "manipulatives" as const,
-      label: "Manipulatives",
+      label: "Maths Models",
       desc: "Clock & fractions",
       icon: Divide,
       color: "bg-pink-500/10 text-pink-500",
@@ -453,7 +455,7 @@ export function WidgetsSheet({
                 <span className="text-[10px] text-muted-foreground">tap to open</span>
               </div>
               <div className="grid grid-cols-3 gap-2">
-                {items.map((it) => {
+                {items.filter((it) => !(simpleMode && SIMPLE_MODE_HIDDEN_WIDGETS.includes(it.kind))).map((it) => {
                   const Icon = it.icon;
                   return (
                     <button
@@ -552,7 +554,7 @@ export function WidgetsSheet({
                   </span>
                   <div>
                     <div className="text-xs font-semibold leading-tight">Math Formula</div>
-                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">LaTeX code</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Type an equation</div>
                   </div>
                 </button>
                 <button
@@ -597,9 +599,10 @@ export function WidgetsSheet({
                   </span>
                   <div>
                     <div className="text-xs font-semibold leading-tight">Table</div>
-                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Grid data</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Rows & columns</div>
                   </div>
                 </button>
+                {!simpleMode && (
                 <button
                   onClick={() => {
                     onOpenChange(false);
@@ -612,9 +615,10 @@ export function WidgetsSheet({
                   </span>
                   <div>
                     <div className="text-xs font-semibold leading-tight text-amber-700 dark:text-amber-300">Magic Doodle</div>
-                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">340 AI icons</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">AI drawings</div>
                   </div>
                 </button>
+                )}
                 <button
                   onClick={() => {
                     onOpenChange(false);
@@ -645,6 +649,7 @@ export function WidgetsSheet({
                     <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">World & continents</div>
                   </div>
                 </button>
+                {!simpleMode && (
                 <button
                   onClick={() => {
                     onOpenChange(false);
@@ -657,9 +662,10 @@ export function WidgetsSheet({
                   </span>
                   <div>
                     <div className="text-xs font-semibold leading-tight">Solve Math</div>
-                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">AI recognition</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Reads your writing</div>
                   </div>
                 </button>
+                )}
               </div>
             </section>
 
@@ -667,7 +673,7 @@ export function WidgetsSheet({
             <section>
               <div className="mb-2 flex items-center justify-between">
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-primary">
-                  Smart Board Classroom Actions
+                  Classroom
                 </h3>
                 <span className="text-[10px] text-muted-foreground">interactive</span>
               </div>

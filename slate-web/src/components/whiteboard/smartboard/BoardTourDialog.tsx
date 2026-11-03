@@ -20,34 +20,34 @@ interface BoardTourDialogProps {
 
 const TOUR_STEPS = [
   {
-    title: "Dual Mirrored Side Docks",
-    desc: "Vertical mid-height toolbars on both left and right edges. Reach all tools instantly from wherever you are standing without walking across a 2-meter screen.",
+    title: "Tools on both sides",
+    desc: "The same tools sit on the left and right edges of the board. Use whichever side you are standing at. Tap a tool twice to change its colour or size.",
     icon: <Tv className="h-8 w-8 text-sky-500" />,
-    badge: "Ergonomics",
+    badge: "Step 1",
   },
   {
-    title: "Natural Palm Rejection & Fist Erase",
-    desc: "Rest your wrist on the glass naturally while writing. Need to erase? Wipe with your palm or fist—the board automatically switches to eraser without opening menus.",
+    title: "Write and wipe like a real board",
+    desc: "You can rest your hand on the glass while writing. To erase, wipe with your palm or fist. No need to pick the eraser first.",
     icon: <Hand className="h-8 w-8 text-rose-500" />,
-    badge: "Hardware Touch",
+    badge: "Step 2",
   },
   {
-    title: "Floating Radial Menu",
-    desc: "Long-press anywhere on the canvas to open a circular tool wheel right under your fingers: switch pen colors, erase, or undo right where your hand is.",
+    title: "Press and hold for quick tools",
+    desc: "Hold your finger still on the board for a moment. A circle of tools opens under your hand: pen, highlight, eraser, select and undo.",
     icon: <Sparkles className="h-8 w-8 text-amber-500" />,
-    badge: "In-Place Control",
+    badge: "Step 3",
   },
   {
-    title: "Reachability Pull-Down",
-    desc: "Tall 75\", 86\", 98\", or 110\" panels can be over 1.2 meters tall. Tap 'Lower' to slide the canvas down into comfortable reach for shorter teachers and students.",
+    title: "Can't reach the top?",
+    desc: "Tap Lower on either side. The board slides down so you and your students can reach the top. Tap Reset to put it back.",
     icon: <Maximize2 className="h-8 w-8 text-indigo-500" />,
-    badge: "Reachability",
+    badge: "Step 4",
   },
   {
-    title: "Split Board & Classroom Lock",
-    desc: "Split the board into 2 to 4 side-by-side student zones. Tap 'Lock' to freeze camera pan and pinch-zoom so kids never accidentally move the board.",
+    title: "Students at the board",
+    desc: "Several students can write at the same time. Split the board into 2 to 4 areas from the board button at the bottom left. Lock stops the board from moving or zooming by accident.",
     icon: <Columns className="h-8 w-8 text-emerald-500" />,
-    badge: "Classroom Basics",
+    badge: "Step 5",
   },
 ];
 

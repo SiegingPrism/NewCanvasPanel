@@ -4909,16 +4909,30 @@ export function WhiteboardCanvas({
       return;
     }
 
-    // Long-press timer for Radial Menu
+    // Long-press timer for Radial Menu (Board mode, finger/stylus only; not mouse)
     pointerDownPosRef.current = { x: e.clientX, y: e.clientY };
     if (radialTimerRef.current) clearTimeout(radialTimerRef.current);
-    radialTimerRef.current = setTimeout(() => {
-      window.dispatchEvent(
-        new CustomEvent("slate:open-radial-menu", {
-          detail: { x: e.clientX, y: e.clientY },
-        })
-      );
-    }, 550);
+    radialTimerRef.current = null;
+    if (boardMode && e.pointerType !== "mouse") {
+      const radialPointerId = e.pointerId;
+      radialTimerRef.current = setTimeout(() => {
+        radialTimerRef.current = null;
+        // Drop the dot the finger left while holding still, so the menu doesn't leave a mark behind.
+        const held = strokeSessionsRef.current.get(radialPointerId);
+        if (held) {
+          if (held.holdTimer) clearTimeout(held.holdTimer);
+          strokeSessionsRef.current.delete(radialPointerId);
+          if (drawingRef.current === held) drawingRef.current = null;
+          if (strokeSessionsRef.current.size === 0) clearOverlay();
+          else drawLive();
+        }
+        window.dispatchEvent(
+          new CustomEvent("slate:open-radial-menu", {
+            detail: { x: e.clientX, y: e.clientY },
+          })
+        );
+      }, 650);
+    }
 
     // If currently editing text and clicked outside, close editor and commit text
     if (editingText) {
@@ -7579,7 +7593,7 @@ export function WhiteboardCanvas({
                 toast.success("Masked with Study Tape!");
               }}
               icon={<EyeOff className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
-              label="Study Tape"
+              label="Cover tape"
               description="Conceal answers (tap to reveal)"
               className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-orange-500/10 text-orange-500 transition shrink-0"
               placement={tooltipPlacement}

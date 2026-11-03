@@ -1,8 +1,11 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { BoardHelpOverlay } from "./BoardHelpOverlay";
+import { BoardTourDialog } from "./BoardTourDialog";
 import { useWhiteboard } from "@/lib/whiteboard/store";
 import { getSmartBoardProfile, SMART_BOARD_PROFILES, PanelDiagonal } from "@/lib/whiteboard/smartBoardProfiles";
 import {
   Undo2,
+  HelpCircle,
   Redo2,
   Trash2,
   ChevronLeft,
@@ -39,6 +42,7 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
     history,
     historyIndex,
     clearPage,
+    pushHistory,
     pages,
     activePageId,
     nextPage,
@@ -59,10 +63,41 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
   const canUndo = historyIndex > 0;
   const canRedo = historyIndex < history.length - 1;
 
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
+
+  // Show the short board tour automatically the first time Board mode is used on this device.
+  useEffect(() => {
+    if (!boardMode) return;
+    try {
+      if (!localStorage.getItem("slate_board_tour_seen")) setTourOpen(true);
+    } catch {
+      /* storage unavailable: skip auto tour */
+    }
+  }, [boardMode]);
+
+  const handleTourChange = (open: boolean) => {
+    setTourOpen(open);
+    if (!open) {
+      try {
+        localStorage.setItem("slate_board_tour_seen", "1");
+      } catch {
+        /* ignore */
+      }
+    }
+  };
+
   const handleClear = () => {
+    const active = pages.find((p) => p.id === activePageId);
+    if (!active || active.objects.length === 0) {
+      toast("This page is already empty");
+      return;
+    }
     clearPage();
-    toast("Board Cleared", {
-      description: "Tapped Clear. You can restore your writing anytime.",
+    // Save the cleared state as its own undo step, so Undo brings back exactly what was erased.
+    pushHistory();
+    toast("Page cleared", {
+      description: "Tap Undo to bring it back.",
       action: {
         label: "Undo",
         onClick: () => undo(),
@@ -88,7 +123,7 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
           onClick={undo}
           disabled={!canUndo}
           className={cn(
-            "flex h-14 w-14 flex-col items-center justify-center rounded-xl font-medium transition-all active:scale-95",
+            "flex h-16 w-16 flex-col items-center justify-center rounded-xl font-medium transition-all active:scale-95",
             canUndo
               ? "bg-muted/70 text-foreground hover:bg-muted"
               : "opacity-40 cursor-not-allowed text-muted-foreground"
@@ -96,7 +131,7 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
           title="Undo (Ctrl+Z)"
         >
           <Undo2 className="h-7 w-7" />
-          <span className="text-[10px] font-bold">Undo</span>
+          <span className="text-xs font-bold">Undo</span>
         </button>
 
         {/* Redo */}
@@ -104,7 +139,7 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
           onClick={redo}
           disabled={!canRedo}
           className={cn(
-            "flex h-14 w-14 flex-col items-center justify-center rounded-xl font-medium transition-all active:scale-95",
+            "flex h-16 w-16 flex-col items-center justify-center rounded-xl font-medium transition-all active:scale-95",
             canRedo
               ? "bg-muted/70 text-foreground hover:bg-muted"
               : "opacity-40 cursor-not-allowed text-muted-foreground"
@@ -112,7 +147,7 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
           title="Redo (Ctrl+Y)"
         >
           <Redo2 className="h-7 w-7" />
-          <span className="text-[10px] font-bold">Redo</span>
+          <span className="text-xs font-bold">Redo</span>
         </button>
 
         <div className="h-10 w-px bg-border/80 mx-1" />
@@ -120,11 +155,21 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
         {/* Clear Page with Undo Toast */}
         <button
           onClick={handleClear}
-          className="flex h-14 px-3 flex-col items-center justify-center rounded-xl text-rose-500 hover:bg-rose-500/10 hover:text-rose-600 transition-all active:scale-95"
+          className="flex h-16 min-w-16 px-3 flex-col items-center justify-center rounded-xl text-rose-500 hover:bg-rose-500/10 hover:text-rose-600 transition-all active:scale-95"
           title="Clear Board (single tap with instant undo)"
         >
           <Trash2 className="h-6 w-6" />
-          <span className="text-[10px] font-bold">Clear</span>
+          <span className="text-xs font-bold">Clear</span>
+        </button>
+
+        {/* Help: labels every part of the screen in plain words */}
+        <button
+          onClick={() => setHelpOpen(true)}
+          className="flex h-16 w-16 flex-col items-center justify-center rounded-xl bg-muted/40 text-foreground hover:bg-muted transition-all active:scale-95"
+          title="Help: what does each button do?"
+        >
+          <HelpCircle className="h-6 w-6" />
+          <span className="text-xs font-bold">Help</span>
         </button>
 
         <div className="h-10 w-px bg-border/80 mx-1" />
@@ -133,13 +178,13 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
-              className="flex h-14 items-center gap-2 rounded-xl bg-primary/10 px-3 text-primary hover:bg-primary/20 transition-all active:scale-95"
+              className="flex h-16 items-center gap-2 rounded-xl bg-primary/10 px-3 text-primary hover:bg-primary/20 transition-all active:scale-95"
               title="Panel Size and Smart Board Settings"
             >
               <Tv className="h-6 w-6" />
               <div className="flex flex-col text-left">
                 <span className="text-xs font-black tracking-wide">{panelSize}&quot; Board</span>
-                <span className="text-[10px] text-muted-foreground font-medium">
+                <span className="text-xs text-muted-foreground font-medium">
                   {splitBoardZones > 1 ? `${splitBoardZones} Zones` : "Full View"}
                 </span>
               </div>
@@ -170,7 +215,7 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
                     )}
                   >
                     <span>{sizeKey}&quot;</span>
-                    <span className="text-[9px] font-normal opacity-80">{Math.round(p.widthInches)}in</span>
+                    <span className="text-[11px] font-normal opacity-80">{Math.round(p.widthInches)}in</span>
                   </button>
                 );
               })}
@@ -265,7 +310,7 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
           onClick={prevPage}
           disabled={activePageIndex <= 0}
           className={cn(
-            "flex h-14 w-12 items-center justify-center rounded-xl transition-all active:scale-95",
+            "flex h-16 w-14 items-center justify-center rounded-xl transition-all active:scale-95",
             activePageIndex > 0
               ? "bg-muted/70 text-foreground hover:bg-muted"
               : "opacity-40 cursor-not-allowed text-muted-foreground"
@@ -280,13 +325,13 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
           onClick={() => {
             if (onOpenSorter) onOpenSorter();
           }}
-          className="flex h-14 px-3 flex-col items-center justify-center rounded-xl bg-muted/40 hover:bg-muted transition-all"
+          className="flex h-16 min-w-16 px-3 flex-col items-center justify-center rounded-xl bg-muted/40 hover:bg-muted transition-all"
           title="Page Sorter / Slide Grid"
         >
           <span className="text-xs font-extrabold text-foreground tracking-wider">
             {activePageIndex + 1} / {pages.length}
           </span>
-          <span className="text-[10px] text-muted-foreground font-semibold">Pages</span>
+          <span className="text-xs text-muted-foreground font-semibold">Pages</span>
         </button>
 
         {/* Next Page */}
@@ -294,7 +339,7 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
           onClick={nextPage}
           disabled={activePageIndex >= pages.length - 1}
           className={cn(
-            "flex h-14 w-12 items-center justify-center rounded-xl transition-all active:scale-95",
+            "flex h-16 w-14 items-center justify-center rounded-xl transition-all active:scale-95",
             activePageIndex < pages.length - 1
               ? "bg-muted/70 text-foreground hover:bg-muted"
               : "opacity-40 cursor-not-allowed text-muted-foreground"
@@ -307,13 +352,15 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
         {/* Add Page */}
         <button
           onClick={addPage}
-          className="flex h-14 w-14 flex-col items-center justify-center rounded-xl bg-primary text-primary-foreground font-bold shadow-md hover:bg-primary/90 transition-all active:scale-95"
+          className="flex h-16 w-16 flex-col items-center justify-center rounded-xl bg-primary text-primary-foreground font-bold shadow-md hover:bg-primary/90 transition-all active:scale-95"
           title="Add New Blank Page"
         >
           <Plus className="h-6 w-6" />
-          <span className="text-[9px] font-bold">New</span>
+          <span className="text-xs font-bold">New</span>
         </button>
       </div>
+      <BoardHelpOverlay open={helpOpen} onClose={() => setHelpOpen(false)} />
+      <BoardTourDialog open={tourOpen} onOpenChange={handleTourChange} />
     </>
   );
 }

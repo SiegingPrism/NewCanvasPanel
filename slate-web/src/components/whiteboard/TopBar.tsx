@@ -72,17 +72,17 @@ function uid() {
 }
 
 const PAPER_TEMPLATES: { id: PageBackground; label: string; icon: string }[] = [
-  { id: "white", label: "Blank White", icon: "🗒️" },
-  { id: "blackboard", label: "Classic Chalkboard", icon: "🏫" },
-  { id: "oled", label: "OLED Pitch Black", icon: "🌌" },
-  { id: "dark", label: "Dark Slate", icon: "⬛" },
-  { id: "grid", label: "Engineering Grid", icon: "📐" },
-  { id: "dots", label: "Dot Journal", icon: "📓" },
-  { id: "lined", label: "Notebook Lined", icon: "📝" },
-  { id: "isometric", label: "Isometric 3D", icon: "🔺" },
-  { id: "four-line", label: "4-Line Ruling (Eng/Hin)", icon: "✍️" },
-  { id: "music-staves", label: "Music Theory Staves", icon: "🎼" },
-  { id: "millimeter-graph", label: "Millimeter Graph", icon: "📊" },
+  { id: "white", label: "White", icon: "🗒️" },
+  { id: "blackboard", label: "Chalkboard", icon: "🏫" },
+  { id: "oled", label: "Black", icon: "🌌" },
+  { id: "dark", label: "Dark grey", icon: "⬛" },
+  { id: "grid", label: "Squared paper", icon: "📐" },
+  { id: "dots", label: "Dot paper", icon: "📓" },
+  { id: "lined", label: "Lined paper", icon: "📝" },
+  { id: "isometric", label: "Triangle grid (3D)", icon: "🔺" },
+  { id: "four-line", label: "4-line handwriting", icon: "✍️" },
+  { id: "music-staves", label: "Music staves", icon: "🎼" },
+  { id: "millimeter-graph", label: "Graph paper (mm)", icon: "📊" },
 ];
 
 export function TopBar({
@@ -409,7 +409,7 @@ export function TopBar({
       {/* Background & Templates Picker */}
       <Popover modal={false} open={templatePopoverOpen} onOpenChange={setTemplatePopoverOpen}>
         <PopoverTrigger asChild>
-          <button className={iconBtn} title="Backgrounds & Templates">
+          <button className={iconBtn} title="Paper & backgrounds">
             <Grid3x3 className={iconSize} />
           </button>
         </PopoverTrigger>
@@ -524,7 +524,7 @@ export function TopBar({
       {/* Lecture Presentation Mode */}
       <button
         className={cn(iconBtn, "hidden sm:grid text-indigo-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/30")}
-        title="Start Lecture Presentation (Slides Mode)"
+        title="Present (full screen)"
         onClick={() => window.dispatchEvent(new CustomEvent("slate:start-presentation"))}
       >
         <MonitorPlay className={iconSize} />
@@ -543,7 +543,7 @@ export function TopBar({
       {!simpleMode && (
         <button
           className={cn(iconBtn, "text-primary hover:bg-primary/10")}
-          title="AI Assistant & Copilot"
+          title="AI helper"
           onClick={onOpenAI}
         >
           <Bot className={iconSize} />

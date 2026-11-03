@@ -79,6 +79,7 @@ function BoardPage() {
     hydrated,
     boardMode,
     reachabilityOffset,
+    simpleMode,
   } = useWhiteboard();
 
   const [radialMenuPos, setRadialMenuPos] = useState<{ x: number; y: number } | null>(null);
@@ -260,9 +261,13 @@ function BoardPage() {
 
       <div
         className={cn(
-          "pointer-events-none absolute inset-x-0 top-0 flex justify-center p-2 pt-[max(1.75rem,calc(var(--sat,env(safe-area-inset-top,0px))+0.5rem))] sm:p-3 sm:pt-[max(0.75rem,calc(var(--sat,env(safe-area-inset-top,0px))+0.5rem))] transition-opacity duration-300 z-30",
+          "pointer-events-none absolute inset-x-0 top-0 flex justify-center p-2 pt-[max(1.75rem,calc(var(--sat,env(safe-area-inset-top,0px))+0.5rem))] sm:p-3 sm:pt-[max(0.75rem,calc(var(--sat,env(safe-area-inset-top,0px))+0.5rem))] transition-[opacity,transform] duration-300 z-30",
           isPresenting ? "opacity-0 pointer-events-none" : "opacity-100",
         )}
+        style={{
+          // Move the top bar down with the pulled-down board so shorter teachers can reach it too.
+          transform: boardMode && reachabilityOffset > 0 ? `translateY(${reachabilityOffset * 100}dvh)` : undefined,
+        }}
       >
         <TopBar
           onOpenAI={() => handleOpenAI()}
@@ -295,7 +300,7 @@ function BoardPage() {
         <RadialMenu position={radialMenuPos} onClose={() => setRadialMenuPos(null)} />
       )}
 
-      {selectedId && (
+      {selectedId && !simpleMode && (
         <div className="pointer-events-none absolute bottom-[max(8.5rem,calc(var(--sab,56px)+5rem))] sm:bottom-20 left-1/2 -translate-x-1/2 lg:bottom-4 lg:left-auto lg:right-4 lg:translate-x-0">
           <div className="pointer-events-auto flex items-center gap-1 rounded-full bg-card px-2 py-1 shadow-lg ring-1 ring-border">
             <button

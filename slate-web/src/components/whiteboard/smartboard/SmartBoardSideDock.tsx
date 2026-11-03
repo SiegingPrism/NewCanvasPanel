@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { SHAPES_2D, DIAGRAMS_3D } from "@/components/whiteboard/Toolbar";
+import type { ShapeType } from "@/lib/whiteboard/types";
 
 interface SmartBoardSideDockProps {
   side: "left" | "right";
@@ -54,7 +56,33 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
     setLockBoard,
     reachabilityOffset,
     setReachabilityOffset,
+    camera,
+    addObject,
+    pushHistory,
+    simpleMode,
   } = useWhiteboard();
+
+  // Insert a ready-made shape in the middle of what the teacher is looking at.
+  const insertShape = (shapeType: ShapeType) => {
+    const isLineLike = ["line", "arrow", "double-arrow", "curved-arrow"].includes(shapeType);
+    const w = isLineLike ? 240 : 200;
+    const h = isLineLike ? 80 : 200;
+    const cx = (-camera.x + window.innerWidth / 2) / camera.zoom;
+    const cy = (-camera.y + window.innerHeight / 2) / camera.zoom;
+    addObject({
+      id: Math.random().toString(36).slice(2, 10),
+      kind: "shape",
+      shape: shapeType,
+      color,
+      size: Math.max(3, size),
+      x: Math.round(cx - w / 2),
+      y: Math.round(cy - h / 2),
+      w,
+      h,
+    });
+    pushHistory();
+    setShapePopoverOpen(false);
+  };
 
   const profile = getSmartBoardProfile(panelSize);
   const [verticalAlign, setVerticalAlign] = useState<"mid" | "top" | "bottom">("mid");
@@ -106,7 +134,7 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
       }}
     >
       {/* Dock Vertical Height Shifter for Teacher Height Adaptability */}
-      <div className="flex w-full items-center justify-between px-1 text-muted-foreground/60 text-[10px]">
+      <div className="flex w-full items-center justify-between px-1 text-muted-foreground/60 text-xs">
         <button
           onClick={() => setVerticalAlign((prev) => (prev === "bottom" ? "mid" : "top"))}
           title="Move dock higher"
@@ -141,7 +169,7 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
             title="Pen (tap again for colors & stroke thickness)"
           >
             <Pen className="h-7 w-7" />
-            <span className="text-[11px] font-semibold mt-0.5">Pen</span>
+            <span className="text-xs font-semibold mt-0.5">Pen</span>
             {/* Active Color Pip */}
             <span
               className="absolute bottom-1.5 right-1.5 h-3 w-3 rounded-full border border-white/50 shadow-sm"
@@ -216,7 +244,7 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
         title="Highlighter"
       >
         <Highlighter className="h-7 w-7" />
-        <span className="text-[11px] font-semibold mt-0.5">Highlighter</span>
+        <span className="text-xs font-semibold mt-0.5">Highlight</span>
       </button>
 
       {/* 3. Eraser Tool */}
@@ -232,7 +260,7 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
         title="Eraser (or wipe canvas with palm / fist)"
       >
         <Eraser className="h-7 w-7" />
-        <span className="text-[11px] font-semibold mt-0.5">Eraser</span>
+        <span className="text-xs font-semibold mt-0.5">Eraser</span>
       </button>
 
       {/* 4. Select / Move Tool */}
@@ -248,10 +276,12 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
         title="Select / Move"
       >
         <MousePointer2 className="h-7 w-7" />
-        <span className="text-[11px] font-semibold mt-0.5">Select</span>
+        <span className="text-xs font-semibold mt-0.5">Select</span>
       </button>
 
-      {/* 5. Shapes Tool */}
+      {/* 5. Shapes Tool: tap once to draw rough shapes (auto-straightened), tap again to pick a ready-made one */}
+      <Popover open={shapePopoverOpen} onOpenChange={setShapePopoverOpen}>
+        <PopoverTrigger asChild>
       <button
         onClick={() => handleToolClick("shape")}
         className={cn(
@@ -261,11 +291,59 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
             : "bg-muted/40 text-foreground hover:bg-muted"
         )}
         style={{ width: `${targetSizePx}px`, height: `${targetSizePx}px` }}
-        title="Shapes"
+        title="Shapes (draw a rough shape, or tap again to pick one)"
       >
         <Shapes className="h-7 w-7" />
-        <span className="text-[11px] font-semibold mt-0.5">Shapes</span>
+        <span className="text-xs font-semibold mt-0.5">Shapes</span>
       </button>
+        </PopoverTrigger>
+        <PopoverContent
+          side={isLeft ? "right" : "left"}
+          sideOffset={16}
+          className="w-[26rem] max-w-[calc(100vw-2rem)] rounded-2xl p-4 shadow-2xl bg-card border border-border"
+        >
+          <p className="text-sm text-muted-foreground mb-3">
+            Draw a rough shape and it gets straightened, or tap one below to add it.
+          </p>
+          <div className="grid grid-cols-4 gap-2">
+            {SHAPES_2D.slice(0, 12).map((s) => {
+              const Icon = s.icon;
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => insertShape(s.id as ShapeType)}
+                  className="flex h-20 flex-col items-center justify-center gap-1 rounded-xl border border-border/60 hover:bg-muted active:scale-95 transition"
+                >
+                  <Icon className="h-7 w-7" />
+                  <span className="text-xs font-medium truncate w-full px-1 text-center">{s.label}</span>
+                </button>
+              );
+            })}
+          </div>
+          {!simpleMode && (
+            <>
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mt-4 mb-2">3D shapes</p>
+              <div className="grid grid-cols-4 gap-2">
+                {DIAGRAMS_3D.slice(0, 8).map((s) => {
+                  const Icon = s.icon;
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => insertShape(s.id as ShapeType)}
+                      className="flex h-20 flex-col items-center justify-center gap-1 rounded-xl border border-border/60 hover:bg-muted active:scale-95 transition"
+                    >
+                      <Icon className="h-7 w-7" />
+                      <span className="text-xs font-medium truncate w-full px-1 text-center">{s.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </PopoverContent>
+      </Popover>
 
       <div className="h-px w-full bg-border my-1" />
 
@@ -286,7 +364,7 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
         ) : (
           <ArrowDownToLine className="h-5 w-5" />
         )}
-        <span className="text-[10px] font-medium mt-0.5">
+        <span className="text-xs font-medium mt-0.5">
           {reachabilityOffset > 0 ? "Reset" : "Lower"}
         </span>
       </button>
@@ -304,7 +382,7 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
         title={lockBoard ? "Board is Locked (Pan & Zoom disabled)" : "Lock Board (prevent accidental pans/zooms)"}
       >
         {lockBoard ? <Lock className="h-5 w-5" /> : <Unlock className="h-5 w-5" />}
-        <span className="text-[10px] font-medium mt-0.5">{lockBoard ? "Locked" : "Lock"}</span>
+        <span className="text-xs font-medium mt-0.5">{lockBoard ? "Locked" : "Lock"}</span>
       </button>
 
       {/* "More" Drawer Button */}
@@ -318,7 +396,7 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
         title="More Tools & Classroom Widgets"
       >
         <MoreHorizontal className="h-6 w-6" />
-        <span className="text-[10px] font-medium mt-0.5">More</span>
+        <span className="text-xs font-medium mt-0.5">More</span>
       </button>
     </aside>
   );

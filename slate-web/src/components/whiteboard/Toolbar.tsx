@@ -71,12 +71,12 @@ import { cn } from "@/lib/utils";
 import { SwipeConfirmDialog } from "./SwipeConfirmDialog";
 import { MathFormulaDialog } from "./MathFormulaDialog";
 
-const SHAPES_2D = [
+export const SHAPES_2D = [
   { id: "rect", label: "Rectangle", icon: Square },
   { id: "circle", label: "Circle", icon: Circle },
   { id: "ellipse", label: "Ellipse", icon: Disc },
   { id: "triangle", label: "Triangle", icon: Triangle },
-  { id: "right-triangle", label: "Right △", icon: Triangle },
+  { id: "right-triangle", label: "Right triangle", icon: Triangle },
   { id: "diamond", label: "Diamond", icon: Diamond },
   { id: "star", label: "Star", icon: Star },
   { id: "pentagon", label: "Pentagon", icon: Pentagon },
@@ -87,8 +87,8 @@ const SHAPES_2D = [
   { id: "heart", label: "Heart", icon: Heart },
   { id: "cloud", label: "Cloud", icon: Cloud },
   { id: "crescent", label: "Crescent", icon: Moon },
-  { id: "ring", label: "Ring Donut", icon: CircleDot },
-  { id: "shield", label: "Shield Badge", icon: Shield },
+  { id: "ring", label: "Ring", icon: CircleDot },
+  { id: "shield", label: "Shield", icon: Shield },
   { id: "banner", label: "Banner", icon: Bookmark },
   { id: "speech-bubble", label: "Speech Bubble", icon: MessageSquare },
   { id: "thought-bubble", label: "Thought Bubble", icon: MessageCircle },
@@ -96,15 +96,15 @@ const SHAPES_2D = [
   { id: "trapezoid", label: "Trapezoid", icon: Square },
   { id: "cross", label: "Cross", icon: Plus },
   { id: "lightning", label: "Lightning", icon: Zap },
-  { id: "gear", label: "Gear Cog", icon: Cog },
-  { id: "bracket", label: "Curly Brace", icon: Code2 },
+  { id: "gear", label: "Gear", icon: Cog },
+  { id: "bracket", label: "Bracket", icon: Code2 },
   { id: "line", label: "Line", icon: Minus },
   { id: "arrow", label: "Arrow", icon: ArrowRight },
   { id: "double-arrow", label: "Double Arrow", icon: MoveHorizontal },
   { id: "curved-arrow", label: "Curved Arrow", icon: CornerDownRight },
 ] as const;
 
-const DIAGRAMS_3D = [
+export const DIAGRAMS_3D = [
   { id: "cube", label: "Cube", icon: Box },
   { id: "cuboid", label: "Cuboid", icon: Package },
   { id: "cylinder", label: "Cylinder", icon: Cylinder },
@@ -113,19 +113,19 @@ const DIAGRAMS_3D = [
   { id: "cone", label: "Cone", icon: Cone },
   { id: "frustum", label: "Frustum", icon: Cone },
   { id: "pyramid", label: "Pyramid", icon: Pyramid },
-  { id: "truncated-pyramid", label: "Trunc. Pyramid", icon: Layers },
+  { id: "truncated-pyramid", label: "Cut pyramid", icon: Layers },
   { id: "tetrahedron", label: "Tetrahedron", icon: Shapes },
   { id: "octahedron", label: "Octahedron", icon: Diamond },
   { id: "dodecahedron", label: "Dodecahedron", icon: Hexagon },
   { id: "prism", label: "Prism", icon: Layers },
   { id: "hex-prism", label: "Hex Prism", icon: Columns3 },
-  { id: "pipe", label: "Hollow Pipe", icon: CircleDot },
-  { id: "wedge", label: "3D Wedge", icon: Triangle },
-  { id: "gem", label: "Brilliant Gem", icon: Gem },
-  { id: "torus", label: "Torus Ring", icon: CircleDot },
+  { id: "pipe", label: "Pipe", icon: CircleDot },
+  { id: "wedge", label: "Wedge", icon: Triangle },
+  { id: "gem", label: "Gem", icon: Gem },
+  { id: "torus", label: "Torus", icon: CircleDot },
   { id: "capsule", label: "Capsule", icon: Pill },
-  { id: "helix", label: "3D Helix", icon: Activity },
-  { id: "axes3d", label: "3D Axes", icon: Axis3d },
+  { id: "helix", label: "Spiral", icon: Activity },
+  { id: "axes3d", label: "3D axes", icon: Axis3d },
 ] as const;
 
 function DottedLineIcon({ className }: { className?: string }) {
@@ -144,20 +144,20 @@ const PEN_STYLES: {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
 }[] = [
-  { id: "pen", label: "Fine Pen", icon: Pen },
+  { id: "pen", label: "Pen", icon: Pen },
   { id: "fountain", label: "Calligraphy", icon: PenTool },
-  { id: "brush", label: "Watercolor", icon: Brush },
-  { id: "marker", label: "Chisel Marker", icon: PenLine },
+  { id: "brush", label: "Paint brush", icon: Brush },
+  { id: "marker", label: "Marker", icon: PenLine },
   { id: "pencil", label: "Pencil", icon: Pencil },
-  { id: "neon", label: "Neon Glow", icon: Flame },
-  { id: "crayon", label: "Chalk Crayon", icon: Paintbrush },
+  { id: "neon", label: "Glow pen", icon: Flame },
+  { id: "crayon", label: "Chalk", icon: Paintbrush },
   { id: "glitter", label: "Sparkle pen", icon: Sparkles },
-  { id: "rainbow", label: "Rainbow Ink", icon: Sparkles },
+  { id: "rainbow", label: "Rainbow pen", icon: Sparkles },
   { id: "dashed", label: "Dashed Line", icon: Minus },
   { id: "dotted", label: "Dotted Line", icon: DottedLineIcon },
   { id: "parallel", label: "Double line", icon: MoveHorizontal },
-  { id: "tape", label: "Study Tape", icon: EyeOff },
-  { id: "frame", label: "Slide Frame", icon: MonitorPlay },
+  { id: "tape", label: "Cover tape", icon: EyeOff },
+  { id: "frame", label: "Slide area", icon: MonitorPlay },
 ];
 
 const COLOR_CATEGORIES = {
@@ -801,7 +801,7 @@ export function Toolbar() {
             setActiveFlyout(null);
           }}
           className={btnClass(tool === "pan")}
-          title="Move & Pan Canvas"
+          title="Move the board"
         >
           <Hand className="h-4 w-4" />
         </button>
@@ -885,7 +885,7 @@ export function Toolbar() {
           onClick={handleBinClick}
           onDoubleClick={() => setClearDialogOpen(true)}
           className={btnClass(false)}
-          title="Bin (Double-tap to clear board)"
+          title="Clear page"
         >
           <Trash2 className="h-4 w-4 hover:text-rose-500 transition-colors" />
         </button>
@@ -898,7 +898,7 @@ export function Toolbar() {
             setActiveFlyout(activeFlyout === "shapes" ? null : "shapes");
           }}
           className={btnClass(tool === "shape")}
-          title="Shapes & 3D Diagrams"
+          title="Shapes"
         >
           <Shapes className="h-4 w-4" />
         </button>
@@ -924,7 +924,7 @@ export function Toolbar() {
             setActiveFlyout(null);
           }}
           className={btnClass(false)}
-          title="Insert Math Formula & Equation (LaTeX)"
+          title="Type an equation"
         >
           <Sigma className="h-4 w-4 text-violet-600 dark:text-violet-400" />
         </button>
@@ -950,7 +950,7 @@ export function Toolbar() {
             window.dispatchEvent(new CustomEvent("slate:open-ai"));
           }}
           className={btnClass(false)}
-          title="AI Whiteboard Copilot & Lesson Assistant"
+          title="AI helper"
         >
           <Bot className="h-4 w-4 text-indigo-500 hover:text-indigo-600 transition-colors" />
         </button>

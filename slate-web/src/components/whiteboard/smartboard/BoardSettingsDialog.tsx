@@ -154,7 +154,7 @@ export function BoardSettingsDialog({ open, onOpenChange }: BoardSettingsDialogP
                 { label: "Millimeter Graph", bg: "millimeter-graph" as const },
                 { label: "Blackboard Green", bg: "blackboard" as const },
                 { label: "Dark Room", bg: "dark" as const },
-                { label: "OLED Pitch Black", bg: "oled" as const },
+                { label: "Black", bg: "oled" as const },
               ].map((item) => (
                 <button
                   key={item.bg}
