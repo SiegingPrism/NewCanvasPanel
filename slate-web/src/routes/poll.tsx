@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { CheckCircle2, Vote, Sparkles, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { getSupabase } from "@/lib/supabase/client";
 
 export const Route = createFileRoute("/poll")({
   component: StudentPollPage,
@@ -21,6 +22,8 @@ function StudentPollPage() {
 
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [hasVoted, setHasVoted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const channelRef = useRef<any>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -45,53 +48,52 @@ function StudentPollPage() {
       correctIndex: ans !== null ? parseInt(ans, 10) : undefined,
     });
 
-    // Also attempt fetching latest poll state from backend server
-    if (id && id !== "default") {
-      fetch(`/api/poll?id=${id}`)
-        .then((r) => r.json())
-        .then((data) => {
-          if (data && data.question && Array.isArray(data.options)) {
-            setParams((prev) => ({
-              ...prev,
-              question: data.question,
-              options: data.options,
-              correctIndex: data.correctIndex ?? prev.correctIndex,
-            }));
-          }
-        })
-        .catch(() => {});
+    // Establish Supabase Realtime Channel connection to the smart board
+    const supabase = getSupabase();
+    if (supabase && id && id !== "default") {
+      const channel = supabase.channel(`slate_poll_${id}`, {
+        config: { broadcast: { ack: false, self: false } },
+      });
+      channel.subscribe();
+      channelRef.current = channel;
+
+      return () => {
+        try {
+          supabase.removeChannel(channel);
+        } catch {}
+      };
     }
   }, []);
 
   const handleSubmitVote = async () => {
-    if (selectedOption === null) return;
-
-    // 1. Cross-device HTTP submission to Smart Board server API
-    try {
-      await fetch("/api/poll", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "vote",
-          pollId: params.id,
-          optionIndex: selectedOption,
-        }),
-      });
-    } catch (err) {
-      console.warn("HTTP vote submission error:", err);
-    }
+    if (selectedOption === null || isSubmitting) return;
+    setIsSubmitting(true);
 
     const votePayload = {
-      type: "vote",
-      pollId: params.id,
       optionIndex: selectedOption,
+      pollId: params.id,
       timestamp: Date.now(),
     };
+
+    // 1. Send vote across internet via Supabase Realtime WebSocket broadcast
+    const supabase = getSupabase();
+    if (supabase && params.id && params.id !== "default") {
+      try {
+        const channel = channelRef.current || supabase.channel(`slate_poll_${params.id}`);
+        await channel.send({
+          type: "broadcast",
+          event: "vote",
+          payload: votePayload,
+        });
+      } catch (err) {
+        console.warn("Realtime broadcast error:", err);
+      }
+    }
 
     // 2. BroadcastChannel for same-origin tabs/devices
     try {
       const bc = new BroadcastChannel(`slate_poll_${params.id}`);
-      bc.postMessage(votePayload);
+      bc.postMessage({ type: "vote", ...votePayload });
       bc.close();
     } catch {}
 
@@ -100,6 +102,7 @@ function StudentPollPage() {
       localStorage.setItem(`slate_poll_vote_${params.id}_${Date.now()}`, JSON.stringify(votePayload));
     } catch {}
 
+    setIsSubmitting(false);
     setHasVoted(true);
   };
 
@@ -185,12 +188,12 @@ function StudentPollPage() {
             </div>
 
             <Button
-              disabled={selectedOption === null}
+              disabled={selectedOption === null || isSubmitting}
               onClick={handleSubmitVote}
               className="w-full h-12 rounded-2xl text-base font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/25 transition-all disabled:opacity-50"
             >
               <Send className="h-4 w-4 mr-2" />
-              Submit Vote
+              {isSubmitting ? "Submitting..." : "Submit Vote"}
             </Button>
           </div>
         )}

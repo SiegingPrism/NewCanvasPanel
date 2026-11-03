@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { KeyRound, Smartphone, CheckCircle2, Loader2, Wifi, Edit2 } from "lucide-react";
+import { KeyRound, Smartphone, CheckCircle2, Loader2, Sparkles } from "lucide-react";
 import QRCode from "qrcode";
-import { useAuth } from "@/lib/supabase/authStore";
+import { useAuth, getUserDisplayName } from "@/lib/supabase/authStore";
+import { getSupabase } from "@/lib/supabase/client";
+import { getPublicAppOrigin } from "@/lib/utils";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 
 interface TeacherQRLoginDialogProps {
   open: boolean;
@@ -13,30 +14,17 @@ interface TeacherQRLoginDialogProps {
 
 export function TeacherQRLoginDialog({ open, onOpenChange }: TeacherQRLoginDialogProps) {
   const { user } = useAuth();
-  const [token] = useState(() => `teacher-${Math.random().toString(36).slice(2, 10)}`);
+  const [authCode] = useState(() => `slate-auth-${Math.random().toString(36).slice(2, 10)}`);
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
   const [isApproved, setIsApproved] = useState(false);
-  const [serverHost, setServerHost] = useState<string>(() => {
-    if (typeof window !== "undefined") {
-      return window.location.origin;
-    }
-    return "";
-  });
-  const [editingHost, setEditingHost] = useState(false);
+  const [approvedTeacher, setApprovedTeacher] = useState<string>("");
 
   useEffect(() => {
     if (!open) return;
 
-    // 1. Initialize pending auth session on backend server
-    fetch("/api/teacher-auth", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "create", token }),
-    }).catch(() => {});
-
-    // 2. Generate QR code pointing to cross-device mobile approval route
-    const base = serverHost || (typeof window !== "undefined" ? window.location.origin : "");
-    const authUrl = `${base}/teacher-login?token=${token}`;
+    // 1. Generate QR code pointing to mobile teacher authorization route
+    const base = getPublicAppOrigin();
+    const authUrl = `${base}/teacher-login?code=${authCode}`;
 
     QRCode.toDataURL(authUrl, {
       width: 240,
@@ -46,74 +34,91 @@ export function TeacherQRLoginDialog({ open, onOpenChange }: TeacherQRLoginDialo
       .then((url) => setQrDataUrl(url))
       .catch(() => {});
 
-    // 3. Poll server API every 1 second for approval from teacher's phone
-    let cancelled = false;
-    const pollInterval = setInterval(async () => {
-      if (cancelled || isApproved) return;
-      try {
-        const res = await fetch(`/api/teacher-auth?token=${token}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.approved) {
+    // 2. Real-time authentication listener via Supabase Realtime Channel
+    const supabase = getSupabase();
+    let channel: any = null;
+
+    const handleSessionApproval = async (session: any, approvedUser: any) => {
+      if (!session?.access_token || !session?.refresh_token) return;
+
+      if (supabase) {
+        try {
+          const { data, error } = await supabase.auth.setSession({
+            access_token: session.access_token,
+            refresh_token: session.refresh_token,
+          });
+
+          if (!error && data.user) {
+            const name = getUserDisplayName(data.user || approvedUser);
+            setApprovedTeacher(name);
             setIsApproved(true);
-            toast.success(`Welcome, ${data.teacherName || "Teacher"}! Session authenticated.`);
+            toast.success(`Welcome, ${name}! Lessons synced from cloud.`);
             setTimeout(() => {
               onOpenChange(false);
-            }, 1200);
+            }, 1500);
+            return;
           }
+        } catch (authErr) {
+          console.warn("Failed to set session from mobile auth:", authErr);
         }
-      } catch {}
-    }, 1000);
+      }
 
-    // 4. Same-device fallback listeners (BroadcastChannel + storage)
+      // Fallback display
+      const displayName = approvedUser?.user_metadata?.full_name || approvedUser?.email || "Teacher";
+      setApprovedTeacher(displayName);
+      setIsApproved(true);
+      toast.success(`Authenticated as ${displayName}!`);
+      setTimeout(() => {
+        onOpenChange(false);
+      }, 1500);
+    };
+
+    if (supabase) {
+      channel = supabase.channel(`slate_auth_${authCode}`, {
+        config: { broadcast: { ack: false, self: false } },
+      });
+
+      channel
+        .on("broadcast", { event: "approve_session" }, (payload: any) => {
+          const data = payload?.payload || payload;
+          handleSessionApproval(data.session, data.user);
+        })
+        .subscribe();
+    }
+
+    // 3. Same-device fallback (BroadcastChannel + storage) for local testing
     let bc: BroadcastChannel | null = null;
     try {
-      bc = new BroadcastChannel(`slate_teacher_auth_${token}`);
+      bc = new BroadcastChannel(`slate_teacher_auth_${authCode}`);
       bc.onmessage = (ev) => {
-        if (ev.data?.type === "approved") {
-          setIsApproved(true);
-          toast.success("Teacher account authorized via phone!");
-          setTimeout(() => {
-            onOpenChange(false);
-          }, 1200);
+        if (ev.data?.type === "approved" && ev.data.session) {
+          handleSessionApproval(ev.data.session, ev.data.user);
         }
       };
     } catch {}
 
     const onStorage = (e: StorageEvent) => {
-      if (e.key === `slate_teacher_auth_${token}`) {
-        setIsApproved(true);
-        toast.success("Teacher account authorized via phone!");
-        setTimeout(() => {
-          onOpenChange(false);
-        }, 1200);
+      if (e.key === `slate_teacher_auth_${authCode}` && e.newValue) {
+        try {
+          const data = JSON.parse(e.newValue);
+          if (data.session) {
+            handleSessionApproval(data.session, data.user);
+          }
+        } catch {}
       }
     };
     window.addEventListener("storage", onStorage);
 
     return () => {
-      cancelled = true;
-      clearInterval(pollInterval);
+      if (supabase && channel) {
+        try {
+          supabase.removeChannel(channel);
+        } catch {}
+      }
       if (bc) bc.close();
       window.removeEventListener("storage", onStorage);
     };
-  }, [open, token, serverHost, isApproved, onOpenChange]);
-
-  const handleSimulateApproval = async () => {
-    setIsApproved(true);
-    try {
-      await fetch("/api/teacher-auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "approve", token, teacherName: "Teacher" }),
-      });
-      localStorage.setItem(`slate_teacher_auth_${token}`, "approved");
-    } catch {}
-    toast.success("Signed in as Teacher!");
-    setTimeout(() => {
-      onOpenChange(false);
-    }, 1000);
-  };
+  }, [open, authCode, onOpenChange]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -135,9 +140,12 @@ export function TeacherQRLoginDialog({ open, onOpenChange }: TeacherQRLoginDialo
         <div className="py-4 flex flex-col items-center justify-center space-y-4">
           <div className="p-3 bg-white rounded-2xl shadow-lg border border-border inline-block">
             {isApproved ? (
-              <div className="h-48 w-48 rounded-lg bg-emerald-50 flex flex-col items-center justify-center text-emerald-600 gap-2">
+              <div className="h-48 w-48 rounded-lg bg-emerald-50 flex flex-col items-center justify-center text-emerald-600 gap-2 p-3 text-center">
                 <CheckCircle2 className="h-12 w-12 animate-in zoom-in-50 duration-300" />
                 <span className="font-bold text-sm">Authenticated!</span>
+                <span className="text-xs text-emerald-700/80 font-medium truncate max-w-full">
+                  {approvedTeacher || "Teacher"}
+                </span>
               </div>
             ) : qrDataUrl ? (
               <img src={qrDataUrl} alt="Teacher QR Login" className="h-48 w-48 rounded-lg" />
@@ -150,48 +158,14 @@ export function TeacherQRLoginDialog({ open, onOpenChange }: TeacherQRLoginDialo
 
           <div className="bg-muted/40 rounded-xl p-3 border text-xs text-muted-foreground flex items-center gap-2 text-left">
             <Smartphone className="h-5 w-5 text-indigo-500 shrink-0" />
-            <span>Open your phone's camera, scan the code, and tap Approve to load your lessons.</span>
+            <span>Open camera on your phone, scan the code, and tap Approve to log the board into your account.</span>
           </div>
 
-          {/* Wi-Fi Host IP Editor for Local Classroom Networks */}
-          <div>
-            <button
-              type="button"
-              onClick={() => setEditingHost(!editingHost)}
-              className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1 font-medium mx-auto"
-            >
-              <Wifi className="h-3 w-3" />
-              <span>Host: {serverHost.replace(/^https?:\/\//, "")}</span>
-              <Edit2 className="h-2.5 w-2.5 opacity-60" />
-            </button>
-            {editingHost && (
-              <div className="mt-1.5 flex gap-1 justify-center">
-                <input
-                  type="text"
-                  value={serverHost}
-                  onChange={(e) => setServerHost(e.target.value)}
-                  placeholder="http://192.168.1.5:5173"
-                  className="text-[11px] bg-background border rounded px-2 py-1 font-mono w-48"
-                />
-                <button
-                  onClick={() => setEditingHost(false)}
-                  className="text-[10px] bg-primary text-primary-foreground px-2 py-1 rounded font-bold"
-                >
-                  OK
-                </button>
-              </div>
-            )}
+          <div className="text-[11px] text-muted-foreground flex items-center gap-1 font-mono">
+            <span>Code: {authCode.slice(11, 19)}</span>
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse ml-1" />
+            <span className="text-emerald-500 font-sans">Listening</span>
           </div>
-
-          {/* Fallback approval button */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleSimulateApproval}
-            className="text-xs text-indigo-500 hover:text-indigo-400 font-semibold"
-          >
-            One-Tap Teacher Quick Login
-          </Button>
         </div>
       </DialogContent>
     </Dialog>

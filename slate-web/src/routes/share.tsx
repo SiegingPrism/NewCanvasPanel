@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { Download, FileText, CheckCircle2, Sparkles, Loader2 } from "lucide-react";
+import { Download, FileText, CheckCircle2, Sparkles, Loader2, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/share")({
@@ -8,7 +8,6 @@ export const Route = createFileRoute("/share")({
 });
 
 function SharedNotesDownloadPage() {
-  const [noteId, setNoteId] = useState<string | null>(null);
   const [title, setTitle] = useState("Lesson Notes");
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [downloaded, setDownloaded] = useState(false);
@@ -17,66 +16,45 @@ function SharedNotesDownloadPage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const url = new URL(window.location.href);
+    const fileUrl = url.searchParams.get("url");
     const id = url.searchParams.get("id");
     const qTitle = url.searchParams.get("title") || "Lesson Notes";
     setTitle(qTitle);
-    setNoteId(id);
 
-    // 1. Fetch PDF from the Smart Board server API
+    // 1. Direct Supabase Storage Cloud URL
+    if (fileUrl) {
+      setDownloadUrl(fileUrl);
+      setLoading(false);
+      return;
+    }
+
+    // 2. Same-device fallback from localStorage
     if (id) {
-      fetch(`/api/notes-share?id=${id}`)
-        .then((res) => {
-          if (res.ok) return res.json();
-          throw new Error("Not found on server");
-        })
-        .then((data) => {
-          if (data.title) setTitle(data.title);
-          // Prefer direct binary download endpoint
-          setDownloadUrl(data.downloadUrl || data.pdfBase64);
-        })
-        .catch(() => {
-          // 2. Fallback to local storage if accessed on same device
-          try {
-            const stored =
-              localStorage.getItem(`slate_shared_notes_${id}`) ||
-              localStorage.getItem("slate_shared_notes_pdf");
-            if (stored) {
-              setDownloadUrl(stored);
-            }
-          } catch {}
-        })
-        .finally(() => {
-          setLoading(false);
-        });
+      try {
+        const stored =
+          localStorage.getItem(`slate_shared_notes_${id}`) ||
+          localStorage.getItem("slate_shared_notes_pdf");
+        if (stored) {
+          setDownloadUrl(stored);
+        }
+      } catch {}
     } else {
-      // Fallback if no ID passed
       try {
         const stored = localStorage.getItem("slate_shared_notes_pdf");
         if (stored) setDownloadUrl(stored);
       } catch {}
-      setLoading(false);
     }
+    setLoading(false);
   }, []);
 
   const handleDownload = () => {
     const filename = `${title.replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf`;
 
-    if (noteId) {
-      // Trigger native download directly from server binary endpoint
-      const a = document.createElement("a");
-      a.href = `/api/notes-share?id=${noteId}&download=true`;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setDownloaded(true);
-      return;
-    }
-
     if (downloadUrl) {
       const a = document.createElement("a");
       a.href = downloadUrl;
       a.download = filename;
+      a.target = "_blank";
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -104,13 +82,13 @@ function SharedNotesDownloadPage() {
             <span>Multi-Page Board Summary</span>
           </div>
           <p>
-            Complete high-resolution document including handwriting, diagrams, equations, and annotations generated from the Smart Board.
+            Complete high-resolution document including handwriting, diagrams, equations, and annotations generated directly from the Smart Board.
           </p>
         </div>
 
         <Button
           onClick={handleDownload}
-          disabled={loading}
+          disabled={loading || !downloadUrl}
           className="w-full h-12 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-base shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2 disabled:opacity-50"
         >
           {loading ? (
@@ -120,8 +98,20 @@ function SharedNotesDownloadPage() {
           ) : (
             <Download className="h-5 w-5" />
           )}
-          <span>{loading ? "Preparing PDF..." : downloaded ? "Downloaded Again" : "Download Notes (PDF)"}</span>
+          <span>{loading ? "Preparing PDF..." : downloaded ? "Downloaded (Tap to Download Again)" : "Download Notes (PDF)"}</span>
         </Button>
+
+        {downloadUrl && downloadUrl.startsWith("http") && (
+          <a
+            href={downloadUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 transition-colors"
+          >
+            <span>Open PDF directly in browser</span>
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        )}
       </div>
     </div>
   );

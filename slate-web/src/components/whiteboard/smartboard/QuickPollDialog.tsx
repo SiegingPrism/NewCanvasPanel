@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Vote, QrCode, CheckCircle2, Trophy, BarChart3, Users, RotateCcw, Wifi, Edit2 } from "lucide-react";
+import { Vote, CheckCircle2, Trophy, Users, RotateCcw, Radio } from "lucide-react";
 import QRCode from "qrcode";
 import { useWhiteboard } from "@/lib/whiteboard/store";
 import type { QuizObject } from "@/lib/whiteboard/types";
-import { cn } from "@/lib/utils";
+import { cn, getPublicAppOrigin } from "@/lib/utils";
 import { toast } from "sonner";
+import { getSupabase } from "@/lib/supabase/client";
 
 interface QuickPollDialogProps {
   open: boolean;
@@ -17,27 +18,20 @@ export function QuickPollDialog({ open, onOpenChange, initialQuiz }: QuickPollDi
   const { pages, activePageId } = useWhiteboard();
   const page = pages.find((p) => p.id === activePageId);
 
-  // If page has a quiz object, we can pull it in!
+  // Pull quiz object from page if available
   const quizOnBoard = initialQuiz || (page?.objects.find((o) => o.kind === "quiz") as QuizObject | undefined);
 
   const [pollId] = useState(() => `poll-${Math.random().toString(36).slice(2, 9)}`);
-  const [question, setQuestion] = useState(
+  const [question] = useState(
     quizOnBoard?.question || "Which planet in our solar system has the most moons?"
   );
-  const [options, setOptions] = useState<string[]>(
+  const [options] = useState<string[]>(
     quizOnBoard?.options || ["Mars", "Jupiter", "Saturn", "Neptune"]
   );
-  const [correctIndex, setCorrectIndex] = useState(quizOnBoard?.answerIndex ?? 2);
+  const [correctIndex] = useState(quizOnBoard?.answerIndex ?? 2);
   const [votes, setVotes] = useState<number[]>([0, 0, 0, 0]);
   const [revealed, setRevealed] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
-  const [serverHost, setServerHost] = useState<string>(() => {
-    if (typeof window !== "undefined") {
-      return window.location.origin;
-    }
-    return "";
-  });
-  const [editingHost, setEditingHost] = useState(false);
 
   // Sync options count with votes array
   useEffect(() => {
@@ -46,46 +40,10 @@ export function QuickPollDialog({ open, onOpenChange, initialQuiz }: QuickPollDi
     }
   }, [options.length]);
 
-  // Register poll on server API and poll for incoming votes from student phones
+  // Real-time vote reception via Supabase Realtime channel
   useEffect(() => {
     if (!open) return;
 
-    // 1. Create or register active poll session on backend server
-    fetch("/api/poll", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "create",
-        pollId,
-        question,
-        options,
-        correctIndex,
-      }),
-    }).catch(() => {});
-
-    let cancelled = false;
-    let prevTotal = 0;
-
-    // 2. Poll server every 1 second for live votes from student phones
-    const pollInterval = setInterval(async () => {
-      if (cancelled) return;
-      try {
-        const res = await fetch(`/api/poll?id=${pollId}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data.votes)) {
-            const newTotal = data.votes.reduce((a: number, b: number) => a + b, 0);
-            if (newTotal > prevTotal) {
-              toast.success("Student response registered!");
-              prevTotal = newTotal;
-            }
-            setVotes(data.votes);
-          }
-        }
-      } catch {}
-    }, 1000);
-
-    // 3. Fallback same-device listeners
     const handleIncomingVote = (optIdx: number) => {
       setVotes((prev) => {
         const next = [...prev];
@@ -95,6 +53,30 @@ export function QuickPollDialog({ open, onOpenChange, initialQuiz }: QuickPollDi
       toast.success("Student response registered!");
     };
 
+    // 1. Supabase Realtime Channel
+    const supabase = getSupabase();
+    let channel: any = null;
+    if (supabase) {
+      channel = supabase.channel(`slate_poll_${pollId}`, {
+        config: { broadcast: { ack: false, self: false } },
+      });
+
+      channel
+        .on("broadcast", { event: "vote" }, (payload: any) => {
+          const optIdx =
+            typeof payload?.payload?.optionIndex === "number"
+              ? payload.payload.optionIndex
+              : typeof payload?.optionIndex === "number"
+              ? payload.optionIndex
+              : undefined;
+          if (typeof optIdx === "number") {
+            handleIncomingVote(optIdx);
+          }
+        })
+        .subscribe();
+    }
+
+    // 2. Same-device fallback (BroadcastChannel + storage)
     let bc: BroadcastChannel | null = null;
     try {
       bc = new BroadcastChannel(`slate_poll_${pollId}`);
@@ -118,16 +100,17 @@ export function QuickPollDialog({ open, onOpenChange, initialQuiz }: QuickPollDi
     window.addEventListener("storage", onStorage);
 
     return () => {
-      cancelled = true;
-      clearInterval(pollInterval);
+      if (supabase && channel) {
+        supabase.removeChannel(channel);
+      }
       if (bc) bc.close();
       window.removeEventListener("storage", onStorage);
     };
-  }, [open, pollId, question, options, correctIndex]);
+  }, [open, pollId]);
 
-  // Generate real QR code pointing to live poll URL
+  // Generate QR code pointing to real public student poll route
   useEffect(() => {
-    const base = serverHost || (typeof window !== "undefined" ? window.location.origin : "");
+    const base = getPublicAppOrigin();
     const pollUrl = `${base}/poll?id=${pollId}&q=${encodeURIComponent(question)}&opts=${encodeURIComponent(
       JSON.stringify(options)
     )}&ans=${correctIndex}`;
@@ -139,20 +122,13 @@ export function QuickPollDialog({ open, onOpenChange, initialQuiz }: QuickPollDi
     })
       .then((url) => setQrDataUrl(url))
       .catch(() => {});
-  }, [question, options, correctIndex, pollId, serverHost]);
+  }, [question, options, correctIndex, pollId]);
 
   const totalVotes = votes.reduce((a, b) => a + b, 0);
 
-  const resetPoll = async () => {
+  const resetPoll = () => {
     setVotes(new Array(options.length).fill(0));
     setRevealed(false);
-    try {
-      await fetch("/api/poll", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "reset", pollId }),
-      });
-    } catch {}
     toast.info("Poll responses reset.");
   };
 
@@ -192,34 +168,9 @@ export function QuickPollDialog({ open, onOpenChange, initialQuiz }: QuickPollDi
               Point phone camera to submit answer live
             </p>
 
-            {/* Network Host IP configuration */}
-            <div className="mt-3 w-full text-left">
-              <button
-                type="button"
-                onClick={() => setEditingHost(!editingHost)}
-                className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1 font-medium"
-              >
-                <Wifi className="h-3 w-3" />
-                <span>Host: {serverHost.replace(/^https?:\/\//, "")}</span>
-                <Edit2 className="h-2.5 w-2.5 opacity-60" />
-              </button>
-              {editingHost && (
-                <div className="mt-1.5 flex gap-1">
-                  <input
-                    type="text"
-                    value={serverHost}
-                    onChange={(e) => setServerHost(e.target.value)}
-                    placeholder="http://192.168.1.5:5173"
-                    className="w-full text-[11px] bg-background border rounded px-2 py-1 font-mono"
-                  />
-                  <button
-                    onClick={() => setEditingHost(false)}
-                    className="text-[10px] bg-primary text-primary-foreground px-2 py-1 rounded font-bold"
-                  >
-                    OK
-                  </button>
-                </div>
-              )}
+            <div className="mt-3 flex items-center justify-center gap-1.5 text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
+              <Radio className="h-3 w-3 animate-pulse" />
+              <span>Supabase Realtime Live</span>
             </div>
           </div>
 

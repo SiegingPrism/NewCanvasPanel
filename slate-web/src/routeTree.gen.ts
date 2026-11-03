@@ -20,9 +20,6 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as NoteNoteIdRouteImport } from './routes/note.$noteId'
 import { Route as BoardBoardIdRouteImport } from './routes/board.$boardId'
 import { Route as ApiVisionRouteImport } from './routes/api/vision'
-import { Route as ApiTeacherAuthRouteImport } from './routes/api/teacher-auth'
-import { Route as ApiPollRouteImport } from './routes/api/poll'
-import { Route as ApiNotesShareRouteImport } from './routes/api/notes-share'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as ApiAiRouteImport } from './routes/api/ai'
 
@@ -81,21 +78,6 @@ const ApiVisionRoute = ApiVisionRouteImport.update({
   path: '/api/vision',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiTeacherAuthRoute = ApiTeacherAuthRouteImport.update({
-  id: '/api/teacher-auth',
-  path: '/api/teacher-auth',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPollRoute = ApiPollRouteImport.update({
-  id: '/api/poll',
-  path: '/api/poll',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiNotesShareRoute = ApiNotesShareRouteImport.update({
-  id: '/api/notes-share',
-  path: '/api/notes-share',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiChatRoute = ApiChatRouteImport.update({
   id: '/api/chat',
   path: '/api/chat',
@@ -118,9 +100,6 @@ export interface FileRoutesByFullPath {
   '/teacher-login': typeof TeacherLoginRoute
   '/api/ai': typeof ApiAiRoute
   '/api/chat': typeof ApiChatRoute
-  '/api/notes-share': typeof ApiNotesShareRoute
-  '/api/poll': typeof ApiPollRoute
-  '/api/teacher-auth': typeof ApiTeacherAuthRoute
   '/api/vision': typeof ApiVisionRoute
   '/board/$boardId': typeof BoardBoardIdRoute
   '/note/$noteId': typeof NoteNoteIdRoute
@@ -136,9 +115,6 @@ export interface FileRoutesByTo {
   '/teacher-login': typeof TeacherLoginRoute
   '/api/ai': typeof ApiAiRoute
   '/api/chat': typeof ApiChatRoute
-  '/api/notes-share': typeof ApiNotesShareRoute
-  '/api/poll': typeof ApiPollRoute
-  '/api/teacher-auth': typeof ApiTeacherAuthRoute
   '/api/vision': typeof ApiVisionRoute
   '/board/$boardId': typeof BoardBoardIdRoute
   '/note/$noteId': typeof NoteNoteIdRoute
@@ -155,9 +131,6 @@ export interface FileRoutesById {
   '/teacher-login': typeof TeacherLoginRoute
   '/api/ai': typeof ApiAiRoute
   '/api/chat': typeof ApiChatRoute
-  '/api/notes-share': typeof ApiNotesShareRoute
-  '/api/poll': typeof ApiPollRoute
-  '/api/teacher-auth': typeof ApiTeacherAuthRoute
   '/api/vision': typeof ApiVisionRoute
   '/board/$boardId': typeof BoardBoardIdRoute
   '/note/$noteId': typeof NoteNoteIdRoute
@@ -175,9 +148,6 @@ export interface FileRouteTypes {
     | '/teacher-login'
     | '/api/ai'
     | '/api/chat'
-    | '/api/notes-share'
-    | '/api/poll'
-    | '/api/teacher-auth'
     | '/api/vision'
     | '/board/$boardId'
     | '/note/$noteId'
@@ -193,9 +163,6 @@ export interface FileRouteTypes {
     | '/teacher-login'
     | '/api/ai'
     | '/api/chat'
-    | '/api/notes-share'
-    | '/api/poll'
-    | '/api/teacher-auth'
     | '/api/vision'
     | '/board/$boardId'
     | '/note/$noteId'
@@ -211,9 +178,6 @@ export interface FileRouteTypes {
     | '/teacher-login'
     | '/api/ai'
     | '/api/chat'
-    | '/api/notes-share'
-    | '/api/poll'
-    | '/api/teacher-auth'
     | '/api/vision'
     | '/board/$boardId'
     | '/note/$noteId'
@@ -230,9 +194,6 @@ export interface RootRouteChildren {
   TeacherLoginRoute: typeof TeacherLoginRoute
   ApiAiRoute: typeof ApiAiRoute
   ApiChatRoute: typeof ApiChatRoute
-  ApiNotesShareRoute: typeof ApiNotesShareRoute
-  ApiPollRoute: typeof ApiPollRoute
-  ApiTeacherAuthRoute: typeof ApiTeacherAuthRoute
   ApiVisionRoute: typeof ApiVisionRoute
   BoardBoardIdRoute: typeof BoardBoardIdRoute
   NoteNoteIdRoute: typeof NoteNoteIdRoute
@@ -317,27 +278,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiVisionRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/teacher-auth': {
-      id: '/api/teacher-auth'
-      path: '/api/teacher-auth'
-      fullPath: '/api/teacher-auth'
-      preLoaderRoute: typeof ApiTeacherAuthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/poll': {
-      id: '/api/poll'
-      path: '/api/poll'
-      fullPath: '/api/poll'
-      preLoaderRoute: typeof ApiPollRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/notes-share': {
-      id: '/api/notes-share'
-      path: '/api/notes-share'
-      fullPath: '/api/notes-share'
-      preLoaderRoute: typeof ApiNotesShareRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/chat': {
       id: '/api/chat'
       path: '/api/chat'
@@ -366,9 +306,6 @@ const rootRouteChildren: RootRouteChildren = {
   TeacherLoginRoute: TeacherLoginRoute,
   ApiAiRoute: ApiAiRoute,
   ApiChatRoute: ApiChatRoute,
-  ApiNotesShareRoute: ApiNotesShareRoute,
-  ApiPollRoute: ApiPollRoute,
-  ApiTeacherAuthRoute: ApiTeacherAuthRoute,
   ApiVisionRoute: ApiVisionRoute,
   BoardBoardIdRoute: BoardBoardIdRoute,
   NoteNoteIdRoute: NoteNoteIdRoute,
