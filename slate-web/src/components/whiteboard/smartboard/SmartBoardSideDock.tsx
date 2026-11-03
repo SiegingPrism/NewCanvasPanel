@@ -26,14 +26,6 @@ interface SmartBoardSideDockProps {
   onOpenWidgets?: () => void;
 }
 
-// 4 Quick-access colors always visible under Pen
-const QUICK_COLORS = [
-  { name: "Black", value: "#111827", bgClass: "bg-gray-900 border-white/30" },
-  { name: "Blue", value: "#2563eb", bgClass: "bg-blue-600 border-blue-300" },
-  { name: "Red", value: "#dc2626", bgClass: "bg-red-600 border-red-300" },
-  { name: "Green", value: "#16a34a", bgClass: "bg-green-600 border-green-300" },
-];
-
 const BOARD_COLORS = [
   { name: "Black", value: "#111827", bgClass: "bg-gray-900 border-white/20" },
   { name: "Blue", value: "#2563eb", bgClass: "bg-blue-600 border-blue-400" },
@@ -239,34 +231,6 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
           </div>
         </PopoverContent>
       </Popover>
-
-      {/* 4 Quick-Access Color Dots under Pen: 2x2 grid, each >= 32px for confident finger touch */}
-      <div
-        className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-muted/30 border border-border/50 place-items-center"
-        style={{ width: `${targetSizePx}px` }}
-      >
-        {QUICK_COLORS.map((c) => {
-          const isActive = tool === "pen" && color.toLowerCase() === c.value.toLowerCase();
-          return (
-            <button
-              key={c.value}
-              type="button"
-              onClick={() => {
-                setColor(c.value);
-                setTool("pen");
-              }}
-              title={`${c.name} Pen`}
-              className={cn(
-                "h-8 w-8 rounded-full border-2 transition-all active:scale-90 flex items-center justify-center cursor-pointer",
-                c.bgClass,
-                isActive
-                  ? "ring-2 ring-primary ring-offset-1 scale-105 shadow-sm"
-                  : "opacity-85 hover:opacity-100 hover:scale-105"
-              )}
-            />
-          );
-        })}
-      </div>
 
       {/* 2. Highlighter Tool */}
       <button
