@@ -274,7 +274,7 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
 
             <DropdownMenuSeparator className="my-1.5" />
 
-            {/* Teacher Fast QR Login */}
+            {/* Teacher Sign In */}
             <DropdownMenuItem
               onClick={() => {
                 window.dispatchEvent(new CustomEvent("slate:open-teacher-login"));
@@ -283,7 +283,7 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
             >
               <div className="flex items-center gap-2">
                 <KeyRound className="h-4 w-4" />
-                <span className="text-xs">Teacher Fast QR Login</span>
+                <span className="text-xs">Teacher Sign-In & Sync</span>
               </div>
             </DropdownMenuItem>
 

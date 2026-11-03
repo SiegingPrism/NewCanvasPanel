@@ -702,16 +702,6 @@ export function TopBar({
             className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-accent text-foreground transition"
             onClick={() => {
               setMenuOpen(false);
-              window.dispatchEvent(new CustomEvent("slate:open-teacher-login"));
-            }}
-          >
-            <KeyRound className="h-3.5 w-3.5 text-indigo-400" />
-            <span>Teacher Fast QR Login</span>
-          </button>
-          <button
-            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-accent text-foreground transition"
-            onClick={() => {
-              setMenuOpen(false);
               window.dispatchEvent(new CustomEvent("slate:open-page-sorter"));
             }}
           >
