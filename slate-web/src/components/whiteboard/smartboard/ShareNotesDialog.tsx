@@ -7,6 +7,7 @@ import { useWhiteboard } from "@/lib/whiteboard/store";
 import { renderPageSnapshot, captureCanvasSnapshot } from "@/lib/whiteboard/canvasSnapshot";
 import { toast } from "sonner";
 import { getSupabase } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/supabase/authStore";
 import { getPublicAppOrigin } from "@/lib/utils";
 
 interface ShareNotesDialogProps {
@@ -17,6 +18,7 @@ interface ShareNotesDialogProps {
 
 export function ShareNotesDialog({ open, onOpenChange, boardTitle = "Lesson Notes" }: ShareNotesDialogProps) {
   const { pages, activePageId } = useWhiteboard();
+  const { user } = useAuth();
   const [shareId] = useState(() => `share-${Math.random().toString(36).slice(2, 9)}`);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
@@ -33,9 +35,15 @@ export function ShareNotesDialog({ open, onOpenChange, boardTitle = "Lesson Note
     return () => {
       if (pdfBlobUrl) URL.revokeObjectURL(pdfBlobUrl);
     };
-  }, [open]);
+  }, [open, user]);
 
   const uploadToSupabase = async (blob: Blob): Promise<string | null> => {
+    if (!user) {
+      setUploadErrorMsg("Please sign in to upload notes for student phones");
+      setUploadStatus("error");
+      return null;
+    }
+
     const supabase = getSupabase();
     if (!supabase) {
       setUploadErrorMsg("Supabase client is not configured");

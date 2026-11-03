@@ -148,7 +148,7 @@ CREATE TRIGGER update_study_decks_updated_at BEFORE UPDATE ON public.study_decks
 -- 10. SHARED NOTES STORAGE BUCKET (Public lecture notes download)
 -- ==============================================================================
 
--- Create the public storage bucket for high-res multi-page PDF lesson notes
+-- 1. Create the public shared-notes storage bucket
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES (
     'shared-notes',
@@ -162,19 +162,28 @@ ON CONFLICT (id) DO UPDATE SET
     file_size_limit = 52428800,
     allowed_mime_types = ARRAY['application/pdf'];
 
--- Storage Row Level Security (RLS) Policies
--- Allow anyone (students, mobile browsers) to view and download shared notes via public link
-CREATE POLICY "Public Read Access for Shared Notes"
+-- 2. Rule allowing signed-in users to upload shared notes
+DROP POLICY IF EXISTS "Signed-in users can upload shared notes" ON storage.objects;
+DROP POLICY IF EXISTS "Allow authenticated users to upload shared notes" ON storage.objects;
+DROP POLICY IF EXISTS "Allow Board Uploads to Shared Notes" ON storage.objects;
+CREATE POLICY "Signed-in users can upload shared notes"
+ON storage.objects FOR INSERT
+TO authenticated
+WITH CHECK (bucket_id = 'shared-notes');
+
+-- 3. Rule allowing anyone to read shared notes
+DROP POLICY IF EXISTS "Anyone can read shared notes" ON storage.objects;
+DROP POLICY IF EXISTS "Public Read Access for Shared Notes" ON storage.objects;
+CREATE POLICY "Anyone can read shared notes"
 ON storage.objects FOR SELECT
 USING (bucket_id = 'shared-notes');
 
--- Allow Smart Board clients to upload generated PDF notes
-CREATE POLICY "Allow Board Uploads to Shared Notes"
-ON storage.objects FOR INSERT
-WITH CHECK (bucket_id = 'shared-notes');
-
--- Allow overwrite/cleanup
-CREATE POLICY "Allow Board Updates to Shared Notes"
+-- Rule allowing signed-in users to update/overwrite shared notes
+DROP POLICY IF EXISTS "Signed-in users can update shared notes" ON storage.objects;
+DROP POLICY IF EXISTS "Allow Board Updates to Shared Notes" ON storage.objects;
+CREATE POLICY "Signed-in users can update shared notes"
 ON storage.objects FOR UPDATE
+TO authenticated
 USING (bucket_id = 'shared-notes');
+
 

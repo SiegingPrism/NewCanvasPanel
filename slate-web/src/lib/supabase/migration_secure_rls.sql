@@ -110,3 +110,46 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION delete_user_account() TO authenticated;
+
+-- ==============================================================================
+-- 8. SHARED NOTES STORAGE BUCKET (Public lecture notes download)
+-- ==============================================================================
+
+-- 1. Create the public shared-notes storage bucket
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+    'shared-notes',
+    'shared-notes',
+    true,
+    52428800, -- 50 MB maximum per PDF file
+    ARRAY['application/pdf']
+)
+ON CONFLICT (id) DO UPDATE SET
+    public = true,
+    file_size_limit = 52428800,
+    allowed_mime_types = ARRAY['application/pdf'];
+
+-- 2. Rule allowing signed-in users to upload shared notes
+DROP POLICY IF EXISTS "Signed-in users can upload shared notes" ON storage.objects;
+DROP POLICY IF EXISTS "Allow authenticated users to upload shared notes" ON storage.objects;
+DROP POLICY IF EXISTS "Allow Board Uploads to Shared Notes" ON storage.objects;
+CREATE POLICY "Signed-in users can upload shared notes"
+ON storage.objects FOR INSERT
+TO authenticated
+WITH CHECK (bucket_id = 'shared-notes');
+
+-- 3. Rule allowing anyone to read shared notes
+DROP POLICY IF EXISTS "Anyone can read shared notes" ON storage.objects;
+DROP POLICY IF EXISTS "Public Read Access for Shared Notes" ON storage.objects;
+CREATE POLICY "Anyone can read shared notes"
+ON storage.objects FOR SELECT
+USING (bucket_id = 'shared-notes');
+
+-- Rule allowing signed-in users to update/overwrite shared notes
+DROP POLICY IF EXISTS "Signed-in users can update shared notes" ON storage.objects;
+DROP POLICY IF EXISTS "Allow Board Updates to Shared Notes" ON storage.objects;
+CREATE POLICY "Signed-in users can update shared notes"
+ON storage.objects FOR UPDATE
+TO authenticated
+USING (bucket_id = 'shared-notes');
+
