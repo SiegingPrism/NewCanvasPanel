@@ -139,7 +139,7 @@ function DottedLineIcon({ className }: { className?: string }) {
   );
 }
 
-const PEN_STYLES: {
+export const PEN_STYLES: {
   id: ToolId;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
@@ -160,7 +160,7 @@ const PEN_STYLES: {
   { id: "frame", label: "Slide area", icon: MonitorPlay },
 ];
 
-const COLOR_CATEGORIES = {
+export const COLOR_CATEGORIES = {
   vivid: [
     "#000000",
     "#334155",

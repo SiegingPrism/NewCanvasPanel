@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { X } from "lucide-react";
+import { X, Keyboard } from "lucide-react";
 
 interface BoardHelpOverlayProps {
   open: boolean;
@@ -8,7 +8,8 @@ interface BoardHelpOverlayProps {
 
 /**
  * Full-screen "what is everything?" overlay for Board mode.
- * Shows a plain-language card next to each area of the screen. Tap anywhere to close.
+ * Shows plain-language cards next to each area of the screen, plus keyboard & clicker shortcuts.
+ * Tap anywhere or press Esc to close.
  */
 export function BoardHelpOverlay({ open, onClose }: BoardHelpOverlayProps) {
   useEffect(() => {
@@ -23,75 +24,97 @@ export function BoardHelpOverlay({ open, onClose }: BoardHelpOverlayProps) {
   if (!open) return null;
 
   const card =
-    "absolute max-w-sm rounded-2xl bg-card text-card-foreground border-2 border-primary shadow-2xl p-5 text-base leading-relaxed";
-  const heading = "text-lg font-bold mb-1.5 text-primary";
+    "absolute max-w-sm rounded-2xl bg-card text-card-foreground border-2 border-primary shadow-2xl p-4 text-sm leading-relaxed";
+  const heading = "text-base font-bold mb-1 text-primary";
 
   return (
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Help: what each part of the board does"
+      aria-label="Help: what each part of the board does and keyboard shortcuts"
       onClick={onClose}
-      className="pointer-events-auto fixed inset-0 z-[60] bg-black/55 backdrop-blur-[1px] select-none"
+      className="pointer-events-auto fixed inset-0 z-[60] bg-black/60 backdrop-blur-[2px] select-none overflow-y-auto"
     >
       {/* Top bar */}
-      <div className={`${card} top-24 left-1/2 -translate-x-1/2 text-center`}>
+      <div className={`${card} top-20 left-1/2 -translate-x-1/2 text-center`}>
         <p className={heading}>Top bar</p>
-        <p>Board name, backgrounds and paper, Present mode, and the main menu.</p>
+        <p>Board title, page backgrounds & grids, Present mode, and main menu.</p>
       </div>
 
       {/* Left dock */}
       <div className={`${card} left-32 top-1/2 -translate-y-1/2`}>
-        <p className={heading}>Tools (both sides)</p>
+        <p className={heading}>Side Tools (Move, Pen, Text...)</p>
         <p>
-          Pen, Highlight, Eraser, Select and Shapes. <b>Tap a tool again</b> for colours, sizes and shapes.
+          <b>Move</b> (pan), <b>Pen</b> (12 styles), <b>Highlight</b>, <b>Eraser</b> (part, whole, ink only), <b>Select</b> (tap & lasso), <b>Text</b>, and <b>Shapes</b>.
         </p>
-        <p className="mt-2">
-          <b>Lower</b> brings the top of the board within reach. <b>Lock</b> stops accidental zooming.{" "}
-          <b>More</b> opens timers, maps, geometry and other classroom tools.
+        <p className="mt-1.5">
+          <b>Tap any tool a second time</b> to open colors, thickness, handwriting, and full shapes.
+        </p>
+        <p className="mt-1.5">
+          <b>More</b> opens classroom timers, student picker, dice, periodic table, math grapher, and AI tools.
         </p>
       </div>
 
-      {/* Middle */}
-      <div className={`${card} left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 hidden lg:block`}>
-        <p className={heading}>On the board</p>
-        <p>
-          <b>Press and hold</b> anywhere for quick tools right under your hand.
+      {/* Center Shortcuts & Gestures Card */}
+      <div className={`${card} left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 max-w-md hidden md:block`}>
+        <div className="flex items-center gap-2 mb-1.5 text-primary">
+          <Keyboard className="h-5 w-5" />
+          <p className="text-base font-bold">Gestures & Shortcuts</p>
+        </div>
+        <p className="text-xs text-muted-foreground mb-2">
+          Touch gestures & USB keyboard / presenter clicker shortcuts:
         </p>
-        <p className="mt-2">
-          <b>Wipe with your palm or fist</b> to erase. Several people can write at the same time.
-        </p>
+        <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+          <div><b className="font-mono bg-muted px-1 rounded">P / H / E</b> Pen / Highlight / Eraser</div>
+          <div><b className="font-mono bg-muted px-1 rounded">V / T / S</b> Select / Text / Shapes</div>
+          <div><b className="font-mono bg-muted px-1 rounded">L</b> Laser pointer</div>
+          <div><b className="font-mono bg-muted px-1 rounded">Space + drag</b> Move the board</div>
+          <div><b className="font-mono bg-muted px-1 rounded">1, 2, 3, 4</b> Quick colours</div>
+          <div><b className="font-mono bg-muted px-1 rounded">+ / - / F / 0</b> Zoom in / out / fit / 100%</div>
+          <div><b className="font-mono bg-muted px-1 rounded">PgUp / PgDn</b> Slide clicker navigation</div>
+          <div><b className="font-mono bg-muted px-1 rounded">Ctrl+Z / Y</b> Undo / Redo</div>
+          <div><b className="font-mono bg-muted px-1 rounded">Delete</b> Remove selection</div>
+          <div><b className="font-mono bg-muted px-1 rounded">Ctrl+D</b> Duplicate selection</div>
+        </div>
+        <div className="mt-2.5 pt-2 border-t border-border text-xs">
+          <b>Wipe with palm or fist</b> to erase. <b>Hold still</b> for radial menu. Multiple students can write simultaneously!
+        </div>
       </div>
 
-      {/* Right dock (short note, the left card explains the tools) */}
+      {/* Right dock notice */}
       <div className={`${card} right-32 top-1/2 -translate-y-1/2 hidden xl:block`}>
-        <p className={heading}>Same tools on this side</p>
-        <p>Use whichever side you are standing at.</p>
+        <p className={heading}>Right-side Dock</p>
+        <p>Identical tools for teachers or students standing on the right side of the smart board.</p>
       </div>
 
       {/* Bottom-left corner */}
-      <div className={`${card} left-4 bottom-28`}>
-        <p className={heading}>Undo, Redo, Clear</p>
+      <div className={`${card} left-4 bottom-24`}>
+        <p className={heading}>Undo, Clear & Board</p>
         <p>
-          <b>Clear</b> empties this page. Tap <b>Undo</b> to bring it back. The board button holds screen size, Simple
-          mode and lesson files.
+          <b>Undo & Redo</b> with history. <b>Clear</b> wipes the canvas with instant undo.
+        </p>
+        <p className="mt-1">
+          <b>Board button</b> holds reachability lower, freeze lock, screen size (55&quot;–110&quot;), handedness, and lesson save/export.
         </p>
       </div>
 
       {/* Bottom-right corner */}
-      <div className={`${card} right-4 bottom-28`}>
-        <p className={heading}>Pages</p>
+      <div className={`${card} right-4 bottom-24`}>
+        <p className={heading}>Laser, Zoom & Pages</p>
         <p>
-          Go back and forward, see <b>all pages</b> at once, or add a <b>new</b> page.
+          <b>Laser</b> points without drawing. <b>Zoom</b> (+, -, fit all, 100%).
+        </p>
+        <p className="mt-1">
+          <b>Pages</b>: Back/Forward, tap <b>Pages</b> for the slide sorter, or tap <b>+ New</b> for lined/grid/music templates.
         </p>
       </div>
 
       <button
         type="button"
         onClick={onClose}
-        className="absolute top-6 right-6 flex h-16 items-center gap-2 rounded-2xl bg-primary px-6 text-lg font-bold text-primary-foreground shadow-xl active:scale-95"
+        className="absolute top-5 right-6 flex h-14 items-center gap-2 rounded-2xl bg-primary px-5 text-base font-bold text-primary-foreground shadow-xl active:scale-95 cursor-pointer"
       >
-        <X className="h-6 w-6" />
+        <X className="h-5 w-5" />
         Got it
       </button>
     </div>

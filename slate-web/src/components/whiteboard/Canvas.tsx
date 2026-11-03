@@ -389,6 +389,33 @@ export function WhiteboardCanvas({
     }
   }, [editingText]);
 
+  // Space key hold for pan navigation
+  const isSpacePressedRef = useRef(false);
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.code === "Space" && !e.repeat) {
+        const isTyping =
+          e.target instanceof HTMLInputElement ||
+          e.target instanceof HTMLTextAreaElement ||
+          (e.target as HTMLElement)?.isContentEditable;
+        if (!isTyping) {
+          isSpacePressedRef.current = true;
+        }
+      }
+    };
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.code === "Space") {
+        isSpacePressedRef.current = false;
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+    };
+  }, []);
+
   // Spatial Minimap & Radar State
   const [minimapOpen, setMinimapOpen] = useState(false);
   const [minimapExpanded, setMinimapExpanded] = useState(false);
@@ -634,19 +661,31 @@ export function WhiteboardCanvas({
     const onToggleMinimap = () => setMinimapOpen((prev) => !prev);
     const onAutoFrame = () => autoGenerateSlides();
     const onCaptureSlide = () => captureCurrentViewAsSlide();
+    const onZoomIn = () => zoomIn();
+    const onZoomOut = () => zoomOut();
+    const onZoomReset = () => resetZoom();
+    const onFitContent = () => fitToContent();
 
     window.addEventListener("slate:start-presentation", onStartPres);
     window.addEventListener("slate:toggle-minimap", onToggleMinimap);
     window.addEventListener("slate:auto-frame-slides", onAutoFrame);
     window.addEventListener("slate:capture-current-slide", onCaptureSlide);
+    window.addEventListener("slate:zoom-in", onZoomIn);
+    window.addEventListener("slate:zoom-out", onZoomOut);
+    window.addEventListener("slate:zoom-reset", onZoomReset);
+    window.addEventListener("slate:fit-to-content", onFitContent);
 
     return () => {
       window.removeEventListener("slate:start-presentation", onStartPres);
       window.removeEventListener("slate:toggle-minimap", onToggleMinimap);
       window.removeEventListener("slate:auto-frame-slides", onAutoFrame);
       window.removeEventListener("slate:capture-current-slide", onCaptureSlide);
+      window.removeEventListener("slate:zoom-in", onZoomIn);
+      window.removeEventListener("slate:zoom-out", onZoomOut);
+      window.removeEventListener("slate:zoom-reset", onZoomReset);
+      window.removeEventListener("slate:fit-to-content", onFitContent);
     };
-  }, [startPresentation, autoGenerateSlides, captureCurrentViewAsSlide]);
+  }, [startPresentation, autoGenerateSlides, captureCurrentViewAsSlide, fitToContent]);
 
   // Keyboard navigation for presentation mode
   useEffect(() => {
@@ -4973,8 +5012,8 @@ export function WhiteboardCanvas({
       lastTapRef.current = { time: now, x: e.clientX, y: e.clientY };
     }
 
-    // Pan
-    if (e.button === 1 || tool === "pan") {
+    // Pan (Hand tool, middle mouse, or Space+drag)
+    if (e.button === 1 || tool === "pan" || isSpacePressedRef.current) {
       panRef.current = { x: sx, y: sy, cam: { ...camera } };
       return;
     }

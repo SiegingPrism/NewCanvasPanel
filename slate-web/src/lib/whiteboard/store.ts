@@ -119,6 +119,7 @@ type Actions = {
   setSimpleMode: (simple: boolean) => void;
   setReachabilityOffset: (offset: number) => void;
   setSplitBoardZones: (zones: number) => void;
+  setBoardDockSide: (side: "both" | "left" | "right") => void;
   toggleBoardMode: () => void;
 };
 
@@ -220,6 +221,7 @@ function loadSmartBoardSettings(): {
   simpleMode: boolean;
   reachabilityOffset: number;
   splitBoardZones: number;
+  boardDockSide: "both" | "left" | "right";
 } {
   const detected = detectSmartBoardProfile();
   if (typeof window === "undefined") {
@@ -231,14 +233,20 @@ function loadSmartBoardSettings(): {
       simpleMode: false,
       reachabilityOffset: 0,
       splitBoardZones: 1,
+      boardDockSide: "both",
     };
   }
   try {
     const rawMode = localStorage.getItem("slate_board_mode");
     const rawSize = localStorage.getItem("slate_panel_size") as PanelDiagonal | null;
     const rawSimple = localStorage.getItem("slate_simple_mode");
+    const rawDockSide = localStorage.getItem("slate_board_dock_side");
     const validSizes: PanelDiagonal[] = ["55", "65", "75", "86", "98", "110"];
     const isBoard = rawMode !== null ? rawMode === "true" : !!detected;
+    const boardDockSide =
+      rawDockSide === "left" || rawDockSide === "right" || rawDockSide === "both"
+        ? rawDockSide
+        : "both";
     return {
       boardMode: isBoard,
       panelSize: rawSize && validSizes.includes(rawSize) ? rawSize : (detected || "75"),
@@ -246,6 +254,7 @@ function loadSmartBoardSettings(): {
       simpleMode: rawSimple === "true",
       reachabilityOffset: 0,
       splitBoardZones: 1,
+      boardDockSide,
     };
   } catch {
     const isBoard = !!detected;
@@ -256,6 +265,7 @@ function loadSmartBoardSettings(): {
       simpleMode: false,
       reachabilityOffset: 0,
       splitBoardZones: 1,
+      boardDockSide: "both",
     };
   }
 }
@@ -925,6 +935,12 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
     },
     setReachabilityOffset: (reachabilityOffset) => set({ reachabilityOffset }),
     setSplitBoardZones: (splitBoardZones) => set({ splitBoardZones }),
+    setBoardDockSide: (boardDockSide) => {
+      set({ boardDockSide });
+      try {
+        localStorage.setItem("slate_board_dock_side", boardDockSide);
+      } catch {}
+    },
     toggleBoardMode: () => {
       const next = !get().boardMode;
       get().setBoardMode(next);

@@ -23,6 +23,9 @@ import {
   Box,
   Globe,
   Grid,
+  EyeOff,
+  MonitorPlay,
+  Bot,
 } from "lucide-react";
 import { useWhiteboard } from "@/lib/whiteboard/store";
 import type { StickyNoteObject } from "@/lib/whiteboard/types";
@@ -447,59 +450,13 @@ export function WidgetsSheet({
             </button>
           </SheetHeader>
           <div className="mt-3 space-y-6 flex-1 min-h-0 overflow-y-auto overscroll-contain pr-1 pb-8 touch-auto">
+            {/* 1. INSERT SECTION */}
             <section>
               <div className="mb-2 flex items-center justify-between">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Classroom Widgets
+                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Insert
                 </h3>
-                <span className="text-[10px] text-muted-foreground">tap to open</span>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                {items.filter((it) => !(simpleMode && SIMPLE_MODE_HIDDEN_WIDGETS.includes(it.kind))).map((it) => {
-                  const Icon = it.icon;
-                  return (
-                    <button
-                      key={it.kind}
-                      onClick={() => {
-                        onLaunch(it.kind);
-                        onOpenChange(false);
-                      }}
-                      className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
-                    >
-                      <span className={`grid h-10 w-10 place-items-center rounded-lg ${it.color} transition-transform group-hover:scale-105`}>
-                        <Icon className="h-5 w-5" />
-                      </span>
-                      <div>
-                        <div className="text-xs font-semibold leading-tight">{it.label}</div>
-                        <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">{it.desc}</div>
-                      </div>
-                    </button>
-                  );
-                })}
-                <button
-                  onClick={() => {
-                    onOpenChange(false);
-                    setFlashcardsOpen(true);
-                  }}
-                  className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
-                >
-                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-amber-500/10 text-amber-500 transition-transform group-hover:scale-105">
-                    <Layers className="h-5 w-5" />
-                  </span>
-                  <div>
-                    <div className="text-xs font-semibold leading-tight">Flashcards</div>
-                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Study quiz</div>
-                  </div>
-                </button>
-              </div>
-            </section>
-
-            <section>
-              <div className="mb-2 flex items-center justify-between">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Canvas Tools
-                </h3>
-                <span className="text-[10px] text-muted-foreground">insert to board</span>
+                <span className="text-[10px] text-muted-foreground">add to board</span>
               </div>
               <div className="grid grid-cols-3 gap-2">
                 <button
@@ -510,53 +467,11 @@ export function WidgetsSheet({
                     <StickyNote className="h-5 w-5" />
                   </span>
                   <div>
-                    <div className="text-xs font-semibold leading-tight">Sticky note</div>
-                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Colored notes</div>
+                    <div className="text-xs font-semibold leading-tight">Sticky Note</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Coloured notes</div>
                   </div>
                 </button>
-                <button
-                  onClick={() => {
-                    onOpenChange(false);
-                    setPeriodicOpen(true);
-                  }}
-                  className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
-                >
-                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-teal-500/10 text-teal-500 transition-transform group-hover:scale-105">
-                    <Atom className="h-5 w-5" />
-                  </span>
-                  <div>
-                    <div className="text-xs font-semibold leading-tight">Periodic Table</div>
-                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Chemistry elements</div>
-                  </div>
-                </button>
-                <button
-                  onClick={handleInsertWholePeriodicTable}
-                  className="flex flex-col items-center gap-1.5 rounded-xl border border-teal-500/30 bg-teal-500/5 p-2.5 text-center transition hover:bg-teal-500/10 active:scale-95 group"
-                  title="Place entire 118-element periodic table on board"
-                >
-                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-teal-600/15 text-teal-600 dark:text-teal-400 transition-transform group-hover:scale-105">
-                    <Grid3X3 className="h-5 w-5" />
-                  </span>
-                  <div>
-                    <div className="text-xs font-semibold leading-tight text-teal-700 dark:text-teal-300">Whole Table</div>
-                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">All 118 on board</div>
-                  </div>
-                </button>
-                <button
-                  onClick={() => {
-                    onOpenChange(false);
-                    setMathDialogOpen(true);
-                  }}
-                  className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
-                >
-                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-violet-500/10 text-violet-500 transition-transform group-hover:scale-105">
-                    <Sigma className="h-5 w-5" />
-                  </span>
-                  <div>
-                    <div className="text-xs font-semibold leading-tight">Math Formula</div>
-                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Type an equation</div>
-                  </div>
-                </button>
+
                 <button
                   onClick={() => {
                     onOpenChange(false);
@@ -568,25 +483,11 @@ export function WidgetsSheet({
                     <ImagePlus className="h-5 w-5" />
                   </span>
                   <div>
-                    <div className="text-xs font-semibold leading-tight">Image Search</div>
-                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Online photos</div>
+                    <div className="text-xs font-semibold leading-tight">Image</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Online & upload</div>
                   </div>
                 </button>
-                <button
-                  onClick={() => {
-                    onLaunch("ruler");
-                    onOpenChange(false);
-                  }}
-                  className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
-                >
-                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-amber-500/10 text-amber-500 transition-transform group-hover:scale-105">
-                    <Ruler className="h-5 w-5" />
-                  </span>
-                  <div>
-                    <div className="text-xs font-semibold leading-tight">Ruler</div>
-                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Measure & align</div>
-                  </div>
-                </button>
+
                 <button
                   onClick={() => {
                     onOpenChange(false);
@@ -602,82 +503,239 @@ export function WidgetsSheet({
                     <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Rows & columns</div>
                   </div>
                 </button>
-                {!simpleMode && (
+
                 <button
                   onClick={() => {
                     onOpenChange(false);
-                    setMagicDoodleOpen(true);
+                    setMathDialogOpen(true);
+                  }}
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
+                >
+                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-violet-500/10 text-violet-500 transition-transform group-hover:scale-105">
+                    <Sigma className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <div className="text-xs font-semibold leading-tight">Math Formula</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">LaTeX equation</div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    onLaunch("embedded-media");
+                    onOpenChange(false);
+                  }}
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
+                >
+                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-red-500/10 text-red-500 transition-transform group-hover:scale-105">
+                    <Video className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <div className="text-xs font-semibold leading-tight">Video & Web</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">YouTube & embed</div>
+                  </div>
+                </button>
+              </div>
+            </section>
+
+            {/* 2. TEACH SECTION */}
+            <section>
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Teach
+                </h3>
+                <span className="text-[10px] text-muted-foreground">presentation & focus</span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  onClick={() => {
+                    setTool("tape");
+                    onOpenChange(false);
+                    toast("Cover tape active", { description: "Draw tape over answers to hide them. Tap tape to reveal." });
                   }}
                   className="flex flex-col items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/5 p-2.5 text-center transition hover:bg-amber-500/10 active:scale-95 group"
                 >
                   <span className="grid h-10 w-10 place-items-center rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400 transition-transform group-hover:scale-105">
-                    <Sparkles className="h-5 w-5" />
+                    <EyeOff className="h-5 w-5" />
                   </span>
                   <div>
-                    <div className="text-xs font-semibold leading-tight text-amber-700 dark:text-amber-300">Magic Doodle</div>
-                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">AI drawings</div>
+                    <div className="text-xs font-bold leading-tight text-amber-700 dark:text-amber-300">Cover Tape</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Hide & tap answers</div>
                   </div>
                 </button>
-                )}
+
                 <button
                   onClick={() => {
+                    setTool("frame");
                     onOpenChange(false);
-                    setGridTemplatesOpen(true);
-                  }}
-                  className="flex flex-col items-center gap-1.5 rounded-xl border border-teal-500/30 bg-teal-500/5 p-2.5 text-center transition hover:bg-teal-500/10 active:scale-95 group"
-                >
-                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-teal-500/15 text-teal-600 dark:text-teal-400 transition-transform group-hover:scale-105">
-                    <Grid className="h-5 w-5" />
-                  </span>
-                  <div>
-                    <div className="text-xs font-semibold leading-tight text-teal-700 dark:text-teal-300">Grid Paper</div>
-                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Notebook & lines</div>
-                  </div>
-                </button>
-                <button
-                  onClick={() => {
-                    onOpenChange(false);
-                    setGeoMapsOpen(true);
+                    toast("Slide area active", { description: "Drag a box around content to create a presentation slide." });
                   }}
                   className="flex flex-col items-center gap-1.5 rounded-xl border border-blue-500/30 bg-blue-500/5 p-2.5 text-center transition hover:bg-blue-500/10 active:scale-95 group"
                 >
                   <span className="grid h-10 w-10 place-items-center rounded-lg bg-blue-500/15 text-blue-600 dark:text-blue-400 transition-transform group-hover:scale-105">
-                    <Globe className="h-5 w-5" />
+                    <MonitorPlay className="h-5 w-5" />
                   </span>
                   <div>
-                    <div className="text-xs font-semibold leading-tight text-blue-700 dark:text-blue-300">Geo Maps</div>
-                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">World & continents</div>
+                    <div className="text-xs font-bold leading-tight text-blue-700 dark:text-blue-300">Slide Area</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Frame for present</div>
                   </div>
                 </button>
-                {!simpleMode && (
+
                 <button
                   onClick={() => {
+                    onLaunch("curtain");
                     onOpenChange(false);
-                    window.dispatchEvent(new CustomEvent("slate:solve-math"));
                   }}
                   className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
                 >
-                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-violet-600/15 text-violet-600 dark:text-violet-400 transition-transform group-hover:scale-105">
-                    <Sparkles className="h-5 w-5" />
+                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-red-500/10 text-red-500 transition-transform group-hover:scale-105">
+                    <Eye className="h-5 w-5" />
                   </span>
                   <div>
-                    <div className="text-xs font-semibold leading-tight">Solve Math</div>
-                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Reads your writing</div>
+                    <div className="text-xs font-semibold leading-tight">Curtain</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Hide & reveal</div>
                   </div>
                 </button>
-                )}
+
+                <button
+                  onClick={() => {
+                    onLaunch("spotlight");
+                    onOpenChange(false);
+                  }}
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
+                >
+                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-sky-500/10 text-sky-500 transition-transform group-hover:scale-105">
+                    <Sun className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <div className="text-xs font-semibold leading-tight">Spotlight</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Focus on one area</div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    onLaunch("magnifier");
+                    onOpenChange(false);
+                  }}
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
+                >
+                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-blue-500/10 text-blue-500 transition-transform group-hover:scale-105">
+                    <Search className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <div className="text-xs font-semibold leading-tight">Magnifier</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Back row zoom</div>
+                  </div>
+                </button>
               </div>
             </section>
 
-            {/* Smart Board Classroom Actions */}
+            {/* 3. CLASSROOM SECTION */}
             <section>
               <div className="mb-2 flex items-center justify-between">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-primary">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   Classroom
                 </h3>
-                <span className="text-[10px] text-muted-foreground">interactive</span>
+                <span className="text-[10px] text-muted-foreground">engagement & polls</span>
               </div>
               <div className="grid grid-cols-3 gap-2">
+                <button
+                  onClick={() => {
+                    onLaunch("timer");
+                    onOpenChange(false);
+                  }}
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
+                >
+                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-orange-500/10 text-orange-500 transition-transform group-hover:scale-105">
+                    <Timer className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <div className="text-xs font-semibold leading-tight">Timer</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Countdown clock</div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    onLaunch("stopwatch");
+                    onOpenChange(false);
+                  }}
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
+                >
+                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-blue-500/10 text-blue-500 transition-transform group-hover:scale-105">
+                    <Clock className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <div className="text-xs font-semibold leading-tight">Stopwatch</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Lap counter</div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    onLaunch("random-picker");
+                    onOpenChange(false);
+                  }}
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
+                >
+                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-amber-500/10 text-amber-500 transition-transform group-hover:scale-105">
+                    <Shuffle className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <div className="text-xs font-semibold leading-tight">Pick a Student</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Names & groups</div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    onLaunch("dice");
+                    onOpenChange(false);
+                  }}
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
+                >
+                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-purple-500/10 text-purple-500 transition-transform group-hover:scale-105">
+                    <Dices className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <div className="text-xs font-semibold leading-tight">Dice</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Roll 1 to 4 dice</div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    onLaunch("score");
+                    onOpenChange(false);
+                  }}
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
+                >
+                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-yellow-500/10 text-yellow-500 transition-transform group-hover:scale-105">
+                    <Trophy className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <div className="text-xs font-semibold leading-tight">Scoreboard</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Team points</div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    onLaunch("classroom-manager");
+                    onOpenChange(false);
+                  }}
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
+                >
+                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-emerald-500/10 text-emerald-500 transition-transform group-hover:scale-105">
+                    <Volume2 className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <div className="text-xs font-semibold leading-tight">Class Signals</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Noise meter & lights</div>
+                  </div>
+                </button>
+
                 <button
                   onClick={() => {
                     onOpenChange(false);
@@ -693,6 +751,23 @@ export function WidgetsSheet({
                     <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Student voting</div>
                   </div>
                 </button>
+
+                <button
+                  onClick={() => {
+                    onOpenChange(false);
+                    window.dispatchEvent(new CustomEvent("slate:open-live-quiz"));
+                  }}
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-purple-500/30 bg-purple-500/5 p-2.5 text-center transition hover:bg-purple-500/10 active:scale-95 group"
+                >
+                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-purple-500/10 text-purple-600 transition-transform group-hover:scale-105">
+                    <Vote className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <div className="text-xs font-bold leading-tight text-purple-700 dark:text-purple-400">Live Quiz</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Class competition</div>
+                  </div>
+                </button>
+
                 <button
                   onClick={() => {
                     onOpenChange(false);
@@ -708,6 +783,7 @@ export function WidgetsSheet({
                     <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">PDF download</div>
                   </div>
                 </button>
+
                 <button
                   onClick={() => {
                     onOpenChange(false);
@@ -723,94 +799,323 @@ export function WidgetsSheet({
                     <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Reorder slides</div>
                   </div>
                 </button>
+              </div>
+            </section>
+
+            {/* 4. MATHS & SCIENCE SECTION */}
+            <section>
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Maths & Science
+                </h3>
+                <span className="text-[10px] text-muted-foreground">stem instruments</span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
                 <button
                   onClick={() => {
+                    onLaunch("graph");
                     onOpenChange(false);
-                    setDocImportOpen(true);
                   }}
                   className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
                 >
-                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-sky-500/10 text-sky-500 transition-transform group-hover:scale-105">
-                    <FileUp className="h-5 w-5" />
+                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-cyan-500/10 text-cyan-500 transition-transform group-hover:scale-105">
+                    <LineChart className="h-5 w-5" />
                   </span>
                   <div>
-                    <div className="text-xs font-semibold leading-tight">Import PDF/PPT</div>
-                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Slides to pages</div>
+                    <div className="text-xs font-semibold leading-tight">Grapher</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Plot y = f(x)</div>
                   </div>
                 </button>
+
                 <button
                   onClick={() => {
+                    onLaunch("ruler");
                     onOpenChange(false);
-                    setBoardSettingsOpen(true);
-                  }}
-                  className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
-                >
-                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-muted text-foreground transition-transform group-hover:scale-105">
-                    <Sliders className="h-5 w-5" />
-                  </span>
-                  <div>
-                    <div className="text-xs font-semibold leading-tight">Board Setup</div>
-                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Panel size & UI</div>
-                  </div>
-                </button>
-                <button
-                  onClick={() => {
-                    onOpenChange(false);
-                    setBoardTourOpen(true);
                   }}
                   className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
                 >
                   <span className="grid h-10 w-10 place-items-center rounded-lg bg-amber-500/10 text-amber-500 transition-transform group-hover:scale-105">
-                    <Tv className="h-5 w-5" />
+                    <Ruler className="h-5 w-5" />
                   </span>
                   <div>
-                    <div className="text-xs font-semibold leading-tight">60s Tour</div>
-                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Board basics</div>
+                    <div className="text-xs font-semibold leading-tight">Ruler</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Measure & align</div>
                   </div>
                 </button>
+
+                <button
+                  onClick={() => {
+                    onLaunch("protractor");
+                    onOpenChange(false);
+                  }}
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
+                >
+                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-indigo-500/10 text-indigo-500 transition-transform group-hover:scale-105">
+                    <Compass className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <div className="text-xs font-semibold leading-tight">Protractor</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Angle measurer</div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    onLaunch("geometry-kit");
+                    onOpenChange(false);
+                  }}
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
+                >
+                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-cyan-500/10 text-cyan-500 transition-transform group-hover:scale-105">
+                    <Triangle className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <div className="text-xs font-semibold leading-tight">Geometry Kit</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Compass & set-square</div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    onLaunch("manipulatives");
+                    onOpenChange(false);
+                  }}
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
+                >
+                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-pink-500/10 text-pink-500 transition-transform group-hover:scale-105">
+                    <Divide className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <div className="text-xs font-semibold leading-tight">Maths Models</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Clock & fractions</div>
+                  </div>
+                </button>
+
+                {!simpleMode && (
+                  <button
+                    onClick={() => {
+                      onLaunch("shapes3d");
+                      onOpenChange(false);
+                    }}
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
+                  >
+                    <span className="grid h-10 w-10 place-items-center rounded-lg bg-emerald-500/10 text-emerald-500 transition-transform group-hover:scale-105">
+                      <Box className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <div className="text-xs font-semibold leading-tight">3D Solids</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Geometry solids</div>
+                    </div>
+                  </button>
+                )}
+
+                <button
+                  onClick={() => {
+                    onLaunch("calculator");
+                    onOpenChange(false);
+                  }}
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
+                >
+                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-emerald-500/10 text-emerald-500 transition-transform group-hover:scale-105">
+                    <Calculator className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <div className="text-xs font-semibold leading-tight">Calculator</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Scientific math</div>
+                  </div>
+                </button>
+
                 <button
                   onClick={() => {
                     onOpenChange(false);
-                    setAuthOpen(true);
+                    setPeriodicOpen(true);
                   }}
-                  className="flex flex-col items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-indigo-500/5 p-2.5 text-center transition hover:bg-indigo-500/10 active:scale-95 group"
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
                 >
-                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 transition-transform group-hover:scale-105">
-                    <KeyRound className="h-5 w-5" />
+                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-teal-500/10 text-teal-500 transition-transform group-hover:scale-105">
+                    <Atom className="h-5 w-5" />
                   </span>
                   <div>
-                    <div className="text-xs font-bold leading-tight text-indigo-700 dark:text-indigo-400">Teacher Login</div>
-                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Cloud sign in</div>
+                    <div className="text-xs font-semibold leading-tight">Periodic Table</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">118 elements</div>
                   </div>
                 </button>
+
+                <button
+                  onClick={handleInsertWholePeriodicTable}
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-teal-500/30 bg-teal-500/5 p-2.5 text-center transition hover:bg-teal-500/10 active:scale-95 group"
+                  title="Place entire 118-element periodic table on board"
+                >
+                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-teal-600/15 text-teal-600 dark:text-teal-400 transition-transform group-hover:scale-105">
+                    <Grid3X3 className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <div className="text-xs font-semibold leading-tight text-teal-700 dark:text-teal-300">Whole Table</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">All 118 on board</div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    onOpenChange(false);
+                    setGeoMapsOpen(true);
+                  }}
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-blue-500/30 bg-blue-500/5 p-2.5 text-center transition hover:bg-blue-500/10 active:scale-95 group"
+                >
+                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-blue-500/15 text-blue-600 dark:text-blue-400 transition-transform group-hover:scale-105">
+                    <Globe className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <div className="text-xs font-semibold leading-tight text-blue-700 dark:text-blue-300">Geo Maps</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">World & continents</div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    onOpenChange(false);
+                    setGridTemplatesOpen(true);
+                  }}
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-teal-500/30 bg-teal-500/5 p-2.5 text-center transition hover:bg-teal-500/10 active:scale-95 group"
+                >
+                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-teal-500/15 text-teal-600 dark:text-teal-400 transition-transform group-hover:scale-105">
+                    <Grid className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <div className="text-xs font-semibold leading-tight text-teal-700 dark:text-teal-300">Grid Paper</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Notebook & lines</div>
+                  </div>
+                </button>
+              </div>
+            </section>
+
+            {/* 5. AI SECTION */}
+            <section>
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  AI Tools
+                </h3>
+                <span className="text-[10px] text-muted-foreground">smart assistants</span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  onClick={() => {
+                    onOpenChange(false);
+                    window.dispatchEvent(new CustomEvent("slate:open-ai"));
+                  }}
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-primary/30 bg-primary/5 p-2.5 text-center transition hover:bg-primary/10 active:scale-95 group"
+                >
+                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-primary/15 text-primary transition-transform group-hover:scale-105">
+                    <Bot className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <div className="text-xs font-bold leading-tight text-primary">Slate AI</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Ask & solve anything</div>
+                  </div>
+                </button>
+
+                {!simpleMode && (
+                  <button
+                    onClick={() => {
+                      onOpenChange(false);
+                      window.dispatchEvent(new CustomEvent("slate:solve-math"));
+                    }}
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-violet-500/30 bg-violet-500/5 p-2.5 text-center transition hover:bg-violet-500/10 active:scale-95 group"
+                  >
+                    <span className="grid h-10 w-10 place-items-center rounded-lg bg-violet-600/15 text-violet-600 dark:text-violet-400 transition-transform group-hover:scale-105">
+                      <Sparkles className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <div className="text-xs font-bold leading-tight text-violet-700 dark:text-violet-300">Solve Math</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Reads handwriting</div>
+                    </div>
+                  </button>
+                )}
+
+                {!simpleMode && (
+                  <button
+                    onClick={() => {
+                      onOpenChange(false);
+                      setMagicDoodleOpen(true);
+                    }}
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/5 p-2.5 text-center transition hover:bg-amber-500/10 active:scale-95 group"
+                  >
+                    <span className="grid h-10 w-10 place-items-center rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400 transition-transform group-hover:scale-105">
+                      <Sparkles className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <div className="text-xs font-semibold leading-tight text-amber-700 dark:text-amber-300">Magic Doodle</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">AI drawings to icons</div>
+                    </div>
+                  </button>
+                )}
+
+                <button
+                  onClick={() => {
+                    onOpenChange(false);
+                    setFlashcardsOpen(true);
+                  }}
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
+                >
+                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-amber-500/10 text-amber-500 transition-transform group-hover:scale-105">
+                    <Layers className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <div className="text-xs font-semibold leading-tight">Flashcards</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Study quiz generator</div>
+                  </div>
+                </button>
+              </div>
+            </section>
+
+            {/* 6. LESSON & TOUR SECTION */}
+            <section className="pt-2 border-t border-border">
+              <div className="grid grid-cols-3 gap-2">
                 <button
                   onClick={() => {
                     onOpenChange(false);
                     exportLessonFile("Classroom Lesson", pages);
                   }}
-                  className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-2 text-center transition hover:bg-accent active:scale-95 group"
                 >
-                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-emerald-500/10 text-emerald-600 transition-transform group-hover:scale-105">
-                    <Save className="h-5 w-5" />
+                  <span className="grid h-8 w-8 place-items-center rounded-lg bg-emerald-500/10 text-emerald-600 transition-transform group-hover:scale-105">
+                    <Save className="h-4 w-4" />
                   </span>
                   <div>
                     <div className="text-xs font-semibold leading-tight">Save Lesson</div>
-                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Export .slate bundle</div>
+                    <div className="text-[10px] text-muted-foreground leading-none">.slate bundle</div>
                   </div>
                 </button>
+
                 <button
                   onClick={() => {
                     onOpenChange(false);
                     lessonFileInputRef.current?.click();
                   }}
-                  className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-2 text-center transition hover:bg-accent active:scale-95 group"
                 >
-                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-amber-500/10 text-amber-500 transition-transform group-hover:scale-105">
-                    <FolderOpen className="h-5 w-5" />
+                  <span className="grid h-8 w-8 place-items-center rounded-lg bg-amber-500/10 text-amber-500 transition-transform group-hover:scale-105">
+                    <FolderOpen className="h-4 w-4" />
                   </span>
                   <div>
                     <div className="text-xs font-semibold leading-tight">Open Lesson</div>
-                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Load .slate file</div>
+                    <div className="text-[10px] text-muted-foreground leading-none">Load .slate file</div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    onOpenChange(false);
+                    setBoardTourOpen(true);
+                  }}
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-2 text-center transition hover:bg-accent active:scale-95 group"
+                >
+                  <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary/10 text-primary transition-transform group-hover:scale-105">
+                    <Tv className="h-4 w-4" />
+                  </span>
+                  <div>
+                    <div className="text-xs font-semibold leading-tight">60s Tour</div>
+                    <div className="text-[10px] text-muted-foreground leading-none">Board basics</div>
                   </div>
                 </button>
               </div>

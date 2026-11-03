@@ -37,6 +37,7 @@ import type { QuizObject } from "@/lib/whiteboard/types";
 import { useWhiteboard } from "@/lib/whiteboard/store";
 import { fetchBoardById } from "@/lib/supabase/dbService";
 import { Wand2 } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/board/$boardId")({
@@ -75,9 +76,165 @@ function BoardPage() {
     openBoard,
     hydrated,
     boardMode,
+    boardDockSide,
     reachabilityOffset,
     simpleMode,
+    tool,
+    setTool,
+    setColor,
+    undo,
+    redo,
+    camera,
+    setCamera,
+    prevPage,
+    nextPage,
+    addPage,
+    deleteSelected,
+    duplicateSelected,
+    setSelected,
   } = useWhiteboard();
+
+  // Global Keyboard and Presenter Clicker Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if user is currently typing in an input, textarea, or contentEditable
+      const target = e.target as HTMLElement | null;
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target?.isContentEditable
+      ) {
+        return;
+      }
+
+      const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+
+      // 1. Undo / Redo
+      if (isCtrlOrCmd && (e.key === "z" || e.key === "Z")) {
+        e.preventDefault();
+        if (e.shiftKey) redo();
+        else undo();
+        return;
+      }
+      if (isCtrlOrCmd && (e.key === "y" || e.key === "Y")) {
+        e.preventDefault();
+        redo();
+        return;
+      }
+
+      // 2. Find on board
+      if (isCtrlOrCmd && (e.key === "f" || e.key === "F")) {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent("slate:open-find"));
+        return;
+      }
+
+      // 3. Duplicate selection
+      if (isCtrlOrCmd && (e.key === "d" || e.key === "D")) {
+        e.preventDefault();
+        duplicateSelected();
+        return;
+      }
+
+      // If Ctrl/Cmd/Alt is held down, don't trigger single letter shortcuts
+      if (isCtrlOrCmd || e.altKey) return;
+
+      // 4. Tools: P (Pen), H (Highlighter), E (Eraser), V (Select), T (Text), S (Shapes), L (Laser)
+      const key = e.key.toLowerCase();
+      if (key === "p") {
+        setTool("pen");
+      } else if (key === "h") {
+        setTool("highlighter");
+      } else if (key === "e") {
+        setTool("eraser-object");
+      } else if (key === "v") {
+        setTool("select");
+      } else if (key === "t") {
+        setTool("text");
+      } else if (key === "s") {
+        setTool("shape");
+      } else if (key === "l") {
+        setTool(tool === "laser" ? "pen" : "laser");
+      } else if (key === "1") {
+        const activePg = pages.find((p) => p.id === activePageId);
+        const dark =
+          activePg?.background === "blackboard" ||
+          activePg?.background === "oled" ||
+          activePg?.background === "dark";
+        setColor(dark ? "#ffffff" : "#111827");
+        toast("Pen color: " + (dark ? "White" : "Black"));
+      } else if (key === "2") {
+        setColor("#2563eb");
+        toast("Pen color: Blue");
+      } else if (key === "3") {
+        setColor("#dc2626");
+        toast("Pen color: Red");
+      } else if (key === "4") {
+        setColor("#16a34a");
+        toast("Pen color: Green");
+      } else if (e.key === "Delete" || e.key === "Backspace") {
+        deleteSelected();
+      } else if (e.key === "+" || e.key === "=") {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent("slate:zoom-in"));
+      } else if (e.key === "-") {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent("slate:zoom-out"));
+      } else if (key === "f") {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent("slate:fit-to-content"));
+      } else if (key === "0") {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent("slate:zoom-reset"));
+      } else if (e.key === "PageUp") {
+        e.preventDefault();
+        prevPage();
+      } else if (e.key === "PageDown") {
+        e.preventDefault();
+        nextPage();
+      } else if (key === "n") {
+        e.preventDefault();
+        addPage("white");
+        toast.success("Added new page");
+      } else if (e.key === "?") {
+        window.dispatchEvent(new CustomEvent("slate:open-help"));
+      } else if (e.key === "Escape") {
+        setSelected(null);
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        setCamera({ ...camera, x: camera.x + 60 });
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        setCamera({ ...camera, x: camera.x - 60 });
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setCamera({ ...camera, y: camera.y + 60 });
+      } else if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setCamera({ ...camera, y: camera.y - 60 });
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [
+    tool,
+    camera,
+    selectedId,
+    pages,
+    activePageId,
+    undo,
+    redo,
+    prevPage,
+    nextPage,
+    addPage,
+    setTool,
+    setColor,
+    setCamera,
+    deleteSelected,
+    duplicateSelected,
+    setSelected,
+  ]);
 
   const [radialMenuPos, setRadialMenuPos] = useState<{ x: number; y: number } | null>(null);
   const [loadTimedOut, setLoadTimedOut] = useState(false);
@@ -293,11 +450,15 @@ function BoardPage() {
         />
       </div>
 
-      {/* Smart Board Mode: Mirrored Left & Right Side Docks + High-Visibility Corner Controls */}
+      {/* Smart Board Mode: Mirrored or Single Side Dock + High-Visibility Corner Controls */}
       {boardMode ? (
         <>
-          <SmartBoardSideDock side="left" onOpenWidgets={() => setWidgetsOpen(true)} />
-          <SmartBoardSideDock side="right" onOpenWidgets={() => setWidgetsOpen(true)} />
+          {(boardDockSide === "both" || boardDockSide === "left") && (
+            <SmartBoardSideDock side="left" onOpenWidgets={() => setWidgetsOpen(true)} />
+          )}
+          {(boardDockSide === "both" || boardDockSide === "right") && (
+            <SmartBoardSideDock side="right" onOpenWidgets={() => setWidgetsOpen(true)} />
+          )}
           <SmartBoardCornerControls onOpenSorter={() => setWidgetsOpen(true)} />
         </>
       ) : (

@@ -379,4 +379,5 @@ export type WhiteboardState = {
   simpleMode: boolean;
   reachabilityOffset: number;
   splitBoardZones: number;
+  boardDockSide: "both" | "left" | "right";
 };
