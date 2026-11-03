@@ -143,3 +143,38 @@ CREATE TRIGGER update_notes_updated_at BEFORE UPDATE ON public.notes
 DROP TRIGGER IF EXISTS update_study_decks_updated_at ON public.study_decks;
 CREATE TRIGGER update_study_decks_updated_at BEFORE UPDATE ON public.study_decks
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ==============================================================================
+-- 10. SHARED NOTES STORAGE BUCKET (Public lecture notes download)
+-- ==============================================================================
+
+-- Create the public storage bucket for high-res multi-page PDF lesson notes
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+    'shared-notes',
+    'shared-notes',
+    true,
+    52428800, -- 50 MB maximum per PDF file
+    ARRAY['application/pdf']
+)
+ON CONFLICT (id) DO UPDATE SET
+    public = true,
+    file_size_limit = 52428800,
+    allowed_mime_types = ARRAY['application/pdf'];
+
+-- Storage Row Level Security (RLS) Policies
+-- Allow anyone (students, mobile browsers) to view and download shared notes via public link
+CREATE POLICY "Public Read Access for Shared Notes"
+ON storage.objects FOR SELECT
+USING (bucket_id = 'shared-notes');
+
+-- Allow Smart Board clients to upload generated PDF notes
+CREATE POLICY "Allow Board Uploads to Shared Notes"
+ON storage.objects FOR INSERT
+WITH CHECK (bucket_id = 'shared-notes');
+
+-- Allow overwrite/cleanup
+CREATE POLICY "Allow Board Updates to Shared Notes"
+ON storage.objects FOR UPDATE
+USING (bucket_id = 'shared-notes');
+

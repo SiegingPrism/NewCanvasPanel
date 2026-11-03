@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { QrCode, Download, FileText, CheckCircle2, Share2, Sparkles, Loader2 } from "lucide-react";
+import { QrCode, Download, FileText, CheckCircle2, Share2, Sparkles, Loader2, AlertCircle, RefreshCw } from "lucide-react";
 import QRCode from "qrcode";
 import { jsPDF } from "jspdf";
 import { useWhiteboard } from "@/lib/whiteboard/store";
@@ -22,7 +22,9 @@ export function ShareNotesDialog({ open, onOpenChange, boardTitle = "Lesson Note
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
   const [publicUrl, setPublicUrl] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState<"uploading" | "ready" | "local">("uploading");
+  const [uploadStatus, setUploadStatus] = useState<"uploading" | "ready" | "error" | "local">("uploading");
+  const [uploadErrorMsg, setUploadErrorMsg] = useState<string | null>(null);
+  const blobRef = useRef<Blob | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -33,9 +35,54 @@ export function ShareNotesDialog({ open, onOpenChange, boardTitle = "Lesson Note
     };
   }, [open]);
 
+  const uploadToSupabase = async (blob: Blob): Promise<string | null> => {
+    const supabase = getSupabase();
+    if (!supabase) {
+      setUploadErrorMsg("Supabase client is not configured");
+      setUploadStatus("error");
+      return null;
+    }
+
+    try {
+      const fileName = `notes_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.pdf`;
+      const { error: uploadError } = await supabase.storage
+        .from("shared-notes")
+        .upload(fileName, blob, {
+          contentType: "application/pdf",
+          upsert: true,
+        });
+
+      if (uploadError) {
+        console.warn("Supabase storage upload error:", uploadError.message);
+        setUploadErrorMsg(uploadError.message);
+        setUploadStatus("error");
+        return null;
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from("shared-notes")
+        .getPublicUrl(fileName);
+
+      if (publicUrlData?.publicUrl) {
+        setPublicUrl(publicUrlData.publicUrl);
+        setUploadStatus("ready");
+        setUploadErrorMsg(null);
+        return publicUrlData.publicUrl;
+      }
+      return null;
+    } catch (err: any) {
+      console.warn("Storage upload exception:", err);
+      setUploadErrorMsg(err?.message || "Storage upload failed");
+      setUploadStatus("error");
+      return null;
+    }
+  };
+
   const generatePdfAndQR = async () => {
     setIsGenerating(true);
     setUploadStatus("uploading");
+    setUploadErrorMsg(null);
+
     try {
       const doc = new jsPDF({
         orientation: "landscape",
@@ -46,14 +93,12 @@ export function ShareNotesDialog({ open, onOpenChange, boardTitle = "Lesson Note
       pages.forEach((p, idx) => {
         if (idx > 0) doc.addPage([1920, 1080], "landscape");
 
-        // High-fidelity image snapshot of full canvas contents (ink, strokes, shapes, images, stickies, etc.)
         const pageImg =
           renderPageSnapshot(p, 1920, 1080) || (p.id === activePageId ? captureCanvasSnapshot() : null);
 
         if (pageImg) {
           doc.addImage(pageImg, "JPEG", 0, 0, 1920, 1080, undefined, "FAST");
         } else {
-          // Fallback background and text
           doc.setFillColor(
             p.background === "blackboard" ? 27 : 255,
             p.background === "blackboard" ? 56 : 255,
@@ -81,10 +126,11 @@ export function ShareNotesDialog({ open, onOpenChange, boardTitle = "Lesson Note
       });
 
       const blob = doc.output("blob");
+      blobRef.current = blob;
       const localUrl = URL.createObjectURL(blob);
       setPdfBlobUrl(localUrl);
 
-      // Save base64 for same-device fallback
+      // Save base64 for same-device local storage fallback
       const reader = new FileReader();
       reader.onloadend = () => {
         if (typeof reader.result === "string") {
@@ -96,42 +142,10 @@ export function ShareNotesDialog({ open, onOpenChange, boardTitle = "Lesson Note
       };
       reader.readAsDataURL(blob);
 
-      // Upload to Supabase Storage for true cloud public access from student phones
-      const supabase = getSupabase();
-      let publicFileUrl = "";
+      // Upload to Supabase Storage for student phone download
+      const publicFileUrl = await uploadToSupabase(blob);
 
-      if (supabase) {
-        try {
-          const fileName = `notes_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.pdf`;
-          const { error: uploadError } = await supabase.storage
-            .from("shared-notes")
-            .upload(fileName, blob, {
-              contentType: "application/pdf",
-              upsert: true,
-            });
-
-          if (!uploadError) {
-            const { data: publicUrlData } = supabase.storage
-              .from("shared-notes")
-              .getPublicUrl(fileName);
-            if (publicUrlData?.publicUrl) {
-              publicFileUrl = publicUrlData.publicUrl;
-              setPublicUrl(publicFileUrl);
-              setUploadStatus("ready");
-            }
-          } else {
-            console.warn("Supabase storage upload note:", uploadError.message);
-            setUploadStatus("local");
-          }
-        } catch (storageErr) {
-          console.warn("Storage upload error:", storageErr);
-          setUploadStatus("local");
-        }
-      } else {
-        setUploadStatus("local");
-      }
-
-      // Point QR code to student mobile download page with public URL or share ID
+      // Generate QR code
       const base = getPublicAppOrigin();
       const shareUrl = publicFileUrl
         ? `${base}/share?url=${encodeURIComponent(publicFileUrl)}&title=${encodeURIComponent(boardTitle)}`
@@ -148,6 +162,25 @@ export function ShareNotesDialog({ open, onOpenChange, boardTitle = "Lesson Note
       toast.error("Could not generate notes PDF.");
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const handleRetryUpload = async () => {
+    if (!blobRef.current) return;
+    setUploadStatus("uploading");
+    const publicFileUrl = await uploadToSupabase(blobRef.current);
+    if (publicFileUrl) {
+      const base = getPublicAppOrigin();
+      const shareUrl = `${base}/share?url=${encodeURIComponent(publicFileUrl)}&title=${encodeURIComponent(boardTitle)}`;
+      const qr = await QRCode.toDataURL(shareUrl, {
+        width: 240,
+        margin: 1,
+        color: { dark: "#0f172a", light: "#ffffff" },
+      });
+      setQrCodeUrl(qr);
+      toast.success("Notes uploaded to cloud storage successfully!");
+    } else {
+      toast.error("Cloud storage upload failed. Verify bucket setup in Supabase.");
     }
   };
 
@@ -194,16 +227,34 @@ export function ShareNotesDialog({ open, onOpenChange, boardTitle = "Lesson Note
             )}
           </div>
 
-          <div className="mt-3 text-xs text-muted-foreground flex items-center gap-1.5 justify-center">
+          <div className="mt-3 text-xs w-full max-w-xs">
             {uploadStatus === "ready" ? (
-              <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+              <div className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center justify-center gap-1">
                 <CheckCircle2 className="h-3.5 w-3.5" />
-                Cloud Link Active — Ready for Student Phones
-              </span>
+                <span>Cloud Link Active — Ready for Student Phones</span>
+              </div>
+            ) : uploadStatus === "error" ? (
+              <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-2.5 text-[11px] text-amber-600 dark:text-amber-400 text-left space-y-1.5">
+                <div className="flex items-start gap-1.5 font-semibold">
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                  <span>Cloud storage upload failed: {uploadErrorMsg || "Bucket not found"}</span>
+                </div>
+                <p className="text-muted-foreground text-[10px]">
+                  Ensure the <code className="font-mono bg-muted px-1 rounded">shared-notes</code> bucket is created in Supabase (SQL in schema.sql).
+                </p>
+                <button
+                  type="button"
+                  onClick={handleRetryUpload}
+                  className="flex items-center gap-1 text-[11px] font-bold text-primary hover:underline pt-0.5"
+                >
+                  <RefreshCw className="h-3 w-3" />
+                  <span>Retry Cloud Upload</span>
+                </button>
+              </div>
             ) : isGenerating ? (
-              <span>Preparing high-resolution PDF...</span>
+              <span className="text-muted-foreground">Preparing high-resolution PDF...</span>
             ) : (
-              <span className="text-slate-400">Classroom Direct QR Code Generated</span>
+              <span className="text-muted-foreground">Classroom Direct QR Code Generated</span>
             )}
           </div>
         </div>

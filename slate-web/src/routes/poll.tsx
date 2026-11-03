@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
-import { CheckCircle2, Vote, Sparkles, Send } from "lucide-react";
+import { CheckCircle2, Vote, Sparkles, Send, Edit3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getSupabase } from "@/lib/supabase/client";
 
@@ -47,6 +47,18 @@ function StudentPollPage() {
       options,
       correctIndex: ans !== null ? parseInt(ans, 10) : undefined,
     });
+
+    // Check if student already voted on this device/phone
+    try {
+      const storedVote = localStorage.getItem(`slate_poll_voted_${id}`);
+      if (storedVote !== null && storedVote !== "") {
+        const parsed = parseInt(storedVote, 10);
+        if (!isNaN(parsed) && parsed >= 0 && parsed < options.length) {
+          setSelectedOption(parsed);
+          setHasVoted(true);
+        }
+      }
+    } catch {}
 
     // Establish Supabase Realtime Channel connection to the smart board
     const supabase = getSupabase();
@@ -97,8 +109,9 @@ function StudentPollPage() {
       bc.close();
     } catch {}
 
-    // 3. Storage event for cross-window reactivity
+    // 3. Mark voted in phone localStorage so refreshing page does not permit multiple votes
     try {
+      localStorage.setItem(`slate_poll_voted_${params.id}`, String(selectedOption));
       localStorage.setItem(`slate_poll_vote_${params.id}_${Date.now()}`, JSON.stringify(votePayload));
     } catch {}
 
@@ -131,20 +144,39 @@ function StudentPollPage() {
         </div>
 
         {hasVoted ? (
-          <div className="text-center py-10 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+          <div className="text-center py-8 space-y-4 animate-in fade-in zoom-in-95 duration-200">
             <div className="h-16 w-16 mx-auto rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shadow-lg shadow-emerald-500/10">
               <CheckCircle2 className="h-8 w-8" />
             </div>
-            <h2 className="text-2xl font-bold text-white">Vote Submitted!</h2>
-            <p className="text-slate-400 text-sm max-w-xs mx-auto">
-              Your response has been transmitted to the Smart Board. Look up to see the live class results!
-            </p>
-            <div className="pt-4">
+            <div className="space-y-1">
+              <h2 className="text-2xl font-bold text-white">Vote Recorded!</h2>
+              <p className="text-slate-400 text-sm max-w-xs mx-auto">
+                Your response has been registered on the Smart Board. Refreshing this page will not submit a duplicate vote.
+              </p>
+            </div>
+
+            {selectedOption !== null && params.options[selectedOption] && (
+              <div className="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-3.5 max-w-xs mx-auto text-left">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-400 block mb-0.5">Your Choice</span>
+                <div className="flex items-center gap-2.5">
+                  <span className="h-6 w-6 rounded-lg bg-indigo-600 text-white font-bold text-xs flex items-center justify-center">
+                    {optionLetters[selectedOption] || selectedOption + 1}
+                  </span>
+                  <span className="text-sm font-semibold text-white truncate">
+                    {params.options[selectedOption]}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            <div className="pt-2">
               <Button
                 variant="outline"
-                className="rounded-full border-slate-700 text-slate-300 hover:bg-slate-800"
+                size="sm"
+                className="rounded-full border-slate-700 text-slate-300 hover:bg-slate-800 text-xs"
                 onClick={() => setHasVoted(false)}
               >
+                <Edit3 className="h-3 w-3 mr-1.5" />
                 Change Answer
               </Button>
             </div>

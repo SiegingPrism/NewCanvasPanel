@@ -41,7 +41,7 @@ import { PageSorterDialog } from "./smartboard/PageSorterDialog";
 import { DocumentImportDialog } from "./smartboard/DocumentImportDialog";
 import { BoardTourDialog } from "./smartboard/BoardTourDialog";
 import { BoardSettingsDialog } from "./smartboard/BoardSettingsDialog";
-import { TeacherQRLoginDialog } from "./smartboard/TeacherQRLoginDialog";
+import { AuthDialog } from "@/components/auth/AuthDialog";
 import { exportLessonFile, importLessonFile } from "@/lib/whiteboard/lessonFiles";
 import { toast } from "sonner";
 import {
@@ -112,7 +112,7 @@ export function WidgetsSheet({
   const [docImportOpen, setDocImportOpen] = useState(false);
   const [boardTourOpen, setBoardTourOpen] = useState(false);
   const [boardSettingsOpen, setBoardSettingsOpen] = useState(false);
-  const [teacherLoginOpen, setTeacherLoginOpen] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
   const lessonFileInputRef = useRef<HTMLInputElement>(null);
 
   const handleImportLesson = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -142,7 +142,7 @@ export function WidgetsSheet({
     const handleOpenTour = () => setBoardTourOpen(true);
     const handleOpenSettings = () => setBoardSettingsOpen(true);
     const handleOpenImport = () => setDocImportOpen(true);
-    const handleOpenTeacherLogin = () => setTeacherLoginOpen(true);
+    const handleOpenTeacherLogin = () => setAuthOpen(true);
 
     window.addEventListener("slate:open-page-sorter", handleOpenSorter);
     window.addEventListener("slate:open-poll", handleOpenPoll);
@@ -765,7 +765,7 @@ export function WidgetsSheet({
                 <button
                   onClick={() => {
                     onOpenChange(false);
-                    setTeacherLoginOpen(true);
+                    setAuthOpen(true);
                   }}
                   className="flex flex-col items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-indigo-500/5 p-2.5 text-center transition hover:bg-indigo-500/10 active:scale-95 group"
                 >
@@ -773,8 +773,8 @@ export function WidgetsSheet({
                     <KeyRound className="h-5 w-5" />
                   </span>
                   <div>
-                    <div className="text-xs font-bold leading-tight text-indigo-700 dark:text-indigo-400">Teacher QR</div>
-                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Fast phone login</div>
+                    <div className="text-xs font-bold leading-tight text-indigo-700 dark:text-indigo-400">Teacher Login</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Cloud sign in</div>
                   </div>
                 </button>
                 <button
@@ -852,7 +852,7 @@ export function WidgetsSheet({
       <DocumentImportDialog open={docImportOpen} onOpenChange={setDocImportOpen} />
       <BoardTourDialog open={boardTourOpen} onOpenChange={setBoardTourOpen} />
       <BoardSettingsDialog open={boardSettingsOpen} onOpenChange={setBoardSettingsOpen} />
-      <TeacherQRLoginDialog open={teacherLoginOpen} onOpenChange={setTeacherLoginOpen} />
+      <AuthDialog open={authOpen} onOpenChange={setAuthOpen} />
       <input
         ref={lessonFileInputRef}
         type="file"

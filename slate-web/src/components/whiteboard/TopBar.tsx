@@ -47,7 +47,6 @@ import {
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { TeacherQRLoginDialog } from "@/components/whiteboard/smartboard/TeacherQRLoginDialog";
 import { exportLessonFile, importLessonFile } from "@/lib/whiteboard/lessonFiles";
 import jsPDF from "jspdf";
 import QRCode from "qrcode";
@@ -123,7 +122,6 @@ export function TopBar({
   const titleClicksRef = useRef<number>(0);
   const { user } = useAuth();
   const [authOpen, setAuthOpen] = useState(false);
-  const [teacherLoginOpen, setTeacherLoginOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
   const [qrData, setQrData] = useState<string>("");
   const [qrUrl, setQrUrl] = useState<string>("");
@@ -851,19 +849,6 @@ export function TopBar({
             className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-accent text-foreground transition"
             onClick={() => {
               setMenuOpen(false);
-              setTeacherLoginOpen(true);
-            }}
-          >
-            <KeyRound className="h-3.5 w-3.5 text-indigo-500" />
-            <span>Teacher Fast QR Login</span>
-          </button>
-
-          <div className="h-px w-full bg-border/60 my-1" />
-
-          <button
-            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-accent text-foreground transition"
-            onClick={() => {
-              setMenuOpen(false);
               setAuthOpen(true);
             }}
           >
@@ -888,8 +873,6 @@ export function TopBar({
         className="hidden"
         onChange={handleOpenLessonFile}
       />
-
-      <TeacherQRLoginDialog open={teacherLoginOpen} onOpenChange={setTeacherLoginOpen} />
 
       <Dialog open={qrOpen} onOpenChange={setQrOpen}>
         <DialogContent className="max-w-sm">
