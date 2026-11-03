@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { BoardHelpOverlay } from "./BoardHelpOverlay";
 import { BoardTourDialog } from "./BoardTourDialog";
+import { DocumentImportDialog } from "./DocumentImportDialog";
 import { useWhiteboard } from "@/lib/whiteboard/store";
 import { getSmartBoardProfile, SMART_BOARD_PROFILES, PanelDiagonal } from "@/lib/whiteboard/smartBoardProfiles";
+import type { PageBackground } from "@/lib/whiteboard/types";
 import {
   Undo2,
   HelpCircle,
@@ -17,8 +19,15 @@ import {
   Columns,
   KeyRound,
   Save,
-  FolderOpen,
+  Presentation,
+  FileText,
+  Grid,
+  AlignJustify,
+  Music,
+  MapPin,
+  PenTool,
 } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { exportLessonFile } from "@/lib/whiteboard/lessonFiles";
 import { toast } from "sonner";
 import {
@@ -34,6 +43,20 @@ import { cn } from "@/lib/utils";
 interface SmartBoardCornerControlsProps {
   onOpenSorter?: () => void;
 }
+
+const PAGE_TEMPLATES: {
+  id: PageBackground;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  desc: string;
+}[] = [
+  { id: "white", label: "Blank", icon: FileText, desc: "Standard canvas" },
+  { id: "lined", label: "Lined", icon: AlignJustify, desc: "Ruled lines for notes" },
+  { id: "grid", label: "Squared", icon: Grid, desc: "Math & geometry grid" },
+  { id: "four-line", label: "4-Line", icon: PenTool, desc: "Language handwriting" },
+  { id: "music-staves", label: "Music", icon: Music, desc: "5-line music staves" },
+  { id: "world-map", label: "Map", icon: MapPin, desc: "World geography outline" },
+];
 
 export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerControlsProps) {
   const {
@@ -66,6 +89,8 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
 
   const [helpOpen, setHelpOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
+  const [newPageOpen, setNewPageOpen] = useState(false);
+  const [docImportOpen, setDocImportOpen] = useState(false);
 
   // Show the short board tour automatically the first time Board mode is used on this device.
   useEffect(() => {
@@ -189,9 +214,9 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
             >
               <Tv className="h-6 w-6 shrink-0" />
               <div className="flex flex-col text-left">
-                <span className="text-xs font-black tracking-wide">{panelSize}&quot; Board</span>
+                <span className="text-xs font-black tracking-wide">Board settings</span>
                 <span className="text-[11px] text-muted-foreground font-medium">
-                  {splitBoardZones > 1 ? `${splitBoardZones} Zones` : `${Math.round(profile.widthCm)}×${Math.round(profile.heightCm)}cm`}
+                  {panelSize}&quot; · {splitBoardZones > 1 ? `${splitBoardZones} zones` : "Split: off"}
                 </span>
               </div>
             </button>
@@ -305,6 +330,19 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
                 <span className="text-xs font-medium">Save Lesson (.slate)</span>
               </div>
             </DropdownMenuItem>
+
+            {/* Import PPTX or PDF */}
+            <DropdownMenuItem
+              onClick={() => {
+                setDocImportOpen(true);
+              }}
+              className="flex items-center justify-between p-2.5 rounded-xl cursor-pointer"
+            >
+              <div className="flex items-center gap-2">
+                <Presentation className="h-4 w-4 text-orange-500" />
+                <span className="text-xs font-medium">Import PowerPoint / PDF</span>
+              </div>
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -358,19 +396,71 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
           <ChevronRight className="h-7 w-7" />
         </button>
 
-        {/* Add Page */}
-        <button
-          onClick={addPage}
-          style={{ height: `${targetPx}px`, width: `${targetPx}px` }}
-          className="flex flex-col items-center justify-center rounded-xl bg-primary text-primary-foreground font-bold shadow-md hover:bg-primary/90 transition-all active:scale-95"
-          title="Add New Blank Page"
-        >
-          <Plus className="h-6 w-6" />
-          <span className="text-xs font-bold">New</span>
-        </button>
+        {/* Add Page with New-Page Template Picker */}
+        <Popover open={newPageOpen} onOpenChange={setNewPageOpen}>
+          <PopoverTrigger asChild>
+            <button
+              style={{ height: `${targetPx}px`, width: `${targetPx}px` }}
+              className="flex flex-col items-center justify-center rounded-xl bg-primary text-primary-foreground font-bold shadow-md hover:bg-primary/90 transition-all active:scale-95"
+              title="Add New Page (tap to choose page style)"
+            >
+              <Plus className="h-6 w-6" />
+              <span className="text-xs font-bold">New</span>
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
+            align="end"
+            side="top"
+            className="w-80 rounded-2xl p-3 bg-card border border-border shadow-2xl space-y-2.5"
+          >
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Choose Page Style
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                Add a blank page, lined notes, math grid, or template.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              {PAGE_TEMPLATES.map((tmpl) => {
+                const Icon = tmpl.icon;
+                return (
+                  <button
+                    key={tmpl.id}
+                    onClick={() => {
+                      addPage(tmpl.id);
+                      setNewPageOpen(false);
+                      toast(`Added ${tmpl.label} page`);
+                    }}
+                    className="flex flex-col items-center justify-center gap-1 p-2.5 rounded-xl border border-border/70 hover:bg-muted active:scale-95 transition text-center"
+                  >
+                    <Icon className="h-5 w-5 text-primary" />
+                    <span className="text-xs font-bold text-foreground">{tmpl.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="h-px bg-border my-1" />
+
+            <button
+              onClick={() => {
+                setNewPageOpen(false);
+                setDocImportOpen(true);
+              }}
+              className="flex w-full items-center justify-center gap-2 p-2 rounded-xl bg-muted/60 hover:bg-muted text-xs font-semibold text-foreground transition"
+            >
+              <Presentation className="h-4 w-4 text-orange-500" />
+              Import PowerPoint (.pptx) or PDF
+            </button>
+          </PopoverContent>
+        </Popover>
       </div>
+
       <BoardHelpOverlay open={helpOpen} onClose={() => setHelpOpen(false)} />
       <BoardTourDialog open={tourOpen} onOpenChange={handleTourChange} />
+      <DocumentImportDialog open={docImportOpen} onOpenChange={setDocImportOpen} />
     </>
   );
 }

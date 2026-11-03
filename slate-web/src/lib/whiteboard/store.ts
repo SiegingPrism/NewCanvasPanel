@@ -78,7 +78,7 @@ type Actions = {
   setAllTapeReveal: (revealed: boolean) => void;
   clearPage: () => void;
   eraseStrokes: () => void;
-  addPage: () => void;
+  addPage: (background?: Page["background"]) => void;
   removePage: (id: string) => void;
   setActivePage: (id: string) => void;
   nextPage: () => void;
@@ -518,9 +518,10 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
       );
       set(syncActive({ ...s, pages, selectedId: null, selectedIds: [] }));
     },
-    addPage: () => {
+    addPage: (background?: Page["background"]) => {
       const s = get();
-      const p = emptyPage();
+      const bg = typeof background === "string" ? background : "white";
+      const p = emptyPage(bg);
       set(syncActive({ ...s, pages: [...s.pages, p], activePageId: p.id }));
     },
     removePage: (id) => {

@@ -8,13 +8,12 @@ import {
   MousePointer2,
   Shapes,
   MoreHorizontal,
+  SlidersHorizontal,
   Lock,
   Unlock,
-  ChevronUp,
-  ChevronDown,
   ArrowDownToLine,
   ArrowUpToLine,
-  SlidersHorizontal,
+  GripHorizontal,
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -26,6 +25,14 @@ interface SmartBoardSideDockProps {
   onOpenMore?: () => void;
   onOpenWidgets?: () => void;
 }
+
+// 4 Quick-access colors always visible under Pen
+const QUICK_COLORS = [
+  { name: "Black", value: "#111827", bgClass: "bg-gray-900 border-white/30" },
+  { name: "Blue", value: "#2563eb", bgClass: "bg-blue-600 border-blue-300" },
+  { name: "Red", value: "#dc2626", bgClass: "bg-red-600 border-red-300" },
+  { name: "Green", value: "#16a34a", bgClass: "bg-green-600 border-green-300" },
+];
 
 const BOARD_COLORS = [
   { name: "Black", value: "#111827", bgClass: "bg-gray-900 border-white/20" },
@@ -88,6 +95,7 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
   const [verticalAlign, setVerticalAlign] = useState<"mid" | "top" | "bottom">("mid");
   const [penPopoverOpen, setPenPopoverOpen] = useState(false);
   const [shapePopoverOpen, setShapePopoverOpen] = useState(false);
+  const [boardPopoverOpen, setBoardPopoverOpen] = useState(false);
 
   const targetSizePx = Math.max(64, profile.minTouchTargetPx);
 
@@ -117,7 +125,16 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
     }
   };
 
+  const cycleDockPosition = () => {
+    setVerticalAlign((prev) => {
+      if (prev === "mid") return "top";
+      if (prev === "top") return "bottom";
+      return "mid";
+    });
+  };
+
   const isLeft = side === "left";
+  const isBoardAdjusted = reachabilityOffset > 0 || lockBoard;
 
   return (
     <aside
@@ -127,32 +144,24 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
         isLeft ? "left-3" : "right-3",
         verticalAlign === "mid" && "top-1/2 -translate-y-1/2",
         verticalAlign === "top" && "top-16",
-        verticalAlign === "bottom" && "bottom-24"
+        verticalAlign === "bottom" && "bottom-28",
+        "max-h-[calc(100vh-140px)] overflow-visible"
       )}
       style={{
         width: `${targetSizePx + 16}px`,
       }}
     >
-      {/* Dock Vertical Height Shifter for Teacher Height Adaptability */}
-      <div className="flex w-full items-center justify-between px-1 text-muted-foreground/60 text-xs">
-        <button
-          onClick={() => setVerticalAlign((prev) => (prev === "bottom" ? "mid" : "top"))}
-          title="Move dock higher"
-          className="rounded p-1 hover:bg-accent hover:text-foreground"
-        >
-          <ChevronUp className="h-4 w-4" />
-        </button>
-        <span className="font-semibold uppercase tracking-wider">{side[0]}</span>
-        <button
-          onClick={() => setVerticalAlign((prev) => (prev === "top" ? "mid" : "bottom"))}
-          title="Move dock lower"
-          className="rounded p-1 hover:bg-accent hover:text-foreground"
-        >
-          <ChevronDown className="h-4 w-4" />
-        </button>
-      </div>
+      {/* Sleek Drag Handle Pill Indicator replacing bulky ^ L v header */}
+      <button
+        onClick={cycleDockPosition}
+        type="button"
+        className="group flex flex-col items-center justify-center py-1 px-3 w-full rounded-lg hover:bg-muted/60 transition cursor-pointer"
+        title={`Dock Position: ${verticalAlign.toUpperCase()} (tap to shift position)`}
+      >
+        <div className="h-1.5 w-8 rounded-full bg-muted-foreground/40 group-hover:bg-primary transition-all group-active:scale-95" />
+      </button>
 
-      <div className="h-px w-full bg-border" />
+      <div className="h-px w-full bg-border/60" />
 
       {/* 1. Pen Tool with Quick Flyout */}
       <Popover open={penPopoverOpen} onOpenChange={setPenPopoverOpen}>
@@ -231,6 +240,32 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
         </PopoverContent>
       </Popover>
 
+      {/* 4 Quick-Access Color Dots under Pen: always visible for 1-tap switching */}
+      <div
+        className="flex items-center justify-between px-1 py-0.5 rounded-lg bg-muted/30 border border-border/50"
+        style={{ width: `${targetSizePx}px` }}
+      >
+        {QUICK_COLORS.map((c) => {
+          const isActive = tool === "pen" && color.toLowerCase() === c.value.toLowerCase();
+          return (
+            <button
+              key={c.value}
+              type="button"
+              onClick={() => {
+                setColor(c.value);
+                setTool("pen");
+              }}
+              title={`${c.name} Pen`}
+              className={cn(
+                "h-4 w-4 rounded-full border transition-all active:scale-90",
+                c.bgClass,
+                isActive ? "ring-2 ring-primary ring-offset-1 scale-110" : "hover:scale-105 opacity-80 hover:opacity-100"
+              )}
+            />
+          );
+        })}
+      </div>
+
       {/* 2. Highlighter Tool */}
       <button
         onClick={() => handleToolClick("highlighter")}
@@ -279,23 +314,23 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
         <span className="text-xs font-semibold mt-0.5">Select</span>
       </button>
 
-      {/* 5. Shapes Tool: tap once to draw rough shapes (auto-straightened), tap again to pick a ready-made one */}
+      {/* 5. Shapes Tool */}
       <Popover open={shapePopoverOpen} onOpenChange={setShapePopoverOpen}>
         <PopoverTrigger asChild>
-      <button
-        onClick={() => handleToolClick("shape")}
-        className={cn(
-          "flex flex-col items-center justify-center rounded-xl font-medium transition-all active:scale-95",
-          tool === "shape"
-            ? "bg-primary text-primary-foreground shadow-md ring-2 ring-primary/40"
-            : "bg-muted/40 text-foreground hover:bg-muted"
-        )}
-        style={{ width: `${targetSizePx}px`, height: `${targetSizePx}px` }}
-        title="Shapes (draw a rough shape, or tap again to pick one)"
-      >
-        <Shapes className="h-7 w-7" />
-        <span className="text-xs font-semibold mt-0.5">Shapes</span>
-      </button>
+          <button
+            onClick={() => handleToolClick("shape")}
+            className={cn(
+              "flex flex-col items-center justify-center rounded-xl font-medium transition-all active:scale-95",
+              tool === "shape"
+                ? "bg-primary text-primary-foreground shadow-md ring-2 ring-primary/40"
+                : "bg-muted/40 text-foreground hover:bg-muted"
+            )}
+            style={{ width: `${targetSizePx}px`, height: `${targetSizePx}px` }}
+            title="Shapes (draw a rough shape, or tap again to pick one)"
+          >
+            <Shapes className="h-7 w-7" />
+            <span className="text-xs font-semibold mt-0.5">Shapes</span>
+          </button>
         </PopoverTrigger>
         <PopoverContent
           side={isLeft ? "right" : "left"}
@@ -345,58 +380,119 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
         </PopoverContent>
       </Popover>
 
-      <div className="h-px w-full bg-border my-1" />
+      <div className="h-px w-full bg-border/60 my-0.5" />
 
-      {/* Reachability Pull-Down Mode (for tall 75", 86", 98", 110" panels) */}
-      <button
-        onClick={toggleReachability}
-        className={cn(
-          "flex flex-col items-center justify-center rounded-xl transition-all active:scale-95",
-          reachabilityOffset > 0
-            ? "bg-sky-600 text-white shadow-md ring-2 ring-sky-400"
-            : "bg-muted/30 text-muted-foreground hover:bg-muted hover:text-foreground"
-        )}
-        style={{ width: `${targetSizePx}px`, height: `${Math.round(targetSizePx * 0.85)}px` }}
-        title="Reachability Pull-down (lowers the top canvas for shorter teachers/students)"
-      >
-        {reachabilityOffset > 0 ? (
-          <ArrowUpToLine className="h-5 w-5" />
-        ) : (
-          <ArrowDownToLine className="h-5 w-5" />
-        )}
-        <span className="text-xs font-medium mt-0.5">
-          {reachabilityOffset > 0 ? "Reset" : "Lower"}
-        </span>
-      </button>
+      {/* Merged "Board" Button (combines Reachability Lower & Lock into one prominent button) */}
+      <Popover open={boardPopoverOpen} onOpenChange={setBoardPopoverOpen}>
+        <PopoverTrigger asChild>
+          <button
+            className={cn(
+              "flex flex-col items-center justify-center rounded-xl transition-all active:scale-95 font-semibold",
+              isBoardAdjusted
+                ? "bg-primary/15 text-primary border border-primary/30 shadow-xs"
+                : "bg-muted/40 text-foreground hover:bg-muted"
+            )}
+            style={{ width: `${targetSizePx}px`, height: `${Math.round(targetSizePx * 0.88)}px` }}
+            title="Board Controls (Lower canvas reachability & Lock pan/zoom)"
+          >
+            {lockBoard ? (
+              <Lock className="h-6 w-6 text-amber-500" />
+            ) : reachabilityOffset > 0 ? (
+              <ArrowDownToLine className="h-6 w-6 text-sky-500" />
+            ) : (
+              <SlidersHorizontal className="h-6 w-6" />
+            )}
+            <span className="text-xs font-semibold mt-0.5">Board</span>
+          </button>
+        </PopoverTrigger>
+        <PopoverContent
+          side={isLeft ? "right" : "left"}
+          sideOffset={16}
+          className="w-72 rounded-2xl p-3 shadow-2xl bg-card border border-border space-y-2.5"
+        >
+          <div>
+            <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">
+              Smart Board Controls
+            </h4>
+            <p className="text-xs text-muted-foreground">
+              Adjust canvas height and lock gesture movement during class.
+            </p>
+          </div>
 
-      {/* Lock Board (Freezes Pan & Zoom for classroom stability) */}
-      <button
-        onClick={() => setLockBoard(!lockBoard)}
-        className={cn(
-          "flex flex-col items-center justify-center rounded-xl transition-all active:scale-95",
-          lockBoard
-            ? "bg-amber-600 text-white shadow-md ring-2 ring-amber-400"
-            : "bg-muted/30 text-muted-foreground hover:bg-muted hover:text-foreground"
-        )}
-        style={{ width: `${targetSizePx}px`, height: `${Math.round(targetSizePx * 0.85)}px` }}
-        title={lockBoard ? "Board is Locked (Pan & Zoom disabled)" : "Lock Board (prevent accidental pans/zooms)"}
-      >
-        {lockBoard ? <Lock className="h-5 w-5" /> : <Unlock className="h-5 w-5" />}
-        <span className="text-xs font-medium mt-0.5">{lockBoard ? "Locked" : "Lock"}</span>
-      </button>
+          <div className="space-y-2 pt-1">
+            {/* Lower / Reachability Toggle */}
+            <button
+              onClick={() => {
+                toggleReachability();
+              }}
+              className={cn(
+                "flex w-full items-center justify-between p-2.5 rounded-xl border text-left transition active:scale-98",
+                reachabilityOffset > 0
+                  ? "border-sky-500 bg-sky-500/10 text-sky-600 dark:text-sky-400 font-bold"
+                  : "border-border hover:bg-muted text-foreground"
+              )}
+            >
+              <div className="flex items-center gap-2.5">
+                {reachabilityOffset > 0 ? (
+                  <ArrowUpToLine className="h-5 w-5 text-sky-500 shrink-0" />
+                ) : (
+                  <ArrowDownToLine className="h-5 w-5 text-muted-foreground shrink-0" />
+                )}
+                <div className="flex flex-col">
+                  <span className="text-xs font-bold">Reachability Lower</span>
+                  <span className="text-[11px] text-muted-foreground font-normal">
+                    {reachabilityOffset > 0 ? "Lowered (tap to reset)" : "Lower top half of board"}
+                  </span>
+                </div>
+              </div>
+              <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-muted">
+                {reachabilityOffset > 0 ? "ON" : "OFF"}
+              </span>
+            </button>
 
-      {/* "More" Drawer Button */}
+            {/* Lock / Freeze Board Toggle */}
+            <button
+              onClick={() => setLockBoard(!lockBoard)}
+              className={cn(
+                "flex w-full items-center justify-between p-2.5 rounded-xl border text-left transition active:scale-98",
+                lockBoard
+                  ? "border-amber-500 bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold"
+                  : "border-border hover:bg-muted text-foreground"
+              )}
+            >
+              <div className="flex items-center gap-2.5">
+                {lockBoard ? (
+                  <Lock className="h-5 w-5 text-amber-500 shrink-0" />
+                ) : (
+                  <Unlock className="h-5 w-5 text-muted-foreground shrink-0" />
+                )}
+                <div className="flex flex-col">
+                  <span className="text-xs font-bold">Freeze Board</span>
+                  <span className="text-[11px] text-muted-foreground font-normal">
+                    {lockBoard ? "Pan & Zoom locked" : "Prevent accidental movement"}
+                  </span>
+                </div>
+              </div>
+              <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-muted">
+                {lockBoard ? "LOCKED" : "FREE"}
+              </span>
+            </button>
+          </div>
+        </PopoverContent>
+      </Popover>
+
+      {/* "More" Drawer Button (Prominent styling matching tools) */}
       <button
         onClick={() => {
           if (onOpenWidgets) onOpenWidgets();
           else if (onOpenMore) onOpenMore();
         }}
-        className="flex flex-col items-center justify-center rounded-xl bg-muted/30 text-muted-foreground hover:bg-muted hover:text-foreground transition-all active:scale-95"
-        style={{ width: `${targetSizePx}px`, height: `${Math.round(targetSizePx * 0.85)}px` }}
+        className="flex flex-col items-center justify-center rounded-xl bg-muted/40 text-foreground hover:bg-muted transition-all active:scale-95 font-semibold"
+        style={{ width: `${targetSizePx}px`, height: `${Math.round(targetSizePx * 0.88)}px` }}
         title="More Tools & Classroom Widgets"
       >
         <MoreHorizontal className="h-6 w-6" />
-        <span className="text-xs font-medium mt-0.5">More</span>
+        <span className="text-xs font-semibold mt-0.5">More</span>
       </button>
     </aside>
   );

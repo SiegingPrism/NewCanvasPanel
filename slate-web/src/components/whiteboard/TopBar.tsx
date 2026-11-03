@@ -336,9 +336,9 @@ export function TopBar({
   }
 
   const iconBtn = boardMode
-    ? "grid h-16 w-16 place-items-center rounded-2xl text-foreground hover:bg-accent/80 transition active:scale-95 shrink-0"
+    ? "flex flex-col items-center justify-center h-16 min-w-16 px-2 rounded-2xl text-foreground hover:bg-accent/80 transition active:scale-95 shrink-0"
     : "grid h-7 w-7 sm:h-8 sm:w-8 place-items-center rounded-lg text-foreground hover:bg-accent/80 transition active:scale-95 shrink-0";
-  const iconSize = boardMode ? "h-7 w-7" : "h-3.5 w-3.5 sm:h-4 sm:w-4";
+  const iconSize = boardMode ? "h-6 w-6" : "h-3.5 w-3.5 sm:h-4 sm:w-4";
 
   return (
     <div className="pointer-events-auto flex items-center gap-0.5 sm:gap-1.5 rounded-full bg-card px-2 py-1 sm:px-3 sm:py-1.5 shadow-lg ring-1 ring-border max-w-[calc(100vw-16px)]">
@@ -353,9 +353,10 @@ export function TopBar({
           }
         }}
         className={iconBtn}
-        title="Back"
+        title="Back to Dashboard"
       >
         <ArrowLeft className={iconSize} />
+        {boardMode && <span className="text-[11px] font-bold mt-0.5 leading-none">Exit</span>}
       </button>
 
       {boardTitle && (
@@ -378,31 +379,37 @@ export function TopBar({
         </span>
       )}
 
-      <div className="h-3.5 sm:h-4 w-px bg-border/60 mx-0.5 shrink-0" />
+      {/* Undo, Redo, and Page Controls: Only shown in standard desktop/mobile mode;
+          in Board Mode they are exclusively placed in the bottom corner strips to avoid duplicates and reachability strain */}
+      {!boardMode && (
+        <>
+          <div className="h-3.5 sm:h-4 w-px bg-border/60 mx-0.5 shrink-0" />
 
-      {/* Undo / Redo */}
-      <button className={iconBtn} title="Undo" onClick={undo}>
-        <Undo2 className={iconSize} />
-      </button>
-      <button className={iconBtn} title="Redo" onClick={redo}>
-        <Redo2 className={iconSize} />
-      </button>
+          {/* Undo / Redo */}
+          <button className={iconBtn} title="Undo" onClick={undo}>
+            <Undo2 className={iconSize} />
+          </button>
+          <button className={iconBtn} title="Redo" onClick={redo}>
+            <Redo2 className={iconSize} />
+          </button>
 
-      <div className="h-3.5 sm:h-4 w-px bg-border/60 mx-0.5 shrink-0" />
+          <div className="h-3.5 sm:h-4 w-px bg-border/60 mx-0.5 shrink-0" />
 
-      {/* Page Navigation */}
-      <button className={iconBtn} onClick={prevPage} title="Previous page">
-        <ChevronLeft className={iconSize} />
-      </button>
-      <span className="min-w-8 sm:min-w-10 text-center text-[11px] sm:text-xs font-medium tabular-nums text-foreground/80 shrink-0 select-none">
-        {pad2(idx + 1)}/{pad2(pages.length)}
-      </span>
-      <button className={iconBtn} onClick={nextPage} title="Next page">
-        <ChevronRight className={iconSize} />
-      </button>
-      <button className={iconBtn} onClick={addPage} title="Add page">
-        <Plus className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-      </button>
+          {/* Page Navigation */}
+          <button className={iconBtn} onClick={prevPage} title="Previous page">
+            <ChevronLeft className={iconSize} />
+          </button>
+          <span className="min-w-8 sm:min-w-10 text-center text-[11px] sm:text-xs font-medium tabular-nums text-foreground/80 shrink-0 select-none">
+            {pad2(idx + 1)}/{pad2(pages.length)}
+          </span>
+          <button className={iconBtn} onClick={nextPage} title="Next page">
+            <ChevronRight className={iconSize} />
+          </button>
+          <button className={iconBtn} onClick={() => addPage()} title="Add page">
+            <Plus className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+          </button>
+        </>
+      )}
 
       <div className="h-3.5 sm:h-4 w-px bg-border/60 mx-0.5 shrink-0" />
 
@@ -411,6 +418,7 @@ export function TopBar({
         <PopoverTrigger asChild>
           <button className={iconBtn} title="Paper & backgrounds">
             <Grid3x3 className={iconSize} />
+            {boardMode && <span className="text-[11px] font-bold mt-0.5 leading-none">Paper</span>}
           </button>
         </PopoverTrigger>
         <PopoverContent
@@ -523,20 +531,22 @@ export function TopBar({
 
       {/* Lecture Presentation Mode */}
       <button
-        className={cn(iconBtn, "hidden sm:grid text-indigo-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/30")}
+        className={cn(iconBtn, "hidden sm:flex text-indigo-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/30")}
         title="Present (full screen)"
         onClick={() => window.dispatchEvent(new CustomEvent("slate:start-presentation"))}
       >
         <MonitorPlay className={iconSize} />
+        {boardMode && <span className="text-[11px] font-bold mt-0.5 leading-none">Present</span>}
       </button>
 
       {/* Board map (renamed from Radar Minimap) */}
       <button
-        className={cn(iconBtn, "hidden sm:grid text-sky-500 hover:text-sky-600 hover:bg-sky-50 dark:hover:bg-sky-950/30")}
+        className={cn(iconBtn, "hidden sm:flex text-sky-500 hover:text-sky-600 hover:bg-sky-50 dark:hover:bg-sky-950/30")}
         title="Board map"
         onClick={() => window.dispatchEvent(new CustomEvent("slate:toggle-minimap"))}
       >
         <Compass className={iconSize} />
+        {boardMode && <span className="text-[11px] font-bold mt-0.5 leading-none">Map</span>}
       </button>
 
       {/* Direct AI Assistant Button (hidden in Simple Mode) */}
@@ -547,6 +557,7 @@ export function TopBar({
           onClick={onOpenAI}
         >
           <Bot className={iconSize} />
+          {boardMode && <span className="text-[11px] font-bold mt-0.5 leading-none">AI</span>}
         </button>
       )}
 
@@ -555,6 +566,7 @@ export function TopBar({
         <PopoverTrigger asChild>
           <button className={iconBtn} title="Menu">
             <Menu className={iconSize} />
+            {boardMode && <span className="text-[11px] font-bold mt-0.5 leading-none">Menu</span>}
           </button>
         </PopoverTrigger>
         <PopoverContent align="end" className="w-56 p-1.5 space-y-1 shadow-xl">

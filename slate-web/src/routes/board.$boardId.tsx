@@ -32,6 +32,8 @@ import { SmartBoardSideDock } from "@/components/whiteboard/smartboard/SmartBoar
 import { SmartBoardCornerControls } from "@/components/whiteboard/smartboard/SmartBoardCornerControls";
 import { RadialMenu } from "@/components/whiteboard/smartboard/RadialMenu";
 import { SplitBoardDivider } from "@/components/whiteboard/smartboard/SplitBoardDivider";
+import { QuickPollDialog } from "@/components/whiteboard/smartboard/QuickPollDialog";
+import type { QuizObject } from "@/lib/whiteboard/types";
 import { useWhiteboard } from "@/lib/whiteboard/store";
 import { fetchBoardById } from "@/lib/supabase/dbService";
 import { Wand2 } from "lucide-react";
@@ -79,6 +81,18 @@ function BoardPage() {
 
   const [radialMenuPos, setRadialMenuPos] = useState<{ x: number; y: number } | null>(null);
   const [loadTimedOut, setLoadTimedOut] = useState(false);
+  const [liveQuizOpen, setLiveQuizOpen] = useState(false);
+  const [activeQuiz, setActiveQuiz] = useState<QuizObject | undefined>(undefined);
+
+  useEffect(() => {
+    const handleLiveQuiz = (e: Event) => {
+      const customEvent = e as CustomEvent<QuizObject | undefined>;
+      setActiveQuiz(customEvent.detail);
+      setLiveQuizOpen(true);
+    };
+    window.addEventListener("slate:open-live-quiz", handleLiveQuiz);
+    return () => window.removeEventListener("slate:open-live-quiz", handleLiveQuiz);
+  }, []);
 
   useEffect(() => {
     const handleRadial = (e: Event) => {
@@ -251,6 +265,14 @@ function BoardPage() {
         }}
       >
         <WhiteboardCanvas onOpenAI={handleOpenAI} onPresentationChange={setIsPresenting} />
+        {/* Faint First-Time Teacher Guide: vanishes on first stroke */}
+        {page && page.objects.length === 0 && !isPresenting && (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center select-none z-10 transition-opacity duration-300">
+            <p className="text-base sm:text-lg font-medium text-muted-foreground/35 tracking-wide">
+              Write anywhere. Tap Help for a tour.
+            </p>
+          </div>
+        )}
         {boardMode && <SplitBoardDivider />}
       </div>
 
@@ -352,6 +374,13 @@ function BoardPage() {
           </FloatingWidget>
         );
       })}
+
+      {/* Classroom Live Quiz from Quiz Cards */}
+      <QuickPollDialog
+        open={liveQuizOpen}
+        onOpenChange={setLiveQuizOpen}
+        initialQuiz={activeQuiz}
+      />
     </div>
   );
 }

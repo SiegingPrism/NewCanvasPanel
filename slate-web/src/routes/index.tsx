@@ -31,6 +31,8 @@ import {
   LayoutGrid,
   Settings,
   Library as LibraryIcon,
+  Presentation,
+  Upload,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -39,6 +41,45 @@ import { AuthDialog } from "@/components/auth/AuthDialog";
 import { useAuth, getUserAvatarUrl, getUserDisplayName } from "@/lib/supabase/authStore";
 import { useAISheetStore } from "@/lib/ai/aiSheetStore";
 import { BottomNavBar } from "@/components/navigation/BottomNavBar";
+import { DocumentImportDialog } from "@/components/whiteboard/smartboard/DocumentImportDialog";
+import { importLessonFile } from "@/lib/whiteboard/lessonFiles";
+
+const SUBJECT_TEMPLATES: {
+  category: "Maths" | "Science" | "Language" | "Arts & Music";
+  templates: { key: TemplateKey; label: string; icon: string; desc: string }[];
+}[] = [
+  {
+    category: "Maths",
+    templates: [
+      { key: "graph", label: "Math Graph", icon: "📈", desc: "Cartesian grid with axes" },
+      { key: "drafting-3d", label: "3D Drafting", icon: "📐", desc: "Isometric grid with 3D axes" },
+      { key: "millimeter-graph", label: "Precision Grid", icon: "📊", desc: "1mm engineering graph paper" },
+    ],
+  },
+  {
+    category: "Science",
+    templates: [
+      { key: "lab-report", label: "Lab Report", icon: "🧪", desc: "Hypothesis, method & results" },
+      { key: "world-map", label: "World Map", icon: "🗺️", desc: "Global continents & geography" },
+      { key: "india-map", label: "India Map", icon: "🇮🇳", desc: "State boundaries & geography" },
+    ],
+  },
+  {
+    category: "Language",
+    templates: [
+      { key: "four-line", label: "4-Line Writing", icon: "✍️", desc: "Handwriting ruling for languages" },
+      { key: "kwl", label: "KWL Chart", icon: "📚", desc: "Know · Want to know · Learned" },
+      { key: "cornell", label: "Cornell Notes", icon: "🗂️", desc: "Cues, notes, and summary" },
+    ],
+  },
+  {
+    category: "Arts & Music",
+    templates: [
+      { key: "music-staves", label: "Music Staves", icon: "🎼", desc: "5-line notation & staves" },
+      { key: "mindmap", label: "Mind Map", icon: "🧠", desc: "Central concept with branches" },
+    ],
+  },
+];
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -86,6 +127,35 @@ function Dashboard() {
   const [boardSearch, setBoardSearch] = useState("");
   const [newFolderOpen, setNewFolderOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
+  const [docImportOpen, setDocImportOpen] = useState(false);
+  const [selectedSubjectTab, setSelectedSubjectTab] = useState<"Maths" | "Science" | "Language" | "Arts & Music">("Maths");
+
+  async function handleImportSlateFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const bundle = await importLessonFile(file);
+      const newBoardId = createBoard({
+        title: bundle.title || file.name.replace(/\.slate$/i, ""),
+      });
+      useWhiteboard.setState((prev) => ({
+        ...prev,
+        boards: {
+          ...prev.boards,
+          [newBoardId]: {
+            ...prev.boards[newBoardId],
+            title: bundle.title || file.name.replace(/\.slate$/i, ""),
+            pages: bundle.pages,
+          },
+        },
+      }));
+      toast.success(`Loaded lesson: ${bundle.title}`);
+      navigate({ to: "/board/$boardId", params: { boardId: newBoardId } });
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to read .slate lesson file.");
+    }
+  }
 
   const allBoards = useMemo(
     () =>
@@ -557,6 +627,79 @@ function Dashboard() {
           </div>
         </section>
 
+        {/* LESSON LIBRARY & SUBJECT TEMPLATES */}
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-foreground">
+              LESSON LIBRARY & TEMPLATES
+            </h2>
+            <div className="flex items-center gap-2">
+              {/* Open .slate lesson file */}
+              <label
+                title="Open Lesson (.slate)"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border bg-card hover:bg-muted text-xs font-bold text-foreground cursor-pointer active:scale-95 transition shadow-2xs"
+              >
+                <input
+                  type="file"
+                  accept=".slate,application/json"
+                  onChange={handleImportSlateFile}
+                  className="hidden"
+                />
+                <Upload className="h-3.5 w-3.5 text-primary" />
+                <span>Open .slate</span>
+              </label>
+
+              {/* Import PowerPoint / PDF */}
+              <button
+                type="button"
+                onClick={() => setDocImportOpen(true)}
+                title="Import PowerPoint (.pptx) or PDF"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border bg-card hover:bg-muted text-xs font-bold text-foreground cursor-pointer active:scale-95 transition shadow-2xs"
+              >
+                <Presentation className="h-3.5 w-3.5 text-orange-500" />
+                <span>Import Slides</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Subject Tabs */}
+          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-muted/50 border border-border/60 overflow-x-auto scrollbar-none">
+            {(["Maths", "Science", "Language", "Arts & Music"] as const).map((cat) => (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setSelectedSubjectTab(cat)}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all",
+                  selectedSubjectTab === cat
+                    ? "bg-card text-foreground shadow-xs border border-border/80"
+                    : "text-muted-foreground hover:text-foreground hover:bg-card/50"
+                )}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+
+          {/* Subject Template Cards */}
+          <div className="grid grid-cols-3 gap-2.5">
+            {SUBJECT_TEMPLATES.find((s) => s.category === selectedSubjectTab)?.templates.map((tmpl) => (
+              <button
+                key={tmpl.key}
+                type="button"
+                onClick={() => openNew(tmpl.key)}
+                className="group flex flex-col justify-between p-3 rounded-2xl border border-border bg-card text-left hover:border-primary/50 transition active:scale-[0.98] shadow-2xs cursor-pointer"
+              >
+                <div className="text-2xl mb-2 group-hover:scale-110 transition-transform">{tmpl.icon}</div>
+                <div>
+                  <div className="text-xs font-bold text-foreground truncate">{tmpl.label}</div>
+                  <div className="text-[10px] text-muted-foreground line-clamp-1 mt-0.5">{tmpl.desc}</div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </section>
+
         {/* Learning Hub Card (Full Width with Circular Progress Ring) */}
         <section>
           <button
@@ -871,6 +1014,7 @@ function Dashboard() {
 
       <FeatureTourDialog open={tourOpen} onOpenChange={setTourOpen} />
       <AuthDialog open={authOpen} onOpenChange={setAuthOpen} />
+      <DocumentImportDialog open={docImportOpen} onOpenChange={setDocImportOpen} />
     </div>
   );
 }

@@ -3,12 +3,26 @@ package com.slate.whiteboard;
 import android.os.Bundle;
 import android.webkit.WebView;
 import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
-    private int mTopDp = 24;
-    private int mBottomDp = 48;
+    private int mTopDp = 0;
+    private int mBottomDp = 0;
+
+    private void hideSystemBars() {
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+        WindowInsetsControllerCompat controller =
+            WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+        if (controller != null) {
+            controller.setSystemBarsBehavior(
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            );
+            controller.hide(WindowInsetsCompat.Type.systemBars());
+        }
+    }
 
     private void injectInsets() {
         if (getBridge() != null && getBridge().getWebView() != null) {
@@ -26,15 +40,16 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         WebView.setWebContentsDebuggingEnabled(true);
+        hideSystemBars();
 
         ViewCompat.setOnApplyWindowInsetsListener(getWindow().getDecorView(), (v, insets) -> {
             int bottom = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom;
             int top = insets.getInsets(WindowInsetsCompat.Type.systemBars()).top;
             float density = getResources().getDisplayMetrics().density;
-            int calcBottom = density > 0 ? Math.round(bottom / density) : 48;
-            int calcTop = density > 0 ? Math.round(top / density) : 24;
-            mBottomDp = Math.max(48, calcBottom);
-            mTopDp = Math.max(24, calcTop);
+            int calcBottom = density > 0 ? Math.round(bottom / density) : 0;
+            int calcTop = density > 0 ? Math.round(top / density) : 0;
+            mBottomDp = calcBottom;
+            mTopDp = calcTop;
 
             injectInsets();
             if (getBridge() != null && getBridge().getWebView() != null) {
@@ -82,6 +97,15 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onResume() {
         super.onResume();
+        hideSystemBars();
         injectInsets();
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) {
+            hideSystemBars();
+        }
     }
 }

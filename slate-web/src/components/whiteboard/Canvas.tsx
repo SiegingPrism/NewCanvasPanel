@@ -46,6 +46,7 @@ import {
   Type,
   Sigma,
   Workflow,
+  Radio,
   Sparkles,
   Compass,
   Eye,
@@ -3642,6 +3643,19 @@ export function WhiteboardCanvas({
       const letter = String.fromCharCode(65 + idx);
       ctx.fillText(`${letter}. ${opt} ${o.revealed && isCorrect ? "✓" : ""}`, o.x + 16, optY);
     });
+
+    // Host Live Quiz Pill Button at bottom right
+    const btnW = 130;
+    const btnH = 24;
+    const btnX = o.x + o.w - btnW - 12;
+    const btnY = o.y + o.h - btnH - 10;
+    ctx.fillStyle = "#6366f1";
+    roundRect(ctx, btnX, btnY, btnW, btnH, 6);
+    ctx.fill();
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 11px system-ui, sans-serif";
+    ctx.fillText("📱 Host Live Quiz", btnX + 16, btnY + 16);
+
     ctx.restore();
   }
 
@@ -5018,6 +5032,17 @@ export function WhiteboardCanvas({
             window.dispatchEvent(
               new CustomEvent("slate:inspect-element", { detail: { number: clickedEl.number } })
             );
+          }
+        }
+        if (hit.kind === "quiz") {
+          const btnW = 130;
+          const btnH = 24;
+          const btnX = hit.x + hit.w - btnW - 12;
+          const btnY = hit.y + hit.h - btnH - 10;
+          if (w.x >= btnX && w.x <= btnX + btnW && w.y >= btnY && w.y <= btnY + btnH) {
+            window.dispatchEvent(new CustomEvent("slate:open-live-quiz", { detail: hit }));
+            setSelected(hit.id);
+            return;
           }
         }
         if (hit.kind === "tape") {
@@ -7430,6 +7455,26 @@ export function WhiteboardCanvas({
                   />
                 );
               }
+            })()}
+
+            {/* Quiz Card: Host Live Classroom Quiz via QR code */}
+            {(() => {
+              const quizObj = page.objects.find(
+                (o) => targetSelectionIds.includes(o.id) && o.kind === "quiz"
+              ) as QuizObject | undefined;
+              if (!quizObj) return null;
+              return (
+                <SelectionToolBtn
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent("slate:open-live-quiz", { detail: quizObj }));
+                  }}
+                  icon={<Radio className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-indigo-500 animate-pulse" />}
+                  label="Host Live Quiz (QR)"
+                  description="Students scan QR code with phones to vote live"
+                  className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-medium transition shrink-0"
+                  placement={tooltipPlacement}
+                />
+              );
             })()}
 
             {/* 4. Ask Slate AI / Explain Selection */}
