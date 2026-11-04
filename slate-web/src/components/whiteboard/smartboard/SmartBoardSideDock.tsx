@@ -108,7 +108,7 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
 
   // Sub-palette selection for Pen Colour tab
   const [colorPaletteTab, setColorPaletteTab] = useState<"bright" | "soft" | "chalk">("bright");
-  const [showAllShapes, setShowAllShapes] = useState(false);
+  const [shapeTab, setShapeTab] = useState<"common" | "2d" | "3d">("common");
 
   // Pen tool family check
   const isPenFamily =
@@ -304,8 +304,10 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
         <PopoverContent
           side={isLeft ? "right" : "left"}
           sideOffset={16}
+          align="start"
+          collisionPadding={24}
           className={cn(
-            "w-72 rounded-2xl p-4 shadow-2xl border",
+            "w-72 max-w-[calc(100vw-2rem)] max-h-[min(80vh,500px)] overflow-y-auto rounded-2xl p-4 shadow-2xl border space-y-3",
             isDark ? "bg-slate-900 border-slate-700 text-slate-100" : "bg-card border-border"
           )}
         >
@@ -396,8 +398,10 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
         <PopoverContent
           side={isLeft ? "right" : "left"}
           sideOffset={16}
+          align="center"
+          collisionPadding={24}
           className={cn(
-            "w-84 max-w-[calc(100vw-2rem)] rounded-2xl p-3 shadow-2xl border",
+            "w-84 max-w-[calc(100vw-2rem)] max-h-[min(80vh,540px)] overflow-y-auto rounded-2xl p-3 shadow-2xl border",
             isDark ? "bg-slate-900 border-slate-700 text-slate-100" : "bg-card border-border"
           )}
         >
@@ -645,8 +649,10 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
         <PopoverContent
           side={isLeft ? "right" : "left"}
           sideOffset={16}
+          align="center"
+          collisionPadding={24}
           className={cn(
-            "w-72 rounded-2xl p-4 shadow-2xl border space-y-3",
+            "w-72 max-w-[calc(100vw-2rem)] max-h-[min(80vh,480px)] overflow-y-auto rounded-2xl p-4 shadow-2xl border space-y-3",
             isDark ? "bg-slate-900 border-slate-700 text-slate-100" : "bg-card border-border"
           )}
         >
@@ -727,8 +733,10 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
         <PopoverContent
           side={isLeft ? "right" : "left"}
           sideOffset={16}
+          align="center"
+          collisionPadding={24}
           className={cn(
-            "w-72 rounded-2xl p-4 shadow-2xl border space-y-2",
+            "w-72 max-w-[calc(100vw-2rem)] max-h-[min(80vh,480px)] overflow-y-auto rounded-2xl p-4 shadow-2xl border space-y-2",
             isDark ? "bg-slate-900 border-slate-700 text-slate-100" : "bg-card border-border"
           )}
         >
@@ -826,8 +834,10 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
         <PopoverContent
           side={isLeft ? "right" : "left"}
           sideOffset={16}
+          align="center"
+          collisionPadding={24}
           className={cn(
-            "w-64 rounded-2xl p-4 shadow-2xl border space-y-2",
+            "w-64 max-w-[calc(100vw-2rem)] max-h-[min(80vh,480px)] overflow-y-auto rounded-2xl p-4 shadow-2xl border space-y-2",
             isDark ? "bg-slate-900 border-slate-700 text-slate-100" : "bg-card border-border"
           )}
         >
@@ -901,8 +911,10 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
         <PopoverContent
           side={isLeft ? "right" : "left"}
           sideOffset={16}
+          align="end"
+          collisionPadding={24}
           className={cn(
-            "w-76 rounded-2xl p-4 shadow-2xl border space-y-3",
+            "w-76 max-w-[calc(100vw-2rem)] max-h-[min(80vh,500px)] overflow-y-auto rounded-2xl p-4 shadow-2xl border space-y-3",
             isDark ? "bg-slate-900 border-slate-700 text-slate-100" : "bg-card border-border"
           )}
         >
@@ -981,13 +993,15 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
         <PopoverContent
           side={isLeft ? "right" : "left"}
           sideOffset={16}
+          align="end"
+          collisionPadding={24}
           className={cn(
-            "w-[26rem] max-w-[calc(100vw-2rem)] rounded-2xl p-4 shadow-2xl border space-y-3",
+            "w-[26rem] max-w-[calc(100vw-2rem)] max-h-[min(76vh,500px)] flex flex-col rounded-2xl p-3.5 shadow-2xl border space-y-2.5 overflow-hidden",
             isDark ? "bg-slate-900 border-slate-700 text-slate-100" : "bg-card border-border"
           )}
         >
           {/* Smart Hold-to-Snap auto-straighten switch */}
-          <div className="flex items-center justify-between p-2 rounded-xl bg-muted/50 border border-border">
+          <div className="flex items-center justify-between p-2 rounded-xl bg-muted/50 border border-border shrink-0">
             <div className="space-y-0.5">
               <div className="text-xs font-semibold">Auto-straighten rough shapes</div>
               <div className="text-[10px] text-muted-foreground">Draw and pause to straighten circles, triangles, etc.</div>
@@ -998,59 +1012,75 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
             />
           </div>
 
-          <p className="text-xs text-muted-foreground">
-            Tap a shape to insert into center of board:
-          </p>
+          {/* Radix Tabs for Categories */}
+          <Tabs defaultValue="common" className="w-full flex-1 flex flex-col min-h-0">
+            <TabsList className="grid w-full grid-cols-3 mb-2 shrink-0">
+              <TabsTrigger value="common" className="text-xs font-bold">
+                Common (12)
+              </TabsTrigger>
+              <TabsTrigger value="2d" className="text-xs font-bold">
+                All 2D ({SHAPES_2D.length})
+              </TabsTrigger>
+              <TabsTrigger value="3d" className="text-xs font-bold">
+                3D Solids ({DIAGRAMS_3D.length})
+              </TabsTrigger>
+            </TabsList>
 
-          {/* 12 Common Shapes */}
-          <div className="grid grid-cols-4 gap-2">
-            {SHAPES_2D.slice(0, 12).map((s) => {
-              const Icon = s.icon;
-              return (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => insertShape(s.id as ShapeType)}
-                  className="flex h-18 flex-col items-center justify-center gap-1 rounded-xl border border-border/70 hover:bg-muted active:scale-95 transition"
-                >
-                  <Icon className="h-6 w-6 text-foreground" />
-                  <span className="text-[11px] font-medium truncate w-full px-1 text-center">{s.label}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Expand to All Shapes button */}
-          <button
-            type="button"
-            onClick={() => setShowAllShapes(!showAllShapes)}
-            className="flex w-full items-center justify-center gap-1.5 p-2 rounded-xl bg-muted hover:bg-muted/80 text-xs font-semibold text-foreground transition"
-          >
-            <span>{showAllShapes ? "Show Common Shapes Only" : "All Shapes (30 2D + 21 3D Shapes)"}</span>
-            {showAllShapes ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          </button>
-
-          {showAllShapes && (
-            <div className="max-h-60 overflow-y-auto space-y-3 pr-1 pt-1 border-t border-border">
-              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">All 2D Shapes</p>
+            {/* TAB 1: COMMON SHAPES */}
+            <TabsContent value="common" className="flex-1 min-h-0 overflow-y-auto mt-0 pr-1 space-y-2">
+              <p className="text-[11px] text-muted-foreground">
+                Tap a shape to insert into center of board:
+              </p>
               <div className="grid grid-cols-4 gap-2">
-                {SHAPES_2D.slice(12).map((s) => {
+                {SHAPES_2D.slice(0, 12).map((s) => {
                   const Icon = s.icon;
                   return (
                     <button
                       key={s.id}
                       type="button"
                       onClick={() => insertShape(s.id as ShapeType)}
-                      className="flex h-18 flex-col items-center justify-center gap-1 rounded-xl border border-border/70 hover:bg-muted active:scale-95 transition"
+                      className="flex h-16 flex-col items-center justify-center gap-1 rounded-xl border border-border/70 hover:bg-muted active:scale-95 transition"
                     >
-                      <Icon className="h-6 w-6 text-foreground" />
-                      <span className="text-[11px] font-medium truncate w-full px-1 text-center">{s.label}</span>
+                      <Icon className="h-5 w-5 text-foreground" />
+                      <span className="text-[10px] font-medium truncate w-full px-1 text-center">
+                        {s.label}
+                      </span>
                     </button>
                   );
                 })}
               </div>
+            </TabsContent>
 
-              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mt-3">All 3D Solids</p>
+            {/* TAB 2: ALL 2D SHAPES */}
+            <TabsContent value="2d" className="flex-1 min-h-0 overflow-y-auto mt-0 pr-1 space-y-1.5 pb-2">
+              <p className="text-[11px] text-muted-foreground">
+                All 30 2D geometric shapes & lines:
+              </p>
+              <div className="grid grid-cols-4 gap-2">
+                {SHAPES_2D.map((s) => {
+                  const Icon = s.icon;
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => insertShape(s.id as ShapeType)}
+                      className="flex h-16 flex-col items-center justify-center gap-1 rounded-xl border border-border/70 hover:bg-muted active:scale-95 transition"
+                    >
+                      <Icon className="h-5 w-5 text-foreground" />
+                      <span className="text-[10px] font-medium truncate w-full px-1 text-center">
+                        {s.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </TabsContent>
+
+            {/* TAB 3: ALL 3D SOLIDS */}
+            <TabsContent value="3d" className="flex-1 min-h-0 overflow-y-auto mt-0 pr-1 space-y-1.5 pb-2">
+              <p className="text-[11px] text-muted-foreground">
+                All 21 3D geometric solids & wireframes:
+              </p>
               <div className="grid grid-cols-4 gap-2">
                 {DIAGRAMS_3D.map((s) => {
                   const Icon = s.icon;
@@ -1059,16 +1089,18 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
                       key={s.id}
                       type="button"
                       onClick={() => insertShape(s.id as ShapeType)}
-                      className="flex h-18 flex-col items-center justify-center gap-1 rounded-xl border border-border/70 hover:bg-muted active:scale-95 transition"
+                      className="flex h-16 flex-col items-center justify-center gap-1 rounded-xl border border-border/70 hover:bg-muted active:scale-95 transition"
                     >
-                      <Icon className="h-6 w-6 text-foreground" />
-                      <span className="text-[11px] font-medium truncate w-full px-1 text-center">{s.label}</span>
+                      <Icon className="h-5 w-5 text-foreground" />
+                      <span className="text-[10px] font-medium truncate w-full px-1 text-center">
+                        {s.label}
+                      </span>
                     </button>
                   );
                 })}
               </div>
-            </div>
-          )}
+            </TabsContent>
+          </Tabs>
         </PopoverContent>
       </Popover>
 

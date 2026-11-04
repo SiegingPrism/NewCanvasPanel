@@ -307,8 +307,9 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
             align="start"
             side="top"
             sideOffset={12}
+            collisionPadding={24}
             className={cn(
-              "w-80 rounded-2xl p-4 shadow-2xl border space-y-3 max-h-[80vh] overflow-y-auto",
+              "w-80 max-w-[calc(100vw-2rem)] rounded-2xl p-4 shadow-2xl border space-y-3 max-h-[min(78vh,520px)] overflow-y-auto",
               isDark ? "bg-slate-900 border-slate-700 text-slate-100" : "bg-card border-border"
             )}
           >
@@ -691,8 +692,9 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
             align="end"
             side="top"
             sideOffset={12}
+            collisionPadding={24}
             className={cn(
-              "w-80 rounded-2xl p-3 shadow-2xl space-y-2.5 border",
+              "w-80 max-w-[calc(100vw-2rem)] rounded-2xl p-3 shadow-2xl space-y-2.5 border max-h-[min(78vh,520px)] overflow-y-auto",
               isDark ? "bg-slate-900 border-slate-700 text-slate-100" : "bg-card border-border"
             )}
           >
