@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
-import { useWhiteboard } from "@/lib/whiteboard/store";
-import type { ImageObject, PageBackground } from "@/lib/whiteboard/types";
+import { useWhiteboard, syncRetryQueue, persistSyncRetryQueue, emptyPage, type BoardMeta } from "@/lib/whiteboard/store";
+import type { ImageObject, PageBackground, Page } from "@/lib/whiteboard/types";
 import {
   Upload,
   Search,
@@ -184,7 +184,12 @@ export function TopBar({
     setEndClassError(null);
 
     try {
-      const activeMeta = activeBoardId && boards[activeBoardId]
+      // 1. Identify all boards modified today or currently in the session
+      const startOfToday = new Date().setHours(0, 0, 0, 0);
+      const boardsToUpload: Array<{ meta: BoardMeta; pages: Page[] }> = [];
+
+      // Current active board first
+      const activeMeta: BoardMeta = activeBoardId && boards[activeBoardId]
         ? boards[activeBoardId]
         : {
             id: activeBoardId || uid(),
@@ -196,17 +201,52 @@ export function TopBar({
             createdAt: Date.now(),
             updatedAt: Date.now(),
           };
+      boardsToUpload.push({ meta: activeMeta, pages });
 
-      const ok = await syncBoardToSupabase(activeMeta, pages, undefined, false);
-      if (!ok) {
+      // Check all other boards in memory modified today
+      const wbState = useWhiteboard.getState();
+      const allBoards = wbState.boards || {};
+      const allBoardData = wbState.boardData || {};
+      for (const [bId, bMeta] of Object.entries(allBoards)) {
+        if (bId === activeMeta.id) continue;
+        if (bMeta.updatedAt && bMeta.updatedAt >= startOfToday) {
+          const bData = allBoardData[bId];
+          const bPages = bData?.pages || [emptyPage()];
+          boardsToUpload.push({ meta: bMeta, pages: bPages });
+        }
+      }
+
+      // Also check items in syncRetryQueue for this user
+      for (const [qId, qItem] of syncRetryQueue.entries()) {
+        if (!boardsToUpload.some((b) => b.meta.id === qId)) {
+          if (!qItem.userId || qItem.userId === currentUser.id) {
+            boardsToUpload.push({ meta: qItem.meta, pages: qItem.pages });
+          }
+        }
+      }
+
+      // Upload each board to cloud and verify
+      let allSucceeded = true;
+      for (const item of boardsToUpload) {
+        const ok = await syncBoardToSupabase(item.meta, item.pages, undefined, false);
+        if (!ok) {
+          allSucceeded = false;
+          break;
+        }
+      }
+
+      if (!allSucceeded) {
         setEndClassSaving(false);
-        setEndClassError("Cloud upload failed (board is offline or network error). Please download a lesson file (.slate) to save your work.");
+        setEndClassError("Cloud upload failed for one or more session boards. Please download a lesson file (.slate) to save your work.");
         return;
       }
 
-      // Successful cloud upload: chime, notify, sign out, and reset device
+      // Successful cloud upload: empty queue, chime, notify, sign out, and reset device
+      syncRetryQueue.clear();
+      persistSyncRetryQueue(syncRetryQueue);
+
       playEndClassChime();
-      toast.success("Class dismissed! All board notes saved to cloud for next period.");
+      toast.success("Class dismissed! All session boards saved to cloud for next period.");
 
       await useAuth.getState().signOut();
       useWhiteboard.getState().clearOnSignOut();
@@ -221,6 +261,9 @@ export function TopBar({
 
   const handleDismissWithoutSaving = async () => {
     playEndClassChime();
+    // Empty retry queue so unsaved boards never upload into the next teacher's account
+    syncRetryQueue.clear();
+    persistSyncRetryQueue(syncRetryQueue);
     await useAuth.getState().signOut();
     useWhiteboard.getState().clearOnSignOut();
     setEndClassDialogOpen(false);
@@ -232,12 +275,7 @@ export function TopBar({
     if (!file) return;
     try {
       const bundle = await importLessonFile(file);
-      useWhiteboard.setState((prev) => ({
-        ...prev,
-        pages: bundle.pages.length ? bundle.pages : prev.pages,
-        activePageId: bundle.pages[0]?.id || prev.activePageId,
-      }));
-      pushHistory();
+      useWhiteboard.getState().setPages(bundle.pages, bundle.pages[0]?.id);
       toast.success(`Loaded lesson "${bundle.title}" (${bundle.pages.length} pages)!`);
     } catch {
       toast.error("Could not load .slate lesson file.");

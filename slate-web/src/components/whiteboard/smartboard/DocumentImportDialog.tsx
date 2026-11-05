@@ -122,12 +122,7 @@ export function DocumentImportDialog({ open, onOpenChange }: DocumentImportDialo
     }
 
     if (newBoardPages.length > 0) {
-      useWhiteboard.setState((prev) => ({
-        ...prev,
-        pages: [...prev.pages, ...newBoardPages],
-        activePageId: newBoardPages[0].id,
-      }));
-      pushHistory();
+      useWhiteboard.getState().importPages(newBoardPages);
       toast.success(`Imported ${newBoardPages.length} PDF slides as board pages!`);
     }
   };
@@ -139,12 +134,7 @@ export function DocumentImportDialog({ open, onOpenChange }: DocumentImportDialo
       });
 
       if (res.pages.length > 0) {
-        useWhiteboard.setState((prev) => ({
-          ...prev,
-          pages: [...prev.pages, ...res.pages],
-          activePageId: res.pages[0].id,
-        }));
-        pushHistory();
+        useWhiteboard.getState().importPages(res.pages);
 
         const imgMsg = res.totalImages > 0 ? `, ${res.totalImages} pictures` : "";
         const shapeMsg = res.totalShapes > 0 ? `, ${res.totalShapes} shapes` : "";

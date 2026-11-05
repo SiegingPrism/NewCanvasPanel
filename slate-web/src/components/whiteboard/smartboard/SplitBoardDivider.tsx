@@ -18,83 +18,21 @@ export function SplitBoardDivider() {
     zoneSettings,
     setZoneTool,
     setZoneColor,
-    camera,
-    pages,
-    activePageId,
-    pushHistory,
+    undoZone,
+    clearZone,
   } = useWhiteboard();
 
   if (splitBoardZones <= 1) return null;
 
   const zones = Array.from({ length: splitBoardZones }, (_, i) => i);
-  const activePage = pages.find((p) => p.id === activePageId) || pages[0];
-
-  // Helper to determine if an object belongs to a specific zone
-  const isObjectInZone = (obj: CanvasObject, zoneIdx: number) => {
-    if (typeof window === "undefined") return false;
-    const screenW = window.innerWidth;
-    const zoneW = screenW / splitBoardZones;
-    const xMinWorld = (zoneIdx * zoneW - camera.x) / camera.zoom;
-    const xMaxWorld = ((zoneIdx + 1) * zoneW - camera.x) / camera.zoom;
-
-    if ("points" in obj && Array.isArray((obj as any).points) && (obj as any).points.length > 0) {
-      const pts = (obj as any).points as { x: number; y: number }[];
-      const avgX = pts.reduce((sum: number, pt: { x: number }) => sum + pt.x, 0) / pts.length;
-      return avgX >= xMinWorld && avgX <= xMaxWorld;
-    }
-
-    const objX = (obj as any).x ?? 0;
-    const objW = (obj as any).w ?? 0;
-    const centerX = objX + objW / 2;
-    return centerX >= xMinWorld && centerX <= xMaxWorld;
-  };
 
   const handleZoneUndo = (zoneIdx: number) => {
-    if (!activePage || !activePage.objects.length) return;
-
-    // Find the last object belonging to this zone
-    let targetIndex = -1;
-    for (let i = activePage.objects.length - 1; i >= 0; i--) {
-      if (isObjectInZone(activePage.objects[i], zoneIdx)) {
-        targetIndex = i;
-        break;
-      }
-    }
-
-    if (targetIndex === -1) {
-      toast.info(`Nothing to undo in Zone ${zoneIdx + 1}`);
-      return;
-    }
-
-    useWhiteboard.setState((state) => {
-      const nextPages = state.pages.map((p) => {
-        if (p.id !== state.activePageId) return p;
-        const newObjs = [...p.objects];
-        newObjs.splice(targetIndex, 1);
-        return { ...p, objects: newObjs };
-      });
-      return { ...state, pages: nextPages };
-    });
-
-    pushHistory();
+    undoZone(zoneIdx);
     toast.info(`Undid last stroke in Zone ${zoneIdx + 1}`);
   };
 
   const handleZoneClear = (zoneIdx: number) => {
-    if (!activePage || !activePage.objects.length) return;
-
-    useWhiteboard.setState((state) => {
-      const nextPages = state.pages.map((p) => {
-        if (p.id !== state.activePageId) return p;
-        return {
-          ...p,
-          objects: p.objects.filter((obj) => !isObjectInZone(obj, zoneIdx)),
-        };
-      });
-      return { ...state, pages: nextPages };
-    });
-
-    pushHistory();
+    clearZone(zoneIdx);
     toast.info(`Cleared all strokes in Zone ${zoneIdx + 1}`);
   };
 

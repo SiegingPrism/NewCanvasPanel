@@ -25,50 +25,16 @@ export function PageSorterDialog({ open, onOpenChange }: PageSorterDialogProps) 
     setActivePage,
     addPage,
     removePage,
-    setObjects,
-    pushHistory,
+    duplicatePage,
+    reorderPages,
   } = useWhiteboard();
 
   const handleDuplicatePage = (pageId: string) => {
-    const srcPage = pages.find((p) => p.id === pageId);
-    if (!srcPage) return;
-    const newId = Math.random().toString(36).slice(2, 10);
-    const newObjects = srcPage.objects.map((o) => ({
-      ...o,
-      id: Math.random().toString(36).slice(2, 10),
-    }));
-
-    useWhiteboard.setState((prev) => {
-      const idx = prev.pages.findIndex((p) => p.id === pageId);
-      const newPages = [...prev.pages];
-      newPages.splice(idx + 1, 0, {
-        id: newId,
-        background: srcPage.background,
-        objects: newObjects,
-      });
-      return {
-        ...prev,
-        pages: newPages,
-        activePageId: newId,
-      };
-    });
-    pushHistory();
+    duplicatePage(pageId);
   };
 
   const handleMovePage = (index: number, direction: -1 | 1) => {
-    const targetIdx = index + direction;
-    if (targetIdx < 0 || targetIdx >= pages.length) return;
-
-    useWhiteboard.setState((prev) => {
-      const newPages = [...prev.pages];
-      const [moved] = newPages.splice(index, 1);
-      newPages.splice(targetIdx, 0, moved);
-      return {
-        ...prev,
-        pages: newPages,
-      };
-    });
-    pushHistory();
+    reorderPages(index, direction);
   };
 
   return (

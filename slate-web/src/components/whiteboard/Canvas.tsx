@@ -916,6 +916,7 @@ export function WhiteboardCanvas({
     };
 
     const onTouchStart = (e: TouchEvent) => {
+      if (isPenActiveRef.current) return;
       if (lockBoardRef.current) return;
       const validTouches = getNonPalmTouches(e.touches);
       if (validTouches.length >= 2) {
@@ -945,6 +946,7 @@ export function WhiteboardCanvas({
     };
 
     const onTouchMove = (e: TouchEvent) => {
+      if (isPenActiveRef.current) return;
       if (lockBoardRef.current) return;
       const validTouches = getNonPalmTouches(e.touches);
       if (validTouches.length >= 2) {
@@ -4998,7 +5000,7 @@ export function WhiteboardCanvas({
     if (e.pointerType === "pen") {
       isPenActiveRef.current = true;
       // If the other hand was already placed on the board before the pen, convert it to a pan touch
-      if (!lockBoardRef.current && !otherHandTouchRef.current && touchMapRef.current.size > 0) {
+      if (!otherHandTouchRef.current && touchMapRef.current.size > 0) {
         const [existingTouchId, existingTouchPos] = Array.from(touchMapRef.current.entries())[0];
         otherHandTouchRef.current = {
           id: existingTouchId,
@@ -5014,7 +5016,7 @@ export function WhiteboardCanvas({
         }
       }
     } else if (e.pointerType === "touch" && isPenActiveRef.current) {
-      if (!lockBoardRef.current && !otherHandTouchRef.current) {
+      if (!otherHandTouchRef.current) {
         otherHandTouchRef.current = {
           id: e.pointerId,
           startX: e.clientX,
@@ -5382,15 +5384,13 @@ export function WhiteboardCanvas({
 
     // Dual Input: Other hand panning canvas while pen writes
     if (otherHandTouchRef.current && otherHandTouchRef.current.id === e.pointerId) {
-      if (!lockBoardRef.current) {
-        const dx = e.clientX - otherHandTouchRef.current.startX;
-        const dy = e.clientY - otherHandTouchRef.current.startY;
-        applyCameraThrottled({
-          x: otherHandTouchRef.current.startCam.x + dx,
-          y: otherHandTouchRef.current.startCam.y + dy,
-          zoom: otherHandTouchRef.current.startCam.zoom,
-        });
-      }
+      const dx = e.clientX - otherHandTouchRef.current.startX;
+      const dy = e.clientY - otherHandTouchRef.current.startY;
+      applyCameraThrottled({
+        x: otherHandTouchRef.current.startCam.x + dx,
+        y: otherHandTouchRef.current.startCam.y + dy,
+        zoom: otherHandTouchRef.current.startCam.zoom,
+      });
       return;
     }
 

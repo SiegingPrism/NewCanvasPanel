@@ -131,12 +131,10 @@ export function WidgetsSheet({
     if (!file) return;
     try {
       const bundle = await importLessonFile(file);
-      useWhiteboard.setState((prev) => ({
-        ...prev,
-        pages: bundle.pages.length ? bundle.pages : prev.pages,
-        activePageId: bundle.pages[0]?.id || prev.activePageId,
-      }));
-      pushHistory();
+      useWhiteboard.getState().setPages(
+        bundle.pages.length ? bundle.pages : (p) => p,
+        bundle.pages[0]?.id
+      );
       toast.success(`Loaded lesson "${bundle.title}" (${bundle.pages.length} pages)!`);
     } catch {
       toast.error("Could not load .slate lesson file.");

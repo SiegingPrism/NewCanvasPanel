@@ -60,6 +60,15 @@ function isInsideGroup(el: Element): boolean {
   return false;
 }
 
+function getDirectChildren(parent: Element, tagNames: string[]): Element[] {
+  const targets = new Set(tagNames.map((t) => t.toLowerCase()));
+  return Array.from(parent.children).filter((ch) => {
+    const local = (ch.localName || ch.tagName || "").toLowerCase();
+    const tag = (ch.tagName || "").toLowerCase();
+    return targets.has(local) || targets.has(tag);
+  });
+}
+
 function parseEmu(val: string | null | undefined, def = 0): number {
   if (!val) return def;
   const n = parseInt(val, 10);
@@ -649,8 +658,26 @@ export async function parsePptxFile(
     for (const gf of graphicFrames) {
       if (isInsideGroup(gf)) continue;
       const xfrm = gf.getElementsByTagName("p:xfrm")[0] || gf.getElementsByTagName("a:xfrm")[0];
-      const coords = getXfrmCoords(xfrm);
-      if (!coords) continue;
+      let coords = getXfrmCoords(xfrm);
+      if (!coords) {
+        const ph = gf.getElementsByTagName("p:ph")[0];
+        if (ph) {
+          const phType = ph.getAttribute("type") || "tbl";
+          const phIdx = ph.getAttribute("idx");
+          if (phIdx && layoutPlaceholders[`idx_${phIdx}`]) {
+            coords = layoutPlaceholders[`idx_${phIdx}`];
+          } else if (phType && layoutPlaceholders[phType]) {
+            coords = layoutPlaceholders[phType];
+          } else if (layoutPlaceholders["tbl"]) {
+            coords = layoutPlaceholders["tbl"];
+          } else if (layoutPlaceholders["body"]) {
+            coords = layoutPlaceholders["body"];
+          }
+        }
+      }
+      if (!coords) {
+        coords = { x: OFFSET_X + 40, y: OFFSET_Y + 140, w: FRAME_W - 80, h: 400 };
+      }
 
       const tbl = gf.getElementsByTagName("a:tbl")[0];
       if (!tbl) continue;
@@ -753,9 +780,8 @@ export async function parsePptxFile(
       }
 
       // Direct child pictures in this group (to avoid processing nested groups' pictures with wrong offset)
-      const allPics = Array.from(grpEl.getElementsByTagName("p:pic"));
-      for (const cPic of allPics) {
-        if (cPic.parentElement !== grpEl) continue;
+      const directPics = getDirectChildren(grpEl, ["p:pic", "pic"]);
+      for (const cPic of directPics) {
         const cSpPr = cPic.getElementsByTagName("p:spPr")[0];
         const cCoords = getXfrmCoords(cSpPr, currentBounds);
         if (cCoords) {
@@ -765,9 +791,8 @@ export async function parsePptxFile(
       }
 
       // Direct child shapes and text in this group
-      const allShapes = Array.from(grpEl.getElementsByTagName("p:sp"));
-      for (const cSp of allShapes) {
-        if (cSp.parentElement !== grpEl) continue;
+      const directShapes = getDirectChildren(grpEl, ["p:sp", "sp"]);
+      for (const cSp of directShapes) {
         const cSpPr = cSp.getElementsByTagName("p:spPr")[0];
         const cCoords = getXfrmCoords(cSpPr, currentBounds);
         if (!cCoords) continue;
@@ -864,12 +889,54 @@ export async function parsePptxFile(
         }
       }
 
-      // Direct child groups processed recursively with compounded bounds
-      const nestedGroups = Array.from(grpEl.getElementsByTagName("p:grpSp"));
-      for (const childGrp of nestedGroups) {
-        if (childGrp.parentElement === grpEl) {
-          await processGroupRecursive(childGrp, currentBounds);
+      // Direct child tables (<a:tbl> inside <p:graphicFrame>) in this group
+      const directGFs = getDirectChildren(grpEl, ["p:graphicFrame", "graphicFrame"]);
+      for (const cGf of directGFs) {
+        const xfrm = cGf.getElementsByTagName("p:xfrm")[0] || cGf.getElementsByTagName("a:xfrm")[0];
+        const cCoords = getXfrmCoords(xfrm, currentBounds);
+        if (!cCoords) continue;
+
+        const tbl = cGf.getElementsByTagName("a:tbl")[0];
+        if (!tbl) continue;
+
+        const trs = Array.from(tbl.getElementsByTagName("a:tr"));
+        if (!trs.length) continue;
+
+        const data: string[][] = [];
+        for (const tr of trs) {
+          const rowCells: string[] = [];
+          const tcs = Array.from(tr.getElementsByTagName("a:tc"));
+          for (const tc of tcs) {
+            const paras = Array.from(tc.getElementsByTagName("a:p"));
+            const cellStr = paras
+              .map((p) => Array.from(p.getElementsByTagName("a:t")).map((t) => t.textContent || "").join(""))
+              .join("\n")
+              .trim();
+            rowCells.push(cellStr);
+          }
+          data.push(rowCells);
         }
+
+        if (data.length > 0 && data[0].length > 0) {
+          tablesList.push({
+            id: uid(),
+            kind: "table",
+            x: Math.round(cCoords.x),
+            y: Math.round(cCoords.y),
+            w: Math.round(cCoords.w),
+            h: Math.round(cCoords.h),
+            rows: data.length,
+            cols: Math.max(...data.map((r) => r.length)),
+            data,
+            color: "#2563eb",
+          });
+        }
+      }
+
+      // Direct child groups processed recursively with compounded bounds
+      const directNestedGroups = getDirectChildren(grpEl, ["p:grpSp", "grpSp"]);
+      for (const childGrp of directNestedGroups) {
+        await processGroupRecursive(childGrp, currentBounds);
       }
     };
 

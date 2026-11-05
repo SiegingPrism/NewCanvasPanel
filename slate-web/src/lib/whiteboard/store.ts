@@ -7,6 +7,7 @@ import {
   fetchBoardsFromSupabase,
   deleteBoardFromSupabase,
 } from "../supabase/dbService";
+import { useAuth } from "../supabase/authStore";
 import {
   saveBoardDataAsync,
   saveMetaAsync,
@@ -25,7 +26,7 @@ function nowMs() {
   return Date.now();
 }
 
-function emptyPage(background: Page["background"] = "white"): Page {
+export function emptyPage(background: Page["background"] = "white"): Page {
   return { id: uid(), objects: [], background };
 }
 
@@ -81,6 +82,11 @@ type Actions = {
   setAllTapeReveal: (revealed: boolean) => void;
   clearPage: () => void;
   eraseStrokes: () => void;
+  setPages: (updater: Page[] | ((prevPages: Page[]) => Page[]), newActivePageId?: string) => void;
+  undoZone: (zoneIndex: number, screenWidth?: number) => void;
+  clearZone: (zoneIndex: number, screenWidth?: number) => void;
+  reorderPages: (fromIndex: number, direction: -1 | 1) => void;
+  importPages: (newPages: Page[]) => void;
   addPage: (background?: Page["background"]) => void;
   duplicatePage: (pageId?: string) => void;
   addPageWithTemplate: (key: TemplateKey) => void;
@@ -166,15 +172,16 @@ function removeDeletedBoardTombstone(id: string) {
   } catch {}
 }
 
-interface SyncRetryItem {
+export interface SyncRetryItem {
+  userId?: string;
   meta: BoardMeta;
   pages: Page[];
   retryCount: number;
 }
 
-const LS_SYNC_RETRY_QUEUE = "slate_sync_retry_queue";
+export const LS_SYNC_RETRY_QUEUE = "slate_sync_retry_queue";
 
-function loadSyncRetryQueue(): Map<string, SyncRetryItem> {
+export function loadSyncRetryQueue(): Map<string, SyncRetryItem> {
   const map = new Map<string, SyncRetryItem>();
   if (typeof window === "undefined") return map;
   try {
@@ -193,7 +200,7 @@ function loadSyncRetryQueue(): Map<string, SyncRetryItem> {
   return map;
 }
 
-function persistSyncRetryQueue(queue: Map<string, SyncRetryItem>) {
+export function persistSyncRetryQueue(queue: Map<string, SyncRetryItem>) {
   if (typeof window === "undefined") return;
   try {
     if (queue.size === 0) {
@@ -207,11 +214,16 @@ function persistSyncRetryQueue(queue: Map<string, SyncRetryItem>) {
   }
 }
 
-const syncRetryQueue = loadSyncRetryQueue();
+export const syncRetryQueue = loadSyncRetryQueue();
 let retryTimeout: ReturnType<typeof setTimeout> | null = null;
 
-function flushSyncRetryQueue() {
+export function flushSyncRetryQueue() {
   if (typeof window === "undefined" || !navigator.onLine) return;
+  const currentUserId = useAuth.getState().user?.id;
+  if (!currentUserId) {
+    // Nobody is signed in; do not upload queued boards to an anonymous/wrong account
+    return;
+  }
   if (syncRetryQueue.size === 0) {
     useWhiteboard.getState().setSyncStatus("saved");
     return;
@@ -219,6 +231,10 @@ function flushSyncRetryQueue() {
   useWhiteboard.getState().setSyncStatus("saving");
   const entries = Array.from(syncRetryQueue.entries());
   for (const [id, item] of entries) {
+    // Prevent cross-teacher contamination: skip queued items belonging to another user
+    if (item.userId && item.userId !== currentUserId) {
+      continue;
+    }
     syncBoardToSupabase(item.meta, item.pages)
       .then(() => {
         syncRetryQueue.delete(id);
@@ -254,8 +270,10 @@ function triggerCloudSync(meta: BoardMeta, pages: Page[]) {
   if (typeof window === "undefined" || !meta?.id) return;
   if (cloudSyncTimers[meta.id]) clearTimeout(cloudSyncTimers[meta.id]);
 
+  const currentUserId = useAuth.getState().user?.id;
+
   if (!navigator.onLine) {
-    syncRetryQueue.set(meta.id, { meta, pages, retryCount: 0 });
+    syncRetryQueue.set(meta.id, { userId: currentUserId, meta, pages, retryCount: 0 });
     persistSyncRetryQueue(syncRetryQueue);
     useWhiteboard.getState().setSyncStatus("offline");
     return;
@@ -275,7 +293,13 @@ function triggerCloudSync(meta: BoardMeta, pages: Page[]) {
       })
       .catch((err) => {
         console.warn("[Whiteboard] Cloud sync failed, queueing retry:", err);
-        syncRetryQueue.set(meta.id, { meta, pages, retryCount: 1 });
+        const existing = syncRetryQueue.get(meta.id);
+        syncRetryQueue.set(meta.id, {
+          userId: currentUserId,
+          meta,
+          pages,
+          retryCount: (existing?.retryCount || 0) + 1,
+        });
         persistSyncRetryQueue(syncRetryQueue);
         useWhiteboard.getState().setSyncStatus("offline");
         if (!retryTimeout) {
@@ -743,6 +767,108 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
       );
       set(syncActive({ ...s, pages, selectedId: null, selectedIds: [] }));
     },
+    setPages: (updater, newActivePageId) => {
+      const s = get();
+      const nextPages = typeof updater === "function" ? updater(s.pages) : updater;
+      const activePageId =
+        newActivePageId ||
+        (nextPages.some((p) => p.id === s.activePageId) ? s.activePageId : (nextPages[0]?.id || s.activePageId));
+      set(syncActive({ ...s, pages: nextPages, activePageId }));
+      get().pushHistory();
+    },
+    undoZone: (zoneIdx: number, screenWidth = typeof window !== "undefined" ? window.innerWidth : 1920) => {
+      const s = get();
+      const activeP = s.pages.find((p) => p.id === s.activePageId) || s.pages[0];
+      if (!activeP || !activeP.objects.length) return;
+
+      const zonesCount = s.splitBoardZones || 2;
+      const zoneWidth = screenWidth / zonesCount;
+      const leftScreen = zoneIdx * zoneWidth;
+      const rightScreen = (zoneIdx + 1) * zoneWidth;
+      const xMinWorld = (leftScreen - s.camera.x) / s.camera.zoom;
+      const xMaxWorld = (rightScreen - s.camera.x) / s.camera.zoom;
+
+      const isObjInZone = (obj: CanvasObject) => {
+        if ("points" in obj && Array.isArray((obj as any).points) && (obj as any).points.length > 0) {
+          const pts = (obj as any).points as { x: number; y: number }[];
+          const avgX = pts.reduce((sum: number, pt: { x: number }) => sum + pt.x, 0) / pts.length;
+          return avgX >= xMinWorld && avgX <= xMaxWorld;
+        }
+        const objX = (obj as any).x ?? 0;
+        const objW = (obj as any).w ?? 0;
+        const centerX = objX + objW / 2;
+        return centerX >= xMinWorld && centerX <= xMaxWorld;
+      };
+
+      let targetIndex = -1;
+      for (let i = activeP.objects.length - 1; i >= 0; i--) {
+        if (isObjInZone(activeP.objects[i])) {
+          targetIndex = i;
+          break;
+        }
+      }
+      if (targetIndex === -1) return;
+
+      const nextPages = s.pages.map((p) => {
+        if (p.id !== s.activePageId) return p;
+        const newObjs = [...p.objects];
+        newObjs.splice(targetIndex, 1);
+        return { ...p, objects: newObjs };
+      });
+      set(syncActive({ ...s, pages: nextPages }));
+      get().pushHistory();
+    },
+    clearZone: (zoneIdx: number, screenWidth = typeof window !== "undefined" ? window.innerWidth : 1920) => {
+      const s = get();
+      const activeP = s.pages.find((p) => p.id === s.activePageId) || s.pages[0];
+      if (!activeP || !activeP.objects.length) return;
+
+      const zonesCount = s.splitBoardZones || 2;
+      const zoneWidth = screenWidth / zonesCount;
+      const leftScreen = zoneIdx * zoneWidth;
+      const rightScreen = (zoneIdx + 1) * zoneWidth;
+      const xMinWorld = (leftScreen - s.camera.x) / s.camera.zoom;
+      const xMaxWorld = (rightScreen - s.camera.x) / s.camera.zoom;
+
+      const isObjInZone = (obj: CanvasObject) => {
+        if ("points" in obj && Array.isArray((obj as any).points) && (obj as any).points.length > 0) {
+          const pts = (obj as any).points as { x: number; y: number }[];
+          const avgX = pts.reduce((sum: number, pt: { x: number }) => sum + pt.x, 0) / pts.length;
+          return avgX >= xMinWorld && avgX <= xMaxWorld;
+        }
+        const objX = (obj as any).x ?? 0;
+        const objW = (obj as any).w ?? 0;
+        const centerX = objX + objW / 2;
+        return centerX >= xMinWorld && centerX <= xMaxWorld;
+      };
+
+      const nextPages = s.pages.map((p) => {
+        if (p.id !== s.activePageId) return p;
+        return {
+          ...p,
+          objects: p.objects.filter((obj) => !isObjInZone(obj)),
+        };
+      });
+      set(syncActive({ ...s, pages: nextPages }));
+      get().pushHistory();
+    },
+    reorderPages: (fromIndex: number, direction: -1 | 1) => {
+      const s = get();
+      const targetIdx = fromIndex + direction;
+      if (targetIdx < 0 || targetIdx >= s.pages.length) return;
+      const newPages = [...s.pages];
+      const [moved] = newPages.splice(fromIndex, 1);
+      newPages.splice(targetIdx, 0, moved);
+      set(syncActive({ ...s, pages: newPages }));
+      get().pushHistory();
+    },
+    importPages: (newPages: Page[]) => {
+      if (!newPages.length) return;
+      const s = get();
+      const combined = [...s.pages, ...newPages];
+      set(syncActive({ ...s, pages: combined, activePageId: newPages[0].id }));
+      get().pushHistory();
+    },
     addPage: (background?: Page["background"]) => {
       const s = get();
       const bg = typeof background === "string" ? background : "white";
@@ -1154,6 +1280,18 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
     },
 
     clearOnSignOut: () => {
+      // Purge all pending sync items in memory and localStorage so they never upload to the next teacher
+      syncRetryQueue.clear();
+      persistSyncRetryQueue(syncRetryQueue);
+      if (retryTimeout) {
+        clearTimeout(retryTimeout);
+        retryTimeout = null;
+      }
+      for (const tId of Object.keys(cloudSyncTimers)) {
+        clearTimeout(cloudSyncTimers[tId]);
+        delete cloudSyncTimers[tId];
+      }
+
       const freshId = uid();
       const freshPage = emptyPage();
       const initialBoards = {
@@ -1183,6 +1321,7 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
         pages: [freshPage],
         activePageId: freshPage.id,
         recentAI: [],
+        syncStatus: "saved",
       };
       persistMeta(next);
       set(next);
