@@ -258,6 +258,63 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+html,
+body,
+#root {
+  background-color: #ffffff;
+}
+
+.dark html,
+.dark body,
+.dark #root {
+  background-color: #0f172a;
+}
+
+/* Smart board drawer & sheet optimizations for Android WebView */
+[data-state][role="dialog"][class*="inset-y-0"] {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  animation: none !important;
+  will-change: auto !important;
+  background-color: #ffffff !important;
+}
+
+.dark [data-state][role="dialog"][class*="inset-y-0"] {
+  background-color: #0f172a !important;
+}
+
+[data-state][role="dialog"][class*="inset-y-0"] > div,
+[data-state][role="dialog"][class*="inset-y-0"] .overflow-y-auto,
+[data-state][role="dialog"][class*="inset-y-0"] section {
+  will-change: auto !important;
+  contain: none !important;
+  background-color: #ffffff !important;
+}
+
+.dark [data-state][role="dialog"][class*="inset-y-0"] > div,
+.dark [data-state][role="dialog"][class*="inset-y-0"] .overflow-y-auto,
+.dark [data-state][role="dialog"][class*="inset-y-0"] section {
+  background-color: #0f172a !important;
+}
+
+[data-state][role="dialog"][class*="inset-y-0"] .bg-card {
+  background-color: #ffffff !important;
+}
+
+.dark [data-state][role="dialog"][class*="inset-y-0"] .bg-card {
+  background-color: #1e293b !important;
+}
+
+[data-state][role="dialog"][class*="inset-y-0"] button,
+[data-state][role="dialog"][class*="inset-y-0"] button * {
+  will-change: auto !important;
+  transition-property: background-color, border-color, color, fill, stroke, opacity !important;
+}
+
+[data-state][role="dialog"][class*="inset-y-0"] button:active {
+  opacity: 0.75 !important;
+}
+
 /* Markdown typography for chat and AI sheets without requiring @tailwindcss/typography */
 .prose {
   color: var(--color-foreground);

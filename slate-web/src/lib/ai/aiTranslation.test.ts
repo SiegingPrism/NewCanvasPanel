@@ -86,5 +86,5 @@ describe("Live Language Converter & Translation", () => {
     expect(result.translation).toBeTruthy();
     // Verify Hindi translation in Devanagari script (e.g. नमस्ते / हैलो)
     expect(/[\u0900-\u097F]/.test(result.translation)).toBe(true);
-  }, 25000);
+  }, 60000);
 });

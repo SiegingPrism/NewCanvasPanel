@@ -8,9 +8,11 @@ const config: CapacitorConfig = {
     androidScheme: "https",
     cleartext: false,
   },
+  backgroundColor: "#ffffff",
   android: {
     allowMixedContent: false,
     captureInput: true,
+    backgroundColor: "#ffffff",
   },
   plugins: {
     CapacitorHttp: {

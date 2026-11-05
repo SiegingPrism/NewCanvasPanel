@@ -26,20 +26,36 @@ public class MainActivity extends BridgeActivity {
 
     private void injectInsets() {
         if (getBridge() != null && getBridge().getWebView() != null) {
-            getBridge().getWebView().post(() -> {
+            WebView wv = getBridge().getWebView();
+            wv.setLayerType(android.view.View.LAYER_TYPE_NONE, null);
+            wv.setBackgroundColor(android.graphics.Color.WHITE);
+            wv.setOverScrollMode(android.view.View.OVER_SCROLL_NEVER);
+            wv.post(() -> {
                 String js = "if (typeof document !== 'undefined' && document && document.documentElement) {" +
                             "  document.documentElement.style.setProperty('--sat', '" + mTopDp + "px');" +
                             "  document.documentElement.style.setProperty('--sab', '" + mBottomDp + "px');" +
                             "}";
-                getBridge().getWebView().evaluateJavascript(js, null);
+                wv.evaluateJavascript(js, null);
             });
         }
     }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        setTheme(R.style.AppTheme_NoActionBar);
         super.onCreate(savedInstanceState);
         WebView.setWebContentsDebuggingEnabled(true);
+        getWindow().setFormat(android.graphics.PixelFormat.OPAQUE);
+        getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.WHITE));
+        if (getWindow().getDecorView() != null) {
+            getWindow().getDecorView().setBackgroundColor(android.graphics.Color.WHITE);
+        }
+        if (getBridge() != null && getBridge().getWebView() != null) {
+            WebView wv = getBridge().getWebView();
+            wv.setLayerType(android.view.View.LAYER_TYPE_NONE, null);
+            wv.setBackgroundColor(android.graphics.Color.WHITE);
+            wv.setOverScrollMode(android.view.View.OVER_SCROLL_NEVER);
+        }
         hideSystemBars();
 
         ViewCompat.setOnApplyWindowInsetsListener(getWindow().getDecorView(), (v, insets) -> {
@@ -97,6 +113,13 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onResume() {
         super.onResume();
+        getWindow().setFormat(android.graphics.PixelFormat.OPAQUE);
+        getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.WHITE));
+        if (getBridge() != null && getBridge().getWebView() != null) {
+            WebView wv = getBridge().getWebView();
+            wv.setLayerType(android.view.View.LAYER_TYPE_NONE, null);
+            wv.setBackgroundColor(android.graphics.Color.WHITE);
+        }
         hideSystemBars();
         injectInsets();
     }
