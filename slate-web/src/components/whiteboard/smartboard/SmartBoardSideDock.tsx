@@ -609,32 +609,24 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
         className="grid grid-cols-2 gap-2 px-1 py-1.5 rounded-2xl bg-muted/30 border border-border/50 place-items-center w-full max-w-[80px]"
       >
         {[
-          { name: isDark ? "White" : "Black", value: isDark ? "#ffffff" : "#111827", isLight: isDark },
-          { name: "Blue", value: "#2563eb", isLight: false },
-          { name: "Red", value: "#dc2626", isLight: false },
-          { name: "Green", value: "#16a34a", isLight: false },
-        ].map((c) => {
-          const isActive = isPenFamily && color.toLowerCase() === c.value.toLowerCase();
-          return (
-            <button
-              key={c.value}
-              type="button"
-              onClick={() => {
-                setColor(c.value);
-                if (!isPenFamily) setTool("pen");
-              }}
-              aria-label={`${c.name} Pen`}
-              title={`${c.name} Pen (one tap)`}
-              className={cn(
-                "h-8 w-8 rounded-full border border-black/20 dark:border-white/30 transition-all active:scale-90 shrink-0 cursor-pointer shadow-xs box-border",
-                isActive
-                  ? "ring-2 ring-primary ring-offset-1 ring-offset-background"
-                  : "hover:brightness-110 opacity-90 hover:opacity-100"
-              )}
-              style={{ backgroundColor: c.value }}
-            />
-          );
-        })}
+          { name: isDark ? "White" : "Black", value: isDark ? "#ffffff" : "#111827" },
+          { name: "Blue", value: "#2563eb" },
+          { name: "Red", value: "#dc2626" },
+          { name: "Green", value: "#16a34a" },
+        ].map((c) => (
+          <button
+            key={c.value}
+            type="button"
+            onClick={() => {
+              setColor(c.value);
+              if (!isPenFamily) setTool("pen");
+            }}
+            aria-label={`${c.name} Pen`}
+            title={`${c.name} Pen (one tap)`}
+            className="h-8 w-8 rounded-full border border-black/20 dark:border-white/30 transition-all active:scale-90 hover:brightness-110 shrink-0 cursor-pointer shadow-xs box-border"
+            style={{ backgroundColor: c.value }}
+          />
+        ))}
       </div>
 
       {/* 3. HIGHLIGHTER TOOL */}
