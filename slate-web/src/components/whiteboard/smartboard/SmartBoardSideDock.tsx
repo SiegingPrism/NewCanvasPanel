@@ -25,6 +25,7 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { SHAPES_2D, DIAGRAMS_3D, PEN_STYLES, COLOR_CATEGORIES } from "@/components/whiteboard/Toolbar";
+import { HandwritingSettings } from "@/components/whiteboard/HandwritingSettings";
 import type { ShapeType, ToolId, TextObject } from "@/lib/whiteboard/types";
 import { useInk, findLanguage } from "@/lib/ink/recognizer";
 import { toast } from "sonner";
@@ -258,7 +259,7 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
         "max-h-[calc(100vh-140px)] overflow-visible"
       )}
       style={{
-        width: `${targetSizePx + 16}px`,
+        width: `${Math.max(targetSizePx + 24, 96)}px`,
       }}
     >
       {/* Position Shift Handle */}
@@ -580,44 +581,70 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
               </div>
             </TabsContent>
 
-            {/* TAB 4: WRITING */}
-            <TabsContent value="writing" className="space-y-3">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between p-2.5 rounded-xl border border-border">
-                  <div className="space-y-0.5">
-                    <div className="text-xs font-semibold">Auto-straighten shapes</div>
-                    <div className="text-[11px] text-muted-foreground">Draw a rough shape & hold to straighten</div>
-                  </div>
-                  <Switch
-                    checked={autoSnapEnabled}
-                    onCheckedChange={(checked) => setAutoSnapEnabled(checked)}
-                  />
+            {/* TAB 4: WRITING & HANDWRITING */}
+            <TabsContent value="writing" className="space-y-3 pt-1">
+              <div className="flex items-center justify-between p-2.5 rounded-xl border border-border bg-card">
+                <div className="space-y-0.5">
+                  <div className="text-xs font-semibold">Auto-straighten shapes</div>
+                  <div className="text-[11px] text-muted-foreground">Draw a rough shape & hold to straighten</div>
                 </div>
+                <Switch
+                  checked={autoSnapEnabled}
+                  onCheckedChange={(checked) => setAutoSnapEnabled(checked)}
+                  aria-label="Auto-straighten shapes"
+                />
+              </div>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLangPickerOpen(true);
-                    setPenPopoverOpen(false);
-                  }}
-                  className="flex w-full items-center justify-between p-2.5 rounded-xl border border-border hover:bg-muted text-left transition"
-                >
-                  <div className="flex items-center gap-2">
-                    <Globe className="h-4 w-4 text-primary" />
-                    <div className="flex flex-col">
-                      <span className="text-xs font-semibold">Handwriting Language</span>
-                      <span className="text-[11px] text-muted-foreground">
-                        {findLanguage(language).name} ({findLanguage(language).nativeName})
-                      </span>
-                    </div>
-                  </div>
-                  <span className="text-xs font-semibold text-primary underline">Change</span>
-                </button>
+              {/* Complete Handwriting Settings Panel (Live text preview on/off, auto-type, translate, fonts & language) */}
+              <div className="rounded-xl border border-border p-2 bg-card">
+                <HandwritingSettings className="p-0 border-0 bg-transparent dark:bg-transparent" />
               </div>
             </TabsContent>
           </Tabs>
         </PopoverContent>
       </Popover>
+
+      {/* 4 Quick-Access Color Dots under Pen: 2x2 grid, each 32px with dedicated 8px gap and no overlap */}
+      <div
+        className="grid grid-cols-2 gap-2 px-1 py-1.5 rounded-2xl bg-muted/30 border border-border/50 place-items-center w-full max-w-[80px]"
+      >
+        {[
+          { name: isDark ? "White" : "Black", value: isDark ? "#ffffff" : "#111827", isLight: isDark },
+          { name: "Blue", value: "#2563eb", isLight: false },
+          { name: "Red", value: "#dc2626", isLight: false },
+          { name: "Green", value: "#16a34a", isLight: false },
+        ].map((c) => {
+          const isActive = isPenFamily && color.toLowerCase() === c.value.toLowerCase();
+          return (
+            <button
+              key={c.value}
+              type="button"
+              onClick={() => {
+                setColor(c.value);
+                if (!isPenFamily) setTool("pen");
+              }}
+              aria-label={`${c.name} Pen`}
+              title={`${c.name} Pen (one tap)`}
+              className={cn(
+                "h-8 w-8 rounded-full border border-black/20 dark:border-white/30 transition-colors active:scale-95 flex items-center justify-center shrink-0 cursor-pointer shadow-xs box-border",
+                isActive
+                  ? "ring-2 ring-primary ring-offset-1 ring-offset-background"
+                  : "hover:brightness-110 opacity-90 hover:opacity-100"
+              )}
+              style={{ backgroundColor: c.value }}
+            >
+              {isActive && (
+                <Check
+                  className={cn(
+                    "h-3.5 w-3.5 stroke-[3] drop-shadow-xs",
+                    c.isLight ? "text-slate-900" : "text-white"
+                  )}
+                />
+              )}
+            </button>
+          );
+        })}
+      </div>
 
       {/* 3. HIGHLIGHTER TOOL */}
       <Popover open={highlightPopoverOpen} onOpenChange={setHighlightPopoverOpen}>

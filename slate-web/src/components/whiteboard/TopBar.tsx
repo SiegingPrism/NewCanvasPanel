@@ -217,6 +217,10 @@ export function TopBar({
 
   const idx = pages.findIndex((p) => p.id === activePageId);
   const page = pages[idx] || pages[0];
+  const isDark =
+    page?.background === "blackboard" ||
+    page?.background === "oled" ||
+    page?.background === "dark";
   const pad2 = (n: number) => n.toString().padStart(2, "0");
 
   function exportPNG() {
@@ -336,12 +340,25 @@ export function TopBar({
   }
 
   const iconBtn = boardMode
-    ? "flex flex-col items-center justify-center h-16 min-w-16 px-2 rounded-2xl text-foreground hover:bg-accent/80 transition active:scale-95 shrink-0"
-    : "grid h-7 w-7 sm:h-8 sm:w-8 place-items-center rounded-lg text-foreground hover:bg-accent/80 transition active:scale-95 shrink-0";
+    ? cn(
+        "flex flex-col items-center justify-center h-16 min-w-16 px-2 rounded-2xl transition active:scale-95 shrink-0",
+        isDark ? "text-slate-200 hover:bg-slate-800" : "text-foreground hover:bg-accent/80"
+      )
+    : cn(
+        "grid h-7 w-7 sm:h-8 sm:w-8 place-items-center rounded-lg transition active:scale-95 shrink-0",
+        isDark ? "text-slate-200 hover:bg-slate-800" : "text-foreground hover:bg-accent/80"
+      );
   const iconSize = boardMode ? "h-6 w-6" : "h-3.5 w-3.5 sm:h-4 sm:w-4";
 
   return (
-    <div className="pointer-events-auto flex items-center gap-0.5 sm:gap-1.5 rounded-full bg-card px-2 py-1 sm:px-3 sm:py-1.5 shadow-lg ring-1 ring-border max-w-[calc(100vw-16px)]">
+    <div
+      className={cn(
+        "pointer-events-auto flex items-center gap-0.5 sm:gap-1.5 rounded-full px-2 py-1 sm:px-3 sm:py-1.5 shadow-lg ring-1 transition-colors duration-200 max-w-[calc(100vw-16px)] backdrop-blur-md",
+        isDark
+          ? "bg-slate-900/95 ring-slate-700/80 text-slate-100"
+          : "bg-card/95 ring-border text-foreground"
+      )}
+    >
       {/* Back to Previous Page / Dashboard */}
       <button
         type="button"
@@ -353,6 +370,7 @@ export function TopBar({
           }
         }}
         className={iconBtn}
+        aria-label="Back to Dashboard"
         title="Back to Dashboard"
       >
         <ArrowLeft className={iconSize} />
@@ -361,6 +379,9 @@ export function TopBar({
 
       {boardTitle && (
         <span
+          role="button"
+          tabIndex={0}
+          aria-label={`Board title: ${boardTitle}. Triple-click to launch Stroke Benchmark Recorder.`}
           onClick={() => {
             titleClicksRef.current++;
             if (titleClicksRef.current >= 3) {
@@ -372,7 +393,10 @@ export function TopBar({
               titleClicksRef.current = 0;
             }, 1000);
           }}
-          className="hidden max-w-[140px] truncate text-xs font-semibold text-foreground/80 md:block px-1 cursor-pointer select-none hover:text-foreground"
+          className={cn(
+            "hidden max-w-[140px] truncate text-xs font-semibold md:block px-1 cursor-pointer select-none",
+            isDark ? "text-slate-200 hover:text-white" : "text-foreground/80 hover:text-foreground"
+          )}
           title="Triple-click to launch Stroke Benchmark Recorder"
         >
           {boardTitle}
@@ -383,47 +407,90 @@ export function TopBar({
           in Board Mode they are exclusively placed in the bottom corner strips to avoid duplicates and reachability strain */}
       {!boardMode && (
         <>
-          <div className="h-3.5 sm:h-4 w-px bg-border/60 mx-0.5 shrink-0" />
+          <div className={cn("h-3.5 sm:h-4 w-px mx-0.5 shrink-0", isDark ? "bg-slate-700/60" : "bg-border/60")} />
 
           {/* Undo / Redo */}
-          <button className={iconBtn} title="Undo" onClick={undo}>
+          <button
+            type="button"
+            className={iconBtn}
+            aria-label="Undo last action (Ctrl+Z)"
+            title="Undo"
+            onClick={undo}
+          >
             <Undo2 className={iconSize} />
           </button>
-          <button className={iconBtn} title="Redo" onClick={redo}>
+          <button
+            type="button"
+            className={iconBtn}
+            aria-label="Redo last action (Ctrl+Y)"
+            title="Redo"
+            onClick={redo}
+          >
             <Redo2 className={iconSize} />
           </button>
 
-          <div className="h-3.5 sm:h-4 w-px bg-border/60 mx-0.5 shrink-0" />
+          <div className={cn("h-3.5 sm:h-4 w-px mx-0.5 shrink-0", isDark ? "bg-slate-700/60" : "bg-border/60")} />
 
           {/* Page Navigation */}
-          <button className={iconBtn} onClick={prevPage} title="Previous page">
+          <button
+            type="button"
+            className={iconBtn}
+            onClick={prevPage}
+            aria-label="Previous page (PageUp)"
+            title="Previous page"
+          >
             <ChevronLeft className={iconSize} />
           </button>
-          <span className="min-w-8 sm:min-w-10 text-center text-[11px] sm:text-xs font-medium tabular-nums text-foreground/80 shrink-0 select-none">
+          <span
+            className={cn(
+              "min-w-8 sm:min-w-10 text-center text-[11px] sm:text-xs font-medium tabular-nums shrink-0 select-none",
+              isDark ? "text-slate-300" : "text-foreground/80"
+            )}
+          >
             {pad2(idx + 1)}/{pad2(pages.length)}
           </span>
-          <button className={iconBtn} onClick={nextPage} title="Next page">
+          <button
+            type="button"
+            className={iconBtn}
+            onClick={nextPage}
+            aria-label="Next page (PageDown)"
+            title="Next page"
+          >
             <ChevronRight className={iconSize} />
           </button>
-          <button className={iconBtn} onClick={() => addPage()} title="Add page">
+          <button
+            type="button"
+            className={iconBtn}
+            onClick={() => addPage()}
+            aria-label="Add new page"
+            title="Add page"
+          >
             <Plus className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
           </button>
         </>
       )}
 
-      <div className="h-3.5 sm:h-4 w-px bg-border/60 mx-0.5 shrink-0" />
+      <div className={cn("h-3.5 sm:h-4 w-px mx-0.5 shrink-0", isDark ? "bg-slate-700/60" : "bg-border/60")} />
 
       {/* Background & Templates Picker */}
       <Popover modal={false} open={templatePopoverOpen} onOpenChange={setTemplatePopoverOpen}>
         <PopoverTrigger asChild>
-          <button className={iconBtn} title="Paper & backgrounds">
+          <button
+            type="button"
+            className={iconBtn}
+            aria-label="Paper backgrounds and templates"
+            title="Paper & backgrounds"
+          >
             <Grid3x3 className={iconSize} />
             {boardMode && <span className="text-[11px] font-bold mt-0.5 leading-none">Paper</span>}
           </button>
         </PopoverTrigger>
         <PopoverContent
           align="center"
-          className="w-80 p-2.5 space-y-2 shadow-xl rounded-2xl border bg-card text-card-foreground"
+          className={cn(
+            "w-80 p-2.5 space-y-2 shadow-xl rounded-2xl border",
+            isDark ? "bg-slate-900 border-slate-700 text-slate-100" : "bg-card border-border text-card-foreground"
+          )}
         >
           {/* Segmented Switch */}
           <div className="flex rounded-xl bg-muted/60 p-1 text-xs">
@@ -472,6 +539,9 @@ export function TopBar({
                 {PAPER_TEMPLATES.map((bg) => (
                   <button
                     key={bg.id}
+                    type="button"
+                    aria-label={`Paper background: ${bg.label}`}
+                    title={bg.label}
                     onClick={() => {
                       setBackground(bg.id);
                       setTemplatePopoverOpen(false);
@@ -480,6 +550,8 @@ export function TopBar({
                       "flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium transition active:scale-95 text-left",
                       page.background === bg.id
                         ? "bg-primary/10 text-primary font-semibold ring-1 ring-primary/20"
+                        : isDark
+                        ? "hover:bg-slate-800 text-slate-200"
                         : "hover:bg-accent text-foreground",
                     )}
                   >
@@ -502,12 +574,18 @@ export function TopBar({
                 {TEMPLATES.map((t) => (
                   <button
                     key={t.key}
+                    type="button"
+                    aria-label={`Apply template: ${t.title}`}
+                    title={t.title}
                     onClick={() => {
                       applyTemplate(t.key);
                       toast.success(`Applied ${t.title} template`);
                       setTemplatePopoverOpen(false);
                     }}
-                    className="flex w-full items-start gap-2.5 rounded-xl px-2.5 py-2 text-left transition hover:bg-accent active:scale-95 group"
+                    className={cn(
+                      "flex w-full items-start gap-2.5 rounded-xl px-2.5 py-2 text-left transition active:scale-95 group",
+                      isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+                    )}
                   >
                     <span className="text-xl leading-none mt-0.5">{t.emoji}</span>
                     <div className="min-w-0 flex-1">
@@ -531,7 +609,9 @@ export function TopBar({
 
       {/* Lecture Presentation Mode */}
       <button
+        type="button"
         className={cn(iconBtn, "hidden sm:flex text-indigo-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/30")}
+        aria-label="Lecture presentation mode (full screen)"
         title="Present (full screen)"
         onClick={() => window.dispatchEvent(new CustomEvent("slate:start-presentation"))}
       >
@@ -541,7 +621,9 @@ export function TopBar({
 
       {/* Board map (renamed from Radar Minimap) */}
       <button
+        type="button"
         className={cn(iconBtn, "hidden sm:flex text-sky-500 hover:text-sky-600 hover:bg-sky-50 dark:hover:bg-sky-950/30")}
+        aria-label="Toggle board navigation map"
         title="Board map"
         onClick={() => window.dispatchEvent(new CustomEvent("slate:toggle-minimap"))}
       >
@@ -552,7 +634,9 @@ export function TopBar({
       {/* Direct AI Assistant Button (hidden in Simple Mode) */}
       {!simpleMode && (
         <button
+          type="button"
           className={cn(iconBtn, "text-primary hover:bg-primary/10")}
+          aria-label="Open Slate AI assistant"
           title="AI helper"
           onClick={onOpenAI}
         >
@@ -564,15 +648,32 @@ export function TopBar({
       {/* Burger Menu */}
       <Popover modal={false} open={menuOpen} onOpenChange={setMenuOpen}>
         <PopoverTrigger asChild>
-          <button className={iconBtn} title="Menu">
+          <button
+            type="button"
+            className={iconBtn}
+            aria-label="Main menu"
+            title="Menu"
+          >
             <Menu className={iconSize} />
             {boardMode && <span className="text-[11px] font-bold mt-0.5 leading-none">Menu</span>}
           </button>
         </PopoverTrigger>
-        <PopoverContent align="end" className="w-56 p-1.5 space-y-1 shadow-xl">
+        <PopoverContent
+          align="end"
+          className={cn(
+            "w-56 p-1.5 space-y-1 shadow-xl rounded-2xl border max-h-[85vh] overflow-y-auto",
+            isDark ? "bg-slate-900 border-slate-700 text-slate-100" : "bg-card border-border text-foreground"
+          )}
+        >
           {/* AI Features */}
           <button
-            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-semibold hover:bg-accent text-primary transition"
+            type="button"
+            aria-label="Open AI Assistant"
+            title="AI Assistant"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-semibold text-primary transition",
+              isDark ? "hover:bg-slate-800" : "hover:bg-accent"
+            )}
             onClick={() => {
               setMenuOpen(false);
               onOpenAI();
@@ -582,7 +683,13 @@ export function TopBar({
             <span>AI Assistant</span>
           </button>
           <button
-            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-accent text-foreground transition"
+            type="button"
+            aria-label="Explain Board with AI"
+            title="Explain Board"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+            )}
             onClick={() => {
               setMenuOpen(false);
               handleExplainBoard();
@@ -592,7 +699,13 @@ export function TopBar({
             <span>Explain Board</span>
           </button>
           <button
-            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-accent text-foreground transition"
+            type="button"
+            aria-label="Generate AI Mind-Map from board"
+            title="Generate AI Mind-Map"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+            )}
             onClick={() => {
               setMenuOpen(false);
               handleGenerateMindMap();
@@ -602,7 +715,13 @@ export function TopBar({
             <span>Generate AI Mind-Map</span>
           </button>
           <button
-            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-accent text-foreground transition"
+            type="button"
+            aria-label="PDF and Documents Intelligence"
+            title="PDF & Docs Intelligence"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+            )}
             onClick={() => {
               setMenuOpen(false);
               setDocViewerOpen(true);
@@ -612,7 +731,13 @@ export function TopBar({
             <span>PDF & Docs Intelligence</span>
           </button>
           <button
-            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-accent text-foreground transition"
+            type="button"
+            aria-label="Plot 2D Math Function"
+            title="Plot 2D Math Function"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+            )}
             onClick={() => {
               setMenuOpen(false);
               handleAddGraph();
@@ -622,7 +747,13 @@ export function TopBar({
             <span>Plot 2D Math Function</span>
           </button>
           <button
-            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-accent text-foreground transition"
+            type="button"
+            aria-label="Insert LaTeX Math Formula"
+            title="Math Formula (LaTeX)"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+            )}
             onClick={() => {
               setMenuOpen(false);
               setMathFormulaOpen(true);
@@ -632,7 +763,13 @@ export function TopBar({
             <span>Math Formula (LaTeX)</span>
           </button>
           <button
-            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-accent text-foreground transition"
+            type="button"
+            aria-label="Solve Written Math with AI"
+            title="Solve Written Math"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+            )}
             onClick={() => {
               setMenuOpen(false);
               window.dispatchEvent(new CustomEvent("slate:solve-math"));
@@ -642,7 +779,13 @@ export function TopBar({
             <span>Solve Written Math</span>
           </button>
           <button
-            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-accent text-foreground transition"
+            type="button"
+            aria-label="Open AI and Whiteboard Settings"
+            title="Settings"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+            )}
             onClick={() => {
               setMenuOpen(false);
               setAiSettingsOpen(true);
@@ -653,9 +796,15 @@ export function TopBar({
           </button>
 
           {/* Smart Board Classroom Controls */}
-          <div className="h-px w-full bg-border/60 my-1" />
+          <div className={cn("h-px w-full my-1", isDark ? "bg-slate-700/60" : "bg-border/60")} />
           <button
-            className="flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-xs font-bold hover:bg-accent text-primary transition"
+            type="button"
+            aria-label={`Toggle Smart Board layout (${boardMode ? "Currently active" : "Currently off"})`}
+            title="Smart Board Layout"
+            className={cn(
+              "flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-xs font-bold text-primary transition",
+              isDark ? "hover:bg-slate-800" : "hover:bg-accent"
+            )}
             onClick={() => {
               setMenuOpen(false);
               toggleBoardMode();
@@ -671,7 +820,13 @@ export function TopBar({
             </span>
           </button>
           <button
-            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-accent text-foreground transition"
+            type="button"
+            aria-label={`Open Board Setup and calibration (${panelSize} inch panel)`}
+            title={`Board Setup (${panelSize}")`}
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+            )}
             onClick={() => {
               setMenuOpen(false);
               window.dispatchEvent(new CustomEvent("slate:open-board-settings"));
@@ -681,7 +836,13 @@ export function TopBar({
             <span>Board Setup ({panelSize}&quot;)</span>
           </button>
           <button
-            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-accent text-foreground transition"
+            type="button"
+            aria-label="Start 60-second Smart Board Tour"
+            title="60s Smart Board Tour"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+            )}
             onClick={() => {
               setMenuOpen(false);
               window.dispatchEvent(new CustomEvent("slate:open-tour"));
@@ -691,7 +852,13 @@ export function TopBar({
             <span>60s Smart Board Tour</span>
           </button>
           <button
-            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-accent text-foreground transition"
+            type="button"
+            aria-label="Launch Classroom Live Poll"
+            title="Classroom Live Poll"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+            )}
             onClick={() => {
               setMenuOpen(false);
               window.dispatchEvent(new CustomEvent("slate:open-poll"));
@@ -701,7 +868,13 @@ export function TopBar({
             <span>Classroom Live Poll</span>
           </button>
           <button
-            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-accent text-foreground transition"
+            type="button"
+            aria-label="Share Notes with students via QR code"
+            title="Share Notes via QR"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+            )}
             onClick={() => {
               setMenuOpen(false);
               window.dispatchEvent(new CustomEvent("slate:share-notes"));
@@ -711,7 +884,13 @@ export function TopBar({
             <span>Share Notes via QR</span>
           </button>
           <button
-            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-accent text-foreground transition"
+            type="button"
+            aria-label="Open Page Sorter Grid"
+            title="Page Sorter Grid"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+            )}
             onClick={() => {
               setMenuOpen(false);
               window.dispatchEvent(new CustomEvent("slate:open-page-sorter"));
@@ -721,11 +900,17 @@ export function TopBar({
             <span>Page Sorter Grid</span>
           </button>
 
-          <div className="h-px w-full bg-border/60 my-1" />
+          <div className={cn("h-px w-full my-1", isDark ? "bg-slate-700/60" : "bg-border/60")} />
 
           {/* Tools & Files */}
           <button
-            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-accent text-foreground transition"
+            type="button"
+            aria-label="Find text or handwriting on board (Ctrl+F)"
+            title="Find on Board (Ctrl+F)"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+            )}
             onClick={() => {
               setMenuOpen(false);
               window.dispatchEvent(new CustomEvent("slate:open-find"));
@@ -735,7 +920,13 @@ export function TopBar({
             <span>Find on Board</span>
           </button>
           <button
-            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-accent text-foreground transition"
+            type="button"
+            aria-label="Open Classroom Widgets and Tools"
+            title="Widgets"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+            )}
             onClick={() => {
               setMenuOpen(false);
               onOpenWidgets();
@@ -745,7 +936,13 @@ export function TopBar({
             <span>Widgets</span>
           </button>
           <button
-            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-accent text-foreground transition"
+            type="button"
+            aria-label="Open Feature Guide and Tutorial"
+            title="Feature Guide & Tutorial"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+            )}
             onClick={() => {
               setMenuOpen(false);
               setTourOpen(true);
@@ -755,7 +952,13 @@ export function TopBar({
             <span>Feature Guide & Tutorial</span>
           </button>
           <button
-            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-accent text-indigo-500 transition"
+            type="button"
+            aria-label="Start Lecture Presentation mode"
+            title="Lecture Presentation"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-indigo-400" : "hover:bg-accent text-indigo-500"
+            )}
             onClick={() => {
               setMenuOpen(false);
               window.dispatchEvent(new CustomEvent("slate:start-presentation"));
@@ -765,7 +968,13 @@ export function TopBar({
             <span>Lecture Presentation</span>
           </button>
           <button
-            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-accent text-sky-500 transition"
+            type="button"
+            aria-label="Toggle board navigation map"
+            title="Board map"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-sky-400" : "hover:bg-accent text-sky-500"
+            )}
             onClick={() => {
               setMenuOpen(false);
               window.dispatchEvent(new CustomEvent("slate:toggle-minimap"));
@@ -775,7 +984,13 @@ export function TopBar({
             <span>Board map</span>
           </button>
           <button
-            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-accent text-foreground transition"
+            type="button"
+            aria-label="Automatically frame canvas items into presentation slides"
+            title="Auto-Frame Slides"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+            )}
             onClick={() => {
               setMenuOpen(false);
               window.dispatchEvent(new CustomEvent("slate:auto-frame-slides"));
@@ -785,7 +1000,13 @@ export function TopBar({
             <span>Auto-Frame Slides</span>
           </button>
           <button
-            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-accent text-foreground transition"
+            type="button"
+            aria-label="Save Lesson package file (.slate)"
+            title="Save Lesson File (.slate)"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+            )}
             onClick={() => {
               setMenuOpen(false);
               exportLessonFile(activeBoardId && boards?.[activeBoardId]?.title ? boards[activeBoardId].title : "Lesson", pages);
@@ -795,7 +1016,13 @@ export function TopBar({
             <span>Save Lesson File (.slate)</span>
           </button>
           <button
-            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-accent text-foreground transition"
+            type="button"
+            aria-label="Open Lesson package file (.slate)"
+            title="Open Lesson File (.slate)"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+            )}
             onClick={() => {
               setMenuOpen(false);
               lessonFileInputRef.current?.click();
@@ -805,7 +1032,13 @@ export function TopBar({
             <span>Open Lesson File (.slate)</span>
           </button>
           <button
-            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-accent text-foreground transition"
+            type="button"
+            aria-label="Import image to whiteboard"
+            title="Import Image"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+            )}
             onClick={() => {
               setMenuOpen(false);
               fileRef.current?.click();
@@ -815,7 +1048,13 @@ export function TopBar({
             <span>Import Image</span>
           </button>
           <button
-            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-accent text-foreground transition"
+            type="button"
+            aria-label="Export board as PNG image"
+            title="Export PNG"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+            )}
             onClick={() => {
               setMenuOpen(false);
               exportPNG();
@@ -825,7 +1064,13 @@ export function TopBar({
             <span>Export PNG</span>
           </button>
           <button
-            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-accent text-foreground transition"
+            type="button"
+            aria-label="Export board as PDF document"
+            title="Export PDF"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+            )}
             onClick={() => {
               setMenuOpen(false);
               exportPDF();
@@ -835,7 +1080,13 @@ export function TopBar({
             <span>Export PDF</span>
           </button>
           <button
-            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-accent text-foreground transition"
+            type="button"
+            aria-label="Share board via QR code"
+            title="Share Board (QR Code)"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+            )}
             onClick={() => {
               setMenuOpen(false);
               shareQR();
@@ -845,10 +1096,16 @@ export function TopBar({
             <span>Share Board (QR Code)</span>
           </button>
 
-          <div className="h-px w-full bg-border/60 my-1" />
+          <div className={cn("h-px w-full my-1", isDark ? "bg-slate-700/60" : "bg-border/60")} />
 
           <button
-            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-accent text-foreground transition"
+            type="button"
+            aria-label={user ? "Account and Cloud Sync settings" : "Sign in to Slate account"}
+            title={user ? "Account & Cloud Sync" : "Sign In to Slate"}
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+            )}
             onClick={() => {
               setMenuOpen(false);
               setAuthOpen(true);

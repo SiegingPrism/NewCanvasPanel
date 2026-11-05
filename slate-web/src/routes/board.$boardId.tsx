@@ -91,12 +91,18 @@ function BoardPage() {
     addPage,
     deleteSelected,
     duplicateSelected,
+    copySelected,
+    cutSelected,
+    paste,
     setSelected,
   } = useWhiteboard();
 
   // Global Keyboard and Presenter Clicker Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // 0. In Present mode, do nothing! Canvas.tsx handles presentation navigation exclusively.
+      if (isPresenting) return;
+
       // Ignore if user is currently typing in an input, textarea, or contentEditable
       const target = e.target as HTMLElement | null;
       if (
@@ -122,17 +128,41 @@ function BoardPage() {
         return;
       }
 
-      // 2. Find on board
-      if (isCtrlOrCmd && (e.key === "f" || e.key === "F")) {
+      // 2. Copy (Ctrl+C / Cmd+C)
+      if (isCtrlOrCmd && (e.key === "c" || e.key === "C")) {
         e.preventDefault();
-        window.dispatchEvent(new CustomEvent("slate:open-find"));
+        copySelected();
+        toast.success("Copied to clipboard");
         return;
       }
 
-      // 3. Duplicate selection
+      // 3. Cut (Ctrl+X / Cmd+X)
+      if (isCtrlOrCmd && (e.key === "x" || e.key === "X")) {
+        e.preventDefault();
+        cutSelected();
+        toast.success("Cut to clipboard");
+        return;
+      }
+
+      // 4. Paste (Ctrl+V / Cmd+V)
+      if (isCtrlOrCmd && (e.key === "v" || e.key === "V")) {
+        e.preventDefault();
+        paste();
+        toast.success("Pasted");
+        return;
+      }
+
+      // 5. Duplicate selection (Ctrl+D / Cmd+D)
       if (isCtrlOrCmd && (e.key === "d" || e.key === "D")) {
         e.preventDefault();
         duplicateSelected();
+        return;
+      }
+
+      // 6. Find on board
+      if (isCtrlOrCmd && (e.key === "f" || e.key === "F")) {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent("slate:open-find"));
         return;
       }
 
@@ -233,7 +263,11 @@ function BoardPage() {
     setCamera,
     deleteSelected,
     duplicateSelected,
+    copySelected,
+    cutSelected,
+    paste,
     setSelected,
+    isPresenting,
   ]);
 
   const [radialMenuPos, setRadialMenuPos] = useState<{ x: number; y: number } | null>(null);

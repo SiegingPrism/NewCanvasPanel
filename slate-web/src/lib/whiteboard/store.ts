@@ -66,6 +66,9 @@ type Actions = {
   moveSelected: (dx: number, dy: number) => void;
   duplicateSelected: () => void;
   deleteSelected: () => void;
+  copySelected: () => void;
+  cutSelected: () => void;
+  paste: () => void;
   recolorSelected: (color: string) => void;
   setCamera: (c: { x: number; y: number; zoom: number }) => void;
   // Active board content
@@ -123,7 +126,7 @@ type Actions = {
   toggleBoardMode: () => void;
 };
 
-type State = WhiteboardState & PersistShape & { activeBoardId: string | null; hydrated: boolean };
+type State = WhiteboardState & PersistShape & { activeBoardId: string | null; hydrated: boolean; clipboard: CanvasObject[] };
 
 const cloudSyncTimers: Record<string, ReturnType<typeof setTimeout>> = {};
 const LS_DELETED_BOARDS_KEY = "slate_deleted_boards_tombstones";
@@ -286,6 +289,7 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
     historyIndex: -1,
     selectedId: null,
     selectedIds: [],
+    clipboard: [],
     autoSnapEnabled: false,
     showZoomDock: loadShowZoomDock(),
     camera: { x: 0, y: 0, zoom: 1 },
@@ -394,6 +398,85 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
         p.id === s.activePageId ? { ...p, objects: p.objects.filter((o) => !idSet.has(o.id)) } : p,
       );
       set(syncActive({ ...s, pages, selectedId: null, selectedIds: [] }));
+    },
+
+    copySelected: () => {
+      const s = get();
+      const ids = s.selectedIds.length ? s.selectedIds : s.selectedId ? [s.selectedId] : [];
+      if (!ids.length) return;
+      const idSet = new Set(ids);
+      const page = s.pages.find((p) => p.id === s.activePageId);
+      if (!page) return;
+      const copied = page.objects.filter((o) => idSet.has(o.id));
+      if (!copied.length) return;
+      set({ clipboard: structuredClone(copied) });
+      try {
+        if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+          navigator.clipboard.writeText(JSON.stringify({ type: "slate:objects", objects: copied }));
+        }
+      } catch {}
+    },
+
+    cutSelected: () => {
+      const s = get();
+      s.copySelected();
+      s.deleteSelected();
+      s.pushHistory();
+    },
+
+    paste: () => {
+      const s = get();
+      const clipboardObjs = s.clipboard;
+      if (!clipboardObjs || !clipboardObjs.length) return;
+      const page = s.pages.find((p) => p.id === s.activePageId);
+      if (!page) return;
+      const newObjs: CanvasObject[] = [];
+      const newIds: string[] = [];
+      for (const o of clipboardObjs) {
+        const newId = uid();
+        newIds.push(newId);
+        if ("points" in o) {
+          newObjs.push({
+            ...o,
+            id: newId,
+            points: o.points.map((pt) => ({ ...pt, x: pt.x + 24, y: pt.y + 24 })),
+          } as CanvasObject);
+        } else {
+          newObjs.push({
+            ...o,
+            id: newId,
+            x: ((o as any).x ?? 0) + 24,
+            y: ((o as any).y ?? 0) + 24,
+          } as CanvasObject);
+        }
+      }
+      if (!newObjs.length) return;
+      const updatedClipboard = clipboardObjs.map((o) => {
+        if ("points" in o) {
+          return {
+            ...o,
+            points: o.points.map((pt) => ({ ...pt, x: pt.x + 24, y: pt.y + 24 })),
+          };
+        }
+        return {
+          ...o,
+          x: ((o as any).x ?? 0) + 24,
+          y: ((o as any).y ?? 0) + 24,
+        };
+      });
+      const pages = s.pages.map((p) =>
+        p.id === s.activePageId ? { ...p, objects: [...p.objects, ...newObjs] } : p,
+      );
+      set(
+        syncActive({
+          ...s,
+          pages,
+          clipboard: updatedClipboard as CanvasObject[],
+          selectedIds: newIds,
+          selectedId: newIds.length === 1 ? newIds[0] : null,
+        }),
+      );
+      s.pushHistory();
     },
 
     recolorSelected: (color: string) => {
