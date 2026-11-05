@@ -2,9 +2,9 @@ import React, { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Upload, FileText, CheckCircle2, Presentation, Loader2, FileCheck } from "lucide-react";
 import { useWhiteboard } from "@/lib/whiteboard/store";
-import type { Page, ImageObject, TextObject, FrameObject } from "@/lib/whiteboard/types";
+import type { Page, ImageObject, FrameObject } from "@/lib/whiteboard/types";
+import { parsePptxFile } from "@/lib/whiteboard/pptxImport";
 import { toast } from "sonner";
-import JSZip from "jszip";
 
 // Use official pdfjs worker URL
 const workerUrl = new URL(
@@ -28,8 +28,18 @@ export function DocumentImportDialog({ open, onOpenChange }: DocumentImportDialo
     if (!file) return;
 
     const fileName = file.name.toLowerCase();
+
+    // Problem 2 Fix: Check for old legacy binary .ppt files and reject with clear guidance
+    if (fileName.endsWith(".ppt") || fileName.endsWith(".doc")) {
+      toast.error(
+        "Old .ppt binary format (PowerPoint 97-2003) cannot be imported directly. Please save your file as modern .pptx in PowerPoint or Google Slides, or export to PDF (PDF import preserves full layout and visuals).",
+        { duration: 8000 }
+      );
+      return;
+    }
+
     const isPdf = fileName.endsWith(".pdf");
-    const isPptx = fileName.endsWith(".pptx") || fileName.endsWith(".ppt");
+    const isPptx = fileName.endsWith(".pptx");
 
     if (!isPdf && !isPptx) {
       toast.error("Please select a PDF (.pdf) or PowerPoint (.pptx) file.");
@@ -123,108 +133,40 @@ export function DocumentImportDialog({ open, onOpenChange }: DocumentImportDialo
   };
 
   const importPptxFile = async (file: File) => {
-    const zip = await JSZip.loadAsync(file);
-
-    // Find all slide XML files in ppt/slides/
-    const slideEntries: { name: string; num: number; file: JSZip.JSZipObject }[] = [];
-    zip.forEach((relativePath, zipEntry) => {
-      const match = relativePath.match(/^ppt\/slides\/slide([0-9]+)\.xml$/i);
-      if (match && !zipEntry.dir) {
-        slideEntries.push({
-          name: relativePath,
-          num: parseInt(match[1], 10),
-          file: zipEntry,
-        });
-      }
-    });
-
-    slideEntries.sort((a, b) => a.num - b.num);
-    const totalSlides = slideEntries.length;
-    if (totalSlides === 0) {
-      toast.error("No presentation slides found in this PowerPoint file.");
-      return;
-    }
-
-    setProgress({ current: 0, total: totalSlides });
-    const parser = new DOMParser();
-    const newBoardPages: Page[] = [];
-
-    for (let i = 0; i < slideEntries.length; i++) {
-      const entry = slideEntries[i];
-      setProgress({ current: i + 1, total: totalSlides });
-      const xmlStr = await entry.file.async("string");
-      const doc = parser.parseFromString(xmlStr, "application/xml");
-
-      // Extract all text paragraphs from slide
-      const paragraphs: string[] = [];
-      const textNodes = doc.getElementsByTagName("a:t");
-      for (let j = 0; j < textNodes.length; j++) {
-        const text = textNodes[j].textContent?.trim();
-        if (text) {
-          paragraphs.push(text);
-        }
-      }
-
-      const slideTitle = paragraphs[0] || `Slide ${entry.num}`;
-      const bodyLines = paragraphs.slice(1);
-
-      const frame: FrameObject = {
-        id: Math.random().toString(36).slice(2, 10),
-        kind: "frame",
-        x: 60,
-        y: 60,
-        w: 960,
-        h: 640,
-        title: slideTitle,
-        order: entry.num,
-        color: "#f97316",
-      };
-
-      const titleObj: TextObject = {
-        id: Math.random().toString(36).slice(2, 10),
-        kind: "text",
-        x: 100,
-        y: 100,
-        w: 880,
-        h: 60,
-        text: slideTitle,
-        color: "#0f172a",
-        fontSize: 28,
-      };
-
-      const pageObjects: any[] = [frame, titleObj];
-
-      if (bodyLines.length > 0) {
-        const bodyText = bodyLines.map((l) => `• ${l}`).join("\n\n");
-        const bodyObj: TextObject = {
-          id: Math.random().toString(36).slice(2, 10),
-          kind: "text",
-          x: 100,
-          y: 180,
-          w: 860,
-          h: Math.min(480, Math.max(120, bodyLines.length * 40)),
-          text: bodyText,
-          color: "#334155",
-          fontSize: 20,
-        };
-        pageObjects.push(bodyObj);
-      }
-
-      newBoardPages.push({
-        id: Math.random().toString(36).slice(2, 10),
-        background: "white",
-        objects: pageObjects,
+    try {
+      const res = await parsePptxFile(file, (current, total) => {
+        setProgress({ current, total });
       });
-    }
 
-    if (newBoardPages.length > 0) {
-      useWhiteboard.setState((prev) => ({
-        ...prev,
-        pages: [...prev.pages, ...newBoardPages],
-        activePageId: newBoardPages[0].id,
-      }));
-      pushHistory();
-      toast.success(`Imported ${newBoardPages.length} PowerPoint slides as board pages!`);
+      if (res.pages.length > 0) {
+        useWhiteboard.setState((prev) => ({
+          ...prev,
+          pages: [...prev.pages, ...res.pages],
+          activePageId: res.pages[0].id,
+        }));
+        pushHistory();
+
+        const imgMsg = res.totalImages > 0 ? `, ${res.totalImages} pictures` : "";
+        const shapeMsg = res.totalShapes > 0 ? `, ${res.totalShapes} shapes` : "";
+        toast.success(
+          `Imported ${res.pages.length} PowerPoint slides${imgMsg}${shapeMsg}!`
+        );
+      }
+    } catch (err: any) {
+      console.error("PPTX import error:", err);
+      const isZipErr =
+        err?.message?.includes("end of central directory") ||
+        err?.message?.includes("is this a zip file") ||
+        err?.message?.includes("corrupted");
+
+      if (isZipErr) {
+        toast.error(
+          "This file is not a valid modern .pptx presentation. If this is an older .ppt file, please open it in PowerPoint or Google Slides and save as .pptx or export to .pdf.",
+          { duration: 8000 }
+        );
+      } else {
+        toast.error(err?.message || "Failed to parse PowerPoint (.pptx) file.");
+      }
     }
   };
 
@@ -242,13 +184,13 @@ export function DocumentImportDialog({ open, onOpenChange }: DocumentImportDialo
 
         <div className="space-y-4 py-2">
           <p className="text-xs text-muted-foreground">
-            Convert PowerPoint (.pptx) presentation slides or PDF documents directly into whiteboard pages for interactive handwriting and teaching.
+            Convert PowerPoint (.pptx) presentation slides or PDF documents directly into whiteboard pages with full pictures, shapes, and formatted text.
           </p>
 
           <label className="flex flex-col items-center justify-center border-2 border-dashed border-border rounded-2xl p-8 hover:bg-muted/30 transition-all cursor-pointer text-center group">
             <input
               type="file"
-              accept=".pdf,.pptx,.ppt"
+              accept=".pdf,.pptx"
               onChange={handleFileUpload}
               disabled={importing}
               className="hidden"

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { useWhiteboard } from "./store";
 import { TEMPLATES } from "./templates";
-import type { StrokeObject } from "./types";
+import type { PenStroke } from "./types";
 
 describe("New Page Picker & Store Operations", () => {
   beforeEach(() => {
@@ -14,15 +14,14 @@ describe("New Page Picker & Store Operations", () => {
           objects: [
             {
               id: "stroke-1",
-              type: "stroke",
-              tool: "pen",
+              kind: "pen",
               color: "#000000",
               size: 4,
               points: [
                 { x: 10, y: 10, p: 1 },
                 { x: 20, y: 20, p: 1 },
               ],
-            } as StrokeObject,
+            } as PenStroke,
           ],
         },
       ],
