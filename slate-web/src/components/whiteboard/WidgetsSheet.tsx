@@ -63,6 +63,7 @@ import {
   KeyRound,
   Save,
   FolderOpen,
+  Cloud,
 } from "lucide-react";
 
 function uid() {
@@ -642,17 +643,81 @@ export function WidgetsSheet({
               <div className="grid grid-cols-3 gap-2">
                 <button
                   onClick={() => {
-                    onLaunch("timer");
                     onOpenChange(false);
+                    window.dispatchEvent(new CustomEvent("slate:open-big-timer"));
                   }}
-                  className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
                 >
                   <span className="grid h-10 w-10 place-items-center rounded-lg bg-orange-500/10 text-orange-500 transition-transform group-hover:scale-105">
                     <Timer className="h-5 w-5" />
                   </span>
                   <div>
-                    <div className="text-xs font-semibold leading-tight">Timer</div>
-                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Countdown clock</div>
+                    <div className="text-xs font-semibold leading-tight">Classroom Timer</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Big centre countdown</div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    onOpenChange(false);
+                    window.dispatchEvent(new CustomEvent("slate:open-name-picker"));
+                  }}
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
+                >
+                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-amber-500/10 text-amber-500 transition-transform group-hover:scale-105">
+                    <Shuffle className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <div className="text-xs font-semibold leading-tight">Name Picker & Teams</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Big wheel & groups</div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    onOpenChange(false);
+                    window.dispatchEvent(new CustomEvent("slate:open-activity"));
+                  }}
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
+                >
+                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-indigo-500/10 text-indigo-500 transition-transform group-hover:scale-105">
+                    <Layers className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <div className="text-xs font-semibold leading-tight">Drag & Drop</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Sort, match & label</div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    onOpenChange(false);
+                    window.dispatchEvent(new CustomEvent("slate:open-ai-lesson-builder"));
+                  }}
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
+                >
+                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-purple-500/10 text-purple-500 transition-transform group-hover:scale-105">
+                    <Sparkles className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <div className="text-xs font-semibold leading-tight">AI Lesson Builder</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">5-8 ready pages</div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    onOpenChange(false);
+                    window.dispatchEvent(new CustomEvent("slate:open-teacher-account"));
+                  }}
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
+                >
+                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-sky-500/10 text-sky-500 transition-transform group-hover:scale-105">
+                    <Cloud className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <div className="text-xs font-semibold leading-tight">Teacher Account</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Cloud save & sync</div>
                   </div>
                 </button>
 

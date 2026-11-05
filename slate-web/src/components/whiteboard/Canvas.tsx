@@ -19,6 +19,7 @@ import type {
   FrameObject,
   TableObject,
   PeriodicTableObject,
+  ActivityObject,
   PageBackground,
   ToolId,
 } from "@/lib/whiteboard/types";
@@ -1509,6 +1510,8 @@ export function WhiteboardCanvas({
       drawTable(ctx, obj);
     } else if (obj.kind === "periodic-table") {
       drawPeriodicTable(ctx, obj);
+    } else if (obj.kind === "activity") {
+      drawActivity(ctx, obj);
     }
     ctx.restore();
   }
@@ -4655,6 +4658,91 @@ export function WhiteboardCanvas({
     ctx.restore();
   }
 
+  function drawActivity(ctx: CanvasRenderingContext2D, o: ActivityObject) {
+    ctx.save();
+    const isDark =
+      typeof document !== "undefined" &&
+      document.documentElement.classList.contains("dark");
+
+    // Card background & soft shadow
+    ctx.shadowColor = "rgba(0, 0, 0, 0.12)";
+    ctx.shadowBlur = 12;
+    ctx.shadowOffsetY = 4;
+    ctx.fillStyle = isDark ? "#0f172a" : "#ffffff";
+    roundRect(ctx, o.x, o.y, o.w, o.h, 16);
+    ctx.fill();
+    ctx.shadowColor = "transparent";
+
+    ctx.strokeStyle = isDark ? "#4f46e5" : "#6366f1";
+    ctx.lineWidth = 2;
+    roundRect(ctx, o.x, o.y, o.w, o.h, 16);
+    ctx.stroke();
+
+    // Activity Header Badge
+    ctx.fillStyle = "#6366f1";
+    ctx.font = "bold 11px system-ui, sans-serif";
+    ctx.fillText("INTERACTIVE ACTIVITY · DRAG & DROP SORT", o.x + 16, o.y + 24);
+
+    // Title
+    ctx.fillStyle = isDark ? "#f8fafc" : "#0f172a";
+    ctx.font = "bold 16px system-ui, sans-serif";
+    ctx.fillText(o.title || "Classroom Activity", o.x + 16, o.y + 48);
+
+    // Instructions
+    ctx.fillStyle = isDark ? "#94a3b8" : "#64748b";
+    ctx.font = "12px system-ui, sans-serif";
+    ctx.fillText(o.instructions || "Drag cards into matching categories on the smart board.", o.x + 16, o.y + 70);
+
+    // Categories preview boxes
+    const cats = o.categories && o.categories.length > 0 ? o.categories : ["Category 1", "Category 2"];
+    const colW = (o.w - 32 - (cats.length - 1) * 12) / cats.length;
+    cats.forEach((cat, idx) => {
+      const colX = o.x + 16 + idx * (colW + 12);
+      const colY = o.y + 86;
+      const colH = o.h - 146;
+
+      ctx.fillStyle = isDark ? "#1e293b" : "#f8fafc";
+      ctx.strokeStyle = isDark ? "#334155" : "#cbd5e1";
+      ctx.lineWidth = 1;
+      roundRect(ctx, colX, colY, colW, colH, 10);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = isDark ? "#cbd5e1" : "#334155";
+      ctx.font = "bold 13px system-ui, sans-serif";
+      ctx.fillText(cat, colX + 12, colY + 22);
+
+      // Render items placed in this category
+      const itemsInCat = o.items.filter((it) => it.currentBucket === cat || it.category === cat).slice(0, 3);
+      itemsInCat.forEach((it, itIdx) => {
+        const itemY = colY + 36 + itIdx * 30;
+        ctx.fillStyle = isDark ? "#0f172a" : "#ffffff";
+        ctx.strokeStyle = isDark ? "#334155" : "#e2e8f0";
+        roundRect(ctx, colX + 8, itemY, colW - 16, 24, 6);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = isDark ? "#f1f5f9" : "#1e293b";
+        ctx.font = "11px system-ui, sans-serif";
+        ctx.fillText(it.text, colX + 14, itemY + 16);
+      });
+    });
+
+    // Play button at bottom right
+    const btnW = 168;
+    const btnH = 34;
+    const btnX = o.x + o.w - btnW - 16;
+    const btnY = o.y + o.h - btnH - 12;
+    ctx.fillStyle = "#4f46e5";
+    roundRect(ctx, btnX, btnY, btnW, btnH, 8);
+    ctx.fill();
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 12px system-ui, sans-serif";
+    ctx.fillText("▶ Play on Smart Board", btnX + 16, btnY + 21);
+
+    ctx.restore();
+  }
+
   function objectBounds(obj: CanvasObject): { x: number; y: number; w: number; h: number } {
     if ("points" in obj) {
       const xs = obj.points.map((p) => p.x);
@@ -5080,6 +5168,20 @@ export function WhiteboardCanvas({
           const btnY = hit.y + hit.h - btnH - 10;
           if (w.x >= btnX && w.x <= btnX + btnW && w.y >= btnY && w.y <= btnY + btnH) {
             window.dispatchEvent(new CustomEvent("slate:open-live-quiz", { detail: hit }));
+            setSelected(hit.id);
+            return;
+          }
+        }
+        if (hit.kind === "activity") {
+          const btnW = 168;
+          const btnH = 34;
+          const btnX = hit.x + hit.w - btnW - 16;
+          const btnY = hit.y + hit.h - btnH - 12;
+          const pad = 24 / camera.zoom;
+          if (w.x >= btnX - pad && w.x <= btnX + btnW + pad && w.y >= btnY - pad && w.y <= btnY + btnH + pad) {
+            window.dispatchEvent(
+              new CustomEvent("slate:open-activity", { detail: { activity: hit } })
+            );
             setSelected(hit.id);
             return;
           }
@@ -5722,6 +5824,10 @@ export function WhiteboardCanvas({
       updateObject(hit.id, { flipped: !hit.flipped } as Partial<CanvasObject>);
     } else if (hit.kind === "quiz") {
       updateObject(hit.id, { revealed: !hit.revealed } as Partial<CanvasObject>);
+    } else if (hit.kind === "activity") {
+      window.dispatchEvent(
+        new CustomEvent("slate:open-activity", { detail: { activity: hit } })
+      );
     } else if (hit.kind === "tape") {
       toggleTapeReveal(hit.id);
     } else if (hit.kind === "graph") {
@@ -7510,6 +7616,26 @@ export function WhiteboardCanvas({
                   icon={<Radio className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-indigo-500 animate-pulse" />}
                   label="Host Live Quiz (QR)"
                   description="Students scan QR code with phones to vote live"
+                  className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-medium transition shrink-0"
+                  placement={tooltipPlacement}
+                />
+              );
+            })()}
+
+            {/* Activity Card: Open Interactive Activity on Board */}
+            {(() => {
+              const actObj = page.objects.find(
+                (o) => targetSelectionIds.includes(o.id) && o.kind === "activity"
+              ) as ActivityObject | undefined;
+              if (!actObj) return null;
+              return (
+                <SelectionToolBtn
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent("slate:open-activity", { detail: { activity: actObj } }));
+                  }}
+                  icon={<Play className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-indigo-500 fill-current" />}
+                  label="Play on Board"
+                  description="Open full-screen interactive sort & match activity"
                   className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-medium transition shrink-0"
                   placement={tooltipPlacement}
                 />

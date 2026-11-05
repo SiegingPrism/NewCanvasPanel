@@ -33,7 +33,11 @@ import { SmartBoardCornerControls } from "@/components/whiteboard/smartboard/Sma
 import { RadialMenu } from "@/components/whiteboard/smartboard/RadialMenu";
 import { SplitBoardDivider } from "@/components/whiteboard/smartboard/SplitBoardDivider";
 import { QuickPollDialog } from "@/components/whiteboard/smartboard/QuickPollDialog";
-import type { QuizObject } from "@/lib/whiteboard/types";
+import { BigScreenClassroomModal } from "@/components/whiteboard/smartboard/BigScreenClassroomModal";
+import { DragDropActivityDialog } from "@/components/whiteboard/smartboard/DragDropActivityDialog";
+import { AILessonBuilderDialog } from "@/components/whiteboard/smartboard/AILessonBuilderDialog";
+import { TeacherAccountDialog } from "@/components/whiteboard/smartboard/TeacherAccountDialog";
+import type { QuizObject, ActivityObject, Page } from "@/lib/whiteboard/types";
 import { useWhiteboard } from "@/lib/whiteboard/store";
 import { fetchBoardById } from "@/lib/supabase/dbService";
 import { Wand2 } from "lucide-react";
@@ -66,6 +70,15 @@ function BoardPage() {
   const [isPresenting, setIsPresenting] = useState(false);
   const { langPickerOpen, setLangPickerOpen, translatePickerOpen, closeTranslatePicker } = useInk();
   const { openWidgets, launch, close } = useWidgetLauncher();
+
+  // Classroom Smart Board Modals
+  const [bigClassroomOpen, setBigClassroomOpen] = useState(false);
+  const [bigClassroomTab, setBigClassroomTab] = useState<"timer" | "picker">("timer");
+  const [activityDialogOpen, setActivityDialogOpen] = useState(false);
+  const [activeActivity, setActiveActivity] = useState<ActivityObject | null>(null);
+  const [aiLessonBuilderOpen, setAiLessonBuilderOpen] = useState(false);
+  const [teacherAccountOpen, setTeacherAccountOpen] = useState(false);
+  const [minimizedTimer, setMinimizedTimer] = useState<{ remaining: number; running: boolean } | null>(null);
   const {
     selectedId,
     pages,
@@ -406,13 +419,55 @@ function BoardPage() {
   useEffect(() => {
     const handleOpenWidgets = () => setWidgetsOpen(true);
     const handleOpenAIEvt = () => openAI({ boardId });
+    const handleOpenBigTimer = () => {
+      setBigClassroomTab("timer");
+      setBigClassroomOpen(true);
+    };
+    const handleOpenNamePicker = () => {
+      setBigClassroomTab("picker");
+      setBigClassroomOpen(true);
+    };
+    const handleOpenActivity = (e: any) => {
+      setActiveActivity(e.detail?.activity || null);
+      setActivityDialogOpen(true);
+    };
+    const handleOpenAILesson = () => setAiLessonBuilderOpen(true);
+    const handleOpenAccount = () => setTeacherAccountOpen(true);
+
     window.addEventListener("slate:open-widgets", handleOpenWidgets);
     window.addEventListener("slate:open-ai", handleOpenAIEvt);
+    window.addEventListener("slate:open-big-timer", handleOpenBigTimer);
+    window.addEventListener("slate:open-name-picker", handleOpenNamePicker);
+    window.addEventListener("slate:open-activity", handleOpenActivity);
+    window.addEventListener("slate:open-ai-lesson-builder", handleOpenAILesson);
+    window.addEventListener("slate:open-teacher-account", handleOpenAccount);
+
     return () => {
       window.removeEventListener("slate:open-widgets", handleOpenWidgets);
       window.removeEventListener("slate:open-ai", handleOpenAIEvt);
+      window.removeEventListener("slate:open-big-timer", handleOpenBigTimer);
+      window.removeEventListener("slate:open-name-picker", handleOpenNamePicker);
+      window.removeEventListener("slate:open-activity", handleOpenActivity);
+      window.removeEventListener("slate:open-ai-lesson-builder", handleOpenAILesson);
+      window.removeEventListener("slate:open-teacher-account", handleOpenAccount);
     };
   }, [boardId, openAI]);
+
+  // Minimized timer tick
+  useEffect(() => {
+    if (!minimizedTimer || !minimizedTimer.running) return;
+    const interval = setInterval(() => {
+      setMinimizedTimer((prev) => {
+        if (!prev) return null;
+        if (prev.remaining <= 1) {
+          clearInterval(interval);
+          return { remaining: 0, running: false };
+        }
+        return { ...prev, remaining: prev.remaining - 1 };
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [minimizedTimer?.running]);
 
   const board = boards[boardId];
   const ready = activeBoardId === boardId && pages.length > 0;
@@ -579,6 +634,73 @@ function BoardPage() {
         open={liveQuizOpen}
         onOpenChange={setLiveQuizOpen}
         initialQuiz={activeQuiz}
+      />
+
+      {/* Smart Board Big Centre Screen Timer & Student Name Picker */}
+      <BigScreenClassroomModal
+        open={bigClassroomOpen}
+        onOpenChange={setBigClassroomOpen}
+        defaultTab={bigClassroomTab}
+        onMinimizeTimer={(rem, run) => setMinimizedTimer({ remaining: rem, running: run })}
+      />
+
+      {/* Floating Corner Minimized Timer Pill */}
+      {minimizedTimer && (
+        <div
+          onClick={() => {
+            setBigClassroomTab("timer");
+            setBigClassroomOpen(true);
+            setMinimizedTimer(null);
+          }}
+          className="fixed top-20 right-6 z-40 bg-slate-900/95 hover:bg-slate-900 text-white border-2 border-indigo-500 shadow-2xl rounded-2xl px-5 py-2.5 flex items-center gap-3 cursor-pointer select-none backdrop-blur-md active:scale-95 transition-all"
+          title="Tap to enlarge classroom timer"
+        >
+          <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
+          <span className="font-mono font-black text-2xl tabular-nums text-indigo-300">
+            {String(Math.floor(minimizedTimer.remaining / 60)).padStart(2, "0")}:
+            {String(minimizedTimer.remaining % 60).padStart(2, "0")}
+          </span>
+          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Timer</span>
+        </div>
+      )}
+
+      {/* Drag and Drop Classroom Activities (Sort, Match, Label) */}
+      <DragDropActivityDialog
+        open={activityDialogOpen}
+        onOpenChange={setActivityDialogOpen}
+        activity={activeActivity}
+        onInsertActivityToCanvas={(act) => {
+          const actObj = act as ActivityObject;
+          useWhiteboard.getState().addObject(actObj);
+          useWhiteboard.getState().pushHistory();
+          toast.success("Interactive activity added to whiteboard!");
+        }}
+      />
+
+      {/* AI Lesson Builder (5-8 Ready Pages) */}
+      <AILessonBuilderDialog
+        open={aiLessonBuilderOpen}
+        onOpenChange={setAiLessonBuilderOpen}
+        onLessonGenerated={(newPages, lessonTopic) => {
+          const state = useWhiteboard.getState();
+          const currentPages = state.pages;
+          const mergedPages = [...currentPages, ...newPages];
+          useWhiteboard.setState({
+            pages: mergedPages,
+            activePageId: newPages[0]?.id || currentPages[0]?.id,
+          });
+          useWhiteboard.getState().pushHistory();
+          toast.success(`Added ${newPages.length} lesson pages for "${lessonTopic}"!`);
+        }}
+      />
+
+      {/* Teacher Account & Cloud Sync */}
+      <TeacherAccountDialog
+        open={teacherAccountOpen}
+        onOpenChange={setTeacherAccountOpen}
+        onOpenCloudBoard={(targetBoardId) => {
+          navigate({ to: "/board/$boardId", params: { boardId: targetBoardId } });
+        }}
       />
     </div>
   );

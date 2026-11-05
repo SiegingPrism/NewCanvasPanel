@@ -43,6 +43,7 @@ import {
   KeyRound,
   FolderOpen,
   Save,
+  Timer,
 } from "lucide-react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -407,6 +408,22 @@ export function TopBar({
         </span>
       )}
 
+      {/* Cloud Account & Multi-Board Sync Indicator */}
+      <button
+        type="button"
+        onClick={() => window.dispatchEvent(new CustomEvent("slate:open-teacher-account"))}
+        className={cn(
+          "flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-semibold transition-all select-none border",
+          user
+            ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800"
+            : "bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300 border-sky-200 dark:border-sky-800 hover:bg-sky-100"
+        )}
+        title={user ? `Signed in as ${user.email} (Tap to manage cloud lessons)` : "Save lesson to your teacher account"}
+      >
+        <Cloud className="w-3.5 h-3.5 text-current shrink-0" />
+        <span className="hidden sm:inline">{user ? "Cloud Synced" : "Save to Account"}</span>
+      </button>
+
       {/* Undo, Redo, and Page Controls: Only shown in standard desktop/mobile mode;
           in Board Mode they are exclusively placed in the bottom corner strips to avoid duplicates and reachability strain */}
       {!boardMode && (
@@ -690,6 +707,22 @@ export function TopBar({
           {/* AI Features */}
           <button
             type="button"
+            aria-label="Build AI Lesson (5-8 Ready Pages)"
+            title="AI Lesson Builder"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-semibold text-indigo-600 dark:text-indigo-400 transition",
+              isDark ? "hover:bg-slate-800" : "hover:bg-accent"
+            )}
+            onClick={() => {
+              setMenuOpen(false);
+              window.dispatchEvent(new CustomEvent("slate:open-ai-lesson-builder"));
+            }}
+          >
+            <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+            <span>AI Lesson Builder</span>
+          </button>
+          <button
+            type="button"
             aria-label="Open AI Assistant"
             title="AI Assistant"
             className={cn(
@@ -904,6 +937,54 @@ export function TopBar({
           >
             <Share2 className="h-3.5 w-3.5 text-emerald-600" />
             <span>Share Notes via QR</span>
+          </button>
+          <button
+            type="button"
+            aria-label="Big Screen Timer & Student Name Picker"
+            title="Timer & Name Picker"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+            )}
+            onClick={() => {
+              setMenuOpen(false);
+              window.dispatchEvent(new CustomEvent("slate:open-big-timer"));
+            }}
+          >
+            <Timer className="h-3.5 w-3.5 text-orange-500" />
+            <span>Big Screen Timer & Picker</span>
+          </button>
+          <button
+            type="button"
+            aria-label="Drag and Drop Classroom Activities"
+            title="Drag & Drop Activities"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+            )}
+            onClick={() => {
+              setMenuOpen(false);
+              window.dispatchEvent(new CustomEvent("slate:open-activity"));
+            }}
+          >
+            <Layers className="h-3.5 w-3.5 text-indigo-500" />
+            <span>Drag & Drop Activities</span>
+          </button>
+          <button
+            type="button"
+            aria-label="Save Lesson to Teacher Cloud Account"
+            title="Save to Cloud Account"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+            )}
+            onClick={() => {
+              setMenuOpen(false);
+              window.dispatchEvent(new CustomEvent("slate:open-teacher-account"));
+            }}
+          >
+            <Cloud className="h-3.5 w-3.5 text-sky-500" />
+            <span>Teacher Cloud Account</span>
           </button>
           <button
             type="button"

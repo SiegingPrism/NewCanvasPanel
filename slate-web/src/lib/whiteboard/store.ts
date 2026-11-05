@@ -18,7 +18,7 @@ import {
   type BoardData,
 } from "./slateStorage";
 
-function uid() {
+export function uid() {
   return Math.random().toString(36).slice(2, 10);
 }
 function nowMs() {
@@ -98,6 +98,7 @@ type Actions = {
     title?: string;
     templateKey?: TemplateKey;
     folderId?: string | null;
+    pages?: Page[];
   }) => string;
   openBoard: (id: string) => void;
   renameBoard: (id: string, title: string) => void;
@@ -729,7 +730,12 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
       const s = get();
       const id = uid();
       const templateKey = opts?.templateKey;
-      const pages = templateKey ? pagesForTemplate(templateKey) : [emptyPage()];
+      const pages =
+        opts?.pages && opts.pages.length
+          ? opts.pages
+          : templateKey
+          ? pagesForTemplate(templateKey)
+          : [emptyPage()];
       const title = opts?.title ?? "Untitled board";
       const meta: BoardMeta = {
         id,

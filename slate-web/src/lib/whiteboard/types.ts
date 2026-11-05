@@ -306,6 +306,37 @@ export type PeriodicTableObject = {
   selectedNumber?: number;
 };
 
+export type ActivityType = "sort" | "match" | "label";
+
+export type ActivityItem = {
+  id: string;
+  text: string;
+  category?: string;
+  matchId?: string;
+  x?: number;
+  y?: number;
+  currentBucket?: string;
+  matchedWith?: string;
+  matched?: boolean;
+};
+
+export type ActivityObject = {
+  id: string;
+  kind: "activity";
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  activityType: ActivityType;
+  title: string;
+  instructions?: string;
+  categories?: string[];
+  items: ActivityItem[];
+  completed?: boolean;
+  score?: number;
+  color?: string;
+};
+
 export type CanvasObject =
   | PenStroke
   | FountainStroke
@@ -334,7 +365,8 @@ export type CanvasObject =
   | GraphObject
   | FrameObject
   | TableObject
-  | PeriodicTableObject;
+  | PeriodicTableObject
+  | ActivityObject;
 
 export type PageBackground =
   | "white"
@@ -357,6 +389,7 @@ export type Page = {
   id: string;
   objects: CanvasObject[];
   background: PageBackground;
+  title?: string;
 };
 
 export type WhiteboardState = {

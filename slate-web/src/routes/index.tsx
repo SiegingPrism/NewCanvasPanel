@@ -42,7 +42,10 @@ import { useAuth, getUserAvatarUrl, getUserDisplayName } from "@/lib/supabase/au
 import { useAISheetStore } from "@/lib/ai/aiSheetStore";
 import { BottomNavBar } from "@/components/navigation/BottomNavBar";
 import { DocumentImportDialog } from "@/components/whiteboard/smartboard/DocumentImportDialog";
+import { AILessonBuilderDialog } from "@/components/whiteboard/smartboard/AILessonBuilderDialog";
+import { TeacherAccountDialog } from "@/components/whiteboard/smartboard/TeacherAccountDialog";
 import { importLessonFile } from "@/lib/whiteboard/lessonFiles";
+import type { Page } from "@/lib/whiteboard/types";
 
 const SUBJECT_TEMPLATES: {
   category: "Maths" | "Science" | "Language" | "Geography" | "Arts & Music";
@@ -138,7 +141,17 @@ function Dashboard() {
   const [newFolderOpen, setNewFolderOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [docImportOpen, setDocImportOpen] = useState(false);
+  const [aiLessonBuilderOpen, setAiLessonBuilderOpen] = useState(false);
+  const [teacherAccountOpen, setTeacherAccountOpen] = useState(false);
   const [selectedSubjectTab, setSelectedSubjectTab] = useState<"Maths" | "Science" | "Language" | "Geography" | "Arts & Music">("Maths");
+
+  function openNewLessonWithPages(pages: Page[], topic: string) {
+    const id = createBoard({
+      title: topic,
+      pages,
+    });
+    navigate({ to: "/board/$boardId", params: { boardId: id } });
+  }
 
   async function handleImportSlateFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -233,6 +246,17 @@ function Dashboard() {
 
           {/* Header Action Buttons (Notification Bell, Menu Drawer, User Avatar) */}
           <div className="flex items-center gap-2">
+            {/* Teacher Cloud Account Button */}
+            <button
+              type="button"
+              onClick={() => setTeacherAccountOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-2xl border border-border bg-card text-foreground shadow-2xs hover:bg-accent active:scale-95 transition text-xs font-semibold"
+              title={user ? `Signed in as ${user.email} (Manage Cloud Lessons)` : "Teacher Cloud Account"}
+            >
+              <Cloud className={cn("h-4 w-4", user ? "text-emerald-500" : "text-sky-500")} />
+              <span className="hidden sm:inline">{user ? "Cloud Active" : "Teacher Sign In"}</span>
+            </button>
+
             {/* Notification Bell */}
             <Popover open={notificationsOpen} onOpenChange={setNotificationsOpen}>
               <PopoverTrigger asChild>
@@ -568,7 +592,7 @@ function Dashboard() {
         {/* QUICK ACTIONS 2x2 Grid */}
         <section>
           <h2 className="text-xs font-bold uppercase tracking-wider text-foreground mb-3">QUICK ACTIONS</h2>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {/* Blank Board */}
             <button
               type="button"
@@ -581,6 +605,24 @@ function Dashboard() {
               <div className="mt-2.5">
                 <div className="text-xs sm:text-sm font-bold text-foreground">Blank board</div>
                 <div className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 leading-snug">Start with a clean canvas</div>
+              </div>
+            </button>
+
+            {/* AI Lesson Builder */}
+            <button
+              type="button"
+              onClick={() => setAiLessonBuilderOpen(true)}
+              className="group relative flex flex-col justify-between rounded-2xl border border-indigo-500/40 bg-gradient-to-br from-indigo-950/20 to-purple-950/20 p-3 sm:p-3.5 text-left shadow-2xs hover:border-indigo-500/80 transition cursor-pointer active:scale-[0.99]"
+            >
+              <span className="absolute top-3 right-3 rounded bg-indigo-600 text-white px-1.5 py-0.5 text-[9px] font-extrabold tracking-wide uppercase">
+                5-8 Pages
+              </span>
+              <div className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-500/20 text-indigo-400 transition group-hover:scale-105">
+                <Sparkles className="h-5 w-5 text-amber-300" />
+              </div>
+              <div className="mt-2.5">
+                <div className="text-xs sm:text-sm font-bold text-foreground">AI Lesson Builder</div>
+                <div className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 leading-snug">Type a topic to get ready whiteboard pages</div>
               </div>
             </button>
 
@@ -597,8 +639,8 @@ function Dashboard() {
                 <Sparkles className="h-5 w-5" />
               </div>
               <div className="mt-2.5">
-                <div className="text-xs sm:text-sm font-bold text-foreground">AI-assisted</div>
-                <div className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 leading-snug">Start blank and open the AI helper</div>
+                <div className="text-xs sm:text-sm font-bold text-foreground">AI Copilot</div>
+                <div className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 leading-snug">Chat with AI teaching assistant</div>
               </div>
             </button>
 
@@ -1025,6 +1067,18 @@ function Dashboard() {
       <FeatureTourDialog open={tourOpen} onOpenChange={setTourOpen} />
       <AuthDialog open={authOpen} onOpenChange={setAuthOpen} />
       <DocumentImportDialog open={docImportOpen} onOpenChange={setDocImportOpen} />
+      <AILessonBuilderDialog
+        open={aiLessonBuilderOpen}
+        onOpenChange={setAiLessonBuilderOpen}
+        onLessonGenerated={(pages, topic) => openNewLessonWithPages(pages, topic)}
+      />
+      <TeacherAccountDialog
+        open={teacherAccountOpen}
+        onOpenChange={setTeacherAccountOpen}
+        onOpenCloudBoard={(targetBoardId) =>
+          navigate({ to: "/board/$boardId", params: { boardId: targetBoardId } })
+        }
+      />
     </div>
   );
 }

@@ -170,3 +170,4 @@ export function NewPagePickerContent({ onClose, onOpenDocImport, isDark }: NewPa
     </div>
   );
 }
+
