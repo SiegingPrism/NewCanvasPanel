@@ -257,5 +257,151 @@ describe("PowerPoint (.pptx) Import Engine", () => {
     const texts = page.objects.filter((o) => o.kind === "text");
     expect(texts.some((t: any) => t.text.includes("Grouped Text Box"))).toBe(true);
   });
+
+  it("extracts tables, speaker notes, and nested groups accurately", async () => {
+    const zip = new JSZip();
+
+    zip.file(
+      "ppt/presentation.xml",
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+      <p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
+        <p:sldSz cx="12192000" cy="6858000" type="screen16x9"/>
+        <p:sldIdLst>
+          <p:sldId id="256" r:id="rId1" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/>
+        </p:sldIdLst>
+      </p:presentation>`
+    );
+
+    zip.file(
+      "ppt/_rels/presentation.xml.rels",
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+      <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+        <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide1.xml"/>
+      </Relationships>`
+    );
+
+    zip.file(
+      "ppt/slides/_rels/slide1.xml.rels",
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+      <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+        <Relationship Id="rIdNotes" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide" Target="../notesSlides/notesSlide1.xml"/>
+      </Relationships>`
+    );
+
+    // Notes slide with teacher notes
+    zip.file(
+      "ppt/notesSlides/notesSlide1.xml",
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+      <p:notes xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
+        <p:cSld>
+          <p:spTree>
+            <p:sp>
+              <p:txBody>
+                <a:p><a:r><a:t>Remember to ask students about cellular respiration before moving to next slide.</a:t></a:r></a:p>
+              </p:txBody>
+            </p:sp>
+          </p:spTree>
+        </p:cSld>
+      </p:notes>`
+    );
+
+    // Slide 1 with a table and nested groups
+    zip.file(
+      "ppt/slides/slide1.xml",
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+      <p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+        <p:cSld>
+          <p:spTree>
+            <!-- 2x2 Table -->
+            <p:graphicFrame>
+              <p:xfrm>
+                <a:off x="1000000" y="1000000"/>
+                <a:ext cx="5000000" cy="3000000"/>
+              </p:xfrm>
+              <a:graphic>
+                <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/table">
+                  <a:tbl>
+                    <a:tblGrid>
+                      <a:gridCol w="2500000"/>
+                      <a:gridCol w="2500000"/>
+                    </a:tblGrid>
+                    <a:tr h="1500000">
+                      <a:tc><a:txBody><a:p><a:r><a:t>Organelle</a:t></a:r></a:p></a:txBody></a:tc>
+                      <a:tc><a:txBody><a:p><a:r><a:t>Function</a:t></a:r></a:p></a:txBody></a:tc>
+                    </a:tr>
+                    <a:tr h="1500000">
+                      <a:tc><a:txBody><a:p><a:r><a:t>Mitochondria</a:t></a:r></a:p></a:txBody></a:tc>
+                      <a:tc><a:txBody><a:p><a:r><a:t>ATP Powerhouse</a:t></a:r></a:p></a:txBody></a:tc>
+                    </a:tr>
+                  </a:tbl>
+                </a:graphicData>
+              </a:graphic>
+            </p:graphicFrame>
+
+            <!-- Nested Groups (Outer -> Inner -> Shape) -->
+            <p:grpSp>
+              <p:grpSpPr>
+                <a:xfrm>
+                  <a:off x="6000000" y="1000000"/>
+                  <a:ext cx="4000000" cy="4000000"/>
+                  <a:chOff x="0" y="0"/>
+                  <a:chExt cx="4000000" cy="4000000"/>
+                </a:xfrm>
+              </p:grpSpPr>
+              <!-- Inner Group -->
+              <p:grpSp>
+                <p:grpSpPr>
+                  <a:xfrm>
+                    <a:off x="1000000" y="1000000"/>
+                    <a:ext cx="2000000" cy="2000000"/>
+                    <a:chOff x="0" y="0"/>
+                    <a:chExt cx="2000000" cy="2000000"/>
+                  </a:xfrm>
+                </p:grpSpPr>
+                <p:sp>
+                  <p:spPr>
+                    <a:xfrm>
+                      <a:off x="500000" y="500000"/>
+                      <a:ext cx="1000000" cy="1000000"/>
+                    </a:xfrm>
+                  </p:spPr>
+                  <p:txBody>
+                    <a:p><a:r><a:t>Nested Label</a:t></a:r></a:p>
+                  </p:txBody>
+                </p:sp>
+              </p:grpSp>
+            </p:grpSp>
+          </p:spTree>
+        </p:cSld>
+      </p:sld>`
+    );
+
+    const pptxBuffer = await zip.generateAsync({ type: "arraybuffer" });
+    const result = await parsePptxFile(pptxBuffer);
+
+    expect(result.pages.length).toBe(1);
+    const page = result.pages[0];
+
+    // Speaker notes verification
+    expect(page.notes).toContain("cellular respiration");
+    const notesSticky = page.objects.find(
+      (o) => (o as any).text && (o as any).text.includes("Speaker Notes")
+    );
+    expect(notesSticky).toBeDefined();
+
+    // Table verification
+    const tableObj = page.objects.find((o) => o.kind === "table") as any;
+    expect(tableObj).toBeDefined();
+    expect(tableObj.rows).toBe(2);
+    expect(tableObj.cols).toBe(2);
+    expect(tableObj.data[0][0]).toBe("Organelle");
+    expect(tableObj.data[1][1]).toBe("ATP Powerhouse");
+
+    // Nested text placement verification
+    const nestedText = page.objects.find(
+      (o) => o.kind === "text" && (o as any).text.includes("Nested Label")
+    );
+    expect(nestedText).toBeDefined();
+  });
 });
 

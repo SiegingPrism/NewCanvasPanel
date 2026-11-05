@@ -4997,6 +4997,22 @@ export function WhiteboardCanvas({
     // Dual Input: Active pen writing + simultaneous other hand canvas panning
     if (e.pointerType === "pen") {
       isPenActiveRef.current = true;
+      // If the other hand was already placed on the board before the pen, convert it to a pan touch
+      if (!lockBoardRef.current && !otherHandTouchRef.current && touchMapRef.current.size > 0) {
+        const [existingTouchId, existingTouchPos] = Array.from(touchMapRef.current.entries())[0];
+        otherHandTouchRef.current = {
+          id: existingTouchId,
+          startX: existingTouchPos.x,
+          startY: existingTouchPos.y,
+          startCam: { ...cameraRef.current },
+        };
+        if (strokeSessionsRef.current.has(existingTouchId)) {
+          const sess = strokeSessionsRef.current.get(existingTouchId);
+          if (sess?.holdTimer) clearTimeout(sess.holdTimer);
+          strokeSessionsRef.current.delete(existingTouchId);
+          drawLive();
+        }
+      }
     } else if (e.pointerType === "touch" && isPenActiveRef.current) {
       if (!lockBoardRef.current && !otherHandTouchRef.current) {
         otherHandTouchRef.current = {
@@ -5005,20 +5021,6 @@ export function WhiteboardCanvas({
           startY: e.clientY,
           startCam: { ...cameraRef.current },
         };
-      }
-      return;
-    }
-
-    // Other hand panning canvas while pen writes
-    if (otherHandTouchRef.current && otherHandTouchRef.current.id === e.pointerId) {
-      if (!lockBoardRef.current) {
-        const dx = e.clientX - otherHandTouchRef.current.startX;
-        const dy = e.clientY - otherHandTouchRef.current.startY;
-        applyCameraThrottled({
-          x: otherHandTouchRef.current.startCam.x + dx,
-          y: otherHandTouchRef.current.startCam.y + dy,
-          zoom: otherHandTouchRef.current.startCam.zoom,
-        });
       }
       return;
     }
@@ -5377,6 +5379,21 @@ export function WhiteboardCanvas({
   function onPointerMove(e: React.PointerEvent<HTMLCanvasElement>) {
     if (wasPinchingRef.current) return;
     if (ignoredPalmsRef.current.has(e.pointerId)) return;
+
+    // Dual Input: Other hand panning canvas while pen writes
+    if (otherHandTouchRef.current && otherHandTouchRef.current.id === e.pointerId) {
+      if (!lockBoardRef.current) {
+        const dx = e.clientX - otherHandTouchRef.current.startX;
+        const dy = e.clientY - otherHandTouchRef.current.startY;
+        applyCameraThrottled({
+          x: otherHandTouchRef.current.startCam.x + dx,
+          y: otherHandTouchRef.current.startCam.y + dy,
+          zoom: otherHandTouchRef.current.startCam.zoom,
+        });
+      }
+      return;
+    }
+
     if (e.pointerType === "touch" && isPenActiveRef.current) return;
     if (!lockBoardRef.current && e.pointerType === "touch" && touchMapRef.current.size >= 2) return;
 
@@ -5406,20 +5423,6 @@ export function WhiteboardCanvas({
         clearTimeout(radialTimerRef.current);
         radialTimerRef.current = null;
       }
-    }
-
-    // Other hand panning canvas while pen writes
-    if (otherHandTouchRef.current && otherHandTouchRef.current.id === e.pointerId) {
-      if (!lockBoardRef.current) {
-        const dx = e.clientX - otherHandTouchRef.current.startX;
-        const dy = e.clientY - otherHandTouchRef.current.startY;
-        applyCameraThrottled({
-          x: otherHandTouchRef.current.startCam.x + dx,
-          y: otherHandTouchRef.current.startCam.y + dy,
-          zoom: otherHandTouchRef.current.startCam.zoom,
-        });
-      }
-      return;
     }
 
     touchMapRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });

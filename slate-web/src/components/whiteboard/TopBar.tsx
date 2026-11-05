@@ -46,6 +46,7 @@ import {
   FolderOpen,
   Save,
   Timer,
+  AlertTriangle,
 } from "lucide-react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -163,17 +164,67 @@ export function TopBar({
     } catch {}
   }
 
+  const [endClassSaving, setEndClassSaving] = useState(false);
+  const [endClassError, setEndClassError] = useState<string | null>(null);
+
   const handleEndClass = () => {
+    setEndClassError(null);
+    setEndClassSaving(false);
     setEndClassDialogOpen(true);
   };
 
-  const confirmEndClass = () => {
+  const confirmEndClass = async () => {
+    const currentUser = useAuth.getState().user;
+    if (!currentUser) {
+      setEndClassError("No teacher account is signed in on this smart board. Notes cannot be uploaded to the cloud.");
+      return;
+    }
+
+    setEndClassSaving(true);
+    setEndClassError(null);
+
+    try {
+      const activeMeta = activeBoardId && boards[activeBoardId]
+        ? boards[activeBoardId]
+        : {
+            id: activeBoardId || uid(),
+            title: boardTitle || "Untitled board",
+            tags: [],
+            folderId: null,
+            favorite: false,
+            archived: false,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          };
+
+      const ok = await syncBoardToSupabase(activeMeta, pages, undefined, false);
+      if (!ok) {
+        setEndClassSaving(false);
+        setEndClassError("Cloud upload failed (board is offline or network error). Please download a lesson file (.slate) to save your work.");
+        return;
+      }
+
+      // Successful cloud upload: chime, notify, sign out, and reset device
+      playEndClassChime();
+      toast.success("Class dismissed! All board notes saved to cloud for next period.");
+
+      await useAuth.getState().signOut();
+      useWhiteboard.getState().clearOnSignOut();
+
+      setEndClassSaving(false);
+      setEndClassDialogOpen(false);
+    } catch {
+      setEndClassSaving(false);
+      setEndClassError("Cloud upload encountered an error. Please download a lesson file (.slate) before clearing.");
+    }
+  };
+
+  const handleDismissWithoutSaving = async () => {
     playEndClassChime();
-    syncWithCloud().catch(() => {});
-    addPage();
-    pushHistory();
+    await useAuth.getState().signOut();
+    useWhiteboard.getState().clearOnSignOut();
     setEndClassDialogOpen(false);
-    toast.success("Class dismissed! All board notes saved to cloud for next period.");
+    toast.info("Class dismissed. Board notes cleared for next teacher.");
   };
 
   const handleOpenLessonFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1480,25 +1531,82 @@ export function TopBar({
               <span>End Current Class Period?</span>
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground mt-1">
-              Dismiss the class, chime the bell, back up all notes to your school cloud account, and prepare a fresh clean board for the next lesson.
+              Dismiss the class, chime the bell, back up all notes to your cloud account, and reset the board cleanly for the next teacher.
             </DialogDescription>
           </DialogHeader>
+
+          {endClassError && (
+            <div className="mt-3 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs flex items-start gap-2.5">
+              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-amber-500" />
+              <div className="flex-1 space-y-2">
+                <p className="font-semibold text-foreground">{endClassError}</p>
+                <p className="text-[11px] text-muted-foreground">
+                  To keep your work safe before resetting the board, download a portable .slate lesson file to your USB drive or device:
+                </p>
+                <button
+                  type="button"
+                  onClick={() => exportLessonFile(boardTitle || "Lesson", pages)}
+                  className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition active:scale-95 cursor-pointer"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  <span>Download Lesson File (.slate)</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center justify-end gap-2.5 mt-5">
             <button
               type="button"
+              disabled={endClassSaving}
               onClick={() => setEndClassDialogOpen(false)}
-              className="px-4 py-2 rounded-xl border border-border bg-muted/40 hover:bg-muted text-xs font-semibold text-foreground transition active:scale-95 cursor-pointer"
+              className="px-4 py-2 rounded-xl border border-border bg-muted/40 hover:bg-muted text-xs font-semibold text-foreground transition active:scale-95 cursor-pointer disabled:opacity-50"
             >
               Cancel
             </button>
-            <button
-              type="button"
-              onClick={confirmEndClass}
-              className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition shadow-sm active:scale-95 flex items-center gap-1.5 cursor-pointer"
-            >
-              <BellRing className="h-4 w-4" />
-              <span>Dismiss & Save Board</span>
-            </button>
+
+            {endClassError ? (
+              <>
+                {useAuth.getState().user && (
+                  <button
+                    type="button"
+                    disabled={endClassSaving}
+                    onClick={confirmEndClass}
+                    className="px-4 py-2 rounded-xl border border-primary/40 bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold transition active:scale-95 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    {endClassSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                    <span>Retry Cloud Save</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  disabled={endClassSaving}
+                  onClick={handleDismissWithoutSaving}
+                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition shadow-sm active:scale-95 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <span>Dismiss & Clear Board</span>
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                disabled={endClassSaving}
+                onClick={confirmEndClass}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition shadow-sm active:scale-95 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                {endClassSaving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Saving to Cloud...</span>
+                  </>
+                ) : (
+                  <>
+                    <BellRing className="h-4 w-4" />
+                    <span>Dismiss & Save Board</span>
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </DialogContent>
       </Dialog>

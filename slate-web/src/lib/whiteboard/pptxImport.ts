@@ -7,6 +7,7 @@ import type {
   ShapeStroke,
   FrameObject,
   ShapeType,
+  TableObject,
 } from "./types";
 
 function uid() {
@@ -302,8 +303,11 @@ export async function parsePptxFile(
     const xmlStr = await entry.file.async("string");
     const doc = parser.parseFromString(xmlStr, "application/xml");
 
-    // Load relationships for this slide (to resolve pictures and media)
+    // Load relationships for this slide (to resolve pictures, media, layouts, and notes)
     const relsMap: Record<string, string> = {};
+    let slideLayoutPath: string | null = null;
+    let notesSlidePath: string | null = null;
+
     const relsEntry = findZipEntry(zip, `ppt/slides/_rels/slide${entry.num}.xml.rels`);
     if (relsEntry) {
       try {
@@ -313,12 +317,87 @@ export async function parsePptxFile(
         for (let r = 0; r < relEls.length; r++) {
           const id = relEls[r].getAttribute("Id");
           const target = relEls[r].getAttribute("Target");
+          const type = relEls[r].getAttribute("Type") || "";
           if (id && target) {
-            relsMap[id] = normalizeZipPath(target, "ppt/slides");
+            const normalized = normalizeZipPath(target, "ppt/slides");
+            relsMap[id] = normalized;
+            if (type.includes("slideLayout") || target.includes("slideLayout")) {
+              slideLayoutPath = normalized;
+            } else if (type.includes("notesSlide") || target.includes("notesSlide")) {
+              notesSlidePath = normalized;
+            }
           }
         }
       } catch {
         // Fallback: no rels
+      }
+    }
+
+    // Parse slide template layout placeholders (for text boxes whose position is defined in slideLayout)
+    const layoutPlaceholders: Record<string, { x: number; y: number; w: number; h: number }> = {};
+    if (slideLayoutPath) {
+      const layoutEntry = findZipEntry(zip, slideLayoutPath);
+      if (layoutEntry) {
+        try {
+          const layoutXml = await layoutEntry.async("string");
+          const layoutDoc = parser.parseFromString(layoutXml, "application/xml");
+          const layoutShapes = Array.from(layoutDoc.getElementsByTagName("p:sp"));
+          for (const lSp of layoutShapes) {
+            const ph = lSp.getElementsByTagName("p:ph")[0];
+            const spPr = lSp.getElementsByTagName("p:spPr")[0];
+            if (spPr) {
+              const xfrm = spPr.getElementsByTagName("a:xfrm")[0];
+              const off = xfrm?.getElementsByTagName("a:off")[0];
+              const ext = xfrm?.getElementsByTagName("a:ext")[0];
+              if (off && ext) {
+                const rx = parseEmu(off.getAttribute("x"), 0);
+                const ry = parseEmu(off.getAttribute("y"), 0);
+                const rw = parseEmu(ext.getAttribute("cx"), 0);
+                const rh = parseEmu(ext.getAttribute("cy"), 0);
+                const coords = {
+                  x: OFFSET_X + rx * scaleX,
+                  y: OFFSET_Y + ry * scaleY,
+                  w: Math.max(20, rw * scaleX),
+                  h: Math.max(20, rh * scaleY),
+                };
+                const phType = ph?.getAttribute("type") || "body";
+                const phIdx = ph?.getAttribute("idx");
+                if (phType) layoutPlaceholders[phType] = coords;
+                if (phIdx) layoutPlaceholders[`idx_${phIdx}`] = coords;
+              }
+            }
+          }
+        } catch {
+          // Layout parse fallback
+        }
+      }
+    }
+
+    // Extract speaker notes for this slide if present
+    let speakerNotes: string | null = null;
+    if (notesSlidePath) {
+      const notesEntry = findZipEntry(zip, notesSlidePath);
+      if (notesEntry) {
+        try {
+          const notesXml = await notesEntry.async("string");
+          const notesDoc = parser.parseFromString(notesXml, "application/xml");
+          const notesShapes = Array.from(notesDoc.getElementsByTagName("p:sp"));
+          const notesLines: string[] = [];
+          for (const sp of notesShapes) {
+            const ph = sp.getElementsByTagName("p:ph")[0];
+            const phType = ph ? ph.getAttribute("type") : null;
+            if (!phType || phType === "body") {
+              const textNodes = Array.from(sp.getElementsByTagName("a:t"));
+              const t = textNodes.map((tn) => tn.textContent || "").join("").trim();
+              if (t) notesLines.push(t);
+            }
+          }
+          if (notesLines.length > 0) {
+            speakerNotes = notesLines.join("\n\n");
+          }
+        } catch {
+          // Notes fallback
+        }
       }
     }
 
@@ -347,7 +426,10 @@ export async function parsePptxFile(
       parentBounds?: { x: number; y: number; w: number; h: number; chX: number; chY: number; chW: number; chH: number }
     ) => {
       if (!spPrEl) return null;
-      const xfrm = spPrEl.getElementsByTagName("a:xfrm")[0];
+      let xfrm = spPrEl.getElementsByTagName("a:xfrm")[0] || spPrEl.getElementsByTagName("p:xfrm")[0];
+      if (!xfrm && (spPrEl.tagName === "a:xfrm" || spPrEl.tagName === "p:xfrm" || spPrEl.localName === "xfrm")) {
+        xfrm = spPrEl;
+      }
       if (!xfrm) return null;
       const off = xfrm.getElementsByTagName("a:off")[0];
       const ext = xfrm.getElementsByTagName("a:ext")[0];
@@ -430,7 +512,25 @@ export async function parsePptxFile(
     for (const spEl of spElements) {
       if (isInsideGroup(spEl)) continue;
       const spPr = spEl.getElementsByTagName("p:spPr")[0];
-      const coords = getXfrmCoords(spPr);
+      let coords = getXfrmCoords(spPr);
+      if (!coords) {
+        // Fall back to template placeholder coordinates if defined in slideLayout
+        const ph = spEl.getElementsByTagName("p:ph")[0];
+        if (ph) {
+          const phType = ph.getAttribute("type") || "body";
+          const phIdx = ph.getAttribute("idx");
+          if (phIdx && layoutPlaceholders[`idx_${phIdx}`]) {
+            coords = layoutPlaceholders[`idx_${phIdx}`];
+          } else if (phType && layoutPlaceholders[phType]) {
+            coords = layoutPlaceholders[phType];
+          } else if (phType === "title" || phType === "ctrTitle") {
+            coords = { x: OFFSET_X + 40, y: OFFSET_Y + 40, w: FRAME_W - 80, h: 80 };
+          } else {
+            coords = { x: OFFSET_X + 40, y: OFFSET_Y + 140, w: FRAME_W - 80, h: 400 };
+          }
+        }
+      }
+      if (!coords) continue;
 
       // Check if this shape is actually an image fill (<a:blipFill>)
       const blipFill = spPr?.getElementsByTagName("a:blipFill")[0];
@@ -543,47 +643,133 @@ export async function parsePptxFile(
       }
     }
 
-    // Process Grouped Shapes (<p:grpSp>)
-    const grpSpElements = Array.from(doc.getElementsByTagName("p:grpSp"));
-    for (const grpEl of grpSpElements) {
+    // Process Tables (<a:tbl> inside <p:graphicFrame>)
+    const tablesList: TableObject[] = [];
+    const graphicFrames = Array.from(doc.getElementsByTagName("p:graphicFrame"));
+    for (const gf of graphicFrames) {
+      if (isInsideGroup(gf)) continue;
+      const xfrm = gf.getElementsByTagName("p:xfrm")[0] || gf.getElementsByTagName("a:xfrm")[0];
+      const coords = getXfrmCoords(xfrm);
+      if (!coords) continue;
+
+      const tbl = gf.getElementsByTagName("a:tbl")[0];
+      if (!tbl) continue;
+
+      const trs = Array.from(tbl.getElementsByTagName("a:tr"));
+      if (!trs.length) continue;
+
+      const data: string[][] = [];
+      for (const tr of trs) {
+        const rowCells: string[] = [];
+        const tcs = Array.from(tr.getElementsByTagName("a:tc"));
+        for (const tc of tcs) {
+          const paras = Array.from(tc.getElementsByTagName("a:p"));
+          const cellStr = paras
+            .map((p) => Array.from(p.getElementsByTagName("a:t")).map((t) => t.textContent || "").join(""))
+            .join("\n")
+            .trim();
+          rowCells.push(cellStr);
+        }
+        data.push(rowCells);
+      }
+
+      if (data.length > 0 && data[0].length > 0) {
+        tablesList.push({
+          id: uid(),
+          kind: "table",
+          x: Math.round(coords.x),
+          y: Math.round(coords.y),
+          w: Math.round(coords.w),
+          h: Math.round(coords.h),
+          rows: data.length,
+          cols: Math.max(...data.map((r) => r.length)),
+          data,
+          color: "#2563eb",
+        });
+      }
+    }
+
+    // Process Grouped Shapes (<p:grpSp>) hierarchically with compounded coordinate bounds
+    type ParentGroupBounds = {
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+      chX: number;
+      chY: number;
+      chW: number;
+      chH: number;
+    };
+
+    const processGroupRecursive = async (grpEl: Element, parentBounds?: ParentGroupBounds) => {
       const grpSpPr = grpEl.getElementsByTagName("p:grpSpPr")[0];
       const xfrm = grpSpPr?.getElementsByTagName("a:xfrm")[0];
-      if (!xfrm) continue;
+      if (!xfrm) return;
 
       const off = xfrm.getElementsByTagName("a:off")[0];
       const ext = xfrm.getElementsByTagName("a:ext")[0];
       const chOff = xfrm.getElementsByTagName("a:chOff")[0];
       const chExt = xfrm.getElementsByTagName("a:chExt")[0];
+      if (!off || !ext || !chOff || !chExt) return;
 
-      if (!off || !ext || !chOff || !chExt) continue;
+      const rawOffX = parseEmu(off.getAttribute("x"), 0);
+      const rawOffY = parseEmu(off.getAttribute("y"), 0);
+      const rawExtW = parseEmu(ext.getAttribute("cx"), 0);
+      const rawExtH = parseEmu(ext.getAttribute("cy"), 0);
+      const rawChOffX = parseEmu(chOff.getAttribute("x"), 0);
+      const rawChOffY = parseEmu(chOff.getAttribute("y"), 0);
+      const rawChExtW = parseEmu(chExt.getAttribute("cx"), 1);
+      const rawChExtH = parseEmu(chExt.getAttribute("cy"), 1);
 
-      const parentBounds = {
-        x: OFFSET_X + parseEmu(off.getAttribute("x")) * scaleX,
-        y: OFFSET_Y + parseEmu(off.getAttribute("y")) * scaleY,
-        w: parseEmu(ext.getAttribute("cx")) * scaleX,
-        h: parseEmu(ext.getAttribute("cy")) * scaleY,
-        chX: parseEmu(chOff.getAttribute("x")),
-        chY: parseEmu(chOff.getAttribute("y")),
-        chW: parseEmu(chExt.getAttribute("cx")),
-        chH: parseEmu(chExt.getAttribute("cy")),
-      };
+      let currentBounds: ParentGroupBounds;
+      if (parentBounds) {
+        // Compound coordinates: child group is positioned inside parent group's internal coordinate system
+        const relX = (rawOffX - parentBounds.chX) / (parentBounds.chW || 1);
+        const relY = (rawOffY - parentBounds.chY) / (parentBounds.chH || 1);
+        const relW = rawExtW / (parentBounds.chW || 1);
+        const relH = rawExtH / (parentBounds.chH || 1);
+        currentBounds = {
+          x: parentBounds.x + relX * parentBounds.w,
+          y: parentBounds.y + relY * parentBounds.h,
+          w: relW * parentBounds.w,
+          h: relH * parentBounds.h,
+          chX: rawChOffX,
+          chY: rawChOffY,
+          chW: rawChExtW,
+          chH: rawChExtH,
+        };
+      } else {
+        // Root group: positioned on the slide
+        currentBounds = {
+          x: OFFSET_X + rawOffX * scaleX,
+          y: OFFSET_Y + rawOffY * scaleY,
+          w: rawExtW * scaleX,
+          h: rawExtH * scaleY,
+          chX: rawChOffX,
+          chY: rawChOffY,
+          chW: rawChExtW,
+          chH: rawChExtH,
+        };
+      }
 
-      // Child pictures in group
-      const childPics = Array.from(grpEl.getElementsByTagName("p:pic"));
-      for (const cPic of childPics) {
+      // Direct child pictures in this group (to avoid processing nested groups' pictures with wrong offset)
+      const allPics = Array.from(grpEl.getElementsByTagName("p:pic"));
+      for (const cPic of allPics) {
+        if (cPic.parentElement !== grpEl) continue;
         const cSpPr = cPic.getElementsByTagName("p:spPr")[0];
-        const cCoords = getXfrmCoords(cSpPr, parentBounds);
+        const cCoords = getXfrmCoords(cSpPr, currentBounds);
         if (cCoords) {
           const blip = cPic.getElementsByTagName("a:blip")[0];
           await processBlip(blip, cCoords);
         }
       }
 
-      // Child shapes and text boxes in group
-      const childShapes = Array.from(grpEl.getElementsByTagName("p:sp"));
-      for (const cSp of childShapes) {
+      // Direct child shapes and text in this group
+      const allShapes = Array.from(grpEl.getElementsByTagName("p:sp"));
+      for (const cSp of allShapes) {
+        if (cSp.parentElement !== grpEl) continue;
         const cSpPr = cSp.getElementsByTagName("p:spPr")[0];
-        const cCoords = getXfrmCoords(cSpPr, parentBounds);
+        const cCoords = getXfrmCoords(cSpPr, currentBounds);
         if (!cCoords) continue;
 
         const blipFill = cSpPr?.getElementsByTagName("a:blipFill")[0];
@@ -677,6 +863,21 @@ export async function parsePptxFile(
           totalShapesCount++;
         }
       }
+
+      // Direct child groups processed recursively with compounded bounds
+      const nestedGroups = Array.from(grpEl.getElementsByTagName("p:grpSp"));
+      for (const childGrp of nestedGroups) {
+        if (childGrp.parentElement === grpEl) {
+          await processGroupRecursive(childGrp, currentBounds);
+        }
+      }
+    };
+
+    const grpSpElements = Array.from(doc.getElementsByTagName("p:grpSp"));
+    for (const grpEl of grpSpElements) {
+      if (!isInsideGroup(grpEl)) {
+        await processGroupRecursive(grpEl);
+      }
     }
 
     // Safety fallback: if no text objects or images were detected, extract raw text
@@ -731,10 +932,26 @@ export async function parsePptxFile(
       color: "#f97316",
     };
 
-    // Correct z-order: Frame -> Geometric Shapes -> Embedded Images -> Text
+    if (speakerNotes) {
+      textsList.push({
+        id: uid(),
+        kind: "text",
+        x: OFFSET_X + FRAME_W - 280,
+        y: OFFSET_Y + 20,
+        w: 260,
+        h: 180,
+        text: `📝 Speaker Notes:\n${speakerNotes}`,
+        color: isDarkBg ? "#fef08a" : "#854d0e",
+        fontSize: 14,
+        bg: "#fef9c3",
+      });
+    }
+
+    // Correct z-order: Frame -> Geometric Shapes -> Tables -> Embedded Images -> Text
     const pageObjects: CanvasObject[] = [
       frame,
       ...shapesList,
+      ...tablesList,
       ...imagesList,
       ...textsList,
     ];
@@ -743,6 +960,7 @@ export async function parsePptxFile(
       id: uid(),
       background: isDarkBg ? "dark" : "white",
       objects: pageObjects,
+      notes: speakerNotes || undefined,
     });
   }
 

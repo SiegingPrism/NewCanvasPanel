@@ -171,7 +171,43 @@ interface SyncRetryItem {
   pages: Page[];
   retryCount: number;
 }
-const syncRetryQueue = new Map<string, SyncRetryItem>();
+
+const LS_SYNC_RETRY_QUEUE = "slate_sync_retry_queue";
+
+function loadSyncRetryQueue(): Map<string, SyncRetryItem> {
+  const map = new Map<string, SyncRetryItem>();
+  if (typeof window === "undefined") return map;
+  try {
+    const raw = localStorage.getItem(LS_SYNC_RETRY_QUEUE);
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) {
+        for (const [k, v] of arr) {
+          if (k && v) map.set(k, v);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("[Whiteboard] Failed to load offline sync retry queue:", e);
+  }
+  return map;
+}
+
+function persistSyncRetryQueue(queue: Map<string, SyncRetryItem>) {
+  if (typeof window === "undefined") return;
+  try {
+    if (queue.size === 0) {
+      localStorage.removeItem(LS_SYNC_RETRY_QUEUE);
+    } else {
+      const arr = Array.from(queue.entries());
+      localStorage.setItem(LS_SYNC_RETRY_QUEUE, JSON.stringify(arr));
+    }
+  } catch (e) {
+    console.warn("[Whiteboard] Failed to persist offline sync retry queue:", e);
+  }
+}
+
+const syncRetryQueue = loadSyncRetryQueue();
 let retryTimeout: ReturnType<typeof setTimeout> | null = null;
 
 function flushSyncRetryQueue() {
@@ -186,12 +222,14 @@ function flushSyncRetryQueue() {
     syncBoardToSupabase(item.meta, item.pages)
       .then(() => {
         syncRetryQueue.delete(id);
+        persistSyncRetryQueue(syncRetryQueue);
         if (syncRetryQueue.size === 0) {
           useWhiteboard.getState().setSyncStatus("saved");
         }
       })
       .catch(() => {
         item.retryCount++;
+        persistSyncRetryQueue(syncRetryQueue);
         const delay = Math.min(1000 * Math.pow(2, item.retryCount), 30000);
         if (!retryTimeout) {
           retryTimeout = setTimeout(() => {
@@ -207,6 +245,9 @@ if (typeof window !== "undefined") {
   window.addEventListener("online", () => {
     flushSyncRetryQueue();
   });
+  if (syncRetryQueue.size > 0 && navigator.onLine) {
+    setTimeout(() => flushSyncRetryQueue(), 2000);
+  }
 }
 
 function triggerCloudSync(meta: BoardMeta, pages: Page[]) {
@@ -215,6 +256,7 @@ function triggerCloudSync(meta: BoardMeta, pages: Page[]) {
 
   if (!navigator.onLine) {
     syncRetryQueue.set(meta.id, { meta, pages, retryCount: 0 });
+    persistSyncRetryQueue(syncRetryQueue);
     useWhiteboard.getState().setSyncStatus("offline");
     return;
   }
@@ -226,6 +268,7 @@ function triggerCloudSync(meta: BoardMeta, pages: Page[]) {
     syncBoardToSupabase(meta, pages)
       .then(() => {
         syncRetryQueue.delete(meta.id);
+        persistSyncRetryQueue(syncRetryQueue);
         if (syncRetryQueue.size === 0) {
           useWhiteboard.getState().setSyncStatus("saved");
         }
@@ -233,6 +276,7 @@ function triggerCloudSync(meta: BoardMeta, pages: Page[]) {
       .catch((err) => {
         console.warn("[Whiteboard] Cloud sync failed, queueing retry:", err);
         syncRetryQueue.set(meta.id, { meta, pages, retryCount: 1 });
+        persistSyncRetryQueue(syncRetryQueue);
         useWhiteboard.getState().setSyncStatus("offline");
         if (!retryTimeout) {
           retryTimeout = setTimeout(() => {
@@ -1030,70 +1074,70 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
         const s = get();
         const deletedIds = getDeletedBoardIds();
 
-        // 1. Upload existing local boards to user's Supabase cloud account upon sign-in
-        for (const [id, meta] of Object.entries(s.boards)) {
-          if (deletedIds.has(id)) continue;
-          const bData = s.boardData[id];
-          const pages = bData?.pages || [emptyPage()];
-          syncBoardToSupabase(meta, pages).catch(() => {});
-        }
-
-        // 2. Fetch cloud boards and merge
+        // 1. Fetch cloud boards and merge / detect conflicts first
         const cloudBoards = await fetchBoardsFromSupabase();
-        if (!cloudBoards || !cloudBoards.length) return;
         const mergedBoards = { ...s.boards };
         const mergedBoardData = { ...s.boardData };
         const mergedBoardOrder = [...s.boardOrder];
 
-        for (const cb of cloudBoards) {
-          if (deletedIds.has(cb.id)) {
-            // Board was deleted locally, do not resurrect! Clean up from cloud
-            deleteBoardFromSupabase(cb.id).catch(() => {});
-            continue;
-          }
-          const localMeta = mergedBoards[cb.id];
-          if (!localMeta) {
-            const updatedAt = cb.updated_at ? new Date(cb.updated_at).getTime() : nowMs();
-            const createdAt = cb.created_at ? new Date(cb.created_at).getTime() : nowMs();
-            mergedBoards[cb.id] = {
-              id: cb.id,
-              title: cb.title || "Untitled board",
-              tags: [],
-              folderId: cb.folder_id || null,
-              favorite: Boolean(cb.is_starred),
-              archived: false,
-              createdAt,
-              updatedAt,
-            };
-            const pages = Array.isArray(cb.pages) && cb.pages.length ? cb.pages : [emptyPage()];
-            mergedBoardData[cb.id] = {
-              pages,
-              activePageId: pages[0]?.id || uid(),
-            };
-            if (!mergedBoardOrder.includes(cb.id)) {
-              mergedBoardOrder.push(cb.id);
+        if (cloudBoards && cloudBoards.length > 0) {
+          for (const cb of cloudBoards) {
+            if (deletedIds.has(cb.id)) {
+              deleteBoardFromSupabase(cb.id).catch(() => {});
+              continue;
             }
-          } else if (cb.updated_at && new Date(cb.updated_at).getTime() > localMeta.updatedAt) {
-            // Conflict: Remote board has newer edits than local. Keep local board and save remote as "[Title] (copy)"
-            const remotePages = Array.isArray(cb.pages) && cb.pages.length ? cb.pages : [emptyPage()];
-            const copyId = uid();
-            const copyTitle = `${cb.title || "Untitled board"} (copy)`;
-            mergedBoards[copyId] = {
-              id: copyId,
-              title: copyTitle,
-              tags: [],
-              folderId: cb.folder_id || null,
-              favorite: false,
-              archived: false,
-              createdAt: nowMs(),
-              updatedAt: nowMs(),
-            };
-            mergedBoardData[copyId] = {
-              pages: remotePages,
-              activePageId: remotePages[0]?.id || uid(),
-            };
-            mergedBoardOrder.unshift(copyId);
+            const localMeta = mergedBoards[cb.id];
+            if (!localMeta) {
+              const updatedAt = cb.updated_at ? new Date(cb.updated_at).getTime() : nowMs();
+              const createdAt = cb.created_at ? new Date(cb.created_at).getTime() : nowMs();
+              mergedBoards[cb.id] = {
+                id: cb.id,
+                title: cb.title || "Untitled board",
+                tags: [],
+                folderId: cb.folder_id || null,
+                favorite: Boolean(cb.is_starred),
+                archived: false,
+                createdAt,
+                updatedAt,
+              };
+              const pages = Array.isArray(cb.pages) && cb.pages.length ? cb.pages : [emptyPage()];
+              mergedBoardData[cb.id] = {
+                pages,
+                activePageId: pages[0]?.id || uid(),
+              };
+              if (!mergedBoardOrder.includes(cb.id)) {
+                mergedBoardOrder.push(cb.id);
+              }
+            } else if (cb.updated_at && new Date(cb.updated_at).getTime() > localMeta.updatedAt + 2000) {
+              // Remote board has newer edits than local! Keep both by saving remote as "[Title] (copy)"
+              const remotePages = Array.isArray(cb.pages) && cb.pages.length ? cb.pages : [emptyPage()];
+              const copyId = uid();
+              const copyTitle = `${cb.title || "Untitled board"} (copy)`;
+              mergedBoards[copyId] = {
+                id: copyId,
+                title: copyTitle,
+                tags: [],
+                folderId: cb.folder_id || null,
+                favorite: false,
+                archived: false,
+                createdAt: nowMs(),
+                updatedAt: nowMs(),
+              };
+              mergedBoardData[copyId] = {
+                pages: remotePages,
+                activePageId: remotePages[0]?.id || uid(),
+              };
+              mergedBoardOrder.unshift(copyId);
+            }
           }
+        }
+
+        // 2. Upload local boards to cloud
+        for (const [id, meta] of Object.entries(mergedBoards)) {
+          if (deletedIds.has(id)) continue;
+          const bData = mergedBoardData[id];
+          const pages = bData?.pages || [emptyPage()];
+          syncBoardToSupabase(meta, pages).catch(() => {});
         }
 
         const next: State = {

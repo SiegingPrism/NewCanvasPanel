@@ -75,6 +75,29 @@ export async function syncBoardToSupabase(
       payload.is_public = true;
     }
 
+    // Conflict detection: If the board already exists in cloud and was updated by another device
+    if (meta.updatedAt) {
+      const { data: existing } = await supabase
+        .from("boards")
+        .select("id, title, updated_at")
+        .eq("id", meta.id)
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (existing?.updated_at) {
+        const remoteTime = new Date(existing.updated_at).getTime();
+        // If remote has newer edits than when this local session started/saved (with 3s clock margin)
+        if (remoteTime > meta.updatedAt + 3000) {
+          // Conflict detected! Preserve both versions by creating a "(copy)"
+          const copyId = `${meta.id}-copy-${Date.now().toString(36)}`;
+          const copyTitle = `${meta.title || "Untitled Board"} (copy)`;
+          payload.id = copyId;
+          payload.title = copyTitle;
+          console.warn(`[Sync] Conflict detected for board "${meta.title}". Saving as copy: "${copyTitle}"`);
+        }
+      }
+    }
+
     const { error } = await supabase.from("boards").upsert(payload, { onConflict: "id" });
     if (error) {
       console.warn("Supabase sync board warning:", error.message);

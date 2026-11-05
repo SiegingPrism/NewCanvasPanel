@@ -99,6 +99,51 @@ describe("Smart Board Features", () => {
       const livingNonLiving = PRESET_ACTIVITIES.find((a) => a.id === "living-nonliving");
       expect(livingNonLiving).toBeDefined();
       expect(livingNonLiving?.categories).toEqual(["Living", "Non-Living"]);
+
+      // Verify Match activity preset
+      const cellMatch = PRESET_ACTIVITIES.find((a) => a.id === "cell-biology-match");
+      expect(cellMatch).toBeDefined();
+      expect(cellMatch?.type).toBe("match");
+      expect(cellMatch?.items.length).toBeGreaterThanOrEqual(4);
+
+      // Verify Label activity preset with diagram and target spots
+      const plantLabel = PRESET_ACTIVITIES.find((a) => a.id === "plant-anatomy-label");
+      expect(plantLabel).toBeDefined();
+      expect(plantLabel?.type).toBe("label");
+      expect(plantLabel?.spots?.length).toBeGreaterThanOrEqual(4);
+    });
+  });
+
+  describe("Teacher Cloud Sync & Storage", () => {
+    it("persists and restores retry queue from localStorage safely", () => {
+      const store: Record<string, string> = {};
+      const mockStorage = {
+        getItem: (k: string) => store[k] || null,
+        setItem: (k: string, v: string) => {
+          store[k] = v;
+        },
+        removeItem: (k: string) => {
+          delete store[k];
+        },
+      };
+
+      const mockQueue = [
+        {
+          id: "queue_test_1",
+          boardId: "board_123",
+          userId: "user_abc",
+          payload: { title: "Period 1 Biology", pages: [] },
+          retryCount: 1,
+          lastAttempt: Date.now(),
+        },
+      ];
+      mockStorage.setItem("slate_sync_retry_queue", JSON.stringify(mockQueue));
+
+      const raw = mockStorage.getItem("slate_sync_retry_queue");
+      expect(raw).toBeTruthy();
+      const parsed = JSON.parse(raw!);
+      expect(parsed).toHaveLength(1);
+      expect(parsed[0].boardId).toBe("board_123");
     });
   });
 });

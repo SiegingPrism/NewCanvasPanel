@@ -390,6 +390,7 @@ export type Page = {
   objects: CanvasObject[];
   background: PageBackground;
   title?: string;
+  notes?: string;
 };
 
 export type SyncStatus = "saved" | "saving" | "offline";

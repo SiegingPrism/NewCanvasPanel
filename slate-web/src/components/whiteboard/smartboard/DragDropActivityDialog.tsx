@@ -62,6 +62,13 @@ function playAudioFeedback(type: "correct" | "placed" | "error") {
   } catch {}
 }
 
+export interface ActivitySpot {
+  id: string;
+  label: string;
+  x: number;
+  y: number;
+}
+
 export interface ActivityTemplate {
   id: string;
   title: string;
@@ -69,6 +76,7 @@ export interface ActivityTemplate {
   type: ActivityType;
   instructions: string;
   categories: string[];
+  spots?: ActivitySpot[];
   items: { id: string; text: string; category: string; matchText?: string }[];
 }
 
@@ -178,13 +186,13 @@ export const PRESET_ACTIVITIES: ActivityTemplate[] = [
     subject: "Biology · Grade 6-10",
     type: "match",
     instructions: "Match each cell organelle to its correct biological function.",
-    categories: ["Term", "Function"],
+    categories: ["Mitochondria", "Ribosome", "Nucleus", "Chloroplast", "Cell Membrane"],
     items: [
-      { id: "cbm-1", text: "Mitochondria", category: "Powerhouse of the cell (produces ATP)" },
-      { id: "cbm-2", text: "Ribosome", category: "Site of protein synthesis" },
-      { id: "cbm-3", text: "Nucleus", category: "Stores genetic DNA & directs cell activities" },
-      { id: "cbm-4", text: "Chloroplast", category: "Captures sunlight for photosynthesis in plants" },
-      { id: "cbm-5", text: "Cell Membrane", category: "Regulates entry and exit of substances" },
+      { id: "cbm-1", text: "Powerhouse of the cell (produces ATP)", category: "Mitochondria", matchText: "Mitochondria" },
+      { id: "cbm-2", text: "Site of protein synthesis", category: "Ribosome", matchText: "Ribosome" },
+      { id: "cbm-3", text: "Stores genetic DNA & directs cell activities", category: "Nucleus", matchText: "Nucleus" },
+      { id: "cbm-4", text: "Captures sunlight for photosynthesis in plants", category: "Chloroplast", matchText: "Chloroplast" },
+      { id: "cbm-5", text: "Regulates entry and exit of substances", category: "Cell Membrane", matchText: "Cell Membrane" },
     ],
   },
   // 7. LABEL: Plant Anatomy Targets
@@ -193,13 +201,19 @@ export const PRESET_ACTIVITIES: ActivityTemplate[] = [
     title: "Plant Anatomy: Label the Structures",
     subject: "Botany · Grade 4-9",
     type: "label",
-    instructions: "Drag each anatomical label onto the corresponding plant structure target.",
-    categories: ["Plant Structure"],
+    instructions: "Drag each anatomical label onto the corresponding target hotspot on the diagram.",
+    categories: ["Flower", "Leaf", "Stem", "Root System"],
+    spots: [
+      { id: "pal-spot-1", label: "Flower", x: 50, y: 16 },
+      { id: "pal-spot-2", label: "Leaf", x: 26, y: 44 },
+      { id: "pal-spot-3", label: "Stem", x: 54, y: 55 },
+      { id: "pal-spot-4", label: "Root System", x: 50, y: 84 },
+    ],
     items: [
-      { id: "pal-1", text: "Flower", category: "Reproductive organ (petals & pollination)" },
-      { id: "pal-2", text: "Leaf", category: "Main site of photosynthesis & gas exchange" },
-      { id: "pal-3", text: "Stem", category: "Supports plant and transports water/nutrients" },
-      { id: "pal-4", text: "Root System", category: "Anchors plant and absorbs water from soil" },
+      { id: "pal-1", text: "Flower", category: "Flower" },
+      { id: "pal-2", text: "Leaf", category: "Leaf" },
+      { id: "pal-3", text: "Stem", category: "Stem" },
+      { id: "pal-4", text: "Root System", category: "Root System" },
     ],
   },
 ];
@@ -551,93 +565,260 @@ export function DragDropActivityDialog({
               </p>
             </div>
 
-            {/* BUCKET / TARGET DROP COLUMNS */}
-            <div
-              className={`grid gap-4 my-2 flex-1 min-h-[240px] ${
-                currentActivity.categories.length === 2
-                  ? "grid-cols-2"
-                  : currentActivity.categories.length === 3
-                  ? "grid-cols-3"
-                  : "grid-cols-4"
-              }`}
-            >
-              {currentActivity.categories.map((cat, idx) => {
-                const placedItemIds = Object.entries(placements)
-                  .filter(([_, bucket]) => bucket === cat)
-                  .map(([itemId]) => itemId);
+            {/* ACTIVITY PLAY AREA BY TYPE */}
 
-                const colThemes = [
-                  "border-blue-500/40 bg-blue-950/20 text-blue-300",
-                  "border-emerald-500/40 bg-emerald-950/20 text-emerald-300",
-                  "border-amber-500/40 bg-amber-950/20 text-amber-300",
-                  "border-purple-500/40 bg-purple-950/20 text-purple-300",
-                ];
-                const theme = colThemes[idx % colThemes.length];
+            {/* 1. SORT: BUCKET / CATEGORY COLUMNS */}
+            {currentActivity.type === "sort" && (
+              <div
+                className={`grid gap-4 my-2 flex-1 min-h-[240px] ${
+                  currentActivity.categories.length === 2
+                    ? "grid-cols-2"
+                    : currentActivity.categories.length === 3
+                    ? "grid-cols-3"
+                    : "grid-cols-4"
+                }`}
+              >
+                {currentActivity.categories.map((cat, idx) => {
+                  const placedItemIds = Object.entries(placements)
+                    .filter(([_, bucket]) => bucket === cat)
+                    .map(([itemId]) => itemId);
 
-                return (
-                  <div
-                    key={cat}
-                    ref={(el) => {
-                      bucketRefs.current[cat] = el;
-                    }}
-                    onClick={() => handleBucketClick(cat)}
-                    className={`rounded-2xl border-2 p-4 flex flex-col transition-all cursor-pointer ${theme} ${
-                      selectedItemId
-                        ? "ring-2 ring-indigo-400 ring-offset-2 ring-offset-slate-900 border-indigo-500/80 shadow-lg"
-                        : "hover:border-slate-500"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-white/10">
-                      <span className="font-black text-lg text-white">{cat}</span>
-                      <span className="text-xs px-2.5 py-0.5 rounded-full bg-white/10 font-bold text-slate-300">
-                        {placedItemIds.length}
-                      </span>
+                  const colThemes = [
+                    "border-blue-500/40 bg-blue-950/20 text-blue-300",
+                    "border-emerald-500/40 bg-emerald-950/20 text-emerald-300",
+                    "border-amber-500/40 bg-amber-950/20 text-amber-300",
+                    "border-purple-500/40 bg-purple-950/20 text-purple-300",
+                  ];
+                  const theme = colThemes[idx % colThemes.length];
+
+                  return (
+                    <div
+                      key={cat}
+                      ref={(el) => {
+                        bucketRefs.current[cat] = el;
+                      }}
+                      onClick={() => handleBucketClick(cat)}
+                      className={`rounded-2xl border-2 p-4 flex flex-col transition-all cursor-pointer ${theme} ${
+                        selectedItemId
+                          ? "ring-2 ring-indigo-400 ring-offset-2 ring-offset-slate-900 border-indigo-500/80 shadow-lg"
+                          : "hover:border-slate-500"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-white/10">
+                        <span className="font-black text-lg text-white">{cat}</span>
+                        <span className="text-xs px-2.5 py-0.5 rounded-full bg-white/10 font-bold text-slate-300">
+                          {placedItemIds.length}
+                        </span>
+                      </div>
+
+                      {/* Bucket Items List */}
+                      <div className="space-y-2 flex-1">
+                        {placedItemIds.map((itemId) => {
+                          const item = itemMap.get(itemId);
+                          if (!item) return null;
+                          const isCorrect = checked && item.category === cat;
+                          const isIncorrect = checked && item.category !== cat;
+
+                          return (
+                            <div
+                              key={itemId}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                returnCardToBank(itemId);
+                              }}
+                              className={`p-3 rounded-xl font-bold text-base flex items-center justify-between shadow-md transition-all cursor-pointer min-h-[52px] ${
+                                isCorrect
+                                  ? "bg-emerald-600 text-white border-2 border-emerald-400"
+                                  : isIncorrect
+                                  ? "bg-red-900/80 text-white border-2 border-red-500 animate-shake"
+                                  : "bg-slate-800 text-white border border-slate-700 hover:bg-slate-700"
+                              }`}
+                              title="Tap to return to card bank"
+                            >
+                              <span>{item.text}</span>
+                              {checked && (
+                                <span className="text-sm font-black">
+                                  {isCorrect ? "✓" : "✗"}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+
+                        {placedItemIds.length === 0 && (
+                          <div className="h-full flex flex-col items-center justify-center text-slate-500 border border-dashed border-slate-800 rounded-xl p-4 text-center text-sm font-semibold">
+                            Drop card here or tap to place
+                          </div>
+                        )}
+                      </div>
                     </div>
+                  );
+                })}
+              </div>
+            )}
 
-                    {/* Bucket Items List */}
-                    <div className="space-y-2 flex-1">
-                      {placedItemIds.map((itemId) => {
-                        const item = itemMap.get(itemId);
-                        if (!item) return null;
-                        const isCorrect = checked && item.category === cat;
-                        const isIncorrect = checked && item.category !== cat;
+            {/* 2. MATCH: PAIRING ROWS SCREEN */}
+            {currentActivity.type === "match" && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 my-2 flex-1 min-h-[260px] overflow-y-auto pr-1">
+                {currentActivity.categories.map((promptTerm, idx) => {
+                  const placedItemId = Object.entries(placements).find(([_, target]) => target === promptTerm)?.[0];
+                  const placedItem = placedItemId ? itemMap.get(placedItemId) : null;
+                  const isCorrect = checked && placedItem?.category === promptTerm;
+                  const isIncorrect = checked && placedItem && placedItem.category !== promptTerm;
 
-                        return (
+                  return (
+                    <div
+                      key={promptTerm}
+                      ref={(el) => {
+                        bucketRefs.current[promptTerm] = el;
+                      }}
+                      onClick={() => handleBucketClick(promptTerm)}
+                      className={`p-3.5 rounded-2xl border-2 flex items-center justify-between gap-3 transition-all cursor-pointer min-h-[76px] ${
+                        isCorrect
+                          ? "border-emerald-500 bg-emerald-950/40 text-emerald-100"
+                          : isIncorrect
+                          ? "border-rose-500 bg-rose-950/40 text-rose-100"
+                          : placedItem
+                          ? "border-indigo-500 bg-indigo-950/30 text-white"
+                          : selectedItemId
+                          ? "border-indigo-400 border-dashed bg-slate-800/80 text-slate-200 ring-2 ring-indigo-400/40"
+                          : "border-slate-800 bg-slate-900/60 text-slate-300 hover:border-slate-600"
+                      }`}
+                    >
+                      {/* Left: Term Prompt */}
+                      <div className="font-extrabold text-base text-white flex items-center gap-2.5 shrink-0 max-w-[40%]">
+                        <span className="w-6 h-6 rounded-lg bg-indigo-600/30 text-indigo-400 flex items-center justify-center text-xs font-black">
+                          {idx + 1}
+                        </span>
+                        <span className="leading-snug">{promptTerm}</span>
+                      </div>
+
+                      {/* Right: Paired Match Slot */}
+                      <div className="flex-1">
+                        {placedItem ? (
                           <div
-                            key={itemId}
                             onClick={(e) => {
                               e.stopPropagation();
-                              returnCardToBank(itemId);
+                              returnCardToBank(placedItemId!);
                             }}
-                            className={`p-3 rounded-xl font-bold text-base flex items-center justify-between shadow-md transition-all cursor-pointer min-h-[52px] ${
+                            className={`p-2.5 rounded-xl text-xs font-bold flex items-center justify-between shadow-xs transition ${
                               isCorrect
-                                ? "bg-emerald-600 text-white border-2 border-emerald-400"
+                                ? "bg-emerald-600 text-white"
                                 : isIncorrect
-                                ? "bg-red-900/80 text-white border-2 border-red-500 animate-shake"
+                                ? "bg-rose-800 text-white"
                                 : "bg-slate-800 text-white border border-slate-700 hover:bg-slate-700"
                             }`}
-                            title="Tap to return to card bank"
+                            title="Tap to unpair"
                           >
-                            <span>{item.text}</span>
+                            <span className="leading-snug">{placedItem.text}</span>
                             {checked && (
-                              <span className="text-sm font-black">
+                              <span className="font-black text-sm ml-2">
                                 {isCorrect ? "✓" : "✗"}
                               </span>
                             )}
                           </div>
-                        );
-                      })}
-
-                      {placedItemIds.length === 0 && (
-                        <div className="h-full flex flex-col items-center justify-center text-slate-500 border border-dashed border-slate-800 rounded-xl p-4 text-center text-sm font-semibold">
-                          Drop card here or tap to place
-                        </div>
-                      )}
+                        ) : (
+                          <div className="p-2.5 rounded-xl border-2 border-dashed border-slate-800 text-[11px] text-slate-500 text-center font-medium">
+                            Drop definition card here
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* 3. LABEL: INTERACTIVE DIAGRAM WITH HOTSPOT SPOTS */}
+            {currentActivity.type === "label" && (
+              <div className="relative flex-1 min-h-[300px] max-h-[420px] my-2 rounded-2xl border border-slate-800 bg-slate-950/70 overflow-hidden flex items-center justify-center select-none shadow-inner">
+                {/* Embedded Scientific Illustration */}
+                <svg viewBox="0 0 600 380" className="w-full h-full max-h-[380px] object-contain pointer-events-none">
+                  {/* Ground Layer */}
+                  <path d="M 40 300 Q 300 295 560 300 L 560 380 L 40 380 Z" fill="#2d1b0f" opacity="0.75" />
+                  <line x1="40" y1="300" x2="560" y2="300" stroke="#92400e" strokeWidth="3" strokeDasharray="8 6" />
+
+                  {/* Roots */}
+                  <path d="M 300 300 C 290 330 250 350 210 365" stroke="#b45309" strokeWidth="5" strokeLinecap="round" fill="none" />
+                  <path d="M 300 300 C 310 335 350 355 390 370" stroke="#b45309" strokeWidth="5" strokeLinecap="round" fill="none" />
+                  <path d="M 300 300 C 295 330 305 355 300 375" stroke="#d97706" strokeWidth="6" strokeLinecap="round" fill="none" />
+                  <path d="M 260 325 C 230 335 200 340 180 345" stroke="#92400e" strokeWidth="3" strokeLinecap="round" fill="none" />
+                  <path d="M 330 330 C 360 340 390 345 420 350" stroke="#92400e" strokeWidth="3" strokeLinecap="round" fill="none" />
+
+                  {/* Main Stem */}
+                  <path d="M 300 300 C 303 220 297 150 300 85" stroke="#16a34a" strokeWidth="12" strokeLinecap="round" fill="none" />
+
+                  {/* Foliage / Leaves */}
+                  <path d="M 300 210 C 230 200 160 175 130 145 C 185 135 255 160 300 190 Z" fill="#22c55e" opacity="0.9" stroke="#15803d" strokeWidth="2.5" />
+                  <path d="M 300 200 C 235 180 180 165 130 145" stroke="#15803d" strokeWidth="2.5" fill="none" />
+
+                  <path d="M 300 165 C 370 155 440 130 470 100 C 415 90 345 115 300 145 Z" fill="#22c55e" opacity="0.9" stroke="#15803d" strokeWidth="2.5" />
+                  <path d="M 300 155 C 365 135 420 120 470 100" stroke="#15803d" strokeWidth="2.5" fill="none" />
+
+                  {/* Flower Petals & Stamen */}
+                  <circle cx="300" cy="55" r="16" fill="#facc15" stroke="#ca8a04" strokeWidth="3" />
+                  <circle cx="300" cy="22" r="18" fill="#ec4899" opacity="0.9" />
+                  <circle cx="300" cy="88" r="18" fill="#ec4899" opacity="0.9" />
+                  <circle cx="267" cy="55" r="18" fill="#ec4899" opacity="0.9" />
+                  <circle cx="333" cy="55" r="18" fill="#ec4899" opacity="0.9" />
+                  <circle cx="276" cy="31" r="18" fill="#ec4899" opacity="0.9" />
+                  <circle cx="324" cy="31" r="18" fill="#ec4899" opacity="0.9" />
+                  <circle cx="276" cy="79" r="18" fill="#ec4899" opacity="0.9" />
+                  <circle cx="324" cy="79" r="18" fill="#ec4899" opacity="0.9" />
+                </svg>
+
+                {/* Hotspot Target Pins Overlay */}
+                {(currentActivity.spots || [
+                  { id: "pal-spot-1", label: "Flower", x: 50, y: 16 },
+                  { id: "pal-spot-2", label: "Leaf", x: 26, y: 44 },
+                  { id: "pal-spot-3", label: "Stem", x: 54, y: 55 },
+                  { id: "pal-spot-4", label: "Root System", x: 50, y: 84 },
+                ]).map((spot) => {
+                  const placedItemId = Object.entries(placements).find(([_, target]) => target === spot.label)?.[0];
+                  const placedItem = placedItemId ? itemMap.get(placedItemId) : null;
+                  const isCorrect = checked && placedItem?.category === spot.label;
+                  const isIncorrect = checked && placedItem && placedItem.category !== spot.label;
+
+                  return (
+                    <div
+                      key={spot.id}
+                      ref={(el) => {
+                        bucketRefs.current[spot.label] = el;
+                      }}
+                      onClick={() => handleBucketClick(spot.label)}
+                      style={{
+                        left: `${spot.x}%`,
+                        top: `${spot.y}%`,
+                        transform: "translate(-50%, -50%)",
+                      }}
+                      className={`absolute cursor-pointer flex flex-col items-center group transition-all z-10 ${
+                        selectedItemId ? "animate-pulse" : ""
+                      }`}
+                    >
+                      <div
+                        className={`px-3.5 py-1.5 rounded-full border-2 text-xs font-black shadow-2xl flex items-center gap-1.5 backdrop-blur-md transition-all ${
+                          isCorrect
+                            ? "bg-emerald-600 border-emerald-400 text-white scale-110"
+                            : isIncorrect
+                            ? "bg-rose-600 border-rose-400 text-white scale-110 animate-shake"
+                            : placedItem
+                            ? "bg-indigo-600 border-indigo-400 text-white"
+                            : selectedItemId
+                            ? "bg-amber-500 border-amber-300 text-slate-950 ring-4 ring-amber-400/50"
+                            : "bg-slate-900/90 border-slate-600 text-slate-200 hover:border-indigo-400 hover:scale-105"
+                        }`}
+                      >
+                        <span className="w-2 h-2 rounded-full bg-current animate-ping" />
+                        <span>{placedItem ? placedItem.text : `Target: ${spot.label}`}</span>
+                        {checked && placedItem && (
+                          <span className="font-extrabold ml-1">{isCorrect ? "✓" : "✗"}</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             {/* UNPLACED CARDS BANK */}
             <div className="mt-3 pt-3 border-t border-slate-800">
