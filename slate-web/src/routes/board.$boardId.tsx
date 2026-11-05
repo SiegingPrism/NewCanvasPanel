@@ -95,6 +95,7 @@ function BoardPage() {
     cutSelected,
     paste,
     setSelected,
+    pushHistory,
   } = useWhiteboard();
 
   // Global Keyboard and Presenter Clicker Shortcuts
@@ -156,6 +157,7 @@ function BoardPage() {
       if (isCtrlOrCmd && (e.key === "d" || e.key === "D")) {
         e.preventDefault();
         duplicateSelected();
+        pushHistory();
         return;
       }
 
@@ -204,6 +206,7 @@ function BoardPage() {
         toast("Pen color: Green");
       } else if (e.key === "Delete" || e.key === "Backspace") {
         deleteSelected();
+        pushHistory();
       } else if (e.key === "+" || e.key === "=") {
         e.preventDefault();
         window.dispatchEvent(new CustomEvent("slate:zoom-in"));
@@ -263,6 +266,7 @@ function BoardPage() {
     setCamera,
     deleteSelected,
     duplicateSelected,
+    pushHistory,
     copySelected,
     cutSelected,
     paste,

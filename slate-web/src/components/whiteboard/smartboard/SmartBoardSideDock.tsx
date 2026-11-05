@@ -626,22 +626,13 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
               aria-label={`${c.name} Pen`}
               title={`${c.name} Pen (one tap)`}
               className={cn(
-                "h-8 w-8 rounded-full border border-black/20 dark:border-white/30 transition-colors active:scale-95 flex items-center justify-center shrink-0 cursor-pointer shadow-xs box-border",
+                "h-8 w-8 rounded-full border border-black/20 dark:border-white/30 transition-all active:scale-90 shrink-0 cursor-pointer shadow-xs box-border",
                 isActive
                   ? "ring-2 ring-primary ring-offset-1 ring-offset-background"
                   : "hover:brightness-110 opacity-90 hover:opacity-100"
               )}
               style={{ backgroundColor: c.value }}
-            >
-              {isActive && (
-                <Check
-                  className={cn(
-                    "h-3.5 w-3.5 stroke-[3] drop-shadow-xs",
-                    c.isLight ? "text-slate-900" : "text-white"
-                  )}
-                />
-              )}
-            </button>
+            />
           );
         })}
       </div>
