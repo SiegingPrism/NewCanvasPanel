@@ -392,6 +392,14 @@ export type Page = {
   title?: string;
 };
 
+export type SyncStatus = "saved" | "saving" | "offline";
+
+export type ZoneToolSetting = {
+  tool: ToolId;
+  color: string;
+  size: number;
+};
+
 export type WhiteboardState = {
   pages: Page[];
   activePageId: string;
@@ -413,4 +421,6 @@ export type WhiteboardState = {
   reachabilityOffset: number;
   splitBoardZones: number;
   boardDockSide: "both" | "left" | "right";
+  syncStatus: SyncStatus;
+  zoneSettings: Record<number, ZoneToolSetting>;
 };

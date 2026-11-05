@@ -127,6 +127,7 @@ function Dashboard() {
     setBoardFolder,
     createFolder,
     syncWithCloud,
+    simpleMode,
   } = useWhiteboard();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -609,22 +610,24 @@ function Dashboard() {
             </button>
 
             {/* AI Lesson Builder */}
-            <button
-              type="button"
-              onClick={() => setAiLessonBuilderOpen(true)}
-              className="group relative flex flex-col justify-between rounded-2xl border border-indigo-500/40 bg-gradient-to-br from-indigo-950/20 to-purple-950/20 p-3 sm:p-3.5 text-left shadow-2xs hover:border-indigo-500/80 transition cursor-pointer active:scale-[0.99]"
-            >
-              <span className="absolute top-3 right-3 rounded bg-indigo-600 text-white px-1.5 py-0.5 text-[9px] font-extrabold tracking-wide uppercase">
-                5-8 Pages
-              </span>
-              <div className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-500/20 text-indigo-400 transition group-hover:scale-105">
-                <Sparkles className="h-5 w-5 text-amber-300" />
-              </div>
-              <div className="mt-2.5">
-                <div className="text-xs sm:text-sm font-bold text-foreground">AI Lesson Builder</div>
-                <div className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 leading-snug">Type a topic to get ready whiteboard pages</div>
-              </div>
-            </button>
+            {!simpleMode && (
+              <button
+                type="button"
+                onClick={() => setAiLessonBuilderOpen(true)}
+                className="group relative flex flex-col justify-between rounded-2xl border border-indigo-500/40 bg-gradient-to-br from-indigo-950/20 to-purple-950/20 p-3 sm:p-3.5 text-left shadow-2xs hover:border-indigo-500/80 transition cursor-pointer active:scale-[0.99]"
+              >
+                <span className="absolute top-3 right-3 rounded bg-indigo-600 text-white px-1.5 py-0.5 text-[9px] font-extrabold tracking-wide uppercase">
+                  5-8 Pages
+                </span>
+                <div className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-500/20 text-indigo-400 transition group-hover:scale-105">
+                  <Sparkles className="h-5 w-5 text-amber-300" />
+                </div>
+                <div className="mt-2.5">
+                  <div className="text-xs sm:text-sm font-bold text-foreground">AI Lesson Builder</div>
+                  <div className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 leading-snug">Type a topic to get ready whiteboard pages</div>
+                </div>
+              </button>
+            )}
 
             {/* AI-Assisted */}
             <button

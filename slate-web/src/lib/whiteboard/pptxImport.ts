@@ -22,7 +22,7 @@ function decodeXml(str: string): string {
     .replace(/&apos;/g, "'");
 }
 
-function getMimeType(path: string): string {
+function getMimeType(path: string): string | null {
   const ext = path.split(".").pop()?.toLowerCase();
   switch (ext) {
     case "png":
@@ -38,9 +38,25 @@ function getMimeType(path: string): string {
       return "image/webp";
     case "bmp":
       return "image/bmp";
+    case "emf":
+    case "wmf":
+    case "bin":
+    case "tiff":
+    case "tif":
+      return null; // Unsupported format in browser canvas
     default:
-      return "image/png";
+      return null;
   }
+}
+
+function isInsideGroup(el: Element): boolean {
+  let cur = el.parentElement;
+  while (cur) {
+    const tag = (cur.localName || cur.tagName).toLowerCase();
+    if (tag === "grpsp" || tag === "p:grpsp") return true;
+    cur = cur.parentElement;
+  }
+  return false;
 }
 
 function parseEmu(val: string | null | undefined, def = 0): number {
@@ -152,6 +168,7 @@ export type PptxImportResult = {
   totalImages: number;
   totalShapes: number;
   totalTextBlocks: number;
+  unsupportedImages: number;
 };
 
 export async function parsePptxFile(
@@ -169,9 +186,31 @@ export async function parsePptxFile(
 
   const parser = await getXmlParser();
 
-  // 1. Get slide dimensions from ppt/presentation.xml (EMU units)
+  // 1. Get slide dimensions and canonical slide order from ppt/presentation.xml and relationships
   let slideW_emu = 12192000; // default 16:9 (10in)
   let slideH_emu = 6858000; // default 16:9 (5.625in)
+  const orderedSlidePaths: string[] = [];
+
+  // Read ppt/_rels/presentation.xml.rels to resolve slide relationship IDs
+  const presRelsMap: Record<string, string> = {};
+  const presRelsEntry = findZipEntry(zip, "ppt/_rels/presentation.xml.rels");
+  if (presRelsEntry) {
+    try {
+      const presRelsXml = await presRelsEntry.async("string");
+      const relsDoc = parser.parseFromString(presRelsXml, "application/xml");
+      const relEls = relsDoc.getElementsByTagName("Relationship");
+      for (let r = 0; r < relEls.length; r++) {
+        const id = relEls[r].getAttribute("Id");
+        const target = relEls[r].getAttribute("Target");
+        if (id && target) {
+          presRelsMap[id] = normalizeZipPath(target, "ppt");
+        }
+      }
+    } catch {
+      // Fallback: no pres rels
+    }
+  }
+
   const presEntry = findZipEntry(zip, "ppt/presentation.xml");
   if (presEntry) {
     try {
@@ -184,6 +223,18 @@ export async function parsePptxFile(
         if (cx > 0 && cy > 0) {
           slideW_emu = cx;
           slideH_emu = cy;
+        }
+      }
+
+      // Read slides in canonical presentation order from <p:sldIdLst>
+      const sldIdLst = presDoc.getElementsByTagName("p:sldIdLst")[0];
+      if (sldIdLst) {
+        const sldIds = Array.from(sldIdLst.getElementsByTagName("p:sldId"));
+        for (const sld of sldIds) {
+          const rId = sld.getAttribute("r:id") || sld.getAttribute("id");
+          if (rId && presRelsMap[rId]) {
+            orderedSlidePaths.push(presRelsMap[rId]);
+          }
         }
       }
     } catch {
@@ -199,20 +250,39 @@ export async function parsePptxFile(
   const scaleX = FRAME_W / slideW_emu;
   const scaleY = FRAME_H / slideH_emu;
 
-  // 2. Discover and sort all slide XML files
+  // 2. Discover and sort slide XML files in presentation order
   const slideEntries: { name: string; num: number; file: JSZip.JSZipObject }[] = [];
-  zip.forEach((relativePath, zipEntry) => {
-    const match = relativePath.match(/^ppt\/slides\/slide([0-9]+)\.xml$/i);
-    if (match && !zipEntry.dir) {
-      slideEntries.push({
-        name: relativePath,
-        num: parseInt(match[1], 10),
-        file: zipEntry,
-      });
+  if (orderedSlidePaths.length > 0) {
+    for (let i = 0; i < orderedSlidePaths.length; i++) {
+      const sPath = orderedSlidePaths[i];
+      const zFile = findZipEntry(zip, sPath);
+      if (zFile) {
+        const match = sPath.match(/slide([0-9]+)\.xml$/i);
+        const num = match ? parseInt(match[1], 10) : i + 1;
+        slideEntries.push({
+          name: sPath,
+          num,
+          file: zFile,
+        });
+      }
     }
-  });
+  }
 
-  slideEntries.sort((a, b) => a.num - b.num);
+  // Fallback: if sldIdLst was missing or empty, discover by filename pattern
+  if (slideEntries.length === 0) {
+    zip.forEach((relativePath, zipEntry) => {
+      const match = relativePath.match(/^ppt\/slides\/slide([0-9]+)\.xml$/i);
+      if (match && !zipEntry.dir) {
+        slideEntries.push({
+          name: relativePath,
+          num: parseInt(match[1], 10),
+          file: zipEntry,
+        });
+      }
+    });
+    slideEntries.sort((a, b) => a.num - b.num);
+  }
+
   const totalSlides = slideEntries.length;
   if (totalSlides === 0) {
     throw new Error("No presentation slides found in this PowerPoint file.");
@@ -221,6 +291,7 @@ export async function parsePptxFile(
   let totalImagesCount = 0;
   let totalShapesCount = 0;
   let totalTextCount = 0;
+  let unsupportedImagesCount = 0;
   const newPages: Page[] = [];
 
   // 3. Process each slide
@@ -316,12 +387,17 @@ export async function parsePptxFile(
       const targetPath = relsMap[rId];
       if (!targetPath) return;
 
+      const mime = getMimeType(targetPath);
+      if (!mime) {
+        unsupportedImagesCount++;
+        return;
+      }
+
       const imgEntry = findZipEntry(zip, targetPath);
       if (!imgEntry) return;
 
       try {
         const base64 = await imgEntry.async("base64");
-        const mime = getMimeType(targetPath);
         imagesList.push({
           id: uid(),
           kind: "image",
@@ -337,9 +413,10 @@ export async function parsePptxFile(
       }
     };
 
-    // Process all Pictures (<p:pic>)
+    // Process all Pictures (<p:pic>) - Skip those inside <p:grpSp>
     const picElements = Array.from(doc.getElementsByTagName("p:pic"));
     for (const picEl of picElements) {
+      if (isInsideGroup(picEl)) continue;
       const spPr = picEl.getElementsByTagName("p:spPr")[0];
       const coords = getXfrmCoords(spPr);
       if (!coords) continue;
@@ -348,9 +425,10 @@ export async function parsePptxFile(
       await processBlip(blip, coords);
     }
 
-    // Process all Shapes and Text Boxes (<p:sp>)
+    // Process all Shapes and Text Boxes (<p:sp>) - Skip those inside <p:grpSp>
     const spElements = Array.from(doc.getElementsByTagName("p:sp"));
     for (const spEl of spElements) {
+      if (isInsideGroup(spEl)) continue;
       const spPr = spEl.getElementsByTagName("p:spPr")[0];
       const coords = getXfrmCoords(spPr);
 
@@ -500,6 +578,105 @@ export async function parsePptxFile(
           await processBlip(blip, cCoords);
         }
       }
+
+      // Child shapes and text boxes in group
+      const childShapes = Array.from(grpEl.getElementsByTagName("p:sp"));
+      for (const cSp of childShapes) {
+        const cSpPr = cSp.getElementsByTagName("p:spPr")[0];
+        const cCoords = getXfrmCoords(cSpPr, parentBounds);
+        if (!cCoords) continue;
+
+        const blipFill = cSpPr?.getElementsByTagName("a:blipFill")[0];
+        if (blipFill) {
+          const blip = blipFill.getElementsByTagName("a:blip")[0];
+          if (blip) {
+            await processBlip(blip, cCoords);
+            continue;
+          }
+        }
+
+        const txBody = cSp.getElementsByTagName("p:txBody")[0];
+        const paragraphs = txBody ? Array.from(txBody.getElementsByTagName("a:p")) : [];
+        const textLines: string[] = [];
+        let totalFontSize = 0;
+        let fontRunsCount = 0;
+        let detectedTextColor: string | null = null;
+
+        for (const p of paragraphs) {
+          const runs = Array.from(p.getElementsByTagName("a:r"));
+          let pText = "";
+          for (const r of runs) {
+            const tNode = r.getElementsByTagName("a:t")[0];
+            if (tNode && tNode.textContent) {
+              pText += tNode.textContent;
+            }
+            const rPr = r.getElementsByTagName("a:rPr")[0];
+            if (rPr) {
+              const sz = rPr.getAttribute("sz");
+              if (sz) {
+                const pt = parseInt(sz, 10) / 100;
+                if (pt > 0) {
+                  totalFontSize += pt * 1.333;
+                  fontRunsCount++;
+                }
+              }
+              if (!detectedTextColor) {
+                detectedTextColor = parseColor(rPr);
+              }
+            }
+          }
+          if (!runs.length) {
+            const directT = p.getElementsByTagName("a:t")[0];
+            if (directT && directT.textContent) {
+              pText = directT.textContent;
+            }
+          }
+          if (pText.trim()) {
+            textLines.push(pText.trim());
+          }
+        }
+
+        const fullText = textLines.join("\n");
+        const shapeBg = parseColor(cSpPr);
+
+        if (fullText) {
+          const calculatedFontSize =
+            fontRunsCount > 0 ? Math.round(totalFontSize / fontRunsCount) : textLines.length === 1 ? 24 : 18;
+          const fontSizePx = Math.min(48, Math.max(14, calculatedFontSize));
+          const textColor = detectedTextColor || (isDarkBg ? "#f8fafc" : "#0f172a");
+
+          textsList.push({
+            id: uid(),
+            kind: "text",
+            x: Math.round(cCoords.x),
+            y: Math.round(cCoords.y),
+            w: Math.round(cCoords.w),
+            h: Math.round(cCoords.h),
+            text: fullText,
+            color: textColor,
+            fontSize: fontSizePx,
+            bg: shapeBg || undefined,
+          });
+          totalTextCount++;
+        } else if (shapeBg) {
+          const prstGeom = cSpPr?.getElementsByTagName("a:prstGeom")[0];
+          const prst = prstGeom?.getAttribute("prst");
+          const mapped = mapShapeType(prst);
+
+          shapesList.push({
+            id: uid(),
+            kind: "shape",
+            shape: mapped,
+            x: Math.round(cCoords.x),
+            y: Math.round(cCoords.y),
+            w: Math.round(cCoords.w),
+            h: Math.round(cCoords.h),
+            color: shapeBg,
+            size: 3,
+          });
+          totalShapesCount++;
+        }
+      }
     }
 
     // Safety fallback: if no text objects or images were detected, extract raw text
@@ -575,5 +752,6 @@ export async function parsePptxFile(
     totalImages: totalImagesCount,
     totalShapes: totalShapesCount,
     totalTextBlocks: totalTextCount,
+    unsupportedImages: unsupportedImagesCount,
   };
 }

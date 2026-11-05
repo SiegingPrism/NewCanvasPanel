@@ -23,6 +23,7 @@ import {
   UserCheck,
   UserPlus,
   Settings2,
+  X,
 } from "lucide-react";
 
 // Web Audio API harmonic chime (works 100% offline, zero network assets required)
@@ -237,13 +238,13 @@ export function BigScreenClassroomModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl w-[94vw] p-0 overflow-hidden bg-slate-900 text-white border-slate-700 shadow-2xl rounded-2xl select-none">
-        {/* Header Tabs */}
-        <div className="flex items-center justify-between border-b border-slate-800 bg-slate-950/80 px-6 py-4">
+      <DialogContent className="fixed inset-0 z-[100] w-screen h-screen max-w-none max-h-none rounded-none p-0 overflow-hidden bg-slate-950 text-white border-none shadow-2xl flex flex-col select-none">
+        {/* Header Tabs & Fullscreen Controls */}
+        <div className="flex items-center justify-between border-b border-slate-800 bg-slate-950 px-6 py-4 shrink-0">
           <div className="flex items-center gap-2">
             <Button
               variant={activeTab === "timer" ? "secondary" : "ghost"}
-              className={`h-11 px-5 gap-2 text-base font-semibold rounded-xl ${
+              className={`h-12 px-6 gap-2.5 text-base font-bold rounded-xl ${
                 activeTab === "timer" ? "bg-indigo-600 text-white hover:bg-indigo-500" : "text-slate-400 hover:text-white"
               }`}
               onClick={() => setActiveTab("timer")}
@@ -253,7 +254,7 @@ export function BigScreenClassroomModal({
             </Button>
             <Button
               variant={activeTab === "picker" ? "secondary" : "ghost"}
-              className={`h-11 px-5 gap-2 text-base font-semibold rounded-xl ${
+              className={`h-12 px-6 gap-2.5 text-base font-bold rounded-xl ${
                 activeTab === "picker" ? "bg-indigo-600 text-white hover:bg-indigo-500" : "text-slate-400 hover:text-white"
               }`}
               onClick={() => setActiveTab("picker")}
@@ -263,7 +264,7 @@ export function BigScreenClassroomModal({
             </Button>
             <Button
               variant={activeTab === "teams" ? "secondary" : "ghost"}
-              className={`h-11 px-5 gap-2 text-base font-semibold rounded-xl ${
+              className={`h-12 px-6 gap-2.5 text-base font-bold rounded-xl ${
                 activeTab === "teams" ? "bg-indigo-600 text-white hover:bg-indigo-500" : "text-slate-400 hover:text-white"
               }`}
               onClick={() => {
@@ -276,61 +277,69 @@ export function BigScreenClassroomModal({
             </Button>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <Button
               size="icon"
               variant="ghost"
-              className="h-10 w-10 text-slate-400 hover:text-white rounded-lg"
+              className="h-11 w-11 text-slate-400 hover:text-white rounded-xl"
               title={soundEnabled ? "Mute audio chime" : "Enable audio chime"}
               onClick={() => setSoundEnabled(!soundEnabled)}
             >
-              {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5 text-red-400" />}
+              {soundEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6 text-red-400" />}
             </Button>
             {activeTab === "timer" && onMinimizeTimer && (
               <Button
                 variant="outline"
-                size="sm"
-                className="h-9 px-3 gap-1.5 text-xs font-medium border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700 rounded-lg"
+                className="h-11 px-4 gap-2 text-xs font-bold border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700 rounded-xl"
                 onClick={() => {
                   onMinimizeTimer(remainingSeconds, isTimerRunning);
                   onOpenChange(false);
                 }}
               >
-                <Minimize2 className="w-3.5 h-3.5" />
+                <Minimize2 className="w-4 h-4" />
                 Minimize to Corner
               </Button>
             )}
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-11 w-11 text-slate-400 hover:text-white hover:bg-red-500/20 hover:text-red-300 rounded-xl ml-1"
+              title="Close Fullscreen"
+              onClick={() => onOpenChange(false)}
+            >
+              <X className="w-6 h-6" />
+            </Button>
           </div>
         </div>
 
-        {/* TAB 1: BIG CENTRE TIMER */}
+        {/* TAB 1: BIG CENTRE TIMER (500-600px ring & 160px digits) */}
         {activeTab === "timer" && (
-          <div className="p-8 flex flex-col items-center justify-center min-h-[460px] bg-gradient-to-b from-slate-900 to-slate-950">
+          <div className="p-8 flex flex-col items-center justify-center flex-1 bg-gradient-to-b from-slate-900 to-slate-950 overflow-y-auto">
             {/* Circular Progress & Huge Digital Display */}
             <div className="relative flex items-center justify-center my-4">
-              <svg className="w-72 h-72 transform -rotate-90">
+              <svg className="w-[460px] h-[460px] md:w-[540px] md:h-[540px] transform -rotate-90">
                 <circle
-                  cx="144"
-                  cy="144"
-                  r="128"
+                  cx="270"
+                  cy="270"
+                  r="230"
                   stroke="currentColor"
-                  strokeWidth="12"
+                  strokeWidth="20"
                   className="text-slate-800"
                   fill="transparent"
                 />
                 <circle
-                  cx="144"
-                  cy="144"
-                  r="128"
+                  cx="270"
+                  cy="270"
+                  r="230"
                   stroke="currentColor"
-                  strokeWidth="12"
-                  strokeDasharray={2 * Math.PI * 128}
-                  strokeDashoffset={2 * Math.PI * 128 * (1 - progressPercent / 100)}
+                  strokeWidth="20"
+                  strokeDasharray={2 * Math.PI * 230}
+                  strokeDashoffset={2 * Math.PI * 230 * (1 - progressPercent / 100)}
                   strokeLinecap="round"
                   className={`transition-all duration-500 ${
                     remainingSeconds <= 10
                       ? "text-red-500 animate-pulse"
-                      : remainingSeconds <= 30
+                      : remainingSeconds <= 60
                       ? "text-amber-500"
                       : "text-indigo-500"
                   }`}
@@ -340,16 +349,16 @@ export function BigScreenClassroomModal({
 
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <span
-                  className={`font-mono font-black tracking-tight tabular-nums select-none ${
+                  className={`font-mono font-black tracking-tighter tabular-nums select-none ${
                     remainingSeconds === 0
-                      ? "text-7xl text-red-400 animate-bounce"
-                      : "text-8xl text-white drop-shadow-md"
+                      ? "text-8xl md:text-[140px] text-red-400 animate-bounce"
+                      : "text-9xl md:text-[160px] text-white drop-shadow-2xl"
                   }`}
                 >
                   {String(timerMinutes).padStart(2, "0")}:{String(timerSeconds).padStart(2, "0")}
                 </span>
                 {remainingSeconds === 0 && (
-                  <span className="text-xl font-bold uppercase tracking-widest text-red-400 mt-2">Time's Up!</span>
+                  <span className="text-2xl font-black uppercase tracking-widest text-red-400 mt-4">Time's Up!</span>
                 )}
               </div>
             </div>
@@ -458,18 +467,18 @@ export function BigScreenClassroomModal({
               </div>
             ) : (
               <>
-                {/* Centre Winner Display (>= 80px font) */}
-                <div className="w-full max-w-2xl py-12 px-6 rounded-3xl bg-slate-950/70 border border-slate-800 shadow-inner flex flex-col items-center justify-center text-center">
-                  <span className="text-xs font-bold uppercase tracking-widest text-indigo-400 mb-2">
+                {/* Centre Winner Display (>= 100px font for smart boards) */}
+                <div className="w-full max-w-4xl py-14 px-8 rounded-3xl bg-slate-950/80 border border-slate-800 shadow-2xl flex flex-col items-center justify-center text-center">
+                  <span className="text-sm font-bold uppercase tracking-widest text-indigo-400 mb-3">
                     {isSpinning ? "Selecting random student..." : currentWinner ? "Selected Student:" : "Ready to Pick"}
                   </span>
                   <div
-                    className={`font-black tracking-tight transition-all duration-150 min-h-[100px] flex items-center justify-center ${
+                    className={`font-black tracking-tight transition-all duration-150 min-h-[130px] flex items-center justify-center ${
                       isSpinning
-                        ? "text-6xl text-slate-400 scale-95"
+                        ? "text-6xl md:text-7xl text-slate-400 scale-95"
                         : currentWinner
-                        ? "text-7xl md:text-8xl text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-pink-400 to-indigo-400 scale-105 drop-shadow-lg"
-                        : "text-5xl text-slate-600"
+                        ? "text-7xl md:text-[104px] text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-pink-400 to-indigo-400 scale-105 drop-shadow-2xl"
+                        : "text-5xl md:text-6xl text-slate-600"
                     }`}
                   >
                     {currentWinner || "Tap Spin to Start"}
@@ -644,3 +653,4 @@ export function BigScreenClassroomModal({
     </Dialog>
   );
 }
+

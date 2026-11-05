@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { CanvasObject, Page, ToolId, WhiteboardState, PanelDiagonal } from "./types";
+import type { CanvasObject, Page, ToolId, WhiteboardState, PanelDiagonal, SyncStatus, ZoneToolSetting } from "./types";
 import { pagesForTemplate, type TemplateKey } from "./templates";
 import { detectSmartBoardProfile } from "./smartBoardProfiles";
 import {
@@ -118,6 +118,7 @@ type Actions = {
   // Supabase Cloud Sync
   syncWithCloud: () => Promise<void>;
   clearOnSignOut: () => void;
+  setSyncStatus: (status: SyncStatus) => void;
   // Smart Board Actions
   setBoardMode: (enabled: boolean) => void;
   setPanelSize: (size: PanelDiagonal) => void;
@@ -125,6 +126,8 @@ type Actions = {
   setSimpleMode: (simple: boolean) => void;
   setReachabilityOffset: (offset: number) => void;
   setSplitBoardZones: (zones: number) => void;
+  setZoneTool: (zone: number, tool: ToolId) => void;
+  setZoneColor: (zone: number, color: string) => void;
   setBoardDockSide: (side: "both" | "left" | "right") => void;
   toggleBoardMode: () => void;
 };
@@ -163,12 +166,81 @@ function removeDeletedBoardTombstone(id: string) {
   } catch {}
 }
 
+interface SyncRetryItem {
+  meta: BoardMeta;
+  pages: Page[];
+  retryCount: number;
+}
+const syncRetryQueue = new Map<string, SyncRetryItem>();
+let retryTimeout: ReturnType<typeof setTimeout> | null = null;
+
+function flushSyncRetryQueue() {
+  if (typeof window === "undefined" || !navigator.onLine) return;
+  if (syncRetryQueue.size === 0) {
+    useWhiteboard.getState().setSyncStatus("saved");
+    return;
+  }
+  useWhiteboard.getState().setSyncStatus("saving");
+  const entries = Array.from(syncRetryQueue.entries());
+  for (const [id, item] of entries) {
+    syncBoardToSupabase(item.meta, item.pages)
+      .then(() => {
+        syncRetryQueue.delete(id);
+        if (syncRetryQueue.size === 0) {
+          useWhiteboard.getState().setSyncStatus("saved");
+        }
+      })
+      .catch(() => {
+        item.retryCount++;
+        const delay = Math.min(1000 * Math.pow(2, item.retryCount), 30000);
+        if (!retryTimeout) {
+          retryTimeout = setTimeout(() => {
+            retryTimeout = null;
+            flushSyncRetryQueue();
+          }, delay);
+        }
+      });
+  }
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("online", () => {
+    flushSyncRetryQueue();
+  });
+}
+
 function triggerCloudSync(meta: BoardMeta, pages: Page[]) {
   if (typeof window === "undefined" || !meta?.id) return;
   if (cloudSyncTimers[meta.id]) clearTimeout(cloudSyncTimers[meta.id]);
+
+  if (!navigator.onLine) {
+    syncRetryQueue.set(meta.id, { meta, pages, retryCount: 0 });
+    useWhiteboard.getState().setSyncStatus("offline");
+    return;
+  }
+
+  useWhiteboard.getState().setSyncStatus("saving");
+
   cloudSyncTimers[meta.id] = setTimeout(() => {
     delete cloudSyncTimers[meta.id];
-    syncBoardToSupabase(meta, pages).catch(() => {});
+    syncBoardToSupabase(meta, pages)
+      .then(() => {
+        syncRetryQueue.delete(meta.id);
+        if (syncRetryQueue.size === 0) {
+          useWhiteboard.getState().setSyncStatus("saved");
+        }
+      })
+      .catch((err) => {
+        console.warn("[Whiteboard] Cloud sync failed, queueing retry:", err);
+        syncRetryQueue.set(meta.id, { meta, pages, retryCount: 1 });
+        useWhiteboard.getState().setSyncStatus("offline");
+        if (!retryTimeout) {
+          retryTimeout = setTimeout(() => {
+            retryTimeout = null;
+            flushSyncRetryQueue();
+          }, 3000);
+        }
+      });
   }, 1200);
 }
 
@@ -280,6 +352,13 @@ function loadSmartBoardSettings(): {
   }
 }
 
+const DEFAULT_ZONE_SETTINGS: Record<number, ZoneToolSetting> = {
+  0: { tool: "pen", color: "#111827", size: 3 },
+  1: { tool: "pen", color: "#2563eb", size: 3 },
+  2: { tool: "pen", color: "#dc2626", size: 3 },
+  3: { tool: "pen", color: "#16a34a", size: 3 },
+};
+
 export const useWhiteboard = create<State & Actions>((set, get) => {
   return {
     // persist
@@ -300,6 +379,8 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
     autoSnapEnabled: false,
     showZoomDock: loadShowZoomDock(),
     camera: { x: 0, y: 0, zoom: 1 },
+    syncStatus: "saved" as SyncStatus,
+    zoneSettings: DEFAULT_ZONE_SETTINGS,
     // Smart Board runtime
     ...loadSmartBoardSettings(),
 
@@ -942,6 +1023,7 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
       persistMeta(next);
       set(next);
     },
+    setSyncStatus: (syncStatus) => set({ syncStatus }),
 
     syncWithCloud: async () => {
       try {
@@ -970,7 +1052,7 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
             continue;
           }
           const localMeta = mergedBoards[cb.id];
-          if (!localMeta || (cb.updated_at && new Date(cb.updated_at).getTime() > localMeta.updatedAt)) {
+          if (!localMeta) {
             const updatedAt = cb.updated_at ? new Date(cb.updated_at).getTime() : nowMs();
             const createdAt = cb.created_at ? new Date(cb.created_at).getTime() : nowMs();
             mergedBoards[cb.id] = {
@@ -991,6 +1073,26 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
             if (!mergedBoardOrder.includes(cb.id)) {
               mergedBoardOrder.push(cb.id);
             }
+          } else if (cb.updated_at && new Date(cb.updated_at).getTime() > localMeta.updatedAt) {
+            // Conflict: Remote board has newer edits than local. Keep local board and save remote as "[Title] (copy)"
+            const remotePages = Array.isArray(cb.pages) && cb.pages.length ? cb.pages : [emptyPage()];
+            const copyId = uid();
+            const copyTitle = `${cb.title || "Untitled board"} (copy)`;
+            mergedBoards[copyId] = {
+              id: copyId,
+              title: copyTitle,
+              tags: [],
+              folderId: cb.folder_id || null,
+              favorite: false,
+              archived: false,
+              createdAt: nowMs(),
+              updatedAt: nowMs(),
+            };
+            mergedBoardData[copyId] = {
+              pages: remotePages,
+              activePageId: remotePages[0]?.id || uid(),
+            };
+            mergedBoardOrder.unshift(copyId);
           }
         }
 
@@ -1063,6 +1165,22 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
     },
     setReachabilityOffset: (reachabilityOffset) => set({ reachabilityOffset }),
     setSplitBoardZones: (splitBoardZones) => set({ splitBoardZones }),
+    setZoneTool: (zone, tool) => {
+      set((s) => ({
+        zoneSettings: {
+          ...s.zoneSettings,
+          [zone]: { ...(s.zoneSettings[zone] || { color: "#111827", size: 3 }), tool },
+        },
+      }));
+    },
+    setZoneColor: (zone, color) => {
+      set((s) => ({
+        zoneSettings: {
+          ...s.zoneSettings,
+          [zone]: { ...(s.zoneSettings[zone] || { tool: "pen", size: 3 }), color },
+        },
+      }));
+    },
     setBoardDockSide: (boardDockSide) => {
       set({ boardDockSide });
       try {

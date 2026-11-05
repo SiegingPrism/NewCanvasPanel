@@ -34,6 +34,8 @@ import {
   Compass,
   LayoutGrid,
   Cloud,
+  CloudOff,
+  BellRing,
   ShieldCheck,
   Tv,
   Vote,
@@ -117,6 +119,7 @@ export function TopBar({
     toggleBoardMode,
     panelSize,
     simpleMode,
+    syncStatus,
   } = useWhiteboard();
 
   const navigate = useNavigate();
@@ -136,6 +139,42 @@ export function TopBar({
   const [mathFormulaOpen, setMathFormulaOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
   const [mindMapDialogOpen, setMindMapDialogOpen] = useState(false);
+  const [endClassDialogOpen, setEndClassDialogOpen] = useState(false);
+
+  function playEndClassChime() {
+    try {
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const ctx = new AudioCtx();
+      const freqs = [523.25, 659.25, 783.99, 1046.5];
+      freqs.forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + idx * 0.12);
+        gain.gain.setValueAtTime(0.25, ctx.currentTime + idx * 0.12);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + idx * 0.12 + 0.8);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(ctx.currentTime + idx * 0.12);
+        osc.stop(ctx.currentTime + idx * 0.12 + 0.8);
+      });
+    } catch {}
+  }
+
+  const handleEndClass = () => {
+    setEndClassDialogOpen(true);
+  };
+
+  const confirmEndClass = () => {
+    playEndClassChime();
+    syncWithCloud().catch(() => {});
+    addPage();
+    pushHistory();
+    setEndClassDialogOpen(false);
+    toast.success("Class dismissed! All board notes saved to cloud for next period.");
+  };
 
   const handleOpenLessonFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -414,14 +453,54 @@ export function TopBar({
         onClick={() => window.dispatchEvent(new CustomEvent("slate:open-teacher-account"))}
         className={cn(
           "flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-semibold transition-all select-none border",
-          user
+          syncStatus === "saving"
+            ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800"
+            : syncStatus === "offline"
+            ? "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border-amber-200 dark:border-amber-800"
+            : user
             ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800"
             : "bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300 border-sky-200 dark:border-sky-800 hover:bg-sky-100"
         )}
-        title={user ? `Signed in as ${user.email} (Tap to manage cloud lessons)` : "Save lesson to your teacher account"}
+        title={
+          syncStatus === "saving"
+            ? "Saving to teacher cloud..."
+            : syncStatus === "offline"
+            ? "Offline: Edits will automatically upload when reconnected"
+            : user
+            ? `Saved & Synced (${user.email})`
+            : "Save lesson to your teacher account"
+        }
       >
-        <Cloud className="w-3.5 h-3.5 text-current shrink-0" />
-        <span className="hidden sm:inline">{user ? "Cloud Synced" : "Save to Account"}</span>
+        {syncStatus === "saving" ? (
+          <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-500 shrink-0" />
+        ) : syncStatus === "offline" ? (
+          <CloudOff className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+        ) : (
+          <Cloud className="w-3.5 h-3.5 text-current shrink-0" />
+        )}
+        <span className="hidden sm:inline">
+          {syncStatus === "saving"
+            ? "Saving..."
+            : syncStatus === "offline"
+            ? "Offline (Will retry)"
+            : user
+            ? "Saved"
+            : "Save to Account"}
+        </span>
+      </button>
+
+      {/* End Class Button for Teacher Smart Board */}
+      <button
+        type="button"
+        onClick={handleEndClass}
+        className={cn(
+          "flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-semibold transition-all select-none border border-rose-500/30 bg-rose-500/10 text-rose-600 hover:bg-rose-500/20 active:scale-95 cursor-pointer",
+          isDark ? "text-rose-400 border-rose-500/40" : "text-rose-700"
+        )}
+        title="End Class: Save board, play bell chime, and prep clean board for next period"
+      >
+        <BellRing className="w-3.5 h-3.5 text-current shrink-0" />
+        <span className="hidden sm:inline">End Class</span>
       </button>
 
       {/* Undo, Redo, and Page Controls: Only shown in standard desktop/mobile mode;
@@ -705,22 +784,24 @@ export function TopBar({
           )}
         >
           {/* AI Features */}
-          <button
-            type="button"
-            aria-label="Build AI Lesson (5-8 Ready Pages)"
-            title="AI Lesson Builder"
-            className={cn(
-              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-semibold text-indigo-600 dark:text-indigo-400 transition",
-              isDark ? "hover:bg-slate-800" : "hover:bg-accent"
-            )}
-            onClick={() => {
-              setMenuOpen(false);
-              window.dispatchEvent(new CustomEvent("slate:open-ai-lesson-builder"));
-            }}
-          >
-            <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-            <span>AI Lesson Builder</span>
-          </button>
+          {!simpleMode && (
+            <button
+              type="button"
+              aria-label="Build AI Lesson (5-8 Ready Pages)"
+              title="AI Lesson Builder"
+              className={cn(
+                "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-semibold text-indigo-600 dark:text-indigo-400 transition",
+                isDark ? "hover:bg-slate-800" : "hover:bg-accent"
+              )}
+              onClick={() => {
+                setMenuOpen(false);
+                window.dispatchEvent(new CustomEvent("slate:open-ai-lesson-builder"));
+              }}
+            >
+              <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+              <span>AI Lesson Builder</span>
+            </button>
+          )}
           <button
             type="button"
             aria-label="Open AI Assistant"
@@ -1389,6 +1470,38 @@ export function TopBar({
 
       {/* Account & Cloud Sync Dialog */}
       <AuthDialog open={authOpen} onOpenChange={setAuthOpen} />
+
+      {/* End Class Confirmation Dialog */}
+      <Dialog open={endClassDialogOpen} onOpenChange={setEndClassDialogOpen}>
+        <DialogContent className="max-w-md p-6 rounded-2xl bg-card border">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg font-bold text-foreground">
+              <BellRing className="h-5 w-5 text-rose-500" />
+              <span>End Current Class Period?</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground mt-1">
+              Dismiss the class, chime the bell, back up all notes to your school cloud account, and prepare a fresh clean board for the next lesson.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center justify-end gap-2.5 mt-5">
+            <button
+              type="button"
+              onClick={() => setEndClassDialogOpen(false)}
+              className="px-4 py-2 rounded-xl border border-border bg-muted/40 hover:bg-muted text-xs font-semibold text-foreground transition active:scale-95 cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={confirmEndClass}
+              className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition shadow-sm active:scale-95 flex items-center gap-1.5 cursor-pointer"
+            >
+              <BellRing className="h-4 w-4" />
+              <span>Dismiss & Save Board</span>
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

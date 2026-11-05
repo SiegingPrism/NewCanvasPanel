@@ -63,6 +63,7 @@ import {
   LineChart,
   Layers,
   Calculator,
+  Play,
   Wand2,
   GitBranch,
   Languages,
@@ -139,7 +140,16 @@ export function WhiteboardCanvas({
     lockBoard,
     panelSize,
     boardMode,
+    splitBoardZones,
+    zoneSettings,
   } = useWhiteboard();
+
+  const otherHandTouchRef = useRef<{
+    id: number;
+    startX: number;
+    startY: number;
+    startCam: { x: number; y: number; zoom: number };
+  } | null>(null);
 
   const page = pages.find((p) => p.id === activePageId) ||
     pages[0] || { id: "default", objects: [], background: "white" as const };
@@ -1516,7 +1526,7 @@ export function WhiteboardCanvas({
     ctx.restore();
   }
 
-  // 1. FINE PEN: Smooth Bezier with pressure sensitivity
+  // 1. FINE PEN: Smooth Bezier with pressure sensitivity and writing speed velocity adaptation
   function drawPenStroke(ctx: CanvasRenderingContext2D, s: StrokeBase) {
     const pts = s.points;
     if (pts.length < 2) return;
@@ -1527,8 +1537,16 @@ export function WhiteboardCanvas({
     for (let i = 1; i < pts.length; i++) {
       const p0 = pts[i - 1];
       const p1 = pts[i];
+      let velocityFactor = 1.0;
+      if (p0.t && p1.t && p1.t > p0.t) {
+        const dt = Math.max(1, p1.t - p0.t);
+        const dist = Math.hypot(p1.x - p0.x, p1.y - p0.y);
+        const speed = dist / dt; // px per ms
+        // Smooth speed scaling: slow writing -> 1.25, quick flick -> 0.65
+        velocityFactor = Math.max(0.65, Math.min(1.25, 1.25 - speed * 0.3));
+      }
       const pressure = p1.p ?? 0.5;
-      const width = Math.max(1, s.size * (0.35 + 0.85 * pressure));
+      const width = Math.max(1, s.size * (0.35 + 0.85 * pressure) * velocityFactor);
       ctx.lineWidth = width;
       ctx.beginPath();
       ctx.moveTo(p0.x, p0.y);
@@ -4976,11 +4994,32 @@ export function WhiteboardCanvas({
       return;
     }
 
-    // Stylus Exclusivity (when active pen is present)
+    // Dual Input: Active pen writing + simultaneous other hand canvas panning
     if (e.pointerType === "pen") {
       isPenActiveRef.current = true;
     } else if (e.pointerType === "touch" && isPenActiveRef.current) {
-      ignoredPalmsRef.current.add(e.pointerId);
+      if (!lockBoardRef.current && !otherHandTouchRef.current) {
+        otherHandTouchRef.current = {
+          id: e.pointerId,
+          startX: e.clientX,
+          startY: e.clientY,
+          startCam: { ...cameraRef.current },
+        };
+      }
+      return;
+    }
+
+    // Other hand panning canvas while pen writes
+    if (otherHandTouchRef.current && otherHandTouchRef.current.id === e.pointerId) {
+      if (!lockBoardRef.current) {
+        const dx = e.clientX - otherHandTouchRef.current.startX;
+        const dy = e.clientY - otherHandTouchRef.current.startY;
+        applyCameraThrottled({
+          x: otherHandTouchRef.current.startCam.x + dx,
+          y: otherHandTouchRef.current.startCam.y + dy,
+          zoom: otherHandTouchRef.current.startCam.zoom,
+        });
+      }
       return;
     }
 
@@ -5301,12 +5340,28 @@ export function WhiteboardCanvas({
     }
 
     // Drawing tools
+    let currentStrokeTool: ToolId = tool;
+    let currentStrokeColor = color;
+    let currentStrokeSize = size;
+    if (splitBoardZones > 1 && typeof window !== "undefined") {
+      const zoneIdx = Math.min(
+        splitBoardZones - 1,
+        Math.max(0, Math.floor(e.clientX / (window.innerWidth / splitBoardZones)))
+      );
+      const zSetting = zoneSettings?.[zoneIdx];
+      if (zSetting) {
+        currentStrokeTool = zSetting.tool;
+        currentStrokeColor = zSetting.color;
+        currentStrokeSize = zSetting.size;
+      }
+    }
+
     const drawingSession: DrawingSession = {
       pointerId: e.pointerId,
       points: [ptWithMeta],
-      color,
-      size,
-      tool,
+      color: currentStrokeColor,
+      size: currentStrokeSize,
+      tool: currentStrokeTool,
       startedAt: Date.now(),
       lastMoveAt: Date.now(),
       snappedShape: null,
@@ -5351,6 +5406,20 @@ export function WhiteboardCanvas({
         clearTimeout(radialTimerRef.current);
         radialTimerRef.current = null;
       }
+    }
+
+    // Other hand panning canvas while pen writes
+    if (otherHandTouchRef.current && otherHandTouchRef.current.id === e.pointerId) {
+      if (!lockBoardRef.current) {
+        const dx = e.clientX - otherHandTouchRef.current.startX;
+        const dy = e.clientY - otherHandTouchRef.current.startY;
+        applyCameraThrottled({
+          x: otherHandTouchRef.current.startCam.x + dx,
+          y: otherHandTouchRef.current.startCam.y + dy,
+          zoom: otherHandTouchRef.current.startCam.zoom,
+        });
+      }
+      return;
     }
 
     touchMapRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -5911,6 +5980,12 @@ export function WhiteboardCanvas({
   }
 
   function onPointerUp(e: React.PointerEvent<HTMLCanvasElement>) {
+    if (otherHandTouchRef.current && otherHandTouchRef.current.id === e.pointerId) {
+      otherHandTouchRef.current = null;
+      flushCameraUpdate();
+      return;
+    }
+
     if (ignoredPalmsRef.current.has(e.pointerId)) {
       ignoredPalmsRef.current.delete(e.pointerId);
       touchMapRef.current.delete(e.pointerId);

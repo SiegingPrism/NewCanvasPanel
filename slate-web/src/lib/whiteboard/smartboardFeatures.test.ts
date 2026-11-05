@@ -1,10 +1,28 @@
 import { describe, it, expect } from "vitest";
-import { buildLessonPages } from "../ai/lessonBuilder";
+import {
+  buildLessonPages,
+  buildLessonPagesFromCurriculum,
+  generateLessonTemplate,
+  LessonCurriculumSchema,
+} from "../ai/lessonBuilder";
 import { PRESET_ACTIVITIES } from "@/components/whiteboard/smartboard/DragDropActivityDialog";
 import type { ActivityObject } from "./types";
 
 describe("Smart Board Features", () => {
   describe("AI Lesson Builder", () => {
+    it("validates curriculum JSON against LessonCurriculumSchema with zod", () => {
+      const template = generateLessonTemplate("Photosynthesis", "Biology");
+      const validated = LessonCurriculumSchema.parse(template);
+      expect(validated.topic).toBe("Photosynthesis");
+      expect(validated.objectives.length).toBeGreaterThanOrEqual(2);
+      expect(validated.quiz.length).toBeGreaterThanOrEqual(2);
+      expect(validated.flashcards.length).toBeGreaterThanOrEqual(3);
+
+      const customPages = buildLessonPagesFromCurriculum(validated, 6);
+      expect(customPages).toHaveLength(6);
+      expect(customPages[0].title).toContain("Photosynthesis");
+    });
+
     it("generates 6 ready-to-teach whiteboard pages with complete curriculum objects", () => {
       const pages = buildLessonPages({
         topic: "Photosynthesis",
@@ -84,3 +102,4 @@ describe("Smart Board Features", () => {
     });
   });
 });
+

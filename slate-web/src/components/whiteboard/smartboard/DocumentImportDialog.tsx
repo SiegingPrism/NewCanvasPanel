@@ -148,8 +148,9 @@ export function DocumentImportDialog({ open, onOpenChange }: DocumentImportDialo
 
         const imgMsg = res.totalImages > 0 ? `, ${res.totalImages} pictures` : "";
         const shapeMsg = res.totalShapes > 0 ? `, ${res.totalShapes} shapes` : "";
+        const unsuppMsg = res.unsupportedImages > 0 ? ` (skipped ${res.unsupportedImages} unsupported EMF vector shapes)` : "";
         toast.success(
-          `Imported ${res.pages.length} PowerPoint slides${imgMsg}${shapeMsg}!`
+          `Imported ${res.pages.length} PowerPoint slides${imgMsg}${shapeMsg}${unsuppMsg}!`
         );
       }
     } catch (err: any) {

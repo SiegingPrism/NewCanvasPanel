@@ -1,4 +1,5 @@
 import { uid } from "../whiteboard/store";
+import { z } from "zod";
 import type {
   Page,
   CanvasObject,
@@ -11,35 +12,252 @@ import type {
   FrameObject,
 } from "../whiteboard/types";
 
+// =========================================================================
+// ZOD SCHEMA FOR VALIDATED CURRICULUM OUTPUT
+// =========================================================================
+
+export const LessonCurriculumSchema = z.object({
+  topic: z.string(),
+  subject: z.string(),
+  gradeLevel: z.string(),
+  objectives: z.array(z.string()).min(2),
+  bellRingerQuestions: z.array(z.string()).min(2),
+  corePrinciples: z.array(
+    z.object({
+      heading: z.string(),
+      explanation: z.string(),
+      bulletPoints: z.array(z.string()).min(1),
+    })
+  ).min(2),
+  conceptFlowchart: z.object({
+    title: z.string(),
+    steps: z.array(
+      z.object({
+        stepNumber: z.number(),
+        label: z.string(),
+        description: z.string(),
+      })
+    ).min(3),
+  }),
+  sortingActivity: z.object({
+    title: z.string(),
+    instruction: z.string(),
+    categories: z.array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        color: z.string().optional(),
+      })
+    ).min(2),
+    items: z.array(
+      z.object({
+        id: z.string(),
+        text: z.string(),
+        correctCategoryId: z.string(),
+      })
+    ).min(4),
+  }),
+  quiz: z.array(
+    z.object({
+      question: z.string(),
+      options: z.array(z.string()).min(3),
+      correctIndex: z.number().min(0),
+      explanation: z.string().optional(),
+    })
+  ).min(2),
+  flashcards: z.array(
+    z.object({
+      front: z.string(),
+      back: z.string(),
+    })
+  ).min(3),
+  exitTicket: z.object({
+    prompts: z.array(z.string()).min(2),
+  }),
+});
+
+export type LessonCurriculum = z.infer<typeof LessonCurriculumSchema>;
+
 export interface LessonBuilderOptions {
   topic: string;
   gradeLevel?: string;
   subject?: string;
   pageCount?: number; // 5 to 8
   language?: string;
+  curriculum?: LessonCurriculum;
 }
 
 /**
- * Builds 5 to 8 pedagogical whiteboard pages for a smart board lesson.
- * Designed to provide full classroom engagement:
- *  - Slide 1: Title, Objectives, Bell-Ringer Warmup
- *  - Slide 2: Core Principles & Cornell-style Notes
- *  - Slide 3: Visual Concept Flowchart / Diagram
- *  - Slide 4: Interactive Drag-and-Drop Sorting Activity
- *  - Slide 5: Classroom Quiz Cards (Check for Understanding)
- *  - Slide 6: Key Vocabulary Flashcards (Tap to Flip)
- *  - Slide 7: Exit Ticket & Reflection
+ * Fallback structural template explicitly titled and labeled as an outline to fill in.
+ * Used when offline or when no Gemini API key is configured.
  */
-export function buildLessonPages(options: LessonBuilderOptions): Page[] {
-  const topic = options.topic.trim() || "New Lesson";
-  const subject = options.subject || "General Science";
-  const grade = options.gradeLevel || "Middle School (Grades 6-8)";
-  const targetPages = Math.min(Math.max(options.pageCount || 6, 5), 8);
+export function generateLessonTemplate(
+  topic: string,
+  subject = "General Science",
+  gradeLevel = "Middle School (Grades 6-8)"
+): LessonCurriculum {
+  const cleanTopic = topic.trim() || "New Lesson";
+  return {
+    topic: cleanTopic,
+    subject,
+    gradeLevel,
+    objectives: [
+      `Define and explain the core scientific concepts of ${cleanTopic}.`,
+      `Analyze cause-and-effect relationships and practical real-world applications.`,
+      `Collaborate on the board to classify components and solve check-in problems.`,
+    ],
+    bellRingerQuestions: [
+      `What is the first thing that comes to mind when you hear "${cleanTopic}"?`,
+      `Where do you observe or encounter this phenomenon in everyday life?`,
+      `One question or curiosity you hope we explore during class today.`,
+    ],
+    corePrinciples: [
+      {
+        heading: "Principle 1: Foundational Rule",
+        explanation: `[Lesson Template: Add core definition of ${cleanTopic} here]`,
+        bulletPoints: [
+          `Key mechanism or law governing ${cleanTopic}`,
+          "Required baseline inputs or conditions",
+          "Essential takeaway for student notes",
+        ],
+      },
+      {
+        heading: "Principle 2: Dynamic Process",
+        explanation: "[Lesson Template: Add energy or information flow step here]",
+        bulletPoints: [
+          "Measurable change observed during reaction or event",
+          "How variables interact with the environment",
+          "Connecting rule to outcomes",
+        ],
+      },
+      {
+        heading: "Principle 3: Practical Application",
+        explanation: "[Lesson Template: Add real-world application here]",
+        bulletPoints: [
+          "Technological, historical, or biological relevance",
+          "Concrete example analyzed in modern studies",
+          "Implication for broader systems",
+        ],
+      },
+    ],
+    conceptFlowchart: {
+      title: `${cleanTopic}: Sequential Process Flow`,
+      steps: [
+        {
+          stepNumber: 1,
+          label: "1. Initial Stimulus / Input",
+          description: "Primary catalyst initiating the cycle",
+        },
+        {
+          stepNumber: 2,
+          label: "2. Intermediate Transformation",
+          description: "Active processing and state shift",
+        },
+        {
+          stepNumber: 3,
+          label: "3. System Threshold Check",
+          description: "Equilibrium or decision milestone",
+        },
+        {
+          stepNumber: 4,
+          label: "4. Final Output / Product",
+          description: "Resulting equilibrium or work done",
+        },
+      ],
+    },
+    sortingActivity: {
+      title: `${cleanTopic}: Classification Challenge`,
+      instruction: "Drag each card into the appropriate category on the smart board.",
+      categories: [
+        { id: "cat-1", name: "Inputs & Causes", color: "#3b82f6" },
+        { id: "cat-2", name: "Outputs & Effects", color: "#10b981" },
+        { id: "cat-3", name: "Environment / Context", color: "#f59e0b" },
+      ],
+      items: [
+        { id: uid(), text: "Starting Material / Energy", correctCategoryId: "cat-1" },
+        { id: uid(), text: "Triggering Event", correctCategoryId: "cat-1" },
+        { id: uid(), text: "Resulting Byproduct", correctCategoryId: "cat-2" },
+        { id: uid(), text: "Observable System State", correctCategoryId: "cat-2" },
+        { id: uid(), text: "Ambient Temperature / Setting", correctCategoryId: "cat-3" },
+        { id: uid(), text: "Boundary Conditions", correctCategoryId: "cat-3" },
+      ],
+    },
+    quiz: [
+      {
+        question: `What primary catalyst or baseline initiates ${cleanTopic}?`,
+        options: [
+          "Primary input energy or environmental stimulus",
+          "A random decrease in atmospheric pressure",
+          "An isolated inert catalyst with zero reactivity",
+          "An irrelevant background variable",
+        ],
+        correctIndex: 0,
+        explanation: `The initial reaction in ${cleanTopic} is directly governed by input energy or stimulus.`,
+      },
+      {
+        question: `Which statement accurately describes how ${cleanTopic} functions?`,
+        options: [
+          "It produces static equilibrium without any transformation",
+          "It drives structured state transitions across distinct phases",
+          "It completely avoids all interaction with outside variables",
+          "It cannot be observed or measured in empirical settings",
+        ],
+        correctIndex: 1,
+        explanation: `Systems exhibiting ${cleanTopic} progress through measurable dynamic stages.`,
+      },
+      {
+        question: `Why is ${cleanTopic} essential to study in ${subject}?`,
+        options: [
+          "It allows accurate predictions and innovative applications in real life",
+          "It is merely an arbitrary naming convention with no real effect",
+          "It was disproven in early experimental literature",
+          "It applies only to purely hypothetical mathematical constructs",
+        ],
+        correctIndex: 0,
+        explanation: "Mastery of this concept provides predictive models for complex physical and social systems.",
+      },
+    ],
+    flashcards: [
+      {
+        front: "Key Concept: Foundational Definition",
+        back: `The primary rule or mechanism that governs ${cleanTopic}.`,
+      },
+      {
+        front: "Primary Variable",
+        back: "The measurable quantity that shifts during the process.",
+      },
+      {
+        front: "System Equilibrium",
+        back: "The balanced state attained once inputs and reactions stabilize.",
+      },
+      {
+        front: "Real-World Application",
+        back: "How engineers, scientists, or historians leverage this concept today.",
+      },
+    ],
+    exitTicket: {
+      prompts: [
+        `In your own words, summarize the most important mechanism of ${cleanTopic}.`,
+        `How would you explain ${cleanTopic} to someone who has never studied ${subject}?`,
+        "What is one question or curiosity you still want to explore tomorrow?",
+      ],
+    },
+  };
+}
 
+/**
+ * Builds ready whiteboard pages from a structured and validated LessonCurriculum.
+ */
+export function buildLessonPagesFromCurriculum(
+  curriculum: LessonCurriculum,
+  targetPageCount = 6
+): Page[] {
+  const { topic, subject, gradeLevel } = curriculum;
   const pages: Page[] = [];
+  const maxPages = Math.min(Math.max(targetPageCount, 5), 8);
 
   // =========================================================================
-  // PAGE 1: TITLE, LEARNING GOALS & BELL-RINGER
+  // PAGE 1: TITLE, OBJECTIVES & BELL-RINGER
   // =========================================================================
   const p1Objects: CanvasObject[] = [
     {
@@ -59,7 +277,7 @@ export function buildLessonPages(options: LessonBuilderOptions): Page[] {
       w: 960,
       h: 60,
       text: topic.toUpperCase(),
-      fontSize: 40,
+      fontSize: 38,
       fontFamily: "sans-serif",
       color: "#1e1b4b",
     } as TextObject,
@@ -68,33 +286,35 @@ export function buildLessonPages(options: LessonBuilderOptions): Page[] {
       kind: "text",
       x: 104,
       y: 155,
-      w: 700,
+      w: 800,
       h: 30,
-      text: `${subject} · ${grade} · Slate Smart Board Interactive Lesson`,
+      text: `${subject} · ${gradeLevel} · Smart Board Interactive Lesson`,
       fontSize: 16,
       fontFamily: "sans-serif",
       color: "#6366f1",
     } as TextObject,
-    // Objectives Card
     {
       id: uid(),
       kind: "sticky",
       x: 100,
-      y: 210,
+      y: 205,
       w: 480,
-      h: 380,
-      text: `🎯 TODAY'S LEARNING GOALS:\n\n1. Define and understand the core fundamentals of ${topic}.\n\n2. Analyze cause, effect, and practical real-world applications.\n\n3. Collaborate on the smart board to sort, categorize, and solve practice problems.\n\n4. Successfully complete the classroom check-for-understanding quiz.`,
+      h: 390,
+      text: `🎯 TODAY'S LEARNING OBJECTIVES:\n\n${curriculum.objectives
+        .map((obj, i) => `${i + 1}. ${obj}`)
+        .join("\n\n")}`,
       color: "#eff6ff",
     } as StickyNoteObject,
-    // Bell-Ringer Prompt
     {
       id: uid(),
       kind: "sticky",
       x: 620,
-      y: 210,
+      y: 205,
       w: 480,
-      h: 380,
-      text: `🔔 3-MINUTE BELL-RINGER WARM-UP:\n\nBefore we begin, answer these on your mini-boards or in your notes:\n\n• What is the first thing that comes to your mind when you hear "${topic}"?\n\n• Where do you see or encounter this in everyday life?\n\n• One question you hope we answer in class today.`,
+      h: 390,
+      text: `🔔 3-MINUTE BELL-RINGER WARM-UP:\n\nBefore we begin, answer these in your notes or on mini-boards:\n\n${curriculum.bellRingerQuestions
+        .map((q) => `• ${q}`)
+        .join("\n\n")}`,
       color: "#fef3c7",
     } as StickyNoteObject,
   ];
@@ -107,8 +327,9 @@ export function buildLessonPages(options: LessonBuilderOptions): Page[] {
   });
 
   // =========================================================================
-  // PAGE 2: CORE PRINCIPLES & STRUCTURED NOTES
+  // PAGE 2: CORE PRINCIPLES & CORNELL NOTES
   // =========================================================================
+  const cardWidth = Math.min(320, Math.floor(1000 / curriculum.corePrinciples.length));
   const p2Objects: CanvasObject[] = [
     {
       id: uid(),
@@ -131,47 +352,34 @@ export function buildLessonPages(options: LessonBuilderOptions): Page[] {
       fontFamily: "sans-serif",
       color: "#0f172a",
     } as TextObject,
-    {
-      id: uid(),
-      kind: "sticky",
-      x: 100,
-      y: 160,
-      w: 320,
-      h: 340,
-      text: `💡 PRINCIPLE 1: FOUNDATION\n\n• Primary mechanism driving ${topic}.\n\n• Governed by constant rules and standard inputs.\n\n• Key Takeaway: Essential for balance and function in the system.`,
-      color: "#f0fdf4",
-    } as StickyNoteObject,
-    {
-      id: uid(),
-      kind: "sticky",
-      x: 450,
-      y: 160,
-      w: 320,
-      h: 340,
-      text: `⚡ PRINCIPLE 2: TRANSFORMATION\n\n• Energy or information flow through ${topic}.\n\n• Changes observed when environmental variables shift.\n\n• Key Takeaway: Dynamic interactions create measurable outcomes.`,
-      color: "#faf5ff",
-    } as StickyNoteObject,
-    {
-      id: uid(),
-      kind: "sticky",
-      x: 800,
-      y: 160,
-      w: 320,
-      h: 340,
-      text: `🌍 PRINCIPLE 3: APPLICATION\n\n• Real-world impact and modern technological use.\n\n• How scientists and historians analyze ${topic}.\n\n• Key Takeaway: Connects theory to human progress and daily life.`,
-      color: "#fff7ed",
-    } as StickyNoteObject,
-    {
-      id: uid(),
-      kind: "sticky",
-      x: 100,
-      y: 530,
-      w: 1020,
-      h: 120,
-      text: `📝 CORNELL SUMMARY: In summary, ${topic} is characterized by systematic processes, interdependence of parts, and observable outputs that shape our understanding of ${subject}.`,
-      color: "#f1f5f9",
-    } as StickyNoteObject,
   ];
+
+  const colors = ["#f0fdf4", "#faf5ff", "#fff7ed", "#fef2f2"];
+  curriculum.corePrinciples.slice(0, 3).forEach((p, idx) => {
+    p2Objects.push({
+      id: uid(),
+      kind: "sticky",
+      x: 100 + idx * (cardWidth + 30),
+      y: 160,
+      w: cardWidth,
+      h: 350,
+      text: `💡 ${p.heading.toUpperCase()}\n\n${p.explanation}\n\n${p.bulletPoints
+        .map((bp) => `• ${bp}`)
+        .join("\n\n")}`,
+      color: colors[idx % colors.length],
+    } as StickyNoteObject);
+  });
+
+  p2Objects.push({
+    id: uid(),
+    kind: "sticky",
+    x: 100,
+    y: 535,
+    w: 1020,
+    h: 120,
+    text: `📝 CORNELL SUMMARY: In summary, ${topic} exhibits predictable physical, social, or computational behaviors governed by core rules, measurable inputs, and observable transformations.`,
+    color: "#f1f5f9",
+  } as StickyNoteObject);
 
   pages.push({
     id: uid(),
@@ -183,11 +391,6 @@ export function buildLessonPages(options: LessonBuilderOptions): Page[] {
   // =========================================================================
   // PAGE 3: VISUAL CONCEPT FLOWCHART / SCHEMATIC
   // =========================================================================
-  const node1Id = uid();
-  const node2Id = uid();
-  const node3Id = uid();
-  const node4Id = uid();
-
   const p3Objects: CanvasObject[] = [
     {
       id: uid(),
@@ -205,69 +408,43 @@ export function buildLessonPages(options: LessonBuilderOptions): Page[] {
       y: 90,
       w: 960,
       h: 50,
-      text: `Process Flow & Mechanism: ${topic}`,
-      fontSize: 32,
+      text: curriculum.conceptFlowchart.title || `Process Schematic: ${topic}`,
+      fontSize: 30,
       fontFamily: "sans-serif",
       color: "#0f172a",
     } as TextObject,
-    {
-      id: node1Id,
-      kind: "diagram-node",
-      x: 100,
-      y: 280,
-      w: 200,
-      h: 110,
-      nodeType: "start",
-      label: `Initial Input / Stimulus\nfor ${topic}`,
-      color: "#3b82f6",
-      connectedTo: [node2Id],
-    } as DiagramNodeObject,
-    {
-      id: node2Id,
-      kind: "diagram-node",
-      x: 370,
-      y: 280,
-      w: 220,
-      h: 110,
-      nodeType: "process",
-      label: `Core Processing Stage\n(Reactions & Dynamics)`,
-      color: "#8b5cf6",
-      connectedTo: [node3Id],
-    } as DiagramNodeObject,
-    {
-      id: node3Id,
-      kind: "diagram-node",
-      x: 660,
-      y: 280,
-      w: 200,
-      h: 110,
-      nodeType: "decision",
-      label: `Threshold / Check\nReached?`,
-      color: "#f59e0b",
-      connectedTo: [node4Id],
-    } as DiagramNodeObject,
-    {
-      id: node4Id,
-      kind: "diagram-node",
-      x: 930,
-      y: 280,
-      w: 200,
-      h: 110,
-      nodeType: "end",
-      label: `Final Equilibrium &\nProduct Result`,
-      color: "#10b981",
-    } as DiagramNodeObject,
-    {
-      id: uid(),
-      kind: "sticky",
-      x: 100,
-      y: 450,
-      w: 1030,
-      h: 180,
-      text: `🔍 SMART BOARD ANNOTATION ZONE:\n\nInvite students to write intermediate chemical equations, formulas, dates, or vocabulary notes directly above or below each node!`,
-      color: "#eef2ff",
-    } as StickyNoteObject,
   ];
+
+  const steps = curriculum.conceptFlowchart.steps.slice(0, 4);
+  const nodeIds = steps.map(() => uid());
+  const nodeColors = ["#3b82f6", "#8b5cf6", "#f59e0b", "#10b981"];
+  const nodeTypes: DiagramNodeObject["nodeType"][] = ["start", "process", "decision", "end"];
+
+  steps.forEach((st, i) => {
+    p3Objects.push({
+      id: nodeIds[i],
+      kind: "diagram-node",
+      x: 100 + i * 265,
+      y: 260,
+      w: 220,
+      h: 120,
+      nodeType: nodeTypes[i % nodeTypes.length],
+      label: `${st.label}\n\n${st.description}`,
+      color: nodeColors[i % nodeColors.length],
+      connectedTo: i < steps.length - 1 ? [nodeIds[i + 1]] : [],
+    } as DiagramNodeObject);
+  });
+
+  p3Objects.push({
+    id: uid(),
+    kind: "sticky",
+    x: 100,
+    y: 460,
+    w: 1010,
+    h: 160,
+    text: `🔍 SMART BOARD ANNOTATION ZONE:\n\nInvite students to write intermediate formulas, notes, or classroom examples directly above or below each node!`,
+    color: "#eef2ff",
+  } as StickyNoteObject);
 
   pages.push({
     id: uid(),
@@ -279,52 +456,7 @@ export function buildLessonPages(options: LessonBuilderOptions): Page[] {
   // =========================================================================
   // PAGE 4: INTERACTIVE DRAG-AND-DROP ACTIVITY
   // =========================================================================
-  const lowerTopic = topic.toLowerCase();
-  let actCategories = ["Core Characteristics", "Supporting Evidence", "Real-World Examples"];
-  let actItems = [
-    { id: uid(), text: "Essential Property A", category: "Core Characteristics" },
-    { id: uid(), text: "Essential Property B", category: "Core Characteristics" },
-    { id: uid(), text: "Experimental Observation", category: "Supporting Evidence" },
-    { id: uid(), text: "Data Measurement", category: "Supporting Evidence" },
-    { id: uid(), text: "Practical Case Study 1", category: "Real-World Examples" },
-    { id: uid(), text: "Practical Case Study 2", category: "Real-World Examples" },
-  ];
-
-  if (lowerTopic.includes("photo") || lowerTopic.includes("plant")) {
-    actCategories = ["Inputs (Reactants)", "Outputs (Products)", "Cell Machinery"];
-    actItems = [
-      { id: uid(), text: "Sunlight Energy", category: "Inputs (Reactants)" },
-      { id: uid(), text: "Carbon Dioxide (CO2)", category: "Inputs (Reactants)" },
-      { id: uid(), text: "Water (H2O)", category: "Inputs (Reactants)" },
-      { id: uid(), text: "Glucose Sugar", category: "Outputs (Products)" },
-      { id: uid(), text: "Oxygen Gas (O2)", category: "Outputs (Products)" },
-      { id: uid(), text: "Chloroplasts", category: "Cell Machinery" },
-      { id: uid(), text: "Chlorophyll Pigment", category: "Cell Machinery" },
-      { id: uid(), text: "Stomata Pores", category: "Cell Machinery" },
-    ];
-  } else if (lowerTopic.includes("water") || lowerTopic.includes("cycle")) {
-    actCategories = ["Atmosphere", "Surface Water", "Groundwater"];
-    actItems = [
-      { id: uid(), text: "Water Vapor", category: "Atmosphere" },
-      { id: uid(), text: "Condensation into Clouds", category: "Atmosphere" },
-      { id: uid(), text: "Rivers & Lakes", category: "Surface Water" },
-      { id: uid(), text: "Ocean Evaporation", category: "Surface Water" },
-      { id: uid(), text: "Soil Moisture", category: "Groundwater" },
-      { id: uid(), text: "Aquifer Infiltration", category: "Groundwater" },
-    ];
-  } else if (lowerTopic.includes("math") || lowerTopic.includes("pythag") || lowerTopic.includes("triangle")) {
-    actCategories = ["Legs (a & b)", "Hypotenuse (c)", "Applications"];
-    actItems = [
-      { id: uid(), text: "Side a = 3", category: "Legs (a & b)" },
-      { id: uid(), text: "Side b = 4", category: "Legs (a & b)" },
-      { id: uid(), text: "Side c = 5", category: "Hypotenuse (c)" },
-      { id: uid(), text: "Longest Side", category: "Hypotenuse (c)" },
-      { id: uid(), text: "Opposite Right Angle", category: "Hypotenuse (c)" },
-      { id: uid(), text: "Construction & Surveying", category: "Applications" },
-      { id: uid(), text: "GPS Distance Tracking", category: "Applications" },
-    ];
-  }
-
+  const act = curriculum.sortingActivity;
   const p4Objects: CanvasObject[] = [
     {
       id: uid(),
@@ -343,10 +475,17 @@ export function buildLessonPages(options: LessonBuilderOptions): Page[] {
       w: 960,
       h: 560,
       activityType: "sort",
-      title: `${topic}: Category Sort Challenge`,
-      instructions: "Students come to the board and drag each card into the correct category bucket.",
-      categories: actCategories,
-      items: actItems,
+      title: act.title || `${topic}: Interactive Classification`,
+      instructions: act.instruction || "Drag each card to its matching category on the smart board.",
+      categories: act.categories.map((c) => c.name),
+      items: act.items.map((it) => {
+        const cat = act.categories.find((c) => c.id === it.correctCategoryId);
+        return {
+          id: it.id || uid(),
+          text: it.text,
+          category: cat ? cat.name : act.categories[0].name,
+        };
+      }),
       completed: false,
     } as ActivityObject,
   ];
@@ -383,58 +522,54 @@ export function buildLessonPages(options: LessonBuilderOptions): Page[] {
       fontFamily: "sans-serif",
       color: "#0f172a",
     } as TextObject,
-    {
+  ];
+
+  const q1 = curriculum.quiz[0];
+  const q2 = curriculum.quiz[1];
+  const q3 = curriculum.quiz[2];
+
+  if (q1) {
+    p5Objects.push({
       id: uid(),
       kind: "quiz",
       x: 100,
       y: 160,
       w: 480,
       h: 220,
-      question: `What is the primary factor that initiates ${topic}?`,
-      options: [
-        "A sudden drop in temperature",
-        "The primary input energy or stimulus",
-        "An isolated chemical catalyst",
-        "A completely random external fluctuation",
-      ],
-      answerIndex: 1,
+      question: q1.question,
+      options: q1.options,
+      answerIndex: q1.correctIndex,
       revealed: false,
-    } as QuizObject,
-    {
+    } as QuizObject);
+  }
+  if (q2) {
+    p5Objects.push({
       id: uid(),
       kind: "quiz",
       x: 620,
       y: 160,
       w: 480,
       h: 220,
-      question: `Which statement best describes how ${topic} impacts systems?`,
-      options: [
-        "It maintains static equilibrium without change",
-        "It drives measurable transformations across stages",
-        "It eliminates all outside variables",
-        "It only occurs in simulated conditions",
-      ],
-      answerIndex: 1,
+      question: q2.question,
+      options: q2.options,
+      answerIndex: q2.correctIndex,
       revealed: false,
-    } as QuizObject,
-    {
+    } as QuizObject);
+  }
+  if (q3) {
+    p5Objects.push({
       id: uid(),
       kind: "quiz",
       x: 100,
       y: 410,
       w: 1000,
       h: 200,
-      question: `Why is understanding ${topic} critical for modern scientists and thinkers?`,
-      options: [
-        "It allows accurate predictions and innovative applications",
-        "It is merely a historical convention",
-        "It cannot be tested or measured",
-        "It only applies to theoretical problems",
-      ],
-      answerIndex: 0,
+      question: q3.question,
+      options: q3.options,
+      answerIndex: q3.correctIndex,
       revealed: false,
-    } as QuizObject,
-  ];
+    } as QuizObject);
+  }
 
   pages.push({
     id: uid(),
@@ -444,9 +579,9 @@ export function buildLessonPages(options: LessonBuilderOptions): Page[] {
   });
 
   // =========================================================================
-  // PAGE 6: KEY VOCABULARY FLASHCARDS
+  // PAGE 6: KEY VOCABULARY FLASHCARDS (OPTIONAL)
   // =========================================================================
-  if (targetPages >= 6) {
+  if (maxPages >= 6 && curriculum.flashcards.length >= 3) {
     const p6Objects: CanvasObject[] = [
       {
         id: uid(),
@@ -469,51 +604,29 @@ export function buildLessonPages(options: LessonBuilderOptions): Page[] {
         fontFamily: "sans-serif",
         color: "#0f172a",
       } as TextObject,
-      {
-        id: uid(),
-        kind: "flashcard",
-        x: 100,
-        y: 160,
-        w: 480,
-        h: 210,
-        front: `TERM 1: Core Phenomenon\n\n(Tap card to reveal definition)`,
-        back: `Definition:\nThe foundational event or mechanism that defines ${topic}.`,
-        flipped: false,
-      } as FlashcardObject,
-      {
-        id: uid(),
-        kind: "flashcard",
-        x: 620,
-        y: 160,
-        w: 480,
-        h: 210,
-        front: `TERM 2: Primary Variable\n\n(Tap card to reveal definition)`,
-        back: `Definition:\nThe measurable condition or quantity that shifts during the process.`,
-        flipped: false,
-      } as FlashcardObject,
-      {
-        id: uid(),
-        kind: "flashcard",
-        x: 100,
-        y: 400,
-        w: 480,
-        h: 210,
-        front: `TERM 3: System Reaction\n\n(Tap card to reveal definition)`,
-        back: `Definition:\nThe observable response triggered when variables reach equilibrium.`,
-        flipped: false,
-      } as FlashcardObject,
-      {
-        id: uid(),
-        kind: "flashcard",
-        x: 620,
-        y: 400,
-        w: 480,
-        h: 210,
-        front: `TERM 4: Practical Outcome\n\n(Tap card to reveal definition)`,
-        back: `Definition:\nThe tangible benefit or discovery yielded from studying ${topic}.`,
-        flipped: false,
-      } as FlashcardObject,
     ];
+
+    const cards = curriculum.flashcards.slice(0, 4);
+    const pos = [
+      { x: 100, y: 160 },
+      { x: 620, y: 160 },
+      { x: 100, y: 400 },
+      { x: 620, y: 400 },
+    ];
+
+    cards.forEach((fc, idx) => {
+      p6Objects.push({
+        id: uid(),
+        kind: "flashcard",
+        x: pos[idx].x,
+        y: pos[idx].y,
+        w: 480,
+        h: 210,
+        front: `${fc.front}\n\n(Tap card to reveal definition)`,
+        back: `Definition:\n${fc.back}`,
+        flipped: false,
+      } as FlashcardObject);
+    });
 
     pages.push({
       id: uid(),
@@ -524,9 +637,9 @@ export function buildLessonPages(options: LessonBuilderOptions): Page[] {
   }
 
   // =========================================================================
-  // PAGE 7: EXIT TICKET & REFLECTION
+  // PAGE 7: EXIT TICKET & REFLECTION (OPTIONAL)
   // =========================================================================
-  if (targetPages >= 7) {
+  if (maxPages >= 7) {
     const p7Objects: CanvasObject[] = [
       {
         id: uid(),
@@ -549,37 +662,22 @@ export function buildLessonPages(options: LessonBuilderOptions): Page[] {
         fontFamily: "sans-serif",
         color: "#0f172a",
       } as TextObject,
-      {
-        id: uid(),
-        kind: "sticky",
-        x: 100,
-        y: 160,
-        w: 320,
-        h: 460,
-        text: `⭐ 1 BIG THING I LEARNED:\n\nWrite down the most surprising or essential concept you understood about ${topic} during today's lesson.`,
-        color: "#ecfdf5",
-      } as StickyNoteObject,
-      {
-        id: uid(),
-        kind: "sticky",
-        x: 450,
-        y: 160,
-        w: 320,
-        h: 460,
-        text: `❓ 1 QUESTION I STILL HAVE:\n\nWhat is one question or mystery about ${topic} that you want to explore tomorrow?`,
-        color: "#fef2f2",
-      } as StickyNoteObject,
-      {
-        id: uid(),
-        kind: "sticky",
-        x: 800,
-        y: 160,
-        w: 320,
-        h: 460,
-        text: `📊 SELF-RATING (1-5):\n\nHow confident do you feel explaining ${topic} to a classmate?\n\n1 = Need Help\n3 = Getting There\n5 = Can Teach Others!`,
-        color: "#fffbeb",
-      } as StickyNoteObject,
     ];
+
+    const prompts = curriculum.exitTicket.prompts.slice(0, 3);
+    const noteColors = ["#ecfdf5", "#fef2f2", "#fffbeb"];
+    prompts.forEach((pr, i) => {
+      p7Objects.push({
+        id: uid(),
+        kind: "sticky",
+        x: 100 + i * 350,
+        y: 160,
+        w: 320,
+        h: 460,
+        text: `📌 PROMPT ${i + 1}:\n\n${pr}`,
+        color: noteColors[i % noteColors.length],
+      } as StickyNoteObject);
+    });
 
     pages.push({
       id: uid(),
@@ -590,4 +688,14 @@ export function buildLessonPages(options: LessonBuilderOptions): Page[] {
   }
 
   return pages;
+}
+
+/**
+ * Builds lesson pages using curriculum if provided, or fallback template outline.
+ */
+export function buildLessonPages(options: LessonBuilderOptions): Page[] {
+  const curriculum =
+    options.curriculum ||
+    generateLessonTemplate(options.topic, options.subject, options.gradeLevel);
+  return buildLessonPagesFromCurriculum(curriculum, options.pageCount || 6);
 }

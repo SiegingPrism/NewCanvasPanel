@@ -689,21 +689,23 @@ export function WidgetsSheet({
                   </div>
                 </button>
 
-                <button
-                  onClick={() => {
-                    onOpenChange(false);
-                    window.dispatchEvent(new CustomEvent("slate:open-ai-lesson-builder"));
-                  }}
-                  className="flex flex-col items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
-                >
-                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-purple-500/10 text-purple-500 transition-transform group-hover:scale-105">
-                    <Sparkles className="h-5 w-5" />
-                  </span>
-                  <div>
-                    <div className="text-xs font-semibold leading-tight">AI Lesson Builder</div>
-                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">5-8 ready pages</div>
-                  </div>
-                </button>
+                {!simpleMode && (
+                  <button
+                    onClick={() => {
+                      onOpenChange(false);
+                      window.dispatchEvent(new CustomEvent("slate:open-ai-lesson-builder"));
+                    }}
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
+                  >
+                    <span className="grid h-10 w-10 place-items-center rounded-lg bg-purple-500/10 text-purple-500 transition-transform group-hover:scale-105">
+                      <Sparkles className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <div className="text-xs font-semibold leading-tight">AI Lesson Builder</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">5-8 ready pages</div>
+                    </div>
+                  </button>
+                )}
 
                 <button
                   onClick={() => {
@@ -1008,7 +1010,7 @@ export function WidgetsSheet({
 
                 <button
                   onClick={handleInsertWholePeriodicTable}
-                  className="flex flex-col items-center gap-1.5 rounded-xl border border-teal-500/30 bg-teal-500/5 p-2.5 text-center transition hover:bg-teal-500/10 active:scale-95 group"
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-teal-500/40 bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
                   title="Place entire 118-element periodic table on board"
                 >
                   <span className="grid h-10 w-10 place-items-center rounded-lg bg-teal-600/15 text-teal-600 dark:text-teal-400 transition-transform group-hover:scale-105">
@@ -1025,13 +1027,13 @@ export function WidgetsSheet({
                     onOpenChange(false);
                     setGeoMapsOpen(true);
                   }}
-                  className="flex flex-col items-center gap-1.5 rounded-xl border border-blue-500/30 bg-blue-500/5 p-2.5 text-center transition hover:bg-blue-500/10 active:scale-95 group"
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
                 >
                   <span className="grid h-10 w-10 place-items-center rounded-lg bg-blue-500/15 text-blue-600 dark:text-blue-400 transition-transform group-hover:scale-105">
                     <Globe className="h-5 w-5" />
                   </span>
                   <div>
-                    <div className="text-xs font-semibold leading-tight text-blue-700 dark:text-blue-300">Geo Maps</div>
+                    <div className="text-xs font-semibold leading-tight">Geo Maps</div>
                     <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">World & continents</div>
                   </div>
                 </button>
@@ -1041,13 +1043,13 @@ export function WidgetsSheet({
                     onOpenChange(false);
                     setGridTemplatesOpen(true);
                   }}
-                  className="flex flex-col items-center gap-1.5 rounded-xl border border-teal-500/30 bg-teal-500/5 p-2.5 text-center transition hover:bg-teal-500/10 active:scale-95 group"
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
                 >
                   <span className="grid h-10 w-10 place-items-center rounded-lg bg-teal-500/15 text-teal-600 dark:text-teal-400 transition-transform group-hover:scale-105">
                     <Grid className="h-5 w-5" />
                   </span>
                   <div>
-                    <div className="text-xs font-semibold leading-tight text-teal-700 dark:text-teal-300">Grid Paper</div>
+                    <div className="text-xs font-semibold leading-tight">Grid Paper</div>
                     <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Notebook & lines</div>
                   </div>
                 </button>
@@ -1135,20 +1137,26 @@ export function WidgetsSheet({
 
             {/* 6. LESSON & TOUR SECTION */}
             <section className="pt-2 border-t border-border">
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Lesson Files
+                </h3>
+                <span className="text-[10px] text-muted-foreground">backup & tour</span>
+              </div>
               <div className="grid grid-cols-3 gap-2">
                 <button
                   onClick={() => {
                     onOpenChange(false);
                     exportLessonFile("Classroom Lesson", pages);
                   }}
-                  className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-2 text-center transition hover:bg-accent active:scale-95 group"
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
                 >
-                  <span className="grid h-8 w-8 place-items-center rounded-lg bg-emerald-500/10 text-emerald-600 transition-transform group-hover:scale-105">
-                    <Save className="h-4 w-4" />
+                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-emerald-500/10 text-emerald-600 transition-transform group-hover:scale-105">
+                    <Save className="h-5 w-5" />
                   </span>
                   <div>
                     <div className="text-xs font-semibold leading-tight">Save Lesson</div>
-                    <div className="text-[10px] text-muted-foreground leading-none">.slate bundle</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">.slate bundle</div>
                   </div>
                 </button>
 
@@ -1157,14 +1165,14 @@ export function WidgetsSheet({
                     onOpenChange(false);
                     lessonFileInputRef.current?.click();
                   }}
-                  className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-2 text-center transition hover:bg-accent active:scale-95 group"
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
                 >
-                  <span className="grid h-8 w-8 place-items-center rounded-lg bg-amber-500/10 text-amber-500 transition-transform group-hover:scale-105">
-                    <FolderOpen className="h-4 w-4" />
+                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-amber-500/10 text-amber-500 transition-transform group-hover:scale-105">
+                    <FolderOpen className="h-5 w-5" />
                   </span>
                   <div>
                     <div className="text-xs font-semibold leading-tight">Open Lesson</div>
-                    <div className="text-[10px] text-muted-foreground leading-none">Load .slate file</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Load .slate file</div>
                   </div>
                 </button>
 
@@ -1173,14 +1181,14 @@ export function WidgetsSheet({
                     onOpenChange(false);
                     setBoardTourOpen(true);
                   }}
-                  className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-2 text-center transition hover:bg-accent active:scale-95 group"
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
                 >
-                  <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary/10 text-primary transition-transform group-hover:scale-105">
-                    <Tv className="h-4 w-4" />
+                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-primary/10 text-primary transition-transform group-hover:scale-105">
+                    <Tv className="h-5 w-5" />
                   </span>
                   <div>
                     <div className="text-xs font-semibold leading-tight">60s Tour</div>
-                    <div className="text-[10px] text-muted-foreground leading-none">Board basics</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Board basics</div>
                   </div>
                 </button>
               </div>

@@ -13,6 +13,7 @@ import { useAISettings } from "./aiSettingsStore";
 import { useAuth } from "@/lib/supabase/authStore";
 import { retrieveRAGContext } from "./localRAG";
 import { compileMathFunction } from "@/lib/whiteboard/safeMath";
+import { LessonCurriculumSchema, type LessonCurriculum } from "./lessonBuilder";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -1582,5 +1583,117 @@ phases: 3–4 phases covering all ${days} days in order; put the day range in ea
       phases,
       dailyRoutine: str(p.dailyRoutine),
     };
+  }
+
+  // ---- AI Lesson Curriculum Generator ----
+  static async generateLessonCurriculum(opts: {
+    topic: string;
+    subject?: string;
+    gradeLevel?: string;
+  }): Promise<LessonCurriculum> {
+    const topic = opts.topic.trim();
+    if (!topic) throw new AIError("bad_input", "Please enter a lesson topic.");
+    const subject = opts.subject || "General Science";
+    const gradeLevel = opts.gradeLevel || "Middle School (Grades 6-8)";
+
+    const prompt = `You are designing a high-impact, interactive smart board lesson curriculum on: "${topic}".
+Subject: ${subject}
+Grade Level: ${gradeLevel}
+
+Generate a comprehensive curriculum in JSON adhering strictly to this schema:
+{
+  "topic": "${topic}",
+  "subject": "${subject}",
+  "gradeLevel": "${gradeLevel}",
+  "objectives": ["Measureable learning objective 1", "Measureable learning objective 2", "Measureable learning objective 3"],
+  "bellRingerQuestions": ["Engaging warmup prompt 1", "Engaging warmup prompt 2", "Engaging warmup prompt 3"],
+  "corePrinciples": [
+    {
+      "heading": "Clear Principle 1 Title",
+      "explanation": "Concise 1-2 sentence core concept definition.",
+      "bulletPoints": ["Key mechanism or fact", "Concrete real-world example", "Why it matters"]
+    },
+    {
+      "heading": "Clear Principle 2 Title",
+      "explanation": "Concise 1-2 sentence core concept definition.",
+      "bulletPoints": ["Key mechanism or fact", "Concrete real-world example", "Why it matters"]
+    },
+    {
+      "heading": "Clear Principle 3 Title",
+      "explanation": "Concise 1-2 sentence core concept definition.",
+      "bulletPoints": ["Key mechanism or fact", "Concrete real-world example", "Why it matters"]
+    }
+  ],
+  "conceptFlowchart": {
+    "title": "Process flow and mechanics for ${topic}",
+    "steps": [
+      { "stepNumber": 1, "label": "Step 1 label", "description": "Step 1 description" },
+      { "stepNumber": 2, "label": "Step 2 label", "description": "Step 2 description" },
+      { "stepNumber": 3, "label": "Step 3 label", "description": "Step 3 description" },
+      { "stepNumber": 4, "label": "Step 4 label", "description": "Step 4 description" }
+    ]
+  },
+  "sortingActivity": {
+    "title": "Interactive Classification: ${topic}",
+    "instruction": "Drag each item to its correct category bucket on the smart board.",
+    "categories": [
+      { "id": "cat-1", "name": "Category 1 name", "color": "#3b82f6" },
+      { "id": "cat-2", "name": "Category 2 name", "color": "#10b981" }
+    ],
+    "items": [
+      { "id": "item-1", "text": "Specific real item 1", "correctCategoryId": "cat-1" },
+      { "id": "item-2", "text": "Specific real item 2", "correctCategoryId": "cat-1" },
+      { "id": "item-3", "text": "Specific real item 3", "correctCategoryId": "cat-2" },
+      { "id": "item-4", "text": "Specific real item 4", "correctCategoryId": "cat-2" },
+      { "id": "item-5", "text": "Specific real item 5", "correctCategoryId": "cat-1" },
+      { "id": "item-6", "text": "Specific real item 6", "correctCategoryId": "cat-2" }
+    ]
+  },
+  "quiz": [
+    {
+      "question": "Specific question testing deep comprehension of ${topic}?",
+      "options": ["Accurate correct answer", "Plausible distractor 1", "Plausible distractor 2", "Plausible distractor 3"],
+      "correctIndex": 0,
+      "explanation": "Clear explanation of why this answer is correct."
+    },
+    {
+      "question": "Another specific conceptual question about ${topic}?",
+      "options": ["Plausible distractor 1", "Accurate correct answer", "Plausible distractor 2", "Plausible distractor 3"],
+      "correctIndex": 1,
+      "explanation": "Clear explanation of why this answer is correct."
+    },
+    {
+      "question": "Application or scenario question about ${topic}?",
+      "options": ["Plausible distractor 1", "Plausible distractor 2", "Accurate correct answer", "Plausible distractor 3"],
+      "correctIndex": 2,
+      "explanation": "Clear explanation of why this answer is correct."
+    }
+  ],
+  "flashcards": [
+    { "front": "Key Term 1", "back": "Precise definition" },
+    { "front": "Key Term 2", "back": "Precise definition" },
+    { "front": "Key Term 3", "back": "Precise definition" },
+    { "front": "Key Term 4", "back": "Precise definition" }
+  ],
+  "exitTicket": {
+    "prompts": [
+      "In your own words, summarize the single most important rule or mechanism of ${topic}.",
+      "How would you explain ${topic} to someone who has never heard of it before?",
+      "What is one question or curiosity you still have about ${topic}?"
+    ]
+  }
+}
+
+Use authentic scientific, historical, or mathematical facts. No placeholders.`;
+
+    const raw = await callGemini(userContent(prompt), {
+      system: JSON_SYSTEM,
+      json: true,
+      temperature: 0.3,
+    });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const parsed = parseJSON<any>(raw);
+    return LessonCurriculumSchema.parse(parsed);
   }
 }
