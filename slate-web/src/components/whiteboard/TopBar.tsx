@@ -60,6 +60,8 @@ import { DocumentViewerDialog } from "@/components/document/DocumentViewerDialog
 import { MathFormulaDialog } from "./MathFormulaDialog";
 import { FeatureTourDialog } from "./FeatureTourDialog";
 import { GenerateMindMapDialog } from "./GenerateMindMapDialog";
+import { NewPagePickerContent } from "./smartboard/NewPagePickerContent";
+import { DocumentImportDialog } from "./smartboard/DocumentImportDialog";
 import { AIEngine, aiErrorMessage } from "@/lib/ai/aiEngine";
 import { extractBoardSearchStrings } from "@/lib/ai/localRAG";
 import type { MindMapNodeObject } from "@/lib/whiteboard/types";
@@ -127,6 +129,8 @@ export function TopBar({
   const [qrUrl, setQrUrl] = useState<string>("");
   const [templateTab, setTemplateTab] = useState<"background" | "template">("background");
   const [templatePopoverOpen, setTemplatePopoverOpen] = useState(false);
+  const [newPagePopoverOpen, setNewPagePopoverOpen] = useState(false);
+  const [docImportOpen, setDocImportOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [mathFormulaOpen, setMathFormulaOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
@@ -458,15 +462,33 @@ export function TopBar({
           >
             <ChevronRight className={iconSize} />
           </button>
-          <button
-            type="button"
-            className={iconBtn}
-            onClick={() => addPage()}
-            aria-label="Add new page"
-            title="Add page"
-          >
-            <Plus className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-          </button>
+          <Popover modal={false} open={newPagePopoverOpen} onOpenChange={setNewPagePopoverOpen}>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className={iconBtn}
+                aria-label="Add new page or template (N)"
+                title="Add page (N) — choose style or template"
+              >
+                <Plus className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent
+              align="center"
+              side="bottom"
+              sideOffset={8}
+              className={cn(
+                "w-80 max-w-[calc(100vw-2rem)] rounded-2xl p-3.5 shadow-2xl space-y-2.5 border max-h-[min(78vh,520px)] overflow-y-auto",
+                isDark ? "bg-slate-900 border-slate-700 text-slate-100" : "bg-card border-border text-card-foreground"
+              )}
+            >
+              <NewPagePickerContent
+                onClose={() => setNewPagePopoverOpen(false)}
+                onOpenDocImport={() => setDocImportOpen(true)}
+                isDark={isDark}
+              />
+            </PopoverContent>
+          </Popover>
         </>
       )}
 
@@ -1276,6 +1298,12 @@ export function TopBar({
       <GenerateMindMapDialog
         open={mindMapDialogOpen}
         onOpenChange={setMindMapDialogOpen}
+      />
+
+      {/* Slide & Document Import Dialog */}
+      <DocumentImportDialog
+        open={docImportOpen}
+        onOpenChange={setDocImportOpen}
       />
 
       {/* Account & Cloud Sync Dialog */}

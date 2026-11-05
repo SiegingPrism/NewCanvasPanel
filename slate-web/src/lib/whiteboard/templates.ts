@@ -22,7 +22,7 @@ export type Template = {
   key: TemplateKey;
   title: string;
   description: string;
-  category: "Built-in" | "Math" | "Science" | "Language";
+  category: "Built-in" | "Math" | "Science" | "Language" | "Geography" | "Arts & Music";
   emoji: string;
 };
 
@@ -115,7 +115,7 @@ export const TEMPLATES: Template[] = [
     key: "music-staves",
     title: "Music Staves",
     description: "5-line music staves for notation, melody composition, and rhythm lessons.",
-    category: "Built-in",
+    category: "Arts & Music",
     emoji: "🎼",
   },
   {
@@ -129,14 +129,14 @@ export const TEMPLATES: Template[] = [
     key: "india-map",
     title: "India Political Map",
     description: "Outline map of India with states for social science and geography.",
-    category: "Science",
+    category: "Geography",
     emoji: "🇮🇳",
   },
   {
     key: "world-map",
     title: "World Map Outline",
     description: "Global continents outline for world history, climate zones, and geography.",
-    category: "Science",
+    category: "Geography",
     emoji: "🗺️",
   },
 ];

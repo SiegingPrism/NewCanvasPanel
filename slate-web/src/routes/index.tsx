@@ -45,7 +45,7 @@ import { DocumentImportDialog } from "@/components/whiteboard/smartboard/Documen
 import { importLessonFile } from "@/lib/whiteboard/lessonFiles";
 
 const SUBJECT_TEMPLATES: {
-  category: "Maths" | "Science" | "Language" | "Arts & Music";
+  category: "Maths" | "Science" | "Language" | "Geography" | "Arts & Music";
   templates: { key: TemplateKey; label: string; icon: string; desc: string }[];
 }[] = [
   {
@@ -54,29 +54,39 @@ const SUBJECT_TEMPLATES: {
       { key: "graph", label: "Math Graph", icon: "📈", desc: "Cartesian grid with axes" },
       { key: "drafting-3d", label: "3D Drafting", icon: "📐", desc: "Isometric grid with 3D axes" },
       { key: "millimeter-graph", label: "Precision Grid", icon: "📊", desc: "1mm engineering graph paper" },
+      { key: "number-line", label: "Number Line", icon: "➖", desc: "Linear scale for math" },
     ],
   },
   {
     category: "Science",
     templates: [
-      { key: "lab-report", label: "Lab Report", icon: "🧪", desc: "Hypothesis, method & results" },
-      { key: "world-map", label: "World Map", icon: "🗺️", desc: "Global continents & geography" },
-      { key: "india-map", label: "India Map", icon: "🇮🇳", desc: "State boundaries & geography" },
+      { key: "lab-report", label: "Lab Report", icon: "🧪", desc: "Hypothesis, apparatus, method & results" },
+      { key: "mindmap", label: "Science Mind Map", icon: "🧠", desc: "Hypothesis, experiments & notes" },
+      { key: "dot", label: "Dot Matrix", icon: "📓", desc: "Molecule & chemical layout" },
     ],
   },
   {
     category: "Language",
     templates: [
       { key: "four-line", label: "4-Line Writing", icon: "✍️", desc: "Handwriting ruling for languages" },
-      { key: "kwl", label: "KWL Chart", icon: "📚", desc: "Know · Want to know · Learned" },
       { key: "cornell", label: "Cornell Notes", icon: "🗂️", desc: "Cues, notes, and summary" },
+      { key: "kwl", label: "KWL Chart", icon: "📚", desc: "Know · Want to know · Learned" },
+      { key: "lined", label: "Ruled Notes", icon: "📝", desc: "Composition & essay ruling" },
+    ],
+  },
+  {
+    category: "Geography",
+    templates: [
+      { key: "world-map", label: "World Map", icon: "🗺️", desc: "Continents, oceans & climate zones" },
+      { key: "india-map", label: "India Map", icon: "🇮🇳", desc: "State boundaries & physical map" },
+      { key: "grid", label: "Topographic Grid", icon: "🌐", desc: "Latitude & longitude mapping" },
     ],
   },
   {
     category: "Arts & Music",
     templates: [
       { key: "music-staves", label: "Music Staves", icon: "🎼", desc: "5-line notation & staves" },
-      { key: "mindmap", label: "Mind Map", icon: "🧠", desc: "Central concept with branches" },
+      { key: "blank", label: "Art Sketchpad", icon: "🎨", desc: "Clean unruled drawing canvas" },
     ],
   },
 ];
@@ -128,7 +138,7 @@ function Dashboard() {
   const [newFolderOpen, setNewFolderOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [docImportOpen, setDocImportOpen] = useState(false);
-  const [selectedSubjectTab, setSelectedSubjectTab] = useState<"Maths" | "Science" | "Language" | "Arts & Music">("Maths");
+  const [selectedSubjectTab, setSelectedSubjectTab] = useState<"Maths" | "Science" | "Language" | "Geography" | "Arts & Music">("Maths");
 
   async function handleImportSlateFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -664,7 +674,7 @@ function Dashboard() {
 
           {/* Subject Tabs */}
           <div className="flex items-center gap-1.5 p-1 rounded-xl bg-muted/50 border border-border/60 overflow-x-auto scrollbar-none">
-            {(["Maths", "Science", "Language", "Arts & Music"] as const).map((cat) => (
+            {(["Maths", "Science", "Language", "Geography", "Arts & Music"] as const).map((cat) => (
               <button
                 key={cat}
                 type="button"
@@ -682,7 +692,7 @@ function Dashboard() {
           </div>
 
           {/* Subject Template Cards */}
-          <div className="grid grid-cols-3 gap-2.5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
             {SUBJECT_TEMPLATES.find((s) => s.category === selectedSubjectTab)?.templates.map((tmpl) => (
               <button
                 key={tmpl.key}

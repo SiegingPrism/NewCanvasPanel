@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { BoardHelpOverlay } from "./BoardHelpOverlay";
 import { BoardTourDialog } from "./BoardTourDialog";
 import { DocumentImportDialog } from "./DocumentImportDialog";
+import { NewPagePickerContent } from "./NewPagePickerContent";
 import { useWhiteboard } from "@/lib/whiteboard/store";
 import { getSmartBoardProfile, SMART_BOARD_PROFILES, PanelDiagonal } from "@/lib/whiteboard/smartBoardProfiles";
 import type { PageBackground } from "@/lib/whiteboard/types";
@@ -68,20 +69,6 @@ function LaserIcon({ className }: { className?: string }) {
   );
 }
 
-const PAGE_TEMPLATES: {
-  id: PageBackground;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  desc: string;
-}[] = [
-  { id: "white", label: "Blank", icon: FileText, desc: "Standard canvas" },
-  { id: "lined", label: "Lined", icon: AlignJustify, desc: "Ruled lines for notes" },
-  { id: "grid", label: "Squared", icon: Grid, desc: "Math & geometry grid" },
-  { id: "four-line", label: "4-Line", icon: PenTool, desc: "Language handwriting" },
-  { id: "music-staves", label: "Music", icon: Music, desc: "5-line music staves" },
-  { id: "world-map", label: "Map", icon: MapPin, desc: "World geography outline" },
-];
-
 export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerControlsProps) {
   const {
     undo,
@@ -114,8 +101,9 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
 
   const profile = getSmartBoardProfile(panelSize);
   const targetPx = Math.max(64, profile.minTouchTargetPx);
-  const activePageIndex = pages.findIndex((p) => p.id === activePageId);
-  const activePage = pages.find((p) => p.id === activePageId);
+  const rawPageIndex = pages.findIndex((p) => p.id === activePageId);
+  const activePageIndex = rawPageIndex >= 0 ? rawPageIndex : 0;
+  const activePage = pages[activePageIndex] || pages[0];
   const canUndo = historyIndex > 0;
   const canRedo = historyIndex < history.length - 1;
 
@@ -694,53 +682,15 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
             sideOffset={12}
             collisionPadding={24}
             className={cn(
-              "w-80 max-w-[calc(100vw-2rem)] rounded-2xl p-3 shadow-2xl space-y-2.5 border max-h-[min(78vh,520px)] overflow-y-auto",
+              "w-80 max-w-[calc(100vw-2rem)] rounded-2xl p-3.5 shadow-2xl space-y-2.5 border max-h-[min(78vh,520px)] overflow-y-auto",
               isDark ? "bg-slate-900 border-slate-700 text-slate-100" : "bg-card border-border"
             )}
           >
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Choose Page Style
-              </p>
-              <p className="text-[11px] text-muted-foreground">
-                Add a blank page, lined notes, math grid, or template.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2">
-              {PAGE_TEMPLATES.map((tmpl) => {
-                const Icon = tmpl.icon;
-                return (
-                  <button
-                    key={tmpl.id}
-                    type="button"
-                    onClick={() => {
-                      addPage(tmpl.id);
-                      setNewPageOpen(false);
-                      toast(`Added ${tmpl.label} page`);
-                    }}
-                    className="flex flex-col items-center justify-center gap-1 p-2.5 rounded-xl border border-border/70 hover:bg-muted active:scale-95 transition text-center"
-                  >
-                    <Icon className="h-5 w-5 text-primary" />
-                    <span className="text-xs font-bold text-foreground">{tmpl.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="h-px bg-border my-1" />
-
-            <button
-              type="button"
-              onClick={() => {
-                setNewPageOpen(false);
-                setDocImportOpen(true);
-              }}
-              className="flex w-full items-center justify-center gap-2 p-2 rounded-xl bg-muted/60 hover:bg-muted text-xs font-semibold text-foreground transition"
-            >
-              <Presentation className="h-4 w-4 text-orange-500" />
-              Import PowerPoint (.pptx) or PDF
-            </button>
+            <NewPagePickerContent
+              onClose={() => setNewPageOpen(false)}
+              onOpenDocImport={() => setDocImportOpen(true)}
+              isDark={isDark}
+            />
           </PopoverContent>
         </Popover>
       </div>

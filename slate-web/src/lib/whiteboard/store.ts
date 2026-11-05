@@ -82,6 +82,8 @@ type Actions = {
   clearPage: () => void;
   eraseStrokes: () => void;
   addPage: (background?: Page["background"]) => void;
+  duplicatePage: (pageId?: string) => void;
+  addPageWithTemplate: (key: TemplateKey) => void;
   removePage: (id: string) => void;
   setActivePage: (id: string) => void;
   nextPage: () => void;
@@ -171,7 +173,11 @@ function triggerCloudSync(meta: BoardMeta, pages: Page[]) {
 
 function syncActive(state: State): State {
   if (!state.activeBoardId) return state;
-  const currentBoardData = { pages: state.pages, activePageId: state.activePageId };
+  let activePageId = state.activePageId;
+  if (state.pages.length > 0 && !state.pages.some((p) => p.id === activePageId)) {
+    activePageId = state.pages[Math.min(state.pages.length - 1, 0)].id;
+  }
+  const currentBoardData = { pages: state.pages, activePageId };
   const boardData = {
     ...state.boardData,
     [state.activeBoardId]: currentBoardData,
@@ -180,7 +186,7 @@ function syncActive(state: State): State {
   const boards = meta
     ? { ...state.boards, [state.activeBoardId]: { ...meta, updatedAt: nowMs() } }
     : state.boards;
-  const next = { ...state, boardData, boards };
+  const next = { ...state, activePageId, boardData, boards };
 
   saveBoardDataAsync(state.activeBoardId, currentBoardData);
   saveMetaAsync({
@@ -616,6 +622,33 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
       const bg = typeof background === "string" ? background : "white";
       const p = emptyPage(bg);
       set(syncActive({ ...s, pages: [...s.pages, p], activePageId: p.id }));
+      get().pushHistory();
+    },
+    duplicatePage: (pageId?: string) => {
+      const s = get();
+      const targetId = pageId || s.activePageId;
+      const target = s.pages.find((p) => p.id === targetId);
+      if (!target) return;
+      const newId = uid();
+      const clonedObjects = target.objects.map((o) => ({ ...o, id: uid() }));
+      const newPage: Page = { ...target, id: newId, objects: clonedObjects };
+      const idx = s.pages.findIndex((p) => p.id === targetId);
+      const pages = [...s.pages];
+      pages.splice(idx + 1, 0, newPage);
+      set(syncActive({ ...s, pages, activePageId: newId, selectedId: null, selectedIds: [] }));
+      get().pushHistory();
+    },
+    addPageWithTemplate: (key: TemplateKey) => {
+      const s = get();
+      const tPages = pagesForTemplate(key);
+      if (!tPages.length) return;
+      const newPage: Page = {
+        ...tPages[0],
+        id: uid(),
+        objects: tPages[0].objects.map((o) => ({ ...o, id: uid() })),
+      };
+      set(syncActive({ ...s, pages: [...s.pages, newPage], activePageId: newPage.id, selectedId: null, selectedIds: [] }));
+      get().pushHistory();
     },
     removePage: (id) => {
       const s = get();
@@ -656,14 +689,20 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
       if (s.historyIndex <= 0) return;
       const i = s.historyIndex - 1;
       const pages = structuredClone(s.history[i]);
-      set(syncActive({ ...s, pages, historyIndex: i }));
+      const activePageId = pages.some((p) => p.id === s.activePageId)
+        ? s.activePageId
+        : pages[pages.length - 1]?.id || s.activePageId;
+      set(syncActive({ ...s, pages, activePageId, historyIndex: i }));
     },
     redo: () => {
       const s = get();
       if (s.historyIndex >= s.history.length - 1) return;
       const i = s.historyIndex + 1;
       const pages = structuredClone(s.history[i]);
-      set(syncActive({ ...s, pages, historyIndex: i }));
+      const activePageId = pages.some((p) => p.id === s.activePageId)
+        ? s.activePageId
+        : pages[pages.length - 1]?.id || s.activePageId;
+      set(syncActive({ ...s, pages, activePageId, historyIndex: i }));
     },
 
     applyTemplate: (key: TemplateKey) => {
@@ -740,7 +779,7 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
       }
 
       const safePages = Array.isArray(bd.pages) && bd.pages.length > 0 ? bd.pages : [emptyPage()];
-      const safeActivePageId = bd.activePageId || safePages[0].id;
+      const safeActivePageId = safePages.some((p) => p.id === bd.activePageId) ? bd.activePageId : safePages[0].id;
 
       // sync outgoing
       if (s.activeBoardId && s.boards[s.activeBoardId]) {
