@@ -79,6 +79,13 @@ type Actions = {
   cutSelected: () => void;
   paste: () => void;
   recolorSelected: (color: string) => void;
+  bringToFront: () => void;
+  sendToBack: () => void;
+  toggleLockSelected: () => void;
+  groupSelected: () => void;
+  ungroupSelected: () => void;
+  setFillColorSelected: (color: string) => void;
+  cropImageSelected: (crop: { x: number; y: number; w: number; h: number }) => void;
   setCamera: (c: { x: number; y: number; zoom: number }) => void;
   // Active board content
   addObject: (obj: CanvasObject) => void;
@@ -498,7 +505,7 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
         return {
           ...p,
           objects: p.objects.map((o) => {
-            if (!idSet.has(o.id)) return o;
+            if (!idSet.has(o.id) || (o as any).locked) return o;
             if ("points" in o) {
               return {
                 ...o,
@@ -562,7 +569,9 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
       if (!ids.length) return;
       const idSet = new Set(ids);
       const pages = s.pages.map((p) =>
-        p.id === s.activePageId ? { ...p, objects: p.objects.filter((o) => !idSet.has(o.id)) } : p,
+        p.id === s.activePageId
+          ? { ...p, objects: p.objects.filter((o) => !idSet.has(o.id) || (o as any).locked) }
+          : p,
       );
       set(syncActive({ ...s, pages, selectedId: null, selectedIds: [] }));
     },
@@ -656,12 +665,143 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
         return {
           ...p,
           objects: p.objects.map((o) => {
-            if (!idSet.has(o.id)) return o;
+            if (!idSet.has(o.id) || (o as any).locked) return o;
             return { ...o, color } as CanvasObject;
           }),
         };
       });
       set(syncActive({ ...s, pages }));
+    },
+
+    bringToFront: () => {
+      const s = get();
+      const ids = s.selectedIds.length ? s.selectedIds : s.selectedId ? [s.selectedId] : [];
+      if (!ids.length) return;
+      const idSet = new Set(ids);
+      const pages = s.pages.map((p) => {
+        if (p.id !== s.activePageId) return p;
+        const unselected = p.objects.filter((o) => !idSet.has(o.id));
+        const selected = p.objects.filter((o) => idSet.has(o.id));
+        return { ...p, objects: [...unselected, ...selected] };
+      });
+      set(syncActive({ ...s, pages }));
+      s.pushHistory();
+    },
+
+    sendToBack: () => {
+      const s = get();
+      const ids = s.selectedIds.length ? s.selectedIds : s.selectedId ? [s.selectedId] : [];
+      if (!ids.length) return;
+      const idSet = new Set(ids);
+      const pages = s.pages.map((p) => {
+        if (p.id !== s.activePageId) return p;
+        const unselected = p.objects.filter((o) => !idSet.has(o.id));
+        const selected = p.objects.filter((o) => idSet.has(o.id));
+        return { ...p, objects: [...selected, ...unselected] };
+      });
+      set(syncActive({ ...s, pages }));
+      s.pushHistory();
+    },
+
+    toggleLockSelected: () => {
+      const s = get();
+      const ids = s.selectedIds.length ? s.selectedIds : s.selectedId ? [s.selectedId] : [];
+      if (!ids.length) return;
+      const idSet = new Set(ids);
+      const page = s.pages.find((p) => p.id === s.activePageId);
+      if (!page) return;
+      const targets = page.objects.filter((o) => idSet.has(o.id));
+      const shouldLock = targets.some((o: any) => !o.locked);
+      const pages = s.pages.map((p) => {
+        if (p.id !== s.activePageId) return p;
+        return {
+          ...p,
+          objects: p.objects.map((o) => {
+            if (!idSet.has(o.id)) return o;
+            return { ...o, locked: shouldLock } as CanvasObject;
+          }),
+        };
+      });
+      set(syncActive({ ...s, pages }));
+      s.pushHistory();
+    },
+
+    groupSelected: () => {
+      const s = get();
+      const ids = s.selectedIds.length ? s.selectedIds : s.selectedId ? [s.selectedId] : [];
+      if (ids.length < 2) return;
+      const idSet = new Set(ids);
+      const newGroupId = uid();
+      const pages = s.pages.map((p) => {
+        if (p.id !== s.activePageId) return p;
+        return {
+          ...p,
+          objects: p.objects.map((o) => {
+            if (!idSet.has(o.id)) return o;
+            return { ...o, groupId: newGroupId } as CanvasObject;
+          }),
+        };
+      });
+      set(syncActive({ ...s, pages }));
+      s.pushHistory();
+    },
+
+    ungroupSelected: () => {
+      const s = get();
+      const ids = s.selectedIds.length ? s.selectedIds : s.selectedId ? [s.selectedId] : [];
+      if (!ids.length) return;
+      const idSet = new Set(ids);
+      const pages = s.pages.map((p) => {
+        if (p.id !== s.activePageId) return p;
+        return {
+          ...p,
+          objects: p.objects.map((o) => {
+            if (!idSet.has(o.id)) return o;
+            const copy = { ...o } as any;
+            delete copy.groupId;
+            return copy as CanvasObject;
+          }),
+        };
+      });
+      set(syncActive({ ...s, pages }));
+      s.pushHistory();
+    },
+
+    setFillColorSelected: (color: string) => {
+      const s = get();
+      const ids = s.selectedIds.length ? s.selectedIds : s.selectedId ? [s.selectedId] : [];
+      if (!ids.length) return;
+      const idSet = new Set(ids);
+      const pages = s.pages.map((p) => {
+        if (p.id !== s.activePageId) return p;
+        return {
+          ...p,
+          objects: p.objects.map((o) => {
+            if (!idSet.has(o.id) || o.kind !== "shape" || (o as any).locked) return o;
+            return { ...o, fillColor: color } as CanvasObject;
+          }),
+        };
+      });
+      set(syncActive({ ...s, pages }));
+      s.pushHistory();
+    },
+
+    cropImageSelected: (crop: { x: number; y: number; w: number; h: number }) => {
+      const s = get();
+      const targetId = s.selectedId || (s.selectedIds.length === 1 ? s.selectedIds[0] : null);
+      if (!targetId) return;
+      const pages = s.pages.map((p) => {
+        if (p.id !== s.activePageId) return p;
+        return {
+          ...p,
+          objects: p.objects.map((o) => {
+            if (o.id !== targetId || o.kind !== "image" || (o as any).locked) return o;
+            return { ...o, crop } as CanvasObject;
+          }),
+        };
+      });
+      set(syncActive({ ...s, pages }));
+      s.pushHistory();
     },
 
     setCamera: (camera) => set({ camera }),

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { BoardHelpOverlay } from "./BoardHelpOverlay";
 import { BoardTourDialog } from "./BoardTourDialog";
 import { DocumentImportDialog } from "./DocumentImportDialog";
@@ -101,7 +102,36 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
     setBoardDockSide,
     tool,
     setTool,
-  } = useWhiteboard();
+  } = useWhiteboard(
+    useShallow((s) => ({
+      undo: s.undo,
+      redo: s.redo,
+      history: s.history,
+      historyIndex: s.historyIndex,
+      clearPage: s.clearPage,
+      pushHistory: s.pushHistory,
+      pages: s.pages,
+      activePageId: s.activePageId,
+      nextPage: s.nextPage,
+      prevPage: s.prevPage,
+      addPage: s.addPage,
+      panelSize: s.panelSize,
+      setPanelSize: s.setPanelSize,
+      boardMode: s.boardMode,
+      simpleMode: s.simpleMode,
+      setSimpleMode: s.setSimpleMode,
+      splitBoardZones: s.splitBoardZones,
+      setSplitBoardZones: s.setSplitBoardZones,
+      reachabilityOffset: s.reachabilityOffset,
+      setReachabilityOffset: s.setReachabilityOffset,
+      lockBoard: s.lockBoard,
+      setLockBoard: s.setLockBoard,
+      boardDockSide: s.boardDockSide,
+      setBoardDockSide: s.setBoardDockSide,
+      tool: s.tool,
+      setTool: s.setTool,
+    })),
+  );
 
   const profile = getSmartBoardProfile(panelSize);
   const targetPx = Math.max(64, profile.minTouchTargetPx);

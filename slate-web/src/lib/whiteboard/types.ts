@@ -30,6 +30,8 @@ export type StrokeBase = {
   color: string;
   size: number;
   points: Point[];
+  locked?: boolean;
+  groupId?: string;
   /** Handwriting recognition: the text this stroke's word/line reads as (set on the group's first stroke). */
   inkText?: string;
   /** Handwriting recognition: id shared by the strokes of one recognised word/line. */
@@ -110,6 +112,7 @@ export type ShapeStroke = {
   kind: "shape";
   shape: ShapeType;
   color: string;
+  fillColor?: string;
   size: number;
   x: number;
   y: number;
@@ -117,6 +120,8 @@ export type ShapeStroke = {
   h: number;
   rotation?: number;
   vertices?: Point[];
+  locked?: boolean;
+  groupId?: string;
 };
 
 export type TextObject = {
@@ -130,6 +135,8 @@ export type TextObject = {
   color: string;
   fontSize: number;
   bg?: string;
+  locked?: boolean;
+  groupId?: string;
   /** Handwriting-style font (set on translations), e.g. "Kalam" for Devanagari. */
   fontFamily?: string;
   /** Translation: the original writing and the language code it was translated into. */
@@ -145,6 +152,10 @@ export type ImageObject = {
   w: number;
   h: number;
   src: string;
+  crop?: { x: number; y: number; w: number; h: number };
+  rotation?: number;
+  locked?: boolean;
+  groupId?: string;
 };
 
 export type StickyNoteObject = {
@@ -157,6 +168,8 @@ export type StickyNoteObject = {
   text: string;
   color: string;
   isAiAnswer?: boolean;
+  locked?: boolean;
+  groupId?: string;
 };
 
 export type FlashcardObject = {

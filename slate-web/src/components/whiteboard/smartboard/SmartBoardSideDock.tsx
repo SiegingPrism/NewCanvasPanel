@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { useWhiteboard } from "@/lib/whiteboard/store";
 import { getSmartBoardProfile } from "@/lib/whiteboard/smartBoardProfiles";
 import {
@@ -80,7 +81,6 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
     size,
     setSize,
     panelSize,
-    camera,
     addObject,
     pushHistory,
     clearPage,
@@ -90,7 +90,26 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
     activePageId,
     autoSnapEnabled,
     setAutoSnapEnabled,
-  } = useWhiteboard();
+  } = useWhiteboard(
+    useShallow((s) => ({
+      tool: s.tool,
+      setTool: s.setTool,
+      color: s.color,
+      setColor: s.setColor,
+      size: s.size,
+      setSize: s.setSize,
+      panelSize: s.panelSize,
+      addObject: s.addObject,
+      pushHistory: s.pushHistory,
+      clearPage: s.clearPage,
+      eraseStrokes: s.eraseStrokes,
+      undo: s.undo,
+      pages: s.pages,
+      activePageId: s.activePageId,
+      autoSnapEnabled: s.autoSnapEnabled,
+      setAutoSnapEnabled: s.setAutoSnapEnabled,
+    })),
+  );
 
   const { language, setLangPickerOpen } = useInk();
 
@@ -165,6 +184,7 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
   };
 
   const insertShape = (shapeType: ShapeType) => {
+    const { camera } = useWhiteboard.getState();
     const isLineLike = ["line", "arrow", "double-arrow", "curved-arrow"].includes(shapeType);
     const w = isLineLike ? 240 : 200;
     const h = isLineLike ? 80 : 200;
@@ -186,6 +206,7 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
   };
 
   const insertTextBox = (fontSize: number = 24, bg?: string) => {
+    const { camera } = useWhiteboard.getState();
     const cx = (-camera.x + window.innerWidth / 2) / camera.zoom;
     const cy = (-camera.y + window.innerHeight / 2) / camera.zoom;
     const t: TextObject = {

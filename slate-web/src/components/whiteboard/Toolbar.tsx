@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { useWhiteboard } from "@/lib/whiteboard/store";
 import type { ToolId, ShapeType } from "@/lib/whiteboard/types";
 import {
@@ -262,7 +263,6 @@ export function Toolbar() {
     setSize,
     autoSnapEnabled,
     setAutoSnapEnabled,
-    camera,
     addObject,
     clearPage,
     eraseStrokes,
@@ -272,7 +272,27 @@ export function Toolbar() {
     pushHistory,
     simpleMode,
     boardMode,
-  } = useWhiteboard();
+  } = useWhiteboard(
+    useShallow((s) => ({
+      tool: s.tool,
+      setTool: s.setTool,
+      color: s.color,
+      setColor: s.setColor,
+      size: s.size,
+      setSize: s.setSize,
+      autoSnapEnabled: s.autoSnapEnabled,
+      setAutoSnapEnabled: s.setAutoSnapEnabled,
+      addObject: s.addObject,
+      clearPage: s.clearPage,
+      eraseStrokes: s.eraseStrokes,
+      deleteSelected: s.deleteSelected,
+      selectedId: s.selectedId,
+      selectedIds: s.selectedIds,
+      pushHistory: s.pushHistory,
+      simpleMode: s.simpleMode,
+      boardMode: s.boardMode,
+    })),
+  );
 
   const [activeFlyout, setActiveFlyout] = useState<"select" | "pen" | "shapes" | "color" | null>(
     null,
@@ -372,6 +392,7 @@ export function Toolbar() {
           : shapeType === "speech-bubble" || shapeType === "thought-bubble"
             ? 130
             : 150;
+    const { camera } = useWhiteboard.getState();
     const cx = (-camera.x + window.innerWidth / 2) / camera.zoom;
     const cy = (-camera.y + window.innerHeight / 2) / camera.zoom;
     addObject({

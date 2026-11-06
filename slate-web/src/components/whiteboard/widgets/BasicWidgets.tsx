@@ -282,7 +282,7 @@ export function VoiceNoteWidget() {
   const [interim, setInterim] = useState("");
   const [isSupported, setIsSupported] = useState(true);
   const recognitionRef = useRef<any>(null);
-  const { addObject, pushHistory, camera } = useWhiteboard();
+  const { addObject, pushHistory } = useWhiteboard();
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -360,6 +360,7 @@ export function VoiceNoteWidget() {
       return;
     }
     const uid = Math.random().toString(36).slice(2, 10);
+    const { camera } = useWhiteboard.getState();
     const cx = (window.innerWidth / 2 - camera.x) / camera.zoom;
     const cy = (window.innerHeight / 2 - camera.y) / camera.zoom;
     addObject({
@@ -384,6 +385,7 @@ export function VoiceNoteWidget() {
     }
     toast.info("Generating mind map from spoken ideas...");
     try {
+      const { camera } = useWhiteboard.getState();
       const cx = (window.innerWidth / 2 - camera.x) / camera.zoom;
       const cy = (window.innerHeight / 2 - camera.y) / camera.zoom;
       const tree = await AIEngine.generateMindMap(fullText.slice(0, 1500), cx, cy);
@@ -489,7 +491,7 @@ export function MathGraphWidget() {
   const [xMin] = useState(-6);
   const [xMax] = useState(6);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const { addObject, pushHistory, camera } = useWhiteboard();
+  const { addObject, pushHistory } = useWhiteboard();
 
   // Evaluate curve on inline preview canvas
   useEffect(() => {
@@ -547,6 +549,7 @@ export function MathGraphWidget() {
 
   const pinToCanvas = () => {
     const uid = Math.random().toString(36).slice(2, 10);
+    const { camera } = useWhiteboard.getState();
     const cx = (window.innerWidth / 2 - camera.x) / camera.zoom;
     const cy = (window.innerHeight / 2 - camera.y) / camera.zoom;
     addObject({

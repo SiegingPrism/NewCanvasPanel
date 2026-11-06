@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, redirect } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense, lazy } from "react";
 import { WhiteboardCanvas } from "@/components/whiteboard/Canvas";
 import { Toolbar } from "@/components/whiteboard/Toolbar";
 import { TopBar } from "@/components/whiteboard/TopBar";
@@ -33,10 +33,27 @@ import { SmartBoardCornerControls } from "@/components/whiteboard/smartboard/Sma
 import { RadialMenu } from "@/components/whiteboard/smartboard/RadialMenu";
 import { SplitBoardDivider } from "@/components/whiteboard/smartboard/SplitBoardDivider";
 import { QuickPollDialog } from "@/components/whiteboard/smartboard/QuickPollDialog";
-import { BigScreenClassroomModal } from "@/components/whiteboard/smartboard/BigScreenClassroomModal";
-import { DragDropActivityDialog } from "@/components/whiteboard/smartboard/DragDropActivityDialog";
-import { AILessonBuilderDialog } from "@/components/whiteboard/smartboard/AILessonBuilderDialog";
-import { TeacherAccountDialog } from "@/components/whiteboard/smartboard/TeacherAccountDialog";
+
+const BigScreenClassroomModal = lazy(() =>
+  import("@/components/whiteboard/smartboard/BigScreenClassroomModal").then((m) => ({
+    default: m.BigScreenClassroomModal,
+  })),
+);
+const DragDropActivityDialog = lazy(() =>
+  import("@/components/whiteboard/smartboard/DragDropActivityDialog").then((m) => ({
+    default: m.DragDropActivityDialog,
+  })),
+);
+const AILessonBuilderDialog = lazy(() =>
+  import("@/components/whiteboard/smartboard/AILessonBuilderDialog").then((m) => ({
+    default: m.AILessonBuilderDialog,
+  })),
+);
+const TeacherAccountDialog = lazy(() =>
+  import("@/components/whiteboard/smartboard/TeacherAccountDialog").then((m) => ({
+    default: m.TeacherAccountDialog,
+  })),
+);
 import type { QuizObject, ActivityObject, Page } from "@/lib/whiteboard/types";
 import { useWhiteboard } from "@/lib/whiteboard/store";
 import { fetchBoardById } from "@/lib/supabase/dbService";
@@ -653,12 +670,16 @@ function BoardPage() {
       />
 
       {/* Smart Board Big Centre Screen Timer & Student Name Picker */}
-      <BigScreenClassroomModal
-        open={bigClassroomOpen}
-        onOpenChange={setBigClassroomOpen}
-        defaultTab={bigClassroomTab}
-        onMinimizeTimer={(rem, run) => setMinimizedTimer({ remaining: rem, running: run })}
-      />
+      <Suspense fallback={null}>
+        {bigClassroomOpen && (
+          <BigScreenClassroomModal
+            open={bigClassroomOpen}
+            onOpenChange={setBigClassroomOpen}
+            defaultTab={bigClassroomTab}
+            onMinimizeTimer={(rem, run) => setMinimizedTimer({ remaining: rem, running: run })}
+          />
+        )}
+      </Suspense>
 
       {/* Floating Corner Minimized Timer Pill */}
       {minimizedTimer && (
@@ -683,43 +704,55 @@ function BoardPage() {
       )}
 
       {/* Drag and Drop Classroom Activities (Sort, Match, Label) */}
-      <DragDropActivityDialog
-        open={activityDialogOpen}
-        onOpenChange={setActivityDialogOpen}
-        activity={activeActivity}
-        onInsertActivityToCanvas={(act) => {
-          const actObj = act as ActivityObject;
-          useWhiteboard.getState().addObject(actObj);
-          useWhiteboard.getState().pushHistory();
-          toast.success("Interactive activity added to whiteboard!");
-        }}
-      />
+      <Suspense fallback={null}>
+        {activityDialogOpen && (
+          <DragDropActivityDialog
+            open={activityDialogOpen}
+            onOpenChange={setActivityDialogOpen}
+            activity={activeActivity}
+            onInsertActivityToCanvas={(act) => {
+              const actObj = act as ActivityObject;
+              useWhiteboard.getState().addObject(actObj);
+              useWhiteboard.getState().pushHistory();
+              toast.success("Interactive activity added to whiteboard!");
+            }}
+          />
+        )}
+      </Suspense>
 
       {/* AI Lesson Builder (5-8 Ready Pages) */}
-      <AILessonBuilderDialog
-        open={aiLessonBuilderOpen}
-        onOpenChange={setAiLessonBuilderOpen}
-        onLessonGenerated={(newPages, lessonTopic) => {
-          const state = useWhiteboard.getState();
-          const currentPages = state.pages;
-          const mergedPages = [...currentPages, ...newPages];
-          useWhiteboard.setState({
-            pages: mergedPages,
-            activePageId: newPages[0]?.id || currentPages[0]?.id,
-          });
-          useWhiteboard.getState().pushHistory();
-          toast.success(`Added ${newPages.length} lesson pages for "${lessonTopic}"!`);
-        }}
-      />
+      <Suspense fallback={null}>
+        {aiLessonBuilderOpen && (
+          <AILessonBuilderDialog
+            open={aiLessonBuilderOpen}
+            onOpenChange={setAiLessonBuilderOpen}
+            onLessonGenerated={(newPages, lessonTopic) => {
+              const state = useWhiteboard.getState();
+              const currentPages = state.pages;
+              const mergedPages = [...currentPages, ...newPages];
+              useWhiteboard.setState({
+                pages: mergedPages,
+                activePageId: newPages[0]?.id || currentPages[0]?.id,
+              });
+              useWhiteboard.getState().pushHistory();
+              toast.success(`Added ${newPages.length} lesson pages for "${lessonTopic}"!`);
+            }}
+          />
+        )}
+      </Suspense>
 
       {/* Teacher Account & Cloud Sync */}
-      <TeacherAccountDialog
-        open={teacherAccountOpen}
-        onOpenChange={setTeacherAccountOpen}
-        onOpenCloudBoard={(targetBoardId) => {
-          navigate({ to: "/board/$boardId", params: { boardId: targetBoardId } });
-        }}
-      />
+      <Suspense fallback={null}>
+        {teacherAccountOpen && (
+          <TeacherAccountDialog
+            open={teacherAccountOpen}
+            onOpenChange={setTeacherAccountOpen}
+            onOpenCloudBoard={(targetBoardId) => {
+              navigate({ to: "/board/$boardId", params: { boardId: targetBoardId } });
+            }}
+          />
+        )}
+      </Suspense>
     </div>
   );
 }

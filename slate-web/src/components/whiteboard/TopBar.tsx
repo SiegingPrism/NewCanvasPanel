@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import {
   useWhiteboard,
   syncRetryQueue,
@@ -132,7 +133,30 @@ export function TopBar({
     panelSize,
     simpleMode,
     syncStatus,
-  } = useWhiteboard();
+  } = useWhiteboard(
+    useShallow((s) => ({
+      pages: s.pages,
+      activePageId: s.activePageId,
+      activeBoardId: s.activeBoardId,
+      boards: s.boards,
+      prevPage: s.prevPage,
+      nextPage: s.nextPage,
+      addPage: s.addPage,
+      undo: s.undo,
+      redo: s.redo,
+      setBackground: s.setBackground,
+      applyTemplate: s.applyTemplate,
+      addObject: s.addObject,
+      pushHistory: s.pushHistory,
+      setAllTapeReveal: s.setAllTapeReveal,
+      syncWithCloud: s.syncWithCloud,
+      boardMode: s.boardMode,
+      toggleBoardMode: s.toggleBoardMode,
+      panelSize: s.panelSize,
+      simpleMode: s.simpleMode,
+      syncStatus: s.syncStatus,
+    })),
+  );
 
   const navigate = useNavigate();
   const fileRef = useRef<HTMLInputElement>(null);

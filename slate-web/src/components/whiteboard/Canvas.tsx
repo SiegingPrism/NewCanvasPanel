@@ -68,6 +68,14 @@ import {
   GitBranch,
   Languages,
   Square,
+  Lock,
+  Unlock,
+  ChevronsUp,
+  ChevronsDown,
+  FolderPlus,
+  FolderMinus,
+  PaintBucket,
+  Crop,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -144,6 +152,13 @@ export function WhiteboardCanvas({
     duplicateSelected,
     deleteSelected,
     recolorSelected,
+    bringToFront,
+    sendToBack,
+    toggleLockSelected,
+    groupSelected,
+    ungroupSelected,
+    setFillColorSelected,
+    cropImageSelected,
     setCamera,
     pushHistory,
     lockBoard,
@@ -182,34 +197,37 @@ export function WhiteboardCanvas({
     panelSizeRef.current = panelSize;
   }, [panelSize]);
 
+  const isInteractingCameraRef = useRef(false);
   const panRafRef = useRef<number | null>(null);
-  const pendingCameraRef = useRef<{ x: number; y: number; zoom: number } | null>(null);
+  const inkCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const inkCacheDirtyRef = useRef(true);
+  const strokePathCache = useRef(new WeakMap<object, Path2D>());
 
-  const applyCameraThrottled = useCallback(
+  const applyCameraDirect = useCallback(
     (nextCam: { x: number; y: number; zoom: number }) => {
-      pendingCameraRef.current = nextCam;
+      isInteractingCameraRef.current = true;
       cameraRef.current = nextCam;
+      inkCacheDirtyRef.current = true;
       if (panRafRef.current === null) {
         panRafRef.current = requestAnimationFrame(() => {
           panRafRef.current = null;
-          if (pendingCameraRef.current) {
-            setCamera(pendingCameraRef.current);
-            pendingCameraRef.current = null;
-          }
+          latestRedrawRef.current();
         });
       }
     },
-    [setCamera],
+    [],
   );
+
+  const applyCameraThrottled = applyCameraDirect;
 
   const flushCameraUpdate = useCallback(() => {
     if (panRafRef.current !== null) {
       cancelAnimationFrame(panRafRef.current);
       panRafRef.current = null;
     }
-    if (pendingCameraRef.current) {
-      setCamera(pendingCameraRef.current);
-      pendingCameraRef.current = null;
+    if (isInteractingCameraRef.current && cameraRef.current) {
+      isInteractingCameraRef.current = false;
+      setCamera(cameraRef.current);
     }
   }, [setCamera]);
 
@@ -353,6 +371,7 @@ export function WhiteboardCanvas({
     pointerId: number;
     points: Point[];
     predictedPoints?: Point[];
+    lastDrawnIdx?: number;
     color: string;
     size: number;
     tool: ToolId;
@@ -385,6 +404,8 @@ export function WhiteboardCanvas({
 
   // Lasso polygon
   const lassoRef = useRef<Point[] | null>(null);
+  const alignmentGuidesRef = useRef<{ xs: number[]; ys: number[] }>({ xs: [], ys: [] });
+  const lastLiveCamRef = useRef<{ x: number; y: number; zoom: number }>({ x: 0, y: 0, zoom: 1 });
 
   // Smart board long-press radial menu & lock
   const radialTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -410,6 +431,7 @@ export function WhiteboardCanvas({
   const [editingText, setEditingText] = useState<{ id: string } | null>(null);
   const [editingTextValue, setEditingTextValue] = useState<string>("");
   const [recolorPickerOpen, setRecolorPickerOpen] = useState(false);
+  const [fillPickerOpen, setFillPickerOpen] = useState(false);
   const [mindMapDialogOpen, setMindMapDialogOpen] = useState(false);
   const [mindMapDialogTopic, setMindMapDialogTopic] = useState("");
 
@@ -1083,8 +1105,15 @@ export function WhiteboardCanvas({
   }, [setCamera]);
 
   useEffect(() => {
-    setDpr(window.devicePixelRatio || 1);
-    const onResize = () => setDpr(window.devicePixelRatio || 1);
+    const computeDpr = () => {
+      const rawDpr = window.devicePixelRatio || 1;
+      const isLargePanel =
+        (panelSizeRef.current && Number(panelSizeRef.current) >= 55) ||
+        (typeof window !== "undefined" && window.innerWidth >= 3840);
+      return isLargePanel ? Math.min(rawDpr, 1.5) : rawDpr;
+    };
+    setDpr(computeDpr());
+    const onResize = () => setDpr(computeDpr());
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
@@ -1115,6 +1144,12 @@ export function WhiteboardCanvas({
         cv.style.width = `${w}px`;
         cv.style.height = `${h}px`;
       }
+      if (!inkCanvasRef.current) {
+        inkCanvasRef.current = document.createElement("canvas");
+      }
+      inkCanvasRef.current.width = w * dpr;
+      inkCanvasRef.current.height = h * dpr;
+      inkCacheDirtyRef.current = true;
       canvasRectRef.current = c.getBoundingClientRect();
       redraw();
     };
@@ -1223,59 +1258,89 @@ export function WhiteboardCanvas({
   const redraw = useCallback(() => {
     const c = canvasRef.current;
     if (!c) return;
-    const ctx = c.getContext("2d")!;
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, c.width, c.height);
-    ctx.scale(dpr, dpr);
+    const ctx = c.getContext("2d");
+    if (!ctx) return;
 
-    // Background
-    drawBackground(ctx, c.width / dpr, c.height / dpr, page.background);
-
-    ctx.save();
-    ctx.translate(camera.x, camera.y);
-    ctx.scale(camera.zoom, camera.zoom);
-
-    // World viewport boundaries with safety padding for smooth panning
+    const cam = cameraRef.current || camera;
     const screenW = c.width / dpr;
     const screenH = c.height / dpr;
-    const pad = 120 / Math.max(camera.zoom, 0.05);
-    const viewLeft = (0 - camera.x) / camera.zoom - pad;
-    const viewTop = (0 - camera.y) / camera.zoom - pad;
-    const viewRight = (screenW - camera.x) / camera.zoom + pad;
-    const viewBottom = (screenH - camera.y) / camera.zoom + pad;
 
-    // Draw objects with high-performance viewport culling
+    // 1. Rebuild cached layer if dirty (camera changed, object moved/deleted, undo/redo, page switch)
+    if (inkCacheDirtyRef.current) {
+      let inkCanvas = inkCanvasRef.current;
+      if (!inkCanvas) {
+        inkCanvas = document.createElement("canvas");
+        inkCanvasRef.current = inkCanvas;
+      }
+      if (inkCanvas.width !== c.width || inkCanvas.height !== c.height) {
+        inkCanvas.width = c.width;
+        inkCanvas.height = c.height;
+      }
+      const inkCtx = inkCanvas.getContext("2d");
+      if (inkCtx) {
+        inkCtx.setTransform(1, 0, 0, 1, 0, 0);
+        inkCtx.clearRect(0, 0, inkCanvas.width, inkCanvas.height);
+        inkCtx.scale(dpr, dpr);
+
+        drawBackground(inkCtx, screenW, screenH, page.background);
+
+        inkCtx.save();
+        inkCtx.translate(cam.x, cam.y);
+        inkCtx.scale(cam.zoom, cam.zoom);
+
+        const pad = 120 / Math.max(cam.zoom, 0.05);
+        const viewLeft = (0 - cam.x) / cam.zoom - pad;
+        const viewTop = (0 - cam.y) / cam.zoom - pad;
+        const viewRight = (screenW - cam.x) / cam.zoom + pad;
+        const viewBottom = (screenH - cam.y) / cam.zoom + pad;
+
+        const objectsToDraw = eraserSessionRef.current?.active
+          ? eraserSessionRef.current.objects
+          : page.objects;
+
+        drawMindMapLinks(inkCtx, objectsToDraw);
+        for (const obj of objectsToDraw) {
+          if (isObjectInViewport(obj, viewLeft, viewTop, viewRight, viewBottom)) {
+            drawObject(inkCtx, obj, false);
+          }
+        }
+        inkCtx.restore();
+      }
+      inkCacheDirtyRef.current = false;
+    }
+
+    // 2. Fast blit of cached ink layer to screen
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, c.width, c.height);
+    if (inkCanvasRef.current) {
+      ctx.drawImage(inkCanvasRef.current, 0, 0);
+    }
+
+    // 3. Selection overlays
     const selectedSet = new Set(
       selectedIds.length > 0 ? selectedIds : selectedId ? [selectedId] : [],
     );
     const objectsToDraw = eraserSessionRef.current?.active
       ? eraserSessionRef.current.objects
       : page.objects;
-    // Mind-map lines go underneath all nodes so they never cover a block's text
-    drawMindMapLinks(ctx, objectsToDraw);
-    for (const obj of objectsToDraw) {
-      if (
-        selectedSet.has(obj.id) ||
-        isObjectInViewport(obj, viewLeft, viewTop, viewRight, viewBottom)
-      ) {
-        drawObject(ctx, obj, selectedSet.has(obj.id));
-      }
-    }
-    ctx.restore();
 
-    // Selection bounding box overlays (drawn cleanly on screen after restoring camera transform)
     if (selectedSet.size === 1) {
       const singleObj = objectsToDraw.find((o) => selectedSet.has(o.id));
       if (singleObj) {
+        ctx.save();
+        ctx.scale(dpr, dpr);
         drawSelection(ctx, singleObj);
+        ctx.restore();
       }
     } else if (selectedSet.size > 1) {
+      ctx.save();
+      ctx.scale(dpr, dpr);
       drawMultiSelectionBox(
         ctx,
-        page.objects.filter((o) => selectedSet.has(o.id)),
+        objectsToDraw.filter((o) => selectedSet.has(o.id)),
       );
+      ctx.restore();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [camera, dpr, page, selectedId, selectedIds]);
 
   latestRedrawRef.current = redraw;
@@ -1603,14 +1668,131 @@ export function WhiteboardCanvas({
     ctx.restore();
   }
 
-  // 1. FINE PEN: Smooth Bezier with pressure sensitivity and writing speed velocity adaptation
+  // 1. FINE PEN: Variable-width outline geometry cached as a single Path2D for ultra-fast GPU fills
+  function getStrokeOutlinePath(s: StrokeBase): Path2D | null {
+    if (typeof Path2D === "undefined") return null;
+    let cached = strokePathCache.current.get(s);
+    if (cached) return cached;
+
+    const pts = s.points;
+    const path = new Path2D();
+    if (pts.length < 2) {
+      strokePathCache.current.set(s, path);
+      return path;
+    }
+
+    if (pts.length === 2) {
+      const r = Math.max(1, s.size * 0.5);
+      path.arc(pts[0].x, pts[0].y, r, 0, Math.PI * 2);
+      strokePathCache.current.set(s, path);
+      return path;
+    }
+
+    const n = pts.length;
+    const rawR: number[] = new Array(n);
+    let prevV = 1.0;
+    rawR[0] = Math.max(1, s.size * 0.5 * (0.35 + 0.85 * (pts[0].p ?? 0.5)));
+    for (let i = 1; i < n; i++) {
+      const p0 = pts[i - 1];
+      const p1 = pts[i];
+      let v = prevV;
+      if (p0.t && p1.t && p1.t > p0.t) {
+        const dt = Math.max(1, p1.t - p0.t);
+        const dist = Math.hypot(p1.x - p0.x, p1.y - p0.y);
+        const speed = dist / dt;
+        v = Math.max(0.65, Math.min(1.25, 1.25 - speed * 0.3));
+      }
+      prevV = 0.65 * prevV + 0.35 * v;
+      const pressure = p1.p ?? 0.5;
+      rawR[i] = Math.max(1, s.size * 0.5 * (0.35 + 0.85 * pressure) * prevV);
+    }
+
+    // 3-point moving average (0.25, 0.5, 0.25) for perfectly smooth, continuous width transitions
+    const smoothR: number[] = new Array(n);
+    smoothR[0] = rawR[0];
+    smoothR[n - 1] = rawR[n - 1];
+    for (let i = 1; i < n - 1; i++) {
+      smoothR[i] = 0.25 * rawR[i - 1] + 0.5 * rawR[i] + 0.25 * rawR[i + 1];
+    }
+
+    const leftPts: { x: number; y: number }[] = [];
+    const rightPts: { x: number; y: number }[] = [];
+
+    for (let i = 0; i < n; i++) {
+      const p = pts[i];
+      let dx = 0;
+      let dy = 0;
+      if (i === 0) {
+        dx = pts[1].x - p.x;
+        dy = pts[1].y - p.y;
+      } else if (i === n - 1) {
+        dx = p.x - pts[n - 2].x;
+        dy = p.y - pts[n - 2].y;
+      } else {
+        dx = pts[i + 1].x - pts[i - 1].x;
+        dy = pts[i + 1].y - pts[i - 1].y;
+      }
+      const len = Math.hypot(dx, dy) || 1;
+      const nx = -dy / len;
+      const ny = dx / len;
+      const r = smoothR[i];
+      leftPts.push({ x: p.x + nx * r, y: p.y + ny * r });
+      rightPts.push({ x: p.x - nx * r, y: p.y - ny * r });
+    }
+
+    path.moveTo(leftPts[0].x, leftPts[0].y);
+    for (let i = 1; i < n; i++) {
+      const midX = (leftPts[i - 1].x + leftPts[i].x) / 2;
+      const midY = (leftPts[i - 1].y + leftPts[i].y) / 2;
+      path.quadraticCurveTo(leftPts[i - 1].x, leftPts[i - 1].y, midX, midY);
+    }
+    path.lineTo(leftPts[n - 1].x, leftPts[n - 1].y);
+
+    const endP = pts[n - 1];
+    const endR = smoothR[n - 1];
+    path.arc(
+      endP.x,
+      endP.y,
+      endR,
+      Math.atan2(leftPts[n - 1].y - endP.y, leftPts[n - 1].x - endP.x),
+      Math.atan2(rightPts[n - 1].y - endP.y, rightPts[n - 1].x - endP.x),
+    );
+
+    path.lineTo(rightPts[n - 1].x, rightPts[n - 1].y);
+    for (let i = n - 2; i >= 0; i--) {
+      const midX = (rightPts[i + 1].x + rightPts[i].x) / 2;
+      const midY = (rightPts[i + 1].y + rightPts[i].y) / 2;
+      path.quadraticCurveTo(rightPts[i + 1].x, rightPts[i + 1].y, midX, midY);
+    }
+    path.lineTo(rightPts[0].x, rightPts[0].y);
+
+    const startP = pts[0];
+    const startR = smoothR[0];
+    path.arc(
+      startP.x,
+      startP.y,
+      startR,
+      Math.atan2(rightPts[0].y - startP.y, rightPts[0].x - startP.x),
+      Math.atan2(leftPts[0].y - startP.y, leftPts[0].x - startP.x),
+    );
+
+    path.closePath();
+    strokePathCache.current.set(s, path);
+    return path;
+  }
+
   function drawPenStroke(ctx: CanvasRenderingContext2D, s: StrokeBase) {
     const pts = s.points;
     if (pts.length < 2) return;
+    const path = getStrokeOutlinePath(s);
+    if (path) {
+      ctx.fillStyle = s.color;
+      ctx.fill(path);
+      return;
+    }
     ctx.strokeStyle = s.color;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-
     let smoothVelocity = 1.0;
     for (let i = 1; i < pts.length; i++) {
       const p0 = pts[i - 1];
@@ -1619,11 +1801,9 @@ export function WhiteboardCanvas({
       if (p0.t && p1.t && p1.t > p0.t) {
         const dt = Math.max(1, p1.t - p0.t);
         const dist = Math.hypot(p1.x - p0.x, p1.y - p0.y);
-        const speed = dist / dt; // px per ms
-        // Smooth speed scaling: slow writing -> 1.25, quick flick -> 0.65
+        const speed = dist / dt;
         instantVelocity = Math.max(0.65, Math.min(1.25, 1.25 - speed * 0.3));
       }
-      // Low-pass exponential moving average filter across touch batches to prevent beaded width jumps
       smoothVelocity = i === 1 ? instantVelocity : 0.65 * smoothVelocity + 0.35 * instantVelocity;
       const pressure = p1.p ?? 0.5;
       const width = Math.max(1, s.size * (0.35 + 0.85 * pressure) * smoothVelocity);
@@ -1632,9 +1812,7 @@ export function WhiteboardCanvas({
       ctx.moveTo(p0.x, p0.y);
       if (i < pts.length - 1) {
         const p2 = pts[i + 1];
-        const midX = (p1.x + p2.x) / 2;
-        const midY = (p1.y + p2.y) / 2;
-        ctx.quadraticCurveTo(p1.x, p1.y, midX, midY);
+        ctx.quadraticCurveTo(p1.x, p1.y, (p1.x + p2.x) / 2, (p1.y + p2.y) / 2);
       } else {
         ctx.lineTo(p1.x, p1.y);
       }
@@ -1995,24 +2173,36 @@ export function WhiteboardCanvas({
         ctx.save();
         ctx.translate(x + w / 2, y + h / 2);
         ctx.rotate(s.rotation);
+        if (s.fillColor) {
+          ctx.fillStyle = s.fillColor;
+          ctx.fillRect(-w / 2, -h / 2, w, h);
+        }
         ctx.strokeRect(-w / 2, -h / 2, w, h);
         ctx.restore();
       } else {
+        if (s.fillColor) {
+          ctx.fillStyle = s.fillColor;
+          ctx.fillRect(x, y, w, h);
+        }
         ctx.strokeRect(x, y, w, h);
       }
     } else if (s.shape === "circle") {
       ctx.beginPath();
       ctx.ellipse(x + w / 2, y + h / 2, Math.abs(w / 2), Math.abs(h / 2), 0, 0, Math.PI * 2);
+      if (s.fillColor) {
+        ctx.fillStyle = s.fillColor;
+        ctx.fill();
+      }
       ctx.stroke();
     } else if (s.shape === "ellipse") {
       if (s.rotation) {
         ctx.save();
         ctx.translate(x + w / 2, y + h / 2);
         ctx.rotate(s.rotation);
-        drawEllipseShape(ctx, -w / 2, -h / 2, w, h);
+        drawEllipseShape(ctx, -w / 2, -h / 2, w, h, s.fillColor);
         ctx.restore();
       } else {
-        drawEllipseShape(ctx, x, y, w, h);
+        drawEllipseShape(ctx, x, y, w, h, s.fillColor);
       }
     } else if (s.shape === "triangle") {
       if (s.vertices && s.vertices.length >= 3) {
@@ -2027,6 +2217,10 @@ export function WhiteboardCanvas({
           ctx.lineTo(vx(s.vertices[i]), vy(s.vertices[i]));
         }
         ctx.closePath();
+        if (s.fillColor) {
+          ctx.fillStyle = s.fillColor;
+          ctx.fill();
+        }
         ctx.stroke();
       } else {
         ctx.beginPath();
@@ -2034,6 +2228,10 @@ export function WhiteboardCanvas({
         ctx.lineTo(x, y + h);
         ctx.lineTo(x + w, y + h);
         ctx.closePath();
+        if (s.fillColor) {
+          ctx.fillStyle = s.fillColor;
+          ctx.fill();
+        }
         ctx.stroke();
       }
     } else if (s.shape === "right-triangle") {
@@ -2045,6 +2243,10 @@ export function WhiteboardCanvas({
       ctx.lineTo(x + w / 2, y + h);
       ctx.lineTo(x, y + h / 2);
       ctx.closePath();
+      if (s.fillColor) {
+        ctx.fillStyle = s.fillColor;
+        ctx.fill();
+      }
       ctx.stroke();
     } else if (s.shape === "star") {
       drawStarShape(ctx, x + w / 2, y + h / 2, Math.min(w, h) / 2);
@@ -2518,9 +2720,14 @@ export function WhiteboardCanvas({
     y: number,
     w: number,
     h: number,
+    fillColor?: string,
   ) {
     ctx.beginPath();
     ctx.ellipse(x + w / 2, y + h / 2, Math.abs(w / 2), Math.abs(h / 2), 0, 0, Math.PI * 2);
+    if (fillColor) {
+      ctx.fillStyle = fillColor;
+      ctx.fill();
+    }
     ctx.stroke();
   }
 
@@ -4201,7 +4408,19 @@ export function WhiteboardCanvas({
       img.onload = () => redraw();
       imageCache.current.set(o.src, img);
     }
-    if (img.complete) ctx.drawImage(img, o.x, o.y, o.w, o.h);
+    if (img.complete) {
+      if (o.crop && img.naturalWidth && img.naturalHeight) {
+        const nw = img.naturalWidth;
+        const nh = img.naturalHeight;
+        const sx = o.crop.x <= 1 ? o.crop.x * nw : o.crop.x;
+        const sy = o.crop.y <= 1 ? o.crop.y * nh : o.crop.y;
+        const sw = o.crop.w <= 1 ? o.crop.w * nw : o.crop.w;
+        const sh = o.crop.h <= 1 ? o.crop.h * nh : o.crop.h;
+        ctx.drawImage(img, sx, sy, sw, sh, o.x, o.y, o.w, o.h);
+      } else {
+        ctx.drawImage(img, o.x, o.y, o.w, o.h);
+      }
+    }
   }
 
   function wrapText(ctx: CanvasRenderingContext2D, text: string, maxW: number) {
@@ -4922,6 +5141,18 @@ export function WhiteboardCanvas({
       ctx.fillRect(cx - handleSize / 2, cy - handleSize / 2, handleSize, handleSize);
       ctx.strokeRect(cx - handleSize / 2, cy - handleSize / 2, handleSize, handleSize);
     }
+    if ((obj as any).locked) {
+      ctx.fillStyle = "#f59e0b";
+      const badgeR = 10 / camera.zoom;
+      ctx.beginPath();
+      ctx.arc(b.x + b.w, b.y, badgeR, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#ffffff";
+      ctx.font = `bold ${Math.round(11 / camera.zoom)}px sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("🔒", b.x + b.w, b.y);
+    }
     ctx.restore();
   }
 
@@ -4963,6 +5194,18 @@ export function WhiteboardCanvas({
     for (const [cx, cy] of handles) {
       ctx.fillRect(cx - handleSize / 2, cy - handleSize / 2, handleSize, handleSize);
       ctx.strokeRect(cx - handleSize / 2, cy - handleSize / 2, handleSize, handleSize);
+    }
+    if (objs.some((o: any) => o.locked)) {
+      ctx.fillStyle = "#f59e0b";
+      const badgeR = 10 / camera.zoom;
+      ctx.beginPath();
+      ctx.arc(b.x + b.w, b.y, badgeR, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#ffffff";
+      ctx.font = `bold ${Math.round(11 / camera.zoom)}px sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("🔒", b.x + b.w, b.y);
     }
     ctx.restore();
   }
@@ -5272,6 +5515,10 @@ export function WhiteboardCanvas({
         const handle = getHandleAt(w, multiBounds);
         if (handle) {
           const selectedObjs = page.objects.filter((o) => selectedIds.includes(o.id));
+          if (selectedObjs.some((o: any) => o.locked)) {
+            toast.info("Selection contains locked objects. Unlock to move.");
+            return;
+          }
           multiDragRef.current = {
             start: w,
             handle,
@@ -5289,6 +5536,10 @@ export function WhiteboardCanvas({
         if (curObj) {
           const handle = getHandleAt(w, curObj);
           if (handle) {
+            if ((curObj as any).locked) {
+              toast.info("This object is locked. Unlock to move.");
+              return;
+            }
             dragRef.current = {
               id: curObj.id,
               handle,
@@ -5346,6 +5597,22 @@ export function WhiteboardCanvas({
           toggleTapeReveal(hit.id);
           setSelected(hit.id);
           return;
+        }
+
+        // If the clicked object is locked, select it but do not drag
+        if ((hit as any).locked) {
+          setSelected(hit.id);
+          return;
+        }
+
+        // If the clicked object belongs to a group, select the entire group!
+        if ((hit as any).groupId) {
+          const groupObjs = page.objects.filter((o: any) => o.groupId === (hit as any).groupId);
+          if (groupObjs.length > 1) {
+            setSelectedIds(groupObjs.map((o) => o.id));
+            setSelected(hit.id);
+            return;
+          }
         }
 
         // Single click selects the object (including text) without immediately opening editing.
@@ -5767,14 +6034,69 @@ export function WhiteboardCanvas({
       const origBounds = d.origBounds || objectBounds(orig);
 
       if (d.handle.type === "move") {
+        let finalDx = dx;
+        let finalDy = dy;
+
+        // Alignment guides & snapping to other objects within 6px
+        const targetX = origBounds.x + dx;
+        const targetY = origBounds.y + dy;
+        const targetCenterX = targetX + origBounds.w / 2;
+        const targetCenterY = targetY + origBounds.h / 2;
+        const targetRight = targetX + origBounds.w;
+        const targetBottom = targetY + origBounds.h;
+
+        const guidesX: number[] = [];
+        const guidesY: number[] = [];
+        const snapThreshold = 6 / camera.zoom;
+
+        for (const other of page.objects) {
+          if (other.id === d.id) continue;
+          const ob = objectBounds(other);
+          const otherCenterX = ob.x + ob.w / 2;
+          const otherCenterY = ob.y + ob.h / 2;
+          const otherRight = ob.x + ob.w;
+          const otherBottom = ob.y + ob.h;
+
+          // X Snapping
+          if (Math.abs(targetX - ob.x) < snapThreshold) {
+            finalDx = ob.x - origBounds.x;
+            guidesX.push(ob.x);
+          } else if (Math.abs(targetRight - otherRight) < snapThreshold) {
+            finalDx = otherRight - origBounds.w - origBounds.x;
+            guidesX.push(otherRight);
+          } else if (Math.abs(targetCenterX - otherCenterX) < snapThreshold) {
+            finalDx = otherCenterX - origBounds.w / 2 - origBounds.x;
+            guidesX.push(otherCenterX);
+          }
+
+          // Y Snapping
+          if (Math.abs(targetY - ob.y) < snapThreshold) {
+            finalDy = ob.y - origBounds.y;
+            guidesY.push(ob.y);
+          } else if (Math.abs(targetBottom - otherBottom) < snapThreshold) {
+            finalDy = otherBottom - origBounds.h - origBounds.y;
+            guidesY.push(otherBottom);
+          } else if (Math.abs(targetCenterY - otherCenterY) < snapThreshold) {
+            finalDy = otherCenterY - origBounds.h / 2 - origBounds.y;
+            guidesY.push(otherCenterY);
+          }
+        }
+
+        alignmentGuidesRef.current = { xs: guidesX, ys: guidesY };
+        scheduleDrawLive();
+
         if ("points" in orig && Array.isArray((orig as any).points)) {
           updateObject(d.id, {
-            points: (orig as any).points.map((p: Point) => ({ ...p, x: p.x + dx, y: p.y + dy })),
+            points: (orig as any).points.map((p: Point) => ({
+              ...p,
+              x: p.x + finalDx,
+              y: p.y + finalDy,
+            })),
           } as Partial<CanvasObject>);
         } else {
           updateObject(d.id, {
-            x: (orig as any).x + dx,
-            y: (orig as any).y + dy,
+            x: (orig as any).x + finalDx,
+            y: (orig as any).y + finalDy,
           } as Partial<CanvasObject>);
         }
       } else {
@@ -6219,12 +6541,16 @@ export function WhiteboardCanvas({
     if (multiDragRef.current) {
       if (multiDragRef.current.hasMoved) pushHistory();
       multiDragRef.current = null;
+      alignmentGuidesRef.current = { xs: [], ys: [] };
+      clearOverlay();
       return;
     }
 
     if (dragRef.current) {
       if (dragRef.current.hasMoved) pushHistory();
       dragRef.current = null;
+      alignmentGuidesRef.current = { xs: [], ys: [] };
+      clearOverlay();
       return;
     }
 
@@ -6398,7 +6724,13 @@ export function WhiteboardCanvas({
         toast.success(`Presentation Slide ${existingFrames.length + 1} created!`);
       }
       pushHistory();
-      handwriting.afterCommit(id, d.tool, d.points, d.color);
+      const scheduleIdle =
+        typeof window !== "undefined" && "requestIdleCallback" in window
+          ? (window as any).requestIdleCallback
+          : (cb: () => void) => setTimeout(cb, 16);
+      scheduleIdle(() => {
+        handwriting.afterCommit(id, d.tool, d.points, d.color);
+      });
     }
   }
 
@@ -6418,8 +6750,14 @@ export function WhiteboardCanvas({
     }
     const overlay = overlayRef.current;
     if (!overlay) return;
-    const ctx = overlay.getContext("2d", { desynchronized: true });
+    const ctx = overlay.getContext("2d");
     if (ctx) ctx.clearRect(0, 0, overlay.width, overlay.height);
+    if (drawingRef.current) {
+      drawingRef.current.lastDrawnIdx = undefined;
+    }
+    strokeSessionsRef.current.forEach((s) => {
+      s.lastDrawnIdx = undefined;
+    });
   }
 
   function fadeLaser() {
@@ -6427,7 +6765,7 @@ export function WhiteboardCanvas({
     if (!overlay) return;
     const fadeStart = Date.now();
     const fade = () => {
-      const ctx = overlay.getContext("2d", { desynchronized: true });
+      const ctx = overlay.getContext("2d");
       if (!ctx) return;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, overlay.width, overlay.height);
@@ -6458,13 +6796,106 @@ export function WhiteboardCanvas({
   function drawLive() {
     const overlay = overlayRef.current;
     if (!overlay) return;
-    const ctx = overlay.getContext("2d", { desynchronized: true })!;
+    const ctx = overlay.getContext("2d");
+    if (!ctx) return;
+
+    const sessions =
+      strokeSessionsRef.current.size > 0
+        ? Array.from(strokeSessionsRef.current.values())
+        : drawingRef.current
+          ? [drawingRef.current]
+          : [];
+
+    const camChanged =
+      lastLiveCamRef.current.x !== camera.x ||
+      lastLiveCamRef.current.y !== camera.y ||
+      lastLiveCamRef.current.zoom !== camera.zoom;
+    if (camChanged) {
+      lastLiveCamRef.current = { ...camera };
+    }
+
+    // High performance incremental inking: when drawing a single pen stroke,
+    // render ONLY newly added quadratic bezier segments without clearing previous segments
+    const canDoIncremental =
+      !camChanged &&
+      sessions.length === 1 &&
+      sessions[0].tool === "pen" &&
+      !sessions[0].snappedShape &&
+      alignmentGuidesRef.current.xs.length === 0 &&
+      alignmentGuidesRef.current.ys.length === 0 &&
+      tool !== "lasso" &&
+      !eraserSessionRef.current?.active &&
+      (!sessions[0].predictedPoints || sessions[0].predictedPoints.length === 0) &&
+      typeof sessions[0].lastDrawnIdx === "number" &&
+      sessions[0].lastDrawnIdx > 0 &&
+      sessions[0].lastDrawnIdx < sessions[0].points.length;
+
+    if (canDoIncremental) {
+      const session = sessions[0];
+      const pts = session.points;
+      const startIdx = session.lastDrawnIdx!;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.scale(dpr, dpr);
+      ctx.save();
+      ctx.translate(camera.x, camera.y);
+      ctx.scale(camera.zoom, camera.zoom);
+
+      ctx.strokeStyle = session.color;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+
+      for (let i = startIdx; i < pts.length; i++) {
+        const p0 = pts[i - 1];
+        const p1 = pts[i];
+        const pressure = p1.p ?? 0.5;
+        ctx.lineWidth = Math.max(1, session.size * (0.35 + 0.85 * pressure));
+        ctx.beginPath();
+        if (i === 1) {
+          ctx.moveTo(p0.x, p0.y);
+        } else {
+          const pPrev = pts[i - 2];
+          ctx.moveTo((pPrev.x + p0.x) / 2, (pPrev.y + p0.y) / 2);
+        }
+        const midX = (p0.x + p1.x) / 2;
+        const midY = (p0.y + p1.y) / 2;
+        ctx.quadraticCurveTo(p0.x, p0.y, midX, midY);
+        if (i === pts.length - 1) {
+          ctx.lineTo(p1.x, p1.y);
+        }
+        ctx.stroke();
+      }
+      session.lastDrawnIdx = pts.length - 1;
+      ctx.restore();
+      return;
+    }
+
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, overlay.width, overlay.height);
     ctx.scale(dpr, dpr);
     ctx.save();
     ctx.translate(camera.x, camera.y);
     ctx.scale(camera.zoom, camera.zoom);
+
+    // Live Alignment Guides (snapping feedback during object movement)
+    if (alignmentGuidesRef.current.xs.length > 0 || alignmentGuidesRef.current.ys.length > 0) {
+      ctx.save();
+      ctx.strokeStyle = "#6366f1";
+      ctx.lineWidth = 1.5 / camera.zoom;
+      ctx.setLineDash([4 / camera.zoom, 4 / camera.zoom]);
+      for (const gx of alignmentGuidesRef.current.xs) {
+        ctx.beginPath();
+        ctx.moveTo(gx, -100000);
+        ctx.lineTo(gx, 100000);
+        ctx.stroke();
+      }
+      for (const gy of alignmentGuidesRef.current.ys) {
+        ctx.beginPath();
+        ctx.moveTo(-100000, gy);
+        ctx.lineTo(100000, gy);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
 
     // Live Lasso Loop
     if (tool === "lasso" && lassoRef.current && lassoRef.current.length > 1) {
@@ -6495,13 +6926,6 @@ export function WhiteboardCanvas({
       ctx.restore();
       return;
     }
-
-    const sessions =
-      strokeSessionsRef.current.size > 0
-        ? Array.from(strokeSessionsRef.current.values())
-        : drawingRef.current
-          ? [drawingRef.current]
-          : [];
 
     if (sessions.length === 0) return ctx.restore();
 
@@ -6572,6 +6996,7 @@ export function WhiteboardCanvas({
         ctx.stroke();
       } else {
         drawPenStroke(ctx, dummyStroke);
+        session.lastDrawnIdx = pts.length - 1;
       }
     }
     ctx.restore();
@@ -7906,6 +8331,161 @@ export function WhiteboardCanvas({
                 className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-destructive/10 text-destructive transition shrink-0"
                 placement={tooltipPlacement}
               />
+
+              {/* Lock / Unlock */}
+              {(() => {
+                const isAnyLocked = targetSelectionIds.some((id) => {
+                  const o = page.objects.find((obj) => obj.id === id);
+                  return !!(o as any)?.locked;
+                });
+                return (
+                  <SelectionToolBtn
+                    onClick={() => toggleLockSelected()}
+                    icon={
+                      isAnyLocked ? (
+                        <Lock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-500" />
+                      ) : (
+                        <Unlock className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                      )
+                    }
+                    label={isAnyLocked ? "Unlock" : "Lock"}
+                    description={
+                      isAnyLocked ? "Unlock to move or edit" : "Pin in place so it cannot move"
+                    }
+                    className={cn(
+                      "flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-accent text-foreground transition shrink-0",
+                      isAnyLocked && "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+                    )}
+                    placement={tooltipPlacement}
+                  />
+                );
+              })()}
+
+              {/* Bring to Front */}
+              <SelectionToolBtn
+                onClick={() => bringToFront()}
+                icon={<ChevronsUp className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+                label="Bring to Front"
+                description="Move on top of all other objects"
+                className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-accent text-foreground transition shrink-0"
+                placement={tooltipPlacement}
+              />
+
+              {/* Send to Back */}
+              <SelectionToolBtn
+                onClick={() => sendToBack()}
+                icon={<ChevronsDown className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+                label="Send to Back"
+                description="Move behind other objects"
+                className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-accent text-foreground transition shrink-0"
+                placement={tooltipPlacement}
+              />
+
+              {/* Group / Ungroup */}
+              {(() => {
+                const hasGroup = targetSelectionIds.some((id) => {
+                  const o = page.objects.find((obj) => obj.id === id);
+                  return !!(o as any)?.groupId;
+                });
+                if (hasGroup) {
+                  return (
+                    <SelectionToolBtn
+                      onClick={() => ungroupSelected()}
+                      icon={<FolderMinus className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />}
+                      label="Ungroup"
+                      description="Separate grouped objects"
+                      className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-primary/10 text-primary transition shrink-0"
+                      placement={tooltipPlacement}
+                    />
+                  );
+                } else if (targetSelectionIds.length >= 2) {
+                  return (
+                    <SelectionToolBtn
+                      onClick={() => groupSelected()}
+                      icon={<FolderPlus className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />}
+                      label="Group"
+                      description="Group items together"
+                      className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-primary/10 text-primary transition shrink-0"
+                      placement={tooltipPlacement}
+                    />
+                  );
+                }
+                return null;
+              })()}
+
+              {/* Fill Color */}
+              {(() => {
+                const hasShape = targetSelectionIds.some((id) => {
+                  const o = page.objects.find((obj) => obj.id === id);
+                  return o?.kind === "shape";
+                });
+                if (!hasShape) return null;
+                return (
+                  <div className="relative group/fill flex items-center justify-center shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setFillPickerOpen(!fillPickerOpen)}
+                      aria-label="Fill Color"
+                      className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-accent text-foreground transition shrink-0"
+                    >
+                      <PaintBucket className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    </button>
+                    {fillPickerOpen && (
+                      <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 flex gap-1 p-2 rounded-xl bg-card shadow-xl ring-1 ring-border z-50">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFillColorSelected("");
+                            setFillPickerOpen(false);
+                          }}
+                          className="h-6 px-1.5 text-[10px] font-semibold rounded border border-border bg-muted text-muted-foreground"
+                        >
+                          None
+                        </button>
+                        {PALETTE.slice(0, 7).map((c) => (
+                          <button
+                            key={c}
+                            type="button"
+                            onClick={() => {
+                              setFillColorSelected(c);
+                              setFillPickerOpen(false);
+                            }}
+                            className="h-6 w-6 rounded-full border border-border"
+                            style={{ backgroundColor: c }}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Crop Image */}
+              {(() => {
+                if (targetSelectionIds.length !== 1) return null;
+                const imgObj = page.objects.find(
+                  (o) => o.id === targetSelectionIds[0] && o.kind === "image",
+                );
+                if (!imgObj) return null;
+                return (
+                  <SelectionToolBtn
+                    onClick={() => {
+                      if ((imgObj as any).crop) {
+                        cropImageSelected(undefined as any);
+                        toast.success("Image crop reset");
+                      } else {
+                        cropImageSelected({ x: 0.1, y: 0.1, w: 0.8, h: 0.8 });
+                        toast.success("Image cropped");
+                      }
+                    }}
+                    icon={<Crop className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-500" />}
+                    label="Crop Image"
+                    description={(imgObj as any).crop ? "Reset crop" : "Crop edges"}
+                    className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-emerald-500/10 text-emerald-600 transition shrink-0"
+                    placement={tooltipPlacement}
+                  />
+                );
+              })()}
 
               <div className="h-3.5 sm:h-4 w-px bg-border mx-0 sm:mx-0.5 shrink-0" />
 

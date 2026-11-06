@@ -50,7 +50,7 @@ export function MathFormulaDialog({
   onOpenChange: (open: boolean) => void;
   initialLatex?: string;
 }) {
-  const { addObject, pushHistory, camera } = useWhiteboard();
+  const { addObject, pushHistory } = useWhiteboard();
   const [latex, setLatex] = useState(initialLatex || "x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}");
   const [label, setLabel] = useState("");
   const [isSolving, setIsSolving] = useState(false);
@@ -69,6 +69,7 @@ export function MathFormulaDialog({
 
     const id = uid();
     const clean = latex.trim();
+    const { camera } = useWhiteboard.getState();
     const screenW = typeof window !== "undefined" ? window.innerWidth : 400;
     const screenH = typeof window !== "undefined" ? window.innerHeight : 600;
     const w = Math.max(280, Math.min(460, clean.length * 8 + 60));
@@ -108,6 +109,7 @@ export function MathFormulaDialog({
         return;
       }
 
+      const { camera } = useWhiteboard.getState();
       const screenW = typeof window !== "undefined" ? window.innerWidth : 400;
       const screenH = typeof window !== "undefined" ? window.innerHeight : 600;
       const cardW = 480;

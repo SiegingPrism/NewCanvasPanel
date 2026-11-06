@@ -121,7 +121,7 @@ export function ImageSearchDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { addObject, pushHistory, camera } = useWhiteboard();
+  const { addObject, pushHistory } = useWhiteboard();
   const [query, setQuery] = useState("cell biology");
   const [activeCategory, setActiveCategory] = useState("Biology");
   const [results, setResults] = useState<ImageItem[]>(CURATED_IMAGES.Biology);
@@ -224,6 +224,7 @@ export function ImageSearchDialog({
     const screenH = typeof window !== "undefined" ? window.innerHeight : 600;
     const w = 340;
     const h = 240;
+    const { camera } = useWhiteboard.getState();
     const cx = (screenW / 2 - camera.x) / camera.zoom - w / 2;
     const cy = (screenH / 2 - camera.y) / camera.zoom - h / 2;
 

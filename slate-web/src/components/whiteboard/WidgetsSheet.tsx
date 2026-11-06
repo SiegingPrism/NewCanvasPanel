@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
+import { useShallow } from "zustand/react/shallow";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
   Timer,
@@ -105,8 +106,17 @@ export function WidgetsSheet({
   onOpenChange: (b: boolean) => void;
   onLaunch: (kind: WidgetKind) => void;
 }) {
-  const { addObject, pushHistory, camera, setTool, pages, simpleMode } = useWhiteboard();
+  const { addObject, pushHistory, setTool, pages, simpleMode } = useWhiteboard(
+    useShallow((s) => ({
+      addObject: s.addObject,
+      pushHistory: s.pushHistory,
+      setTool: s.setTool,
+      pages: s.pages,
+      simpleMode: s.simpleMode,
+    })),
+  );
   const [activeTab, setActiveTab] = useState<TabId>("insert");
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [mathDialogOpen, setMathDialogOpen] = useState(false);
   const [imageSearchOpen, setImageSearchOpen] = useState(false);
   const [tableDialogOpen, setTableDialogOpen] = useState(false);
@@ -125,6 +135,13 @@ export function WidgetsSheet({
   const [boardSettingsOpen, setBoardSettingsOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const lessonFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleTabChange = (t: TabId) => {
+    setActiveTab(t);
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
+    }
+  };
 
   const handleImportLesson = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -159,6 +176,9 @@ export function WidgetsSheet({
           setActiveTab("stem");
         } else if (t === "insert" || t === "teach" || t === "classroom" || t === "ai") {
           setActiveTab(t as TabId);
+        }
+        if (scrollContainerRef.current) {
+          scrollContainerRef.current.scrollTop = 0;
         }
       }
     };
@@ -210,6 +230,7 @@ export function WidgetsSheet({
   }, []);
 
   function handleInsertWholePeriodicTable() {
+    const { camera } = useWhiteboard.getState();
     const screenW = typeof window !== "undefined" ? window.innerWidth : 1200;
     const screenH = typeof window !== "undefined" ? window.innerHeight : 800;
     const tableW = 1080;
@@ -232,6 +253,7 @@ export function WidgetsSheet({
   }
 
   function addSticky() {
+    const { camera } = useWhiteboard.getState();
     const colors = ["#fef08a", "#bbf7d0", "#bae6fd", "#fbcfe8", "#fed7aa"];
     const screenW = typeof window !== "undefined" ? window.innerWidth : 400;
     const screenH = typeof window !== "undefined" ? window.innerHeight : 600;
@@ -253,6 +275,7 @@ export function WidgetsSheet({
   }
 
   function handleInsertElement(el: ElementData) {
+    const { camera } = useWhiteboard.getState();
     const screenW = typeof window !== "undefined" ? window.innerWidth : 400;
     const screenH = typeof window !== "undefined" ? window.innerHeight : 600;
     const cx = (screenW / 2 - camera.x) / camera.zoom - 95;
@@ -272,6 +295,7 @@ export function WidgetsSheet({
   }
 
   function handleInsertCard(card: Flashcard) {
+    const { camera } = useWhiteboard.getState();
     const screenW = typeof window !== "undefined" ? window.innerWidth : 400;
     const screenH = typeof window !== "undefined" ? window.innerHeight : 600;
     const cx = (screenW / 2 - camera.x) / camera.zoom - 110;
@@ -445,8 +469,8 @@ export function WidgetsSheet({
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent
           side="right"
-          overlayClassName="bg-transparent"
-          className="right-0 sm:right-3 top-0 sm:top-3 bottom-0 sm:bottom-3 h-full sm:h-[calc(100%-1.5rem)] w-full sm:max-w-md flex flex-col rounded-none sm:rounded-3xl p-4 sm:p-5 pt-[max(1rem,calc(var(--sat,env(safe-area-inset-top,0px))+0.75rem))] overflow-hidden bg-white dark:bg-slate-900 text-foreground shadow-2xl border border-border"
+          overlayClassName="bg-black/25 backdrop-blur-[1px]"
+          className="right-0 top-0 bottom-0 h-full w-full sm:w-[480px] sm:max-w-[480px] flex flex-col rounded-none sm:rounded-l-3xl p-4 sm:p-5 pt-[max(1rem,calc(var(--sat,env(safe-area-inset-top,0px))+0.75rem))] overflow-hidden bg-white dark:bg-slate-900 text-foreground shadow-2xl border-l border-border z-[60]"
           onInteractOutside={(e) => {
             if (tutorialOpen) e.preventDefault();
           }}
@@ -481,7 +505,7 @@ export function WidgetsSheet({
                 <button
                   key={tab.id}
                   type="button"
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => handleTabChange(tab.id)}
                   className={cn(
                     "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-full whitespace-nowrap transition-all active:scale-95",
                     isActive
@@ -496,7 +520,11 @@ export function WidgetsSheet({
             })}
           </div>
 
-          <div className="mt-3 flex-1 min-h-0 overflow-y-auto overscroll-contain pr-1 pb-6 touch-auto bg-white dark:bg-slate-900">
+          <div
+            ref={scrollContainerRef}
+            key={activeTab}
+            className="mt-3 flex-1 min-h-0 overflow-y-auto overscroll-contain pr-1 pb-6 touch-auto bg-white dark:bg-slate-900"
+          >
             {/* 1. INSERT SECTION */}
             {activeTab === "insert" && (
               <section className="bg-white dark:bg-slate-900">

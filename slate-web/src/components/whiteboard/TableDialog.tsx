@@ -23,7 +23,7 @@ export function TableDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { addObject, pushHistory, camera } = useWhiteboard();
+  const { addObject, pushHistory } = useWhiteboard();
   const [rows, setRows] = useState(3);
   const [cols, setCols] = useState(3);
   const [title, setTitle] = useState("Comparison Table");
@@ -51,6 +51,7 @@ export function TableDialog({
     const w = Math.max(260, cols * cellW);
     const h = (rows + (title ? 1 : 0)) * cellH + 20;
 
+    const { camera } = useWhiteboard.getState();
     const cx = (screenW / 2 - camera.x) / camera.zoom - w / 2;
     const cy = (screenH / 2 - camera.y) / camera.zoom - h / 2;
 
