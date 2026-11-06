@@ -77,7 +77,11 @@ import {
   FolderMinus,
   PaintBucket,
   Crop,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
+import { useReadAloud } from "@/lib/speech/useReadAloud";
+import { useTranslation } from "@/lib/i18n/useTranslation";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { GenerateMindMapDialog } from "./GenerateMindMapDialog";
@@ -209,6 +213,9 @@ export function WhiteboardCanvas({
       zoneSettings: s.zoneSettings,
     })),
   );
+
+  const { t } = useTranslation();
+  const { speak: readAloudSpeak, stop: readAloudStop, isSpeaking: isReadAloudSpeaking } = useReadAloud();
 
   const otherHandTouchRef = useRef<{
     id: number;
@@ -8777,6 +8784,35 @@ export function WhiteboardCanvas({
                 label="Translate"
                 description="Rewrite in another language, in handwriting"
                 className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-orange-500/10 text-orange-500 transition shrink-0"
+                placement={tooltipPlacement}
+              />
+
+              {/* 5b. Read Aloud (TTS) */}
+              <SelectionToolBtn
+                onClick={() => {
+                  if (isReadAloudSpeaking) {
+                    readAloudStop();
+                    return;
+                  }
+                  const targetIds = targetSelectionIds.length > 0 ? targetSelectionIds : (selectedId ? [selectedId] : []);
+                  const selectedObjects = page.objects.filter((o) => targetIds.includes(o.id));
+                  const text = selectedObjects
+                    .map((o) => (o as any).text || (o as any).inkText || (o as any).latex || "")
+                    .filter(Boolean)
+                    .join(". ");
+                  if (text && text.trim()) {
+                    readAloudSpeak(text.trim());
+                  } else {
+                    toast.info(t("readAloud") + ": No text detected in selection.");
+                  }
+                }}
+                icon={isReadAloudSpeaking ? <VolumeX className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-rose-500 animate-pulse" /> : <Volume2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+                label={isReadAloudSpeaking ? "Stop Speaking" : t("readAloud")}
+                description="Speak selected text or notes aloud"
+                className={cn(
+                  "flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full transition shrink-0",
+                  isReadAloudSpeaking ? "bg-rose-500/20 text-rose-500 ring-2 ring-rose-500/40" : "hover:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                )}
                 placement={tooltipPlacement}
               />
 

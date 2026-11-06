@@ -34,6 +34,7 @@ import {
 import { HandwritingSettings } from "@/components/whiteboard/HandwritingSettings";
 import type { ShapeType, ToolId, TextObject } from "@/lib/whiteboard/types";
 import { useInk, findLanguage } from "@/lib/ink/recognizer";
+import { useTranslation } from "@/lib/i18n/useTranslation";
 import { toast } from "sonner";
 
 interface SmartBoardSideDockProps {
@@ -112,6 +113,7 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
   );
 
   const { language, setLangPickerOpen } = useInk();
+  const { t } = useTranslation();
 
   const activePage = pages.find((p) => p.id === activePageId);
   const isDark =
@@ -320,7 +322,7 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
             title="Move (pan around board, or tap again for fit/zoom)"
           >
             <Hand className="h-7 w-7" />
-            <span className="text-xs font-semibold mt-0.5">Move</span>
+            <span className="text-xs font-semibold mt-0.5">{t("move")}</span>
             {tool === "pan" && (
               <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary-foreground text-primary">
                 <Check className="h-3 w-3 stroke-[3]" />
@@ -409,7 +411,7 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
             title="Pen (tap again for colour, size, style, writing)"
           >
             <Pen className="h-7 w-7" />
-            <span className="text-xs font-semibold mt-0.5">Pen</span>
+            <span className="text-xs font-semibold mt-0.5">{t("pen")}</span>
             {/* Active Color Pip with border */}
             <span
               className="absolute bottom-1.5 right-1.5 h-3.5 w-3.5 rounded-full border-2 border-white shadow-sm ring-1 ring-black/20"
@@ -677,7 +679,7 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
             title="Highlighter (tap again for colors & thickness)"
           >
             <Highlighter className="h-7 w-7" />
-            <span className="text-xs font-semibold mt-0.5">Highlight</span>
+            <span className="text-xs font-semibold mt-0.5">{t("highlighter")}</span>
             {tool === "highlighter" && (
               <span className="absolute top-1.5 left-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-white text-amber-600">
                 <Check className="h-2.5 w-2.5 stroke-[3]" />
@@ -769,7 +771,7 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
             title="Eraser (or wipe canvas with palm / fist)"
           >
             <Eraser className="h-7 w-7" />
-            <span className="text-xs font-semibold mt-0.5">Eraser</span>
+            <span className="text-xs font-semibold mt-0.5">{t("eraser")}</span>
             {(tool === "eraser-object" || tool === "eraser-pixel") && (
               <span className="absolute top-1.5 left-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-white text-rose-600">
                 <Check className="h-2.5 w-2.5 stroke-[3]" />
@@ -878,7 +880,7 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
             title="Select (tap again for Lasso / Tap mode)"
           >
             <MousePointer2 className="h-7 w-7" />
-            <span className="text-xs font-semibold mt-0.5">Select</span>
+            <span className="text-xs font-semibold mt-0.5">{t("select")}</span>
             {(tool === "select" || tool === "lasso") && (
               <span className="absolute top-1.5 left-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-primary-foreground text-primary">
                 <Check className="h-2.5 w-2.5 stroke-[3]" />
@@ -957,7 +959,7 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
             title="Text (tap board to type, or tap again for font size & cards)"
           >
             <Type className="h-7 w-7" />
-            <span className="text-xs font-semibold mt-0.5">Text</span>
+            <span className="text-xs font-semibold mt-0.5">{t("text")}</span>
             {tool === "text" && (
               <span className="absolute top-1.5 left-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-primary-foreground text-primary">
                 <Check className="h-2.5 w-2.5 stroke-[3]" />
@@ -1043,7 +1045,7 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
             title="Shapes (draw rough shape or tap again to choose)"
           >
             <Shapes className="h-7 w-7" />
-            <span className="text-xs font-semibold mt-0.5">Shapes</span>
+            <span className="text-xs font-semibold mt-0.5">{t("shapes")}</span>
             {tool === "shape" && (
               <span className="absolute top-1.5 left-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-primary-foreground text-primary">
                 <Check className="h-2.5 w-2.5 stroke-[3]" />
@@ -1195,7 +1197,7 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
         title="More Tools & Classroom Widgets"
       >
         <MoreHorizontal className="h-7 w-7" />
-        <span className="text-xs font-semibold mt-0.5">More</span>
+        <span className="text-xs font-semibold mt-0.5">{t("more")}</span>
       </button>
     </aside>
   );

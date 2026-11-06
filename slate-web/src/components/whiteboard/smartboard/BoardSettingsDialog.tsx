@@ -20,6 +20,7 @@ import {
 } from "@/lib/whiteboard/smartBoardProfiles";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
+import { useTranslation } from "@/lib/i18n/useTranslation";
 import { cn } from "@/lib/utils";
 
 interface BoardSettingsDialogProps {
@@ -45,6 +46,7 @@ export function BoardSettingsDialog({ open, onOpenChange }: BoardSettingsDialogP
   } = useWhiteboard();
 
   const [tab, setTab] = useState<"writing" | "pages" | "classroom" | "display">("writing");
+  const { t, language, setLanguage } = useTranslation();
   const profile = getSmartBoardProfile(panelSize);
 
   return (
@@ -285,6 +287,39 @@ export function BoardSettingsDialog({ open, onOpenChange }: BoardSettingsDialogP
                 </p>
               </div>
               <Switch checked={simpleMode} onCheckedChange={setSimpleMode} />
+            </div>
+
+            {/* Indian Classrooms Interface Language */}
+            <div className="flex items-center justify-between rounded-2xl border border-border/80 p-3 bg-muted/20">
+              <div className="space-y-0.5">
+                <span className="text-xs font-bold text-foreground">
+                  {t("language")} (App Interface)
+                </span>
+                <p className="text-[11px] text-muted-foreground">
+                  English, हिन्दी (Hindi), मराठी (Marathi) for Indian smart board classrooms.
+                </p>
+              </div>
+              <div className="flex items-center gap-1 bg-card border border-border rounded-xl p-1">
+                {[
+                  { code: "en" as const, label: "English" },
+                  { code: "hi" as const, label: "हिन्दी" },
+                  { code: "mr" as const, label: "मराठी" },
+                ].map((l) => (
+                  <button
+                    key={l.code}
+                    type="button"
+                    onClick={() => setLanguage(l.code)}
+                    className={cn(
+                      "px-2.5 py-1 text-xs font-bold rounded-lg transition-all",
+                      language === l.code
+                        ? "bg-primary text-primary-foreground shadow-xs"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {l.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         )}

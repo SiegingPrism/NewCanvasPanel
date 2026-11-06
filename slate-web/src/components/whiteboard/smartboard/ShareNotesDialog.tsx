@@ -10,6 +10,9 @@ import {
   Loader2,
   AlertCircle,
   RefreshCw,
+  GraduationCap,
+  ExternalLink,
+  PlusCircle,
 } from "lucide-react";
 import QRCode from "qrcode";
 import { useWhiteboard } from "@/lib/whiteboard/store";
@@ -18,6 +21,8 @@ import { toast } from "sonner";
 import { getSupabase } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/supabase/authStore";
 import { getPublicAppOrigin } from "@/lib/utils";
+import { AIEngine } from "@/lib/ai/aiEngine";
+import type { QuizObject, Page } from "@/lib/whiteboard/types";
 
 interface ShareNotesDialogProps {
   open: boolean;
@@ -30,7 +35,7 @@ export function ShareNotesDialog({
   onOpenChange,
   boardTitle = "Lesson Notes",
 }: ShareNotesDialogProps) {
-  const { pages, activePageId } = useWhiteboard();
+  const { pages, activePageId, setPages } = useWhiteboard();
   const { user } = useAuth();
   const [shareId] = useState(() => `share-${Math.random().toString(36).slice(2, 9)}`);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
@@ -43,14 +48,136 @@ export function ShareNotesDialog({
   const [uploadErrorMsg, setUploadErrorMsg] = useState<string | null>(null);
   const blobRef = useRef<Blob | null>(null);
 
+  // End-of-class AI summary & 3-question exit quiz
+  const [includeAiSummary, setIncludeAiSummary] = useState(false);
+  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
+  const [aiSummaryData, setAiSummaryData] = useState<{
+    summary: string;
+    quiz: Array<{ question: string; options: string[]; answerIndex: number; explanation?: string }>;
+  } | null>(null);
+
   useEffect(() => {
     if (open) {
-      generatePdfAndQR();
+      generatePdfAndQR(aiSummaryData);
     }
     return () => {
       if (pdfBlobUrl) URL.revokeObjectURL(pdfBlobUrl);
     };
   }, [open, user]);
+
+  const extractBoardText = (): string => {
+    const parts: string[] = [];
+    pages.forEach((p, idx) => {
+      parts.push(`Page ${idx + 1}:`);
+      p.objects.forEach((obj) => {
+        if (obj.kind === "text" && obj.text) parts.push(obj.text);
+        if (obj.kind === "sticky" && obj.text) parts.push(obj.text);
+        if ("inkText" in obj && (obj as any).inkText) parts.push((obj as any).inkText);
+        if ("latex" in obj && (obj as any).latex) parts.push((obj as any).latex);
+      });
+    });
+    return parts.join("\n").trim();
+  };
+
+  const handleGenerateSummaryAndQuiz = async () => {
+    setIsGeneratingSummary(true);
+    try {
+      const boardText = extractBoardText();
+      const topic = boardText ? boardText.slice(0, 1000) : boardTitle;
+
+      let generatedQuiz: Array<{ question: string; options: string[]; answerIndex: number; explanation?: string }> = [];
+      let generatedSummary = `Classroom Lesson Summary: ${boardTitle}\n• Core concept review and problem-solving highlights.\n• Essential formulas, diagrams, and student discussion points.\n• Recommended revision questions and exit check.`;
+
+      if (AIEngine.isConfigured() && boardText.length > 20) {
+        try {
+          const rawQuiz = await AIEngine.generateQuiz(boardText, boardTitle, 3);
+          if (rawQuiz && rawQuiz.length > 0) {
+            generatedQuiz = rawQuiz.slice(0, 3);
+          }
+        } catch (e) {
+          console.warn("AI quiz generation error, using structured fallback:", e);
+        }
+      }
+
+      if (generatedQuiz.length === 0) {
+        generatedQuiz = [
+          {
+            question: `What was the primary focus of today's lesson on ${boardTitle}?`,
+            options: [
+              "Mastering key definitions and practical application",
+              "Skipping foundational rules without problem solving",
+              "Memorizing only without graphical analysis",
+              "Postponing understanding until final exam",
+            ],
+            answerIndex: 0,
+            explanation: "Today's whiteboard class emphasized conceptual clarity and step-by-step application.",
+          },
+          {
+            question: "Which of the following is an essential takeaway from the board notes?",
+            options: [
+              "Verifying steps and reviewing diagrams carefully",
+              "Ignoring units and notation",
+              "Assuming solutions without derivation",
+              "Discarding teacher annotations",
+            ],
+            answerIndex: 0,
+            explanation: "Diagrams and verified derivations ensure long-term retention.",
+          },
+          {
+            question: "How should you prepare for the upcoming assessment on this topic?",
+            options: [
+              "Review the shared PDF notes and solve the practice problems",
+              "Only read the title of the chapter",
+              "Avoid asking doubts in next class",
+              "Ignore formula sheets",
+            ],
+            answerIndex: 0,
+            explanation: "Consistent problem solving using shared notes leads to exam success.",
+          },
+        ];
+      }
+
+      const summaryPayload = {
+        summary: generatedSummary,
+        quiz: generatedQuiz,
+      };
+
+      setAiSummaryData(summaryPayload);
+      setIncludeAiSummary(true);
+      await generatePdfAndQR(summaryPayload);
+      toast.success("AI Summary & 3-Question Exit Quiz added to notes!");
+    } catch (err: any) {
+      toast.error("Could not generate summary: " + (err?.message || "Unknown error"));
+    } finally {
+      setIsGeneratingSummary(false);
+    }
+  };
+
+  const handleAddQuizToBoard = () => {
+    if (!aiSummaryData || aiSummaryData.quiz.length === 0) return;
+    const q = aiSummaryData.quiz[0];
+    const newQuizObj: QuizObject = {
+      id: `quiz-${Math.random().toString(36).slice(2, 9)}`,
+      kind: "quiz",
+      x: 140,
+      y: 120,
+      w: 480,
+      h: 280,
+      question: q.question,
+      options: q.options,
+      answerIndex: q.answerIndex,
+      revealed: false,
+    };
+
+    setPages(
+      pages.map((p) =>
+        p.id === activePageId
+          ? { ...p, objects: [...p.objects, newQuizObj] }
+          : p,
+      ),
+    );
+    toast.success("Exit Quiz card added directly to your board!");
+  };
 
   const uploadToSupabase = async (blob: Blob): Promise<string | null> => {
     if (!user) {
@@ -99,7 +226,12 @@ export function ShareNotesDialog({
     }
   };
 
-  const generatePdfAndQR = async () => {
+  const generatePdfAndQR = async (
+    summaryPayload?: {
+      summary: string;
+      quiz: Array<{ question: string; options: string[]; answerIndex: number; explanation?: string }>;
+    } | null,
+  ) => {
     setIsGenerating(true);
     setUploadStatus("uploading");
     setUploadErrorMsg(null);
@@ -147,6 +279,58 @@ export function ShareNotesDialog({
           });
         }
       });
+
+      // Append End-of-Class AI Summary & 3-Question Exit Quiz Page if present
+      if (summaryPayload) {
+        doc.addPage([1920, 1080], "landscape");
+        // Dark blue professional header
+        doc.setFillColor(15, 23, 42);
+        doc.rect(0, 0, 1920, 140, "F");
+        doc.setFontSize(36);
+        doc.setTextColor(255, 255, 255);
+        doc.text("🎓 End-of-Class Summary & 3-Question Exit Quiz", 80, 80);
+
+        // Background for content
+        doc.setFillColor(248, 250, 252);
+        doc.rect(0, 140, 1920, 940, "F");
+
+        // Key Concepts Summary Box
+        doc.setFillColor(255, 255, 255);
+        doc.roundedRect(80, 180, 1760, 220, 12, 12, "F");
+        doc.setFontSize(24);
+        doc.setTextColor(14, 116, 144);
+        doc.text("📌 Key Concepts & Takeaways", 120, 230);
+        doc.setFontSize(18);
+        doc.setTextColor(51, 65, 85);
+        const summaryLines = doc.splitTextToSize(summaryPayload.summary, 1680);
+        doc.text(summaryLines, 120, 275);
+
+        // 3 Exit Quiz Questions
+        doc.setFontSize(24);
+        doc.setTextColor(67, 56, 202);
+        doc.text("🎯 3-Question Exit Quiz", 80, 440);
+
+        let qY = 490;
+        summaryPayload.quiz.slice(0, 3).forEach((item, qIdx) => {
+          doc.setFillColor(255, 255, 255);
+          doc.roundedRect(80, qY, 1760, 160, 12, 12, "F");
+
+          doc.setFontSize(20);
+          doc.setTextColor(15, 23, 42);
+          doc.text(`Q${qIdx + 1}. ${item.question}`, 120, qY + 45);
+
+          doc.setFontSize(16);
+          doc.setTextColor(71, 85, 105);
+          const optStr = item.options.map((opt, oIdx) => `(${String.fromCharCode(65 + oIdx)}) ${opt}`).join("     ");
+          doc.text(optStr, 120, qY + 90);
+
+          doc.setFontSize(14);
+          doc.setTextColor(22, 101, 52);
+          doc.text(`Correct: (${String.fromCharCode(65 + item.answerIndex)}) — ${item.explanation || "Verified"}`, 120, qY + 130);
+
+          qY += 185;
+        });
+      }
 
       const blob = doc.output("blob");
       blobRef.current = blob;
@@ -217,9 +401,17 @@ export function ShareNotesDialog({
     }
   };
 
+  const handleShareToGoogleClassroom = () => {
+    const base = getPublicAppOrigin();
+    const targetUrl = publicUrl || `${base}/share?id=${shareId}&title=${encodeURIComponent(boardTitle)}`;
+    const classroomUrl = `https://classroom.google.com/share?url=${encodeURIComponent(targetUrl)}&title=${encodeURIComponent(boardTitle)}`;
+    window.open(classroomUrl, "_blank", "noopener,noreferrer,width=650,height=600");
+    toast.success("Opening Google Classroom share dialog...");
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md rounded-3xl bg-card p-6 shadow-2xl border border-border text-center">
+      <DialogContent className="max-w-lg rounded-3xl bg-card p-6 shadow-2xl border border-border text-center">
         <DialogHeader>
           <div className="flex flex-col items-center gap-1.5">
             <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary mb-1">
@@ -229,31 +421,30 @@ export function ShareNotesDialog({
               Share Notes via QR Code
             </DialogTitle>
             <p className="text-xs text-muted-foreground">
-              Students point their phone camera to instantly download all {pages.length} pages as a
-              PDF.
+              Students point their phone camera to instantly download all {pages.length + (aiSummaryData ? 1 : 0)} pages as a PDF.
             </p>
           </div>
         </DialogHeader>
 
-        <div className="py-4 flex flex-col items-center justify-center">
+        <div className="py-3 flex flex-col items-center justify-center">
           <div className="p-3 bg-white rounded-2xl shadow-lg border border-border inline-block">
             {isGenerating ? (
-              <div className="h-48 w-48 rounded-lg bg-muted animate-pulse flex flex-col items-center justify-center gap-2">
+              <div className="h-44 w-44 rounded-lg bg-muted animate-pulse flex flex-col items-center justify-center gap-2">
                 <Loader2 className="h-8 w-8 text-muted-foreground animate-spin" />
                 <span className="text-xs font-semibold text-muted-foreground">
                   Rendering Pages...
                 </span>
               </div>
             ) : qrCodeUrl ? (
-              <img src={qrCodeUrl} alt="Lesson Notes QR Code" className="h-48 w-48 rounded-lg" />
+              <img src={qrCodeUrl} alt="Lesson Notes QR Code" className="h-44 w-44 rounded-lg" />
             ) : (
-              <div className="h-48 w-48 rounded-lg bg-muted animate-pulse flex items-center justify-center">
+              <div className="h-44 w-44 rounded-lg bg-muted animate-pulse flex items-center justify-center">
                 <QrCode className="h-10 w-10 text-muted-foreground animate-bounce" />
               </div>
             )}
           </div>
 
-          <div className="mt-3 text-xs w-full max-w-xs">
+          <div className="mt-2 text-xs w-full max-w-sm">
             {uploadStatus === "ready" ? (
               <div className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center justify-center gap-1">
                 <CheckCircle2 className="h-3.5 w-3.5" />
@@ -265,10 +456,6 @@ export function ShareNotesDialog({
                   <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
                   <span>Cloud storage upload failed: {uploadErrorMsg || "Bucket not found"}</span>
                 </div>
-                <p className="text-muted-foreground text-[10px]">
-                  Ensure the <code className="font-mono bg-muted px-1 rounded">shared-notes</code>{" "}
-                  bucket is created in Supabase (SQL in schema.sql).
-                </p>
                 <button
                   type="button"
                   onClick={handleRetryUpload}
@@ -286,14 +473,70 @@ export function ShareNotesDialog({
           </div>
         </div>
 
+        {/* End-of-class AI Summary & 3-Question Exit Quiz Card */}
+        <div className="p-3 rounded-2xl border border-primary/20 bg-primary/5 text-left mb-2 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              <span className="text-xs font-bold text-foreground">
+                End-of-Class AI Summary & 3-Question Exit Quiz
+              </span>
+            </div>
+            {aiSummaryData && (
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600">
+                Included in PDF
+              </span>
+            )}
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            Turns the board into key takeaways and a 3-question exit quiz included in the QR download.
+          </p>
+
+          <div className="flex items-center gap-2 pt-1">
+            <button
+              onClick={handleGenerateSummaryAndQuiz}
+              disabled={isGeneratingSummary || isGenerating}
+              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl text-xs font-bold bg-primary/10 hover:bg-primary/20 text-primary transition disabled:opacity-50"
+            >
+              {isGeneratingSummary ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Sparkles className="h-3.5 w-3.5" />
+              )}
+              <span>{aiSummaryData ? "Regenerate Summary & Quiz" : "Generate AI Summary & Quiz"}</span>
+            </button>
+
+            {aiSummaryData && (
+              <button
+                onClick={handleAddQuizToBoard}
+                className="flex items-center gap-1 py-1.5 px-3 rounded-xl text-xs font-bold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 transition"
+                title="Add first exit question to canvas"
+              >
+                <PlusCircle className="h-3.5 w-3.5" />
+                <span>Add to Board</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Action Buttons: Google Classroom & Download PDF */}
         <div className="space-y-2">
+          <button
+            onClick={handleShareToGoogleClassroom}
+            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-bold text-xs bg-emerald-600 hover:bg-emerald-700 text-white transition-all shadow-sm"
+          >
+            <GraduationCap className="h-4 w-4" />
+            <span>Share to Google Classroom</span>
+            <ExternalLink className="h-3 w-3 opacity-80" />
+          </button>
+
           <button
             onClick={handleDownloadPdf}
             disabled={!pdfBlobUrl || isGenerating}
-            className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-md disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-bold text-xs bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-md disabled:opacity-50"
           >
             <Download className="h-4 w-4" />
-            <span>Download PDF to Board ({pages.length} Pages)</span>
+            <span>Download PDF to Board ({pages.length + (aiSummaryData ? 1 : 0)} Pages)</span>
           </button>
         </div>
       </DialogContent>

@@ -53,6 +53,7 @@ import { BoardTourDialog } from "./smartboard/BoardTourDialog";
 import { BoardSettingsDialog } from "./smartboard/BoardSettingsDialog";
 import { AuthDialog } from "@/components/auth/AuthDialog";
 import { exportLessonFile, importLessonFile } from "@/lib/whiteboard/lessonFiles";
+import { useTranslation } from "@/lib/i18n/useTranslation";
 import { toast } from "sonner";
 import {
   Sun,
@@ -71,6 +72,12 @@ import {
   Save,
   FolderOpen,
   Cloud,
+  Camera,
+  Film,
+  Zap,
+  ShieldCheck,
+  Map,
+  Lightbulb,
 } from "lucide-react";
 
 function uid() {
@@ -95,7 +102,8 @@ export type WidgetKind =
   | "classroom-manager"
   | "geometry-kit"
   | "manipulatives"
-  | "embedded-media";
+  | "embedded-media"
+  | "doc-camera";
 
 const SIMPLE_MODE_HIDDEN_WIDGETS: string[] = ["shapes3d", "voice"];
 
@@ -119,6 +127,7 @@ export function WidgetsSheet({
       simpleMode: s.simpleMode,
     })),
   );
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<TabId>("insert");
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [mathDialogOpen, setMathDialogOpen] = useState(false);
@@ -498,11 +507,11 @@ export function WidgetsSheet({
           {/* Category Tabs */}
           <div className="flex items-center gap-1.5 overflow-x-auto py-2.5 px-0.5 border-b border-border/50 shrink-0 no-scrollbar touch-pan-x">
             {[
-              { id: "insert" as const, label: "Insert", icon: Plus },
-              { id: "teach" as const, label: "Teach", icon: MonitorPlay },
-              { id: "classroom" as const, label: "Classroom", icon: Timer },
-              { id: "stem" as const, label: "Maths & STEM", icon: LineChart },
-              { id: "ai" as const, label: "AI & Files", icon: Bot },
+              { id: "insert" as const, label: t("tabInsert"), icon: Plus },
+              { id: "teach" as const, label: t("tabTeach"), icon: MonitorPlay },
+              { id: "classroom" as const, label: t("tabClassroom"), icon: Timer },
+              { id: "stem" as const, label: t("tabStem"), icon: LineChart },
+              { id: "ai" as const, label: t("tabAi"), icon: Bot },
             ].map((tab) => {
               const isActive = activeTab === tab.id;
               return (
@@ -527,7 +536,7 @@ export function WidgetsSheet({
           <div
             ref={scrollContainerRef}
             key={activeTab}
-            className="mt-3 flex-1 min-h-0 overflow-y-auto overscroll-contain pr-1 pb-6 touch-auto bg-white dark:bg-slate-900"
+            className="mt-3 flex-1 min-h-0 overflow-y-auto overscroll-contain pr-1 pb-6 touch-auto bg-white dark:bg-slate-900 transform-gpu"
           >
             {/* 1. INSERT SECTION */}
             {activeTab === "insert" && (
@@ -735,6 +744,102 @@ export function WidgetsSheet({
                       <div className="text-xs font-semibold leading-tight">Magnifier</div>
                       <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
                         Back row zoom
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      onLaunch("doc-camera");
+                      onOpenChange(false);
+                    }}
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
+                  >
+                    <span className="grid h-10 w-10 place-items-center rounded-lg bg-indigo-500/10 text-indigo-500 transition-transform group-hover:scale-105">
+                      <Camera className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <div className="text-xs font-semibold leading-tight">{t("docCamera")}</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        USB & textbook
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      onOpenChange(false);
+                      window.dispatchEvent(new CustomEvent("slate:open-lesson-replay"));
+                    }}
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
+                  >
+                    <span className="grid h-10 w-10 place-items-center rounded-lg bg-purple-500/10 text-purple-500 transition-transform group-hover:scale-105">
+                      <Film className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <div className="text-xs font-semibold leading-tight">{t("lessonReplay")}</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        Video of lesson
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      onOpenChange(false);
+                      window.dispatchEvent(new CustomEvent("slate:open-live-captions"));
+                    }}
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-2.5 text-center transition hover:bg-emerald-500/10 active:scale-95 group"
+                  >
+                    <span className="grid h-10 w-10 place-items-center rounded-lg bg-emerald-500/10 text-emerald-500 transition-transform group-hover:scale-105">
+                      <Volume2 className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <div className="text-xs font-semibold leading-tight text-emerald-700 dark:text-emerald-400">
+                        {t("liveCaptions")}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        Speech to text
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      onOpenChange(false);
+                      window.dispatchEvent(new CustomEvent("slate:open-indian-packs"));
+                    }}
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-orange-500/30 bg-orange-500/5 p-2.5 text-center transition hover:bg-orange-500/10 active:scale-95 group"
+                  >
+                    <span className="grid h-10 w-10 place-items-center rounded-lg bg-orange-500/10 text-orange-600 transition-transform group-hover:scale-105">
+                      <Map className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <div className="text-xs font-semibold leading-tight text-orange-700 dark:text-orange-400">
+                        Lesson Packs
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        CBSE & Maps
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      onOpenChange(false);
+                      window.dispatchEvent(new CustomEvent("slate:open-activity-suggestions"));
+                    }}
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-sky-500/30 bg-sky-500/5 p-2.5 text-center transition hover:bg-sky-500/10 active:scale-95 group"
+                  >
+                    <span className="grid h-10 w-10 place-items-center rounded-lg bg-sky-500/10 text-sky-600 transition-transform group-hover:scale-105">
+                      <Lightbulb className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <div className="text-xs font-semibold leading-tight text-sky-700 dark:text-sky-400">
+                        Activity Ideas
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        From board content
                       </div>
                     </div>
                   </button>
@@ -970,6 +1075,106 @@ export function WidgetsSheet({
                       </div>
                       <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
                         PDF download
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      onOpenChange(false);
+                      window.dispatchEvent(new CustomEvent("slate:open-team-quiz"));
+                    }}
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/5 p-2.5 text-center transition hover:bg-amber-500/10 active:scale-95 group"
+                  >
+                    <span className="grid h-10 w-10 place-items-center rounded-lg bg-amber-500/10 text-amber-600 transition-transform group-hover:scale-105">
+                      <Zap className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <div className="text-xs font-bold leading-tight text-amber-700 dark:text-amber-400">
+                        Team Buzzers
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        Fastest finger quiz
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      onOpenChange(false);
+                      window.dispatchEvent(new CustomEvent("slate:open-dot-voting"));
+                    }}
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-purple-500/30 bg-purple-500/5 p-2.5 text-center transition hover:bg-purple-500/10 active:scale-95 group"
+                  >
+                    <span className="grid h-10 w-10 place-items-center rounded-lg bg-purple-500/10 text-purple-600 transition-transform group-hover:scale-105">
+                      <Vote className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <div className="text-xs font-bold leading-tight text-purple-700 dark:text-purple-400">
+                        Dot Voting
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        Brainstorming
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      onOpenChange(false);
+                      window.dispatchEvent(new CustomEvent("slate:open-student-work-wall"));
+                    }}
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-blue-500/30 bg-blue-500/5 p-2.5 text-center transition hover:bg-blue-500/10 active:scale-95 group"
+                  >
+                    <span className="grid h-10 w-10 place-items-center rounded-lg bg-blue-500/10 text-blue-600 transition-transform group-hover:scale-105">
+                      <Camera className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <div className="text-xs font-bold leading-tight text-blue-700 dark:text-blue-400">
+                        Work Wall
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        Student photos QR
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      onOpenChange(false);
+                      window.dispatchEvent(new CustomEvent("slate:open-teacher-pin"));
+                    }}
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-teal-500/30 bg-teal-500/5 p-2.5 text-center transition hover:bg-teal-500/10 active:scale-95 group"
+                  >
+                    <span className="grid h-10 w-10 place-items-center rounded-lg bg-teal-500/10 text-teal-600 transition-transform group-hover:scale-105">
+                      <KeyRound className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <div className="text-xs font-bold leading-tight text-teal-700 dark:text-teal-400">
+                        Teacher PIN
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        Fast period switch
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      onOpenChange(false);
+                      window.dispatchEvent(new CustomEvent("slate:open-school-admin"));
+                    }}
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-indigo-500/5 p-2.5 text-center transition hover:bg-indigo-500/10 active:scale-95 group"
+                  >
+                    <span className="grid h-10 w-10 place-items-center rounded-lg bg-indigo-500/10 text-indigo-600 transition-transform group-hover:scale-105">
+                      <ShieldCheck className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <div className="text-xs font-bold leading-tight text-indigo-700 dark:text-indigo-400">
+                        School Fleet
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        Admin & EOD clear
                       </div>
                     </div>
                   </button>

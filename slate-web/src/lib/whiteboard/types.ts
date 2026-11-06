@@ -350,7 +350,7 @@ export type ActivityObject = {
   color?: string;
 };
 
-export type CanvasObject =
+export type FreehandStroke =
   | PenStroke
   | FountainStroke
   | NeonStroke
@@ -363,8 +363,14 @@ export type CanvasObject =
   | PencilStroke
   | GlitterStroke
   | DottedStroke
-  | ParallelStroke
-  | ShapeStroke
+  | ParallelStroke;
+
+export type StrokeObject =
+  | FreehandStroke
+  | ShapeStroke;
+
+export type CanvasObject =
+  | StrokeObject
   | TextObject
   | ImageObject
   | StickyNoteObject

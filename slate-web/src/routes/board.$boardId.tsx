@@ -54,6 +54,17 @@ const TeacherAccountDialog = lazy(() =>
     default: m.TeacherAccountDialog,
   })),
 );
+import { DocCameraWidget } from "@/components/whiteboard/widgets/DocCameraWidget";
+import { LiveCaptionsWidget } from "@/components/whiteboard/widgets/LiveCaptionsWidget";
+import { LessonReplayDialog } from "@/components/whiteboard/smartboard/LessonReplayDialog";
+import { IndianLessonPacksDialog } from "@/components/whiteboard/smartboard/IndianLessonPacksDialog";
+import { ActivitySuggestionsDialog } from "@/components/whiteboard/smartboard/ActivitySuggestionsDialog";
+import { TeamQuizDialog } from "@/components/whiteboard/smartboard/TeamQuizDialog";
+import { DotVotingDialog } from "@/components/whiteboard/smartboard/DotVotingDialog";
+import { StudentWorkWallDialog } from "@/components/whiteboard/smartboard/StudentWorkWallDialog";
+import { TeacherPinSwitchDialog } from "@/components/whiteboard/smartboard/TeacherPinSwitchDialog";
+import { SchoolAdminDialog } from "@/components/whiteboard/smartboard/SchoolAdminDialog";
+import { useTranslation } from "@/lib/i18n/useTranslation";
 import type { QuizObject, ActivityObject, Page } from "@/lib/whiteboard/types";
 import { useWhiteboard } from "@/lib/whiteboard/store";
 import { fetchBoardById } from "@/lib/supabase/dbService";
@@ -95,6 +106,16 @@ function BoardPage() {
   const [activeActivity, setActiveActivity] = useState<ActivityObject | null>(null);
   const [aiLessonBuilderOpen, setAiLessonBuilderOpen] = useState(false);
   const [teacherAccountOpen, setTeacherAccountOpen] = useState(false);
+  const [lessonReplayOpen, setLessonReplayOpen] = useState(false);
+  const [liveCaptionsOpen, setLiveCaptionsOpen] = useState(false);
+  const [indianPacksOpen, setIndianPacksOpen] = useState(false);
+  const [activitySuggestionsOpen, setActivitySuggestionsOpen] = useState(false);
+  const [teamQuizOpen, setTeamQuizOpen] = useState(false);
+  const [dotVotingOpen, setDotVotingOpen] = useState(false);
+  const [studentWorkWallOpen, setStudentWorkWallOpen] = useState(false);
+  const [teacherPinOpen, setTeacherPinOpen] = useState(false);
+  const [schoolAdminOpen, setSchoolAdminOpen] = useState(false);
+  const { t } = useTranslation();
   const [minimizedTimer, setMinimizedTimer] = useState<{
     remaining: number;
     running: boolean;
@@ -462,6 +483,16 @@ function BoardPage() {
     };
     const handleOpenAILesson = () => setAiLessonBuilderOpen(true);
     const handleOpenAccount = () => setTeacherAccountOpen(true);
+    const handleOpenReplay = () => setLessonReplayOpen(true);
+    const handleOpenCaptions = () => setLiveCaptionsOpen((p) => !p);
+    const handleOpenDocCamera = () => launch("doc-camera");
+    const handleOpenIndianPacks = () => setIndianPacksOpen(true);
+    const handleOpenActivitySuggestions = () => setActivitySuggestionsOpen(true);
+    const handleOpenTeamQuiz = () => setTeamQuizOpen(true);
+    const handleOpenDotVoting = () => setDotVotingOpen(true);
+    const handleOpenStudentWorkWall = () => setStudentWorkWallOpen(true);
+    const handleOpenTeacherPin = () => setTeacherPinOpen(true);
+    const handleOpenSchoolAdmin = () => setSchoolAdminOpen(true);
 
     window.addEventListener("slate:open-widgets", handleOpenWidgets);
     window.addEventListener("slate:open-ai", handleOpenAIEvt);
@@ -470,6 +501,16 @@ function BoardPage() {
     window.addEventListener("slate:open-activity", handleOpenActivity);
     window.addEventListener("slate:open-ai-lesson-builder", handleOpenAILesson);
     window.addEventListener("slate:open-teacher-account", handleOpenAccount);
+    window.addEventListener("slate:open-lesson-replay", handleOpenReplay);
+    window.addEventListener("slate:open-live-captions", handleOpenCaptions);
+    window.addEventListener("slate:open-doc-camera", handleOpenDocCamera);
+    window.addEventListener("slate:open-indian-packs", handleOpenIndianPacks);
+    window.addEventListener("slate:open-activity-suggestions", handleOpenActivitySuggestions);
+    window.addEventListener("slate:open-team-quiz", handleOpenTeamQuiz);
+    window.addEventListener("slate:open-dot-voting", handleOpenDotVoting);
+    window.addEventListener("slate:open-student-work-wall", handleOpenStudentWorkWall);
+    window.addEventListener("slate:open-teacher-pin", handleOpenTeacherPin);
+    window.addEventListener("slate:open-school-admin", handleOpenSchoolAdmin);
 
     return () => {
       window.removeEventListener("slate:open-widgets", handleOpenWidgets);
@@ -479,6 +520,16 @@ function BoardPage() {
       window.removeEventListener("slate:open-activity", handleOpenActivity);
       window.removeEventListener("slate:open-ai-lesson-builder", handleOpenAILesson);
       window.removeEventListener("slate:open-teacher-account", handleOpenAccount);
+      window.removeEventListener("slate:open-lesson-replay", handleOpenReplay);
+      window.removeEventListener("slate:open-live-captions", handleOpenCaptions);
+      window.removeEventListener("slate:open-doc-camera", handleOpenDocCamera);
+      window.removeEventListener("slate:open-indian-packs", handleOpenIndianPacks);
+      window.removeEventListener("slate:open-activity-suggestions", handleOpenActivitySuggestions);
+      window.removeEventListener("slate:open-team-quiz", handleOpenTeamQuiz);
+      window.removeEventListener("slate:open-dot-voting", handleOpenDotVoting);
+      window.removeEventListener("slate:open-student-work-wall", handleOpenStudentWorkWall);
+      window.removeEventListener("slate:open-teacher-pin", handleOpenTeacherPin);
+      window.removeEventListener("slate:open-school-admin", handleOpenSchoolAdmin);
     };
   }, [boardId, openAI]);
 
@@ -549,7 +600,7 @@ function BoardPage() {
         {page && page.objects.length === 0 && !isPresenting && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center select-none z-10 transition-opacity duration-300">
             <p className="text-base sm:text-lg font-medium text-muted-foreground/35 tracking-wide">
-              {boardMode ? "Write anywhere. Tap Help for a tour." : "Write anywhere."}
+              {boardMode ? t("writeAnywhere") : "Write anywhere."}
             </p>
           </div>
         )}
@@ -658,6 +709,7 @@ function BoardPage() {
             {w.kind === "geometry-kit" && <GeometryKitWidget />}
             {w.kind === "manipulatives" && <PrimaryManipulativesWidget />}
             {w.kind === "embedded-media" && <EmbeddedMediaWidget />}
+            {w.kind === "doc-camera" && <DocCameraWidget onClose={() => close(w.id)} />}
           </FloatingWidget>
         );
       })}
@@ -753,6 +805,33 @@ function BoardPage() {
           />
         )}
       </Suspense>
+
+      {/* Lesson Replay Dialog */}
+      <LessonReplayDialog open={lessonReplayOpen} onOpenChange={setLessonReplayOpen} />
+
+      {/* Live Classroom Speech Captions */}
+      {liveCaptionsOpen && <LiveCaptionsWidget onClose={() => setLiveCaptionsOpen(false)} />}
+
+      {/* Indian School Lesson Packs (CBSE & State Boards) */}
+      <IndianLessonPacksDialog open={indianPacksOpen} onOpenChange={setIndianPacksOpen} />
+
+      {/* Activity Suggestions from Board Content */}
+      <ActivitySuggestionsDialog open={activitySuggestionsOpen} onOpenChange={setActivitySuggestionsOpen} />
+
+      {/* Team Quiz Game with Buzzers & Live Leaderboard */}
+      <TeamQuizDialog open={teamQuizOpen} onOpenChange={setTeamQuizOpen} />
+
+      {/* Sticky-Note Brainstorm & Dot Voting */}
+      <DotVotingDialog open={dotVotingOpen} onOpenChange={setDotVotingOpen} />
+
+      {/* Student Work Wall & QR Photo Submission */}
+      <StudentWorkWallDialog open={studentWorkWallOpen} onOpenChange={setStudentWorkWallOpen} />
+
+      {/* Quick Teacher PIN Switching */}
+      <TeacherPinSwitchDialog open={teacherPinOpen} onOpenChange={setTeacherPinOpen} />
+
+      {/* School Board Fleet Admin */}
+      <SchoolAdminDialog open={schoolAdminOpen} onOpenChange={setSchoolAdminOpen} />
     </div>
   );
 }
@@ -795,6 +874,8 @@ function titleFor(k: string) {
       return "Primary Math Manipulatives";
     case "embedded-media":
       return "Embedded Video & Web Viewer";
+    case "doc-camera":
+      return "Document Camera (USB Visualizer)";
     default:
       return k;
   }

@@ -53,7 +53,14 @@ import {
   Save,
   Timer,
   AlertTriangle,
+  Camera,
+  Film,
+  Volume2,
+  Map,
+  Zap,
+  Lightbulb,
 } from "lucide-react";
+import { useTranslation } from "@/lib/i18n/useTranslation";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -164,6 +171,7 @@ export function TopBar({
   const lessonFileInputRef = useRef<HTMLInputElement>(null);
   const titleClicksRef = useRef<number>(0);
   const { user } = useAuth();
+  const { t, language, setLanguage } = useTranslation();
   const [authOpen, setAuthOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
   const [qrData, setQrData] = useState<string>("");
@@ -560,7 +568,7 @@ export function TopBar({
         title="Back to Dashboard"
       >
         <ArrowLeft className={iconSize} />
-        {boardMode && <span className="text-[11px] font-bold mt-0.5 leading-none">Exit</span>}
+        {boardMode && <span className="text-[11px] font-bold mt-0.5 leading-none">{t("exit")}</span>}
       </button>
 
       {boardTitle && (
@@ -622,12 +630,12 @@ export function TopBar({
         )}
         <span className="hidden sm:inline">
           {syncStatus === "saving"
-            ? "Saving..."
+            ? t("saving")
             : syncStatus === "offline"
-              ? "Offline (Will retry)"
+              ? t("offline")
               : user
-                ? "Saved"
-                : "Save to Account"}
+                ? t("saved")
+                : t("saveToAccount")}
         </span>
       </button>
 
@@ -642,8 +650,36 @@ export function TopBar({
         title="End Class: Save board, play bell chime, and prep clean board for next period"
       >
         <BellRing className="w-3.5 h-3.5 text-current shrink-0" />
-        <span className="hidden sm:inline">End Class</span>
+        <span className="hidden sm:inline">{t("endClass")}</span>
       </button>
+
+      {/* Indian Classrooms Language Switcher (EN | हिन्दी | मराठी) */}
+      <div
+        className={cn(
+          "flex items-center rounded-xl p-0.5 border text-xs shrink-0 select-none",
+          isDark ? "bg-slate-800/80 border-slate-700" : "bg-muted/60 border-border/60",
+        )}
+      >
+        {(["en", "hi", "mr"] as const).map((l) => (
+          <button
+            key={l}
+            type="button"
+            onClick={() => setLanguage(l)}
+            aria-label={`Switch language to ${l === "en" ? "English" : l === "hi" ? "Hindi" : "Marathi"}`}
+            title={`Interface Language: ${l === "en" ? "English" : l === "hi" ? "हिन्दी (Hindi)" : "मराठी (Marathi)"}`}
+            className={cn(
+              "px-2 py-0.5 rounded-lg font-bold text-[11px] transition-all cursor-pointer active:scale-95",
+              language === l
+                ? "bg-primary text-primary-foreground shadow-xs"
+                : isDark
+                  ? "text-slate-300 hover:text-white"
+                  : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {l === "en" ? "EN" : l === "hi" ? "हि" : "म"}
+          </button>
+        ))}
+      </div>
 
       {/* Undo, Redo, and Page Controls: Only shown in standard desktop/mobile mode;
           in Board Mode they are exclusively placed in the bottom corner strips to avoid duplicates and reachability strain */}
@@ -759,7 +795,7 @@ export function TopBar({
             title="Paper & backgrounds"
           >
             <Grid3x3 className={iconSize} />
-            {boardMode && <span className="text-[11px] font-bold mt-0.5 leading-none">Paper</span>}
+            {boardMode && <span className="text-[11px] font-bold mt-0.5 leading-none">{t("paper")}</span>}
           </button>
         </PopoverTrigger>
         <PopoverContent
@@ -900,7 +936,7 @@ export function TopBar({
         onClick={() => window.dispatchEvent(new CustomEvent("slate:start-presentation"))}
       >
         <MonitorPlay className={iconSize} />
-        {boardMode && <span className="text-[11px] font-bold mt-0.5 leading-none">Present</span>}
+        {boardMode && <span className="text-[11px] font-bold mt-0.5 leading-none">{t("present")}</span>}
       </button>
 
       {/* Board map (renamed from Radar Minimap) */}
@@ -915,7 +951,7 @@ export function TopBar({
         onClick={() => window.dispatchEvent(new CustomEvent("slate:toggle-minimap"))}
       >
         <Compass className={iconSize} />
-        {boardMode && <span className="text-[11px] font-bold mt-0.5 leading-none">Map</span>}
+        {boardMode && <span className="text-[11px] font-bold mt-0.5 leading-none">{t("map")}</span>}
       </button>
 
       {/* Direct AI Assistant Button (hidden in Simple Mode) */}
@@ -928,7 +964,7 @@ export function TopBar({
           onClick={onOpenAI}
         >
           <Bot className={iconSize} />
-          {boardMode && <span className="text-[11px] font-bold mt-0.5 leading-none">AI</span>}
+          {boardMode && <span className="text-[11px] font-bold mt-0.5 leading-none">{t("ai")}</span>}
         </button>
       )}
 
@@ -937,7 +973,7 @@ export function TopBar({
         <PopoverTrigger asChild>
           <button type="button" className={iconBtn} aria-label="Main menu" title="Menu">
             <Menu className={iconSize} />
-            {boardMode && <span className="text-[11px] font-bold mt-0.5 leading-none">Menu</span>}
+            {boardMode && <span className="text-[11px] font-bold mt-0.5 leading-none">{t("menu")}</span>}
           </button>
         </PopoverTrigger>
         <PopoverContent
@@ -1097,7 +1133,154 @@ export function TopBar({
             <span>Settings</span>
           </button>
 
-          {/* Smart Board Classroom Controls */}
+          {/* Indian Classrooms & Smart Board Special Tools */}
+          <div className={cn("h-px w-full my-1", isDark ? "bg-slate-700/60" : "bg-border/60")} />
+          <button
+            type="button"
+            aria-label="Document Camera (USB Visualizer)"
+            title={t("docCamera")}
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground",
+            )}
+            onClick={() => {
+              setMenuOpen(false);
+              window.dispatchEvent(new CustomEvent("slate:open-doc-camera"));
+            }}
+          >
+            <Camera className="h-3.5 w-3.5 text-indigo-500" />
+            <span>{t("docCamera")}</span>
+          </button>
+          <button
+            type="button"
+            aria-label="Lesson Replay"
+            title={t("lessonReplay")}
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground",
+            )}
+            onClick={() => {
+              setMenuOpen(false);
+              window.dispatchEvent(new CustomEvent("slate:open-lesson-replay"));
+            }}
+          >
+            <Film className="h-3.5 w-3.5 text-purple-500" />
+            <span>{t("lessonReplay")}</span>
+          </button>
+          <button
+            type="button"
+            aria-label="Live Speech Captions"
+            title={t("liveCaptions")}
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground",
+            )}
+            onClick={() => {
+              setMenuOpen(false);
+              window.dispatchEvent(new CustomEvent("slate:open-live-captions"));
+            }}
+          >
+            <Volume2 className="h-3.5 w-3.5 text-emerald-500" />
+            <span>{t("liveCaptions")}</span>
+          </button>
+          <button
+            type="button"
+            aria-label="Indian Lesson Packs"
+            title="CBSE & State Board Lesson Packs"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground",
+            )}
+            onClick={() => {
+              setMenuOpen(false);
+              window.dispatchEvent(new CustomEvent("slate:open-indian-packs"));
+            }}
+          >
+            <Map className="h-3.5 w-3.5 text-orange-500" />
+            <span>Indian Lesson Packs (CBSE)</span>
+          </button>
+          <button
+            type="button"
+            aria-label="Activity Suggestions"
+            title="Activity Ideas from Board"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground",
+            )}
+            onClick={() => {
+              setMenuOpen(false);
+              window.dispatchEvent(new CustomEvent("slate:open-activity-suggestions"));
+            }}
+          >
+            <Lightbulb className="h-3.5 w-3.5 text-sky-500" />
+            <span>Activity Suggestions (AI)</span>
+          </button>
+          <button
+            type="button"
+            aria-label="Team Quiz Buzzers"
+            title="Fastest Finger Team Quiz"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground",
+            )}
+            onClick={() => {
+              setMenuOpen(false);
+              window.dispatchEvent(new CustomEvent("slate:open-team-quiz"));
+            }}
+          >
+            <Zap className="h-3.5 w-3.5 text-amber-500" />
+            <span>Team Quiz & Buzzers</span>
+          </button>
+          <button
+            type="button"
+            aria-label="Student Work Wall"
+            title="Student Notebook Photos via QR"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground",
+            )}
+            onClick={() => {
+              setMenuOpen(false);
+              window.dispatchEvent(new CustomEvent("slate:open-student-work-wall"));
+            }}
+          >
+            <Camera className="h-3.5 w-3.5 text-blue-500" />
+            <span>Student Work Wall</span>
+          </button>
+          <button
+            type="button"
+            aria-label="Teacher PIN Switch"
+            title="Fast Teacher Account Switching"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground",
+            )}
+            onClick={() => {
+              setMenuOpen(false);
+              window.dispatchEvent(new CustomEvent("slate:open-teacher-pin"));
+            }}
+          >
+            <KeyRound className="h-3.5 w-3.5 text-teal-500" />
+            <span>Quick Teacher PIN</span>
+          </button>
+          <button
+            type="button"
+            aria-label="School Fleet Admin"
+            title="School Boards Management & Auto Clear"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground",
+            )}
+            onClick={() => {
+              setMenuOpen(false);
+              window.dispatchEvent(new CustomEvent("slate:open-school-admin"));
+            }}
+          >
+            <ShieldCheck className="h-3.5 w-3.5 text-indigo-500" />
+            <span>School Fleet Admin</span>
+          </button>
+
+          {/* Smart Board Layout & Setup */}
           <div className={cn("h-px w-full my-1", isDark ? "bg-slate-700/60" : "bg-border/60")} />
           <button
             type="button"

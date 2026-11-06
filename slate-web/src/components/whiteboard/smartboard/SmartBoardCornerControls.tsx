@@ -44,6 +44,7 @@ import {
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { exportLessonFile } from "@/lib/whiteboard/lessonFiles";
+import { useTranslation } from "@/lib/i18n/useTranslation";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -135,6 +136,7 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
     })),
   );
 
+  const { t } = useTranslation();
   const profile = getSmartBoardProfile(panelSize);
   const targetPx = Math.max(64, profile.minTouchTargetPx);
   const rawPageIndex = pages.findIndex((p) => p.id === activePageId);
@@ -258,7 +260,7 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
           title="Undo (Ctrl+Z)"
         >
           <Undo2 className="h-7 w-7" />
-          <span className="text-xs font-bold">Undo</span>
+          <span className="text-xs font-bold">{t("undo")}</span>
         </button>
 
         {/* Redo */}
@@ -278,7 +280,7 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
           title="Redo (Ctrl+Y)"
         >
           <Redo2 className="h-7 w-7" />
-          <span className="text-xs font-bold">Redo</span>
+          <span className="text-xs font-bold">{t("redo")}</span>
         </button>
 
         <div className={cn("h-10 w-px mx-1", isDark ? "bg-slate-700/80" : "bg-border/80")} />
@@ -292,7 +294,7 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
           title="Clear Board (single tap with instant undo)"
         >
           <Trash2 className="h-6 w-6" />
-          <span className="text-xs font-bold">Clear</span>
+          <span className="text-xs font-bold">{t("clear")}</span>
         </button>
 
         {/* Help: labels every part of the screen in plain words */}
@@ -309,7 +311,7 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
           title="Help: what does each button do? (?)"
         >
           <HelpCircle className="h-6 w-6" />
-          <span className="text-xs font-bold">Help</span>
+          <span className="text-xs font-bold">{t("help")}</span>
         </button>
 
         <div className={cn("h-10 w-px mx-1", isDark ? "bg-slate-700/80" : "bg-border/80")} />
@@ -614,7 +616,7 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
           title="Laser Pointer (L) — Tap to highlight and guide attention"
         >
           <LaserIcon className="h-6 w-6" />
-          <span className="text-xs font-bold">Laser</span>
+          <span className="text-xs font-bold">{t("laser")}</span>
           {isLaserActive && (
             <span className="absolute top-1.5 right-1.5 flex h-3 w-3 rounded-full bg-white shadow-xs" />
           )}
@@ -716,7 +718,7 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
           <span className="text-xs font-extrabold text-foreground tracking-wider">
             {activePageIndex + 1} / {pages.length}
           </span>
-          <span className="text-xs text-muted-foreground font-semibold">Pages</span>
+          <span className="text-xs text-muted-foreground font-semibold">{t("pages")}</span>
         </button>
 
         {/* Next Page */}
@@ -748,7 +750,7 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
               title="Add New Page (N) — tap to choose style"
             >
               <Plus className="h-6 w-6" />
-              <span className="text-xs font-bold">New</span>
+              <span className="text-xs font-bold">{t("newPage")}</span>
             </button>
           </PopoverTrigger>
           <PopoverContent
