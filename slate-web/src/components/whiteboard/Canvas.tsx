@@ -1076,11 +1076,13 @@ export function WhiteboardCanvas({
   }, [page, camera, selectedId, selectedIds, dpr]);
 
   function toWorld(x: number, y: number): Point {
-    return { x: (x - camera.x) / camera.zoom, y: (y - camera.y) / camera.zoom };
+    const curCam = cameraRef.current || camera;
+    return { x: (x - curCam.x) / curCam.zoom, y: (y - curCam.y) / curCam.zoom };
   }
 
   function toScreen(x: number, y: number): Point {
-    return { x: x * camera.zoom + camera.x, y: y * camera.zoom + camera.y };
+    const curCam = cameraRef.current || camera;
+    return { x: x * curCam.zoom + curCam.x, y: y * curCam.zoom + curCam.y };
   }
 
   const strokeBoundsCache = useRef<WeakMap<object, { minX: number; maxX: number; minY: number; maxY: number }>>(new WeakMap());

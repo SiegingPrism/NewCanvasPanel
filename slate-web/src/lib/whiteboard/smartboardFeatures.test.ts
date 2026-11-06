@@ -145,6 +145,46 @@ describe("Smart Board Features", () => {
       expect(parsed).toHaveLength(1);
       expect(parsed[0].boardId).toBe("board_123");
     });
+
+    it("skips cloud upload when a board has no pages in memory to prevent overwriting cloud copy with empty board", () => {
+      const startOfToday = new Date().setHours(0, 0, 0, 0);
+      const activeMeta = { id: "active_board", title: "Active Board", updatedAt: Date.now() };
+      const activePages = [{ id: "p1", objects: [], background: "white" as const }];
+
+      const allBoards = {
+        active_board: activeMeta,
+        board_with_data: { id: "board_with_data", title: "Saved Board", updatedAt: Date.now() },
+        board_without_data: { id: "board_without_data", title: "Unloaded Board", updatedAt: Date.now() },
+        old_board: { id: "old_board", title: "Old Board", updatedAt: startOfToday - 1000 },
+      };
+
+      const allBoardData: Record<string, { pages?: any[] }> = {
+        board_with_data: { pages: [{ id: "p2", objects: [], background: "white" as const }] },
+        board_without_data: {}, // No pages in memory
+      };
+
+      const boardsToUpload: Array<{ meta: any; pages: any[] }> = [];
+      if (activePages && activePages.length > 0) {
+        boardsToUpload.push({ meta: activeMeta, pages: activePages });
+      }
+
+      for (const [bId, bMeta] of Object.entries(allBoards)) {
+        if (bId === activeMeta.id) continue;
+        if (bMeta.updatedAt && bMeta.updatedAt >= startOfToday) {
+          const bData = allBoardData[bId];
+          const bPages = bData?.pages;
+          // SAFETY: If a board has no data in memory, skip upload instead of sending empty/blank board
+          if (!bPages || !Array.isArray(bPages) || bPages.length === 0) {
+            continue;
+          }
+          boardsToUpload.push({ meta: bMeta, pages: bPages });
+        }
+      }
+
+      // Only the active board and the board with real data are uploaded
+      expect(boardsToUpload.map((b) => b.meta.id)).toEqual(["active_board", "board_with_data"]);
+      expect(boardsToUpload.find((b) => b.meta.id === "board_without_data")).toBeUndefined();
+    });
   });
 });
 

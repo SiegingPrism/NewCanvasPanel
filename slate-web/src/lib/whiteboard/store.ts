@@ -268,6 +268,8 @@ if (typeof window !== "undefined") {
 
 function triggerCloudSync(meta: BoardMeta, pages: Page[]) {
   if (typeof window === "undefined" || !meta?.id) return;
+  // SAFETY: Never sync/overwrite cloud copy when board has no data in memory
+  if (!pages || !Array.isArray(pages) || pages.length === 0) return;
   if (cloudSyncTimers[meta.id]) clearTimeout(cloudSyncTimers[meta.id]);
 
   const currentUserId = useAuth.getState().user?.id;
@@ -1121,7 +1123,10 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
       const next = { ...s, boards };
       persistMeta(next);
       set(next);
-      triggerCloudSync(boards[id], s.boardData[id]?.pages || []);
+      const pages = id === s.activeBoardId ? s.pages : s.boardData[id]?.pages;
+      if (pages && Array.isArray(pages) && pages.length > 0) {
+        triggerCloudSync(boards[id], pages);
+      }
     },
     toggleArchive: (id) => {
       const s = get();
@@ -1130,7 +1135,10 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
       const next = { ...s, boards };
       persistMeta(next);
       set(next);
-      triggerCloudSync(boards[id], s.boardData[id]?.pages || []);
+      const pages = id === s.activeBoardId ? s.pages : s.boardData[id]?.pages;
+      if (pages && Array.isArray(pages) && pages.length > 0) {
+        triggerCloudSync(boards[id], pages);
+      }
     },
     setBoardTags: (id, tags) => {
       const s = get();
@@ -1139,7 +1147,10 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
       const next = { ...s, boards };
       persistMeta(next);
       set(next);
-      triggerCloudSync(boards[id], s.boardData[id]?.pages || []);
+      const pages = id === s.activeBoardId ? s.pages : s.boardData[id]?.pages;
+      if (pages && Array.isArray(pages) && pages.length > 0) {
+        triggerCloudSync(boards[id], pages);
+      }
     },
     setBoardFolder: (id, folderId) => {
       const s = get();
@@ -1148,7 +1159,10 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
       const next = { ...s, boards };
       persistMeta(next);
       set(next);
-      triggerCloudSync(boards[id], s.boardData[id]?.pages || []);
+      const pages = id === s.activeBoardId ? s.pages : s.boardData[id]?.pages;
+      if (pages && Array.isArray(pages) && pages.length > 0) {
+        triggerCloudSync(boards[id], pages);
+      }
     },
 
     createFolder: (name) => {
@@ -1258,12 +1272,14 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
           }
         }
 
-        // 2. Upload local boards to cloud
+        // 2. Upload local boards to cloud (skip boards with no data in memory to avoid overwriting)
         for (const [id, meta] of Object.entries(mergedBoards)) {
           if (deletedIds.has(id)) continue;
           const bData = mergedBoardData[id];
-          const pages = bData?.pages || [emptyPage()];
-          syncBoardToSupabase(meta, pages).catch(() => {});
+          const pages = id === s.activeBoardId ? s.pages : bData?.pages;
+          if (pages && Array.isArray(pages) && pages.length > 0) {
+            syncBoardToSupabase(meta, pages).catch(() => {});
+          }
         }
 
         const next: State = {

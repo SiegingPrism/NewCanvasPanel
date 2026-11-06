@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { useWhiteboard, syncRetryQueue, persistSyncRetryQueue, emptyPage, type BoardMeta } from "@/lib/whiteboard/store";
+import { useWhiteboard, syncRetryQueue, persistSyncRetryQueue, type BoardMeta } from "@/lib/whiteboard/store";
 import type { ImageObject, PageBackground, Page } from "@/lib/whiteboard/types";
 import {
   Upload,
@@ -201,9 +201,11 @@ export function TopBar({
             createdAt: Date.now(),
             updatedAt: Date.now(),
           };
-      boardsToUpload.push({ meta: activeMeta, pages });
+      if (pages && Array.isArray(pages) && pages.length > 0) {
+        boardsToUpload.push({ meta: activeMeta, pages });
+      }
 
-      // Check all other boards in memory modified today
+      // Check all other boards in memory modified today (skip any with no data in memory)
       const wbState = useWhiteboard.getState();
       const allBoards = wbState.boards || {};
       const allBoardData = wbState.boardData || {};
@@ -211,8 +213,10 @@ export function TopBar({
         if (bId === activeMeta.id) continue;
         if (bMeta.updatedAt && bMeta.updatedAt >= startOfToday) {
           const bData = allBoardData[bId];
-          const bPages = bData?.pages || [emptyPage()];
-          boardsToUpload.push({ meta: bMeta, pages: bPages });
+          const bPages = bData?.pages;
+          if (bPages && Array.isArray(bPages) && bPages.length > 0) {
+            boardsToUpload.push({ meta: bMeta, pages: bPages });
+          }
         }
       }
 

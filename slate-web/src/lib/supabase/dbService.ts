@@ -58,6 +58,12 @@ export async function syncBoardToSupabase(
     return false;
   }
 
+  // SAFETY: Never overwrite cloud copy with an empty board when data is not in memory
+  if (!pages || !Array.isArray(pages) || pages.length === 0) {
+    console.warn(`[dbService] Skipping cloud sync for board "${meta.id}": no pages data in memory.`);
+    return false;
+  }
+
   try {
     const payload: any = {
       id: meta.id,

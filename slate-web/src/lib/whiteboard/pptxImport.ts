@@ -654,7 +654,9 @@ export async function parsePptxFile(
 
     // Process Tables (<a:tbl> inside <p:graphicFrame>)
     const tablesList: TableObject[] = [];
-    const graphicFrames = Array.from(doc.getElementsByTagName("p:graphicFrame"));
+    const graphicFrames = Array.from(doc.getElementsByTagName("*")).filter(
+      (el) => (el.localName || el.tagName).toLowerCase() === "graphicframe"
+    );
     for (const gf of graphicFrames) {
       if (isInsideGroup(gf)) continue;
       const xfrm = gf.getElementsByTagName("p:xfrm")[0] || gf.getElementsByTagName("a:xfrm")[0];
@@ -940,7 +942,9 @@ export async function parsePptxFile(
       }
     };
 
-    const grpSpElements = Array.from(doc.getElementsByTagName("p:grpSp"));
+    const grpSpElements = Array.from(doc.getElementsByTagName("*")).filter(
+      (el) => (el.localName || el.tagName).toLowerCase() === "grpsp"
+    );
     for (const grpEl of grpSpElements) {
       if (!isInsideGroup(grpEl)) {
         await processGroupRecursive(grpEl);
