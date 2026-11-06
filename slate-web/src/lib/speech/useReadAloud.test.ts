@@ -31,3 +31,4 @@ describe("Read Aloud voice picker & script detection", () => {
     expect(enVoice?.lang.startsWith("en")).toBe(true);
   });
 });
+

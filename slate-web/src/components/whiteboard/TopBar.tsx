@@ -653,34 +653,6 @@ export function TopBar({
         <span className="hidden sm:inline">{t("endClass")}</span>
       </button>
 
-      {/* Indian Classrooms Language Switcher (EN | हिन्दी | मराठी) */}
-      <div
-        className={cn(
-          "flex items-center rounded-xl p-0.5 border text-xs shrink-0 select-none",
-          isDark ? "bg-slate-800/80 border-slate-700" : "bg-muted/60 border-border/60",
-        )}
-      >
-        {(["en", "hi", "mr"] as const).map((l) => (
-          <button
-            key={l}
-            type="button"
-            onClick={() => setLanguage(l)}
-            aria-label={`Switch language to ${l === "en" ? "English" : l === "hi" ? "Hindi" : "Marathi"}`}
-            title={`Interface Language: ${l === "en" ? "English" : l === "hi" ? "हिन्दी (Hindi)" : "मराठी (Marathi)"}`}
-            className={cn(
-              "px-2 py-0.5 rounded-lg font-bold text-[11px] transition-all cursor-pointer active:scale-95",
-              language === l
-                ? "bg-primary text-primary-foreground shadow-xs"
-                : isDark
-                  ? "text-slate-300 hover:text-white"
-                  : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {l === "en" ? "EN" : l === "hi" ? "हि" : "म"}
-          </button>
-        ))}
-      </div>
-
       {/* Undo, Redo, and Page Controls: Only shown in standard desktop/mobile mode;
           in Board Mode they are exclusively placed in the bottom corner strips to avoid duplicates and reachability strain */}
       {!boardMode && (

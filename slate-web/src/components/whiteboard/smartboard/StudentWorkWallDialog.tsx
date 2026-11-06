@@ -223,3 +223,4 @@ export function StudentWorkWallDialog({ open, onOpenChange }: StudentWorkWallDia
     </Dialog>
   );
 }
+

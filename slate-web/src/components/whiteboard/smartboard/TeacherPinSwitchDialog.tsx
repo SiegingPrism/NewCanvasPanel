@@ -123,3 +123,4 @@ export function TeacherPinSwitchDialog({ open, onOpenChange }: TeacherPinSwitchD
     </Dialog>
   );
 }
+

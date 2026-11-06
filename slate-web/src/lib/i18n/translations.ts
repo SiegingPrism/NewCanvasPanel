@@ -271,3 +271,4 @@ export const translations: Record<AppLanguage, TranslationDictionary> = {
     tabAi: "एआय आणि फायली",
   },
 };
+

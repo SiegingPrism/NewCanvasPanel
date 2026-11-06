@@ -35,3 +35,4 @@ describe("Document Camera Widget logic", () => {
     expect(docCam?.deviceId).toBe("cam-2");
   });
 });
+

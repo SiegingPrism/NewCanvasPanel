@@ -33,10 +33,14 @@ import {
   ChevronRight,
   Flame,
   Zap,
+  Globe,
+  Check,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useStrokeRecorderStore } from "@/lib/whiteboard/strokeRecorderStore";
 import { useTranslationMetrics } from "@/lib/ink/translationMetrics";
+import { useTranslation } from "@/lib/i18n/useTranslation";
+import { cn } from "@/lib/utils";
 
 export function AISettingsDialog({
   open,
@@ -50,6 +54,7 @@ export function AISettingsDialog({
   const hasBuiltInKey = useAISettings((s) => s.hasBuiltInKey());
 
   const { showZoomDock, setShowZoomDock, autoSnapEnabled, setAutoSnapEnabled } = useWhiteboard();
+  const { language: appLanguage, setLanguage: setAppLanguage, t } = useTranslation();
 
   const showMetrics = useTranslationMetrics((s) => s.showMetrics);
   const setShowMetrics = useTranslationMetrics((s) => s.setShowMetrics);
@@ -104,10 +109,14 @@ export function AISettingsDialog({
         </DialogHeader>
 
         <Tabs defaultValue="canvas" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="canvas" className="gap-1.5 text-xs">
               <Sliders className="h-3.5 w-3.5" />
-              Canvas & View
+              Canvas
+            </TabsTrigger>
+            <TabsTrigger value="language" className="gap-1.5 text-xs">
+              <Globe className="h-3.5 w-3.5 text-primary" />
+              Language
             </TabsTrigger>
             <TabsTrigger value="ai" className="gap-1.5 text-xs">
               <Sparkles className="h-3.5 w-3.5" />
@@ -117,6 +126,46 @@ export function AISettingsDialog({
 
           {/* Canvas & View Settings */}
           <TabsContent value="canvas" className="space-y-3 pt-2">
+            {/* Quick App Interface Language Row */}
+            <div className="rounded-xl border bg-card/60 p-3 space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <div className="space-y-0.5 min-w-0 flex-1">
+                  <div className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <Globe className="h-3.5 w-3.5 text-primary shrink-0" />
+                    <span>{t("language")} (App Interface)</span>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground leading-snug">
+                    English, हिन्दी (Hindi), मराठी (Marathi) for Indian smart boards.
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 bg-muted/60 p-0.5 rounded-lg border border-border/60 shrink-0">
+                  {[
+                    { code: "en" as const, label: "EN" },
+                    { code: "hi" as const, label: "हि" },
+                    { code: "mr" as const, label: "म" },
+                  ].map((l) => (
+                    <button
+                      key={l.code}
+                      type="button"
+                      onClick={() => {
+                        setAppLanguage(l.code);
+                        toast.success(
+                          l.code === "en" ? "Interface: English" : l.code === "hi" ? "भाषा: हिन्दी" : "भाषा: मराठी"
+                        );
+                      }}
+                      className={cn(
+                        "px-2 py-0.5 rounded-md text-[11px] font-bold transition-all cursor-pointer",
+                        appLanguage === l.code
+                          ? "bg-primary text-primary-foreground shadow-xs"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      {l.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
             <div className="rounded-xl border bg-card/60 p-3 space-y-2">
               <div className="flex items-center justify-between gap-3">
                 <div className="space-y-0.5 min-w-0 flex-1">
@@ -292,6 +341,99 @@ export function AISettingsDialog({
                   }}
                   aria-label="Toggle Scratch Out"
                 />
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* App Interface Language Settings */}
+          <TabsContent value="language" className="space-y-3 pt-2">
+            <div className="rounded-xl border bg-card/60 p-3.5 space-y-3">
+              <div>
+                <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                  <Globe className="h-4 w-4 text-primary" />
+                  <span>App Interface Language / ऐप की भाषा</span>
+                </span>
+                <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+                  Select the display language for all menus, toolbars, dialogs, and smart board controls.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                {[
+                  {
+                    code: "en" as const,
+                    name: "English",
+                    native: "English",
+                    desc: "Standard English interface for all boards",
+                  },
+                  {
+                    code: "hi" as const,
+                    name: "Hindi",
+                    native: "हिन्दी",
+                    desc: "पूर्ण हिन्दी इंटरफ़ेस - CBSE, NCERT एवं राज्य बोर्ड कक्षाओं हेतु",
+                  },
+                  {
+                    code: "mr" as const,
+                    name: "Marathi",
+                    native: "मराठी",
+                    desc: "मराठी इंटरफेस - महाराष्ट्र राज्य मंडळ शाळांसाठी",
+                  },
+                ].map((item) => {
+                  const isSelected = appLanguage === item.code;
+                  return (
+                    <button
+                      key={item.code}
+                      type="button"
+                      onClick={() => {
+                        setAppLanguage(item.code);
+                        toast.success(`Language set to ${item.name} (${item.native})`);
+                      }}
+                      className={cn(
+                        "w-full flex items-center justify-between p-3 rounded-xl border text-left transition-all active:scale-[0.99] cursor-pointer",
+                        isSelected
+                          ? "border-primary bg-primary/10 text-primary shadow-xs ring-1 ring-primary"
+                          : "border-border hover:bg-muted/70 text-foreground",
+                      )}
+                    >
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-bold text-foreground">{item.native}</span>
+                          <span className="text-xs font-medium text-muted-foreground">({item.name})</span>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">{item.desc}</p>
+                      </div>
+                      {isSelected && (
+                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground shrink-0 shadow-xs">
+                          <Check className="h-4 w-4 stroke-[3]" />
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Handwriting Recognition Language Info */}
+            <div className="rounded-xl border bg-card/60 p-3 space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <div className="space-y-0.5 min-w-0 flex-1">
+                  <div className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <Languages className="h-3.5 w-3.5 text-orange-500 shrink-0" />
+                    <span>Handwriting OCR Language</span>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground leading-snug">
+                    Pen handwriting recognizer: <span className="font-semibold text-foreground">{currentLang.nativeName} ({currentLang.name})</span>
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 text-xs font-medium gap-1 shrink-0"
+                  onClick={() => setLangDialogOpen(true)}
+                >
+                  <PenLine className="h-3 w-3" />
+                  Change
+                </Button>
               </div>
             </div>
           </TabsContent>

@@ -219,3 +219,4 @@ export function LiveCaptionsWidget({ onClose }: LiveCaptionsWidgetProps) {
     </div>
   );
 }
+

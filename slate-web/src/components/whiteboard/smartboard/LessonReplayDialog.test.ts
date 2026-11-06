@@ -31,3 +31,4 @@ describe("Lesson Replay Timeline Logic", () => {
     expect(pctStep2x).toBe(150);
   });
 });
+

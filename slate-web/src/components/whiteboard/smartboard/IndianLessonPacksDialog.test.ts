@@ -8,3 +8,4 @@ describe("Indian Lesson Packs", () => {
     expect(packs).toContain("geography");
   });
 });
+

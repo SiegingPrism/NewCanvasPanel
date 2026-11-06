@@ -279,3 +279,4 @@ export function DocCameraWidget({ onClose }: DocCameraWidgetProps) {
     </div>
   );
 }
+

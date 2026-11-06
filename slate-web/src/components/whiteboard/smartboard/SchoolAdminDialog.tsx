@@ -161,3 +161,4 @@ export function SchoolAdminDialog({ open, onOpenChange }: SchoolAdminDialogProps
     </Dialog>
   );
 }
+

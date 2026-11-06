@@ -41,6 +41,7 @@ import {
   MapPin,
   PenTool,
   Check,
+  Globe,
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { exportLessonFile } from "@/lib/whiteboard/lessonFiles";
@@ -136,7 +137,7 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
     })),
   );
 
-  const { t } = useTranslation();
+  const { t, language, setLanguage } = useTranslation();
   const profile = getSmartBoardProfile(panelSize);
   const targetPx = Math.max(64, profile.minTouchTargetPx);
   const rawPageIndex = pages.findIndex((p) => p.id === activePageId);
@@ -538,6 +539,46 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
                   {simpleMode ? "On" : "Off"}
                 </span>
               </button>
+
+              {/* App Interface Language (i18n: English / हिन्दी / मराठी) */}
+              <div className="pt-2 border-t border-border space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                    <Globe className="h-3.5 w-3.5 text-primary" />
+                    <span>{t("language")} (भाषा)</span>
+                  </span>
+                  <span className="text-[10px] font-bold text-primary px-1.5 py-0.5 rounded-md bg-primary/10">
+                    {language === "en" ? "English" : language === "hi" ? "हिन्दी" : "मराठी"}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-1">
+                  {[
+                    { code: "en" as const, label: "English", sub: "EN" },
+                    { code: "hi" as const, label: "हिन्दी", sub: "Hindi" },
+                    { code: "mr" as const, label: "मराठी", sub: "Marathi" },
+                  ].map((l) => (
+                    <button
+                      key={l.code}
+                      type="button"
+                      onClick={() => {
+                        setLanguage(l.code);
+                        toast.success(
+                          l.code === "en" ? "Language: English" : l.code === "hi" ? "भाषा: हिन्दी" : "भाषा: मराठी"
+                        );
+                      }}
+                      className={cn(
+                        "p-2 rounded-xl border text-xs text-center transition flex flex-col items-center justify-center cursor-pointer",
+                        language === l.code
+                          ? "border-primary bg-primary text-primary-foreground font-bold shadow-xs"
+                          : "border-border hover:bg-muted text-foreground",
+                      )}
+                    >
+                      <span className="font-bold text-xs">{l.label}</span>
+                      <span className="text-[9px] opacity-75">{l.sub}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
 
               <div className="h-px bg-border my-1" />
 

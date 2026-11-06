@@ -11,6 +11,7 @@ import {
   Sliders,
   Shield,
   Volume2,
+  Globe,
 } from "lucide-react";
 import { useWhiteboard } from "@/lib/whiteboard/store";
 import {
@@ -45,7 +46,7 @@ export function BoardSettingsDialog({ open, onOpenChange }: BoardSettingsDialogP
     setBackground,
   } = useWhiteboard();
 
-  const [tab, setTab] = useState<"writing" | "pages" | "classroom" | "display">("writing");
+  const [tab, setTab] = useState<"writing" | "pages" | "classroom" | "display" | "language">("writing");
   const { t, language, setLanguage } = useTranslation();
   const profile = getSmartBoardProfile(panelSize);
 
@@ -110,6 +111,18 @@ export function BoardSettingsDialog({ open, onOpenChange }: BoardSettingsDialogP
           >
             <Tv className="h-4 w-4" />
             Display
+          </button>
+          <button
+            onClick={() => setTab("language")}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold rounded-xl transition-all",
+              tab === "language"
+                ? "bg-card text-foreground shadow"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <Globe className="h-4 w-4" />
+            {t("language")}
           </button>
         </div>
 
@@ -319,6 +332,66 @@ export function BoardSettingsDialog({ open, onOpenChange }: BoardSettingsDialogP
                     {l.label}
                   </button>
                 ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tab 5: Language (भाषा) */}
+        {tab === "language" && (
+          <div className="space-y-4 py-2">
+            <div>
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1 block">
+                {t("language")} (App Interface) / भाषा निवडा
+              </span>
+              <p className="text-[11px] text-muted-foreground mb-3">
+                Switch whiteboard menus, toolbar labels, and dialogs between English, Hindi, and Marathi.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {[
+                  {
+                    code: "en" as const,
+                    name: "English",
+                    native: "English",
+                    desc: "Default English interface for all boards",
+                  },
+                  {
+                    code: "hi" as const,
+                    name: "Hindi",
+                    native: "हिन्दी",
+                    desc: "CBSE / NCERT / राज्य बोर्ड",
+                  },
+                  {
+                    code: "mr" as const,
+                    name: "Marathi",
+                    native: "मराठी",
+                    desc: "महाराष्ट्र राज्य मंडळ शाळा",
+                  },
+                ].map((item) => {
+                  const active = language === item.code;
+                  return (
+                    <button
+                      key={item.code}
+                      type="button"
+                      onClick={() => setLanguage(item.code)}
+                      className={cn(
+                        "flex flex-col items-center justify-center rounded-2xl p-4 text-center border-2 transition-all active:scale-95 cursor-pointer",
+                        active
+                          ? "border-primary bg-primary/10 text-primary shadow-md font-bold"
+                          : "border-border hover:bg-muted/60 text-foreground",
+                      )}
+                    >
+                      <span className="text-lg font-black">{item.native}</span>
+                      <span className="text-xs font-semibold opacity-90 mt-0.5">{item.name}</span>
+                      <span className="text-[10px] text-muted-foreground mt-1">{item.desc}</span>
+                      {active && (
+                        <span className="mt-2 text-[10px] font-bold bg-primary text-primary-foreground px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <Check className="h-3 w-3 stroke-[3]" /> Active
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>

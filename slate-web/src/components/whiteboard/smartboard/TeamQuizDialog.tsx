@@ -259,3 +259,4 @@ export function TeamQuizDialog({ open, onOpenChange }: TeamQuizDialogProps) {
     </Dialog>
   );
 }
+
