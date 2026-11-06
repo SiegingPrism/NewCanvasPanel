@@ -1,4 +1,14 @@
-import { AlertCircle, ArrowRightLeft, Check, ChevronDown, Eraser, Languages, PenLine, Type, WifiOff } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowRightLeft,
+  Check,
+  ChevronDown,
+  Eraser,
+  Languages,
+  PenLine,
+  Type,
+  WifiOff,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 import { useEffect } from "react";
@@ -13,7 +23,20 @@ export function HandwritingSettings({
   className?: string;
   compact?: boolean;
 }) {
-  const { livePreview, autoType, scratchOut, translateLive, translateTo, textFont, openTranslatePicker, status, lastError, language, set, setLangPickerOpen } = useInk();
+  const {
+    livePreview,
+    autoType,
+    scratchOut,
+    translateLive,
+    translateTo,
+    textFont,
+    openTranslatePicker,
+    status,
+    lastError,
+    language,
+    set,
+    setLangPickerOpen,
+  } = useInk();
   const targetLang = findLanguage(translateTo);
   // Load the lettering fonts so each choice previews in its own style
   useEffect(() => {
@@ -65,7 +88,12 @@ export function HandwritingSettings({
         </div>
       </div>
       <div onClick={(e) => e.stopPropagation()}>
-        <Switch checked={checked} onCheckedChange={onChange} aria-label={title} data-testid={testId} />
+        <Switch
+          checked={checked}
+          onCheckedChange={onChange}
+          aria-label={title}
+          data-testid={testId}
+        />
       </div>
     </div>
   );
@@ -113,7 +141,9 @@ export function HandwritingSettings({
               const next = !translateLive;
               set({ translateLive: next });
               if (next) {
-                toast.success(`Slate Translate ON — Translating into ${targetLang.name} (${targetLang.nativeName}) in handwriting`);
+                toast.success(
+                  `Slate Translate ON — Translating into ${targetLang.name} (${targetLang.nativeName}) in handwriting`,
+                );
               } else {
                 toast.info("Slate Translate OFF — Normal handwriting recognition");
               }
@@ -135,7 +165,8 @@ export function HandwritingSettings({
                 </div>
                 {!compact && (
                   <div className="text-[10px] leading-snug text-muted-foreground">
-                    Write in any language — auto-converts to {targetLang.name} in authentic handwriting
+                    Write in any language — auto-converts to {targetLang.name} in authentic
+                    handwriting
                   </div>
                 )}
               </div>
@@ -146,7 +177,9 @@ export function HandwritingSettings({
                 onCheckedChange={(v) => {
                   set({ translateLive: v });
                   if (v) {
-                    toast.success(`Slate Translate ON — Translating into ${targetLang.name} (${targetLang.nativeName}) in handwriting`);
+                    toast.success(
+                      `Slate Translate ON — Translating into ${targetLang.name} (${targetLang.nativeName}) in handwriting`,
+                    );
                   } else {
                     toast.info("Slate Translate OFF — Normal handwriting recognition");
                   }
@@ -188,7 +221,9 @@ export function HandwritingSettings({
             <PenLine className="h-3.5 w-3.5 text-muted-foreground" />
             <span>Text style</span>
             {!compact && (
-              <span className="text-[10px] font-normal text-muted-foreground">· how converted writing looks</span>
+              <span className="text-[10px] font-normal text-muted-foreground">
+                · how converted writing looks
+              </span>
             )}
           </div>
           <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none]">
@@ -218,7 +253,9 @@ export function HandwritingSettings({
                     {f.id === "plain" ? "Aa Plain" : "Hello"}
                   </span>
                   {f.id !== "plain" && (
-                    <span className="block whitespace-nowrap text-[9px] text-muted-foreground">{f.label}</span>
+                    <span className="block whitespace-nowrap text-[9px] text-muted-foreground">
+                      {f.label}
+                    </span>
                   )}
                 </button>
               );

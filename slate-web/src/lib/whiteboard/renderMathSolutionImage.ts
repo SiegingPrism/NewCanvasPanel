@@ -37,13 +37,7 @@ export interface RenderedSolutionImage {
 }
 
 export type DiagramKind =
-  | "quadratic"
-  | "linear"
-  | "trig"
-  | "pythagoras"
-  | "calculus"
-  | "arithmetic"
-  | "function_plot";
+  "quadratic" | "linear" | "trig" | "pythagoras" | "calculus" | "arithmetic" | "function_plot";
 
 function roundRect(
   ctx: CanvasRenderingContext2D,
@@ -801,7 +795,11 @@ function drawCalculusDiagram(
 
   ctx.fillStyle = "#6d28d9";
   ctx.font = "italic bold 11px serif";
-  ctx.fillText("∫ f(x) dx  Area", (curvePoints[startIdx].x + curvePoints[endIdx].x) / 2 - 25, originY - 14);
+  ctx.fillText(
+    "∫ f(x) dx  Area",
+    (curvePoints[startIdx].x + curvePoints[endIdx].x) / 2 - 25,
+    originY - 14,
+  );
 
   ctx.fillStyle = "#b45309";
   ctx.font = "bold 9px system-ui, sans-serif";

@@ -4,7 +4,11 @@ import { BoardTourDialog } from "./BoardTourDialog";
 import { DocumentImportDialog } from "./DocumentImportDialog";
 import { NewPagePickerContent } from "./NewPagePickerContent";
 import { useWhiteboard } from "@/lib/whiteboard/store";
-import { getSmartBoardProfile, SMART_BOARD_PROFILES, PanelDiagonal } from "@/lib/whiteboard/smartBoardProfiles";
+import {
+  getSmartBoardProfile,
+  SMART_BOARD_PROFILES,
+  PanelDiagonal,
+} from "@/lib/whiteboard/smartBoardProfiles";
 import type { PageBackground } from "@/lib/whiteboard/types";
 import {
   Undo2,
@@ -178,7 +182,8 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
     const nextZones = splitBoardZones >= profile.maxSplitZones ? 1 : splitBoardZones + 1;
     setSplitBoardZones(nextZones);
     toast(nextZones === 1 ? "Full Board" : `Split Board: ${nextZones} Zones Active`, {
-      description: nextZones === 1 ? "Single workspace" : `${nextZones} students can solve side-by-side`,
+      description:
+        nextZones === 1 ? "Single workspace" : `${nextZones} students can solve side-by-side`,
     });
   };
 
@@ -187,7 +192,9 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
       setTool("pen");
     } else {
       setTool("laser");
-      toast("Laser pointer active", { description: "Point with finger or stylus to guide students." });
+      toast("Laser pointer active", {
+        description: "Point with finger or stylus to guide students.",
+      });
     }
   };
 
@@ -199,7 +206,7 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
           "pointer-events-auto select-none absolute bottom-4 left-4 z-40 flex items-center gap-2 rounded-2xl p-2 shadow-2xl backdrop-blur-md border transition-all duration-300",
           isDark
             ? "bg-slate-900/95 border-slate-700/80 text-slate-100"
-            : "bg-card/95 border-border/80 text-foreground"
+            : "bg-card/95 border-border/80 text-foreground",
         )}
       >
         {/* Undo */}
@@ -214,7 +221,7 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
               ? isDark
                 ? "bg-slate-800/80 text-slate-100 hover:bg-slate-700"
                 : "bg-muted/70 text-foreground hover:bg-muted"
-              : "opacity-40 cursor-not-allowed text-muted-foreground"
+              : "opacity-40 cursor-not-allowed text-muted-foreground",
           )}
           title="Undo (Ctrl+Z)"
         >
@@ -234,7 +241,7 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
               ? isDark
                 ? "bg-slate-800/80 text-slate-100 hover:bg-slate-700"
                 : "bg-muted/70 text-foreground hover:bg-muted"
-              : "opacity-40 cursor-not-allowed text-muted-foreground"
+              : "opacity-40 cursor-not-allowed text-muted-foreground",
           )}
           title="Redo (Ctrl+Y)"
         >
@@ -263,7 +270,9 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
           style={{ height: `${targetPx}px`, width: `${targetPx}px` }}
           className={cn(
             "flex flex-col items-center justify-center rounded-xl transition-all active:scale-95 font-medium",
-            isDark ? "bg-slate-800/80 text-slate-200 hover:bg-slate-700" : "bg-muted/40 text-foreground hover:bg-muted"
+            isDark
+              ? "bg-slate-800/80 text-slate-200 hover:bg-slate-700"
+              : "bg-muted/40 text-foreground hover:bg-muted",
           )}
           title="Help: what does each button do? (?)"
         >
@@ -286,7 +295,14 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
               <div className="flex flex-col text-left">
                 <span className="text-xs font-black tracking-wide">Board</span>
                 <span className="text-[11px] text-muted-foreground font-medium">
-                  {panelSize}&quot; · {splitBoardZones > 1 ? `${splitBoardZones} zones` : reachabilityOffset > 0 ? "Lowered" : lockBoard ? "Frozen" : "Settings"}
+                  {panelSize}&quot; ·{" "}
+                  {splitBoardZones > 1
+                    ? `${splitBoardZones} zones`
+                    : reachabilityOffset > 0
+                      ? "Lowered"
+                      : lockBoard
+                        ? "Frozen"
+                        : "Settings"}
                 </span>
               </div>
             </button>
@@ -298,12 +314,16 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
             collisionPadding={24}
             className={cn(
               "w-80 max-w-[calc(100vw-2rem)] rounded-2xl p-4 shadow-2xl border space-y-3 max-h-[min(78vh,520px)] overflow-y-auto",
-              isDark ? "bg-slate-900 border-slate-700 text-slate-100" : "bg-card border-border"
+              isDark ? "bg-slate-900 border-slate-700 text-slate-100" : "bg-card border-border",
             )}
           >
             <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Board Controls</p>
-              <p className="text-[11px] text-muted-foreground">Reachability, gestures, and classroom settings.</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Board Controls
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                Reachability, gestures, and classroom settings.
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -315,7 +335,7 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
                   "flex w-full items-center justify-between p-2.5 rounded-xl border text-left transition active:scale-98",
                   reachabilityOffset > 0
                     ? "border-sky-500 bg-sky-500/10 text-sky-600 dark:text-sky-400 font-bold"
-                    : "border-border hover:bg-muted text-foreground"
+                    : "border-border hover:bg-muted text-foreground",
                 )}
               >
                 <div className="flex items-center gap-2.5">
@@ -327,7 +347,9 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
                   <div className="flex flex-col">
                     <span className="text-xs font-bold">Lower the board</span>
                     <span className="text-[11px] text-muted-foreground font-normal">
-                      {reachabilityOffset > 0 ? "Lowered (tap to reset)" : "Pulls down top half for easy reach"}
+                      {reachabilityOffset > 0
+                        ? "Lowered (tap to reset)"
+                        : "Pulls down top half for easy reach"}
                     </span>
                   </div>
                 </div>
@@ -344,7 +366,7 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
                   "flex w-full items-center justify-between p-2.5 rounded-xl border text-left transition active:scale-98",
                   lockBoard
                     ? "border-amber-500 bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold"
-                    : "border-border hover:bg-muted text-foreground"
+                    : "border-border hover:bg-muted text-foreground",
                 )}
               >
                 <div className="flex items-center gap-2.5">
@@ -378,7 +400,7 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
                       "p-2 rounded-xl border text-xs font-semibold text-center transition",
                       boardDockSide === "both"
                         ? "border-primary bg-primary/10 text-primary font-bold shadow-xs"
-                        : "border-border hover:bg-muted text-foreground"
+                        : "border-border hover:bg-muted text-foreground",
                     )}
                   >
                     Both sides
@@ -390,7 +412,7 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
                       "p-2 rounded-xl border text-xs font-semibold text-center transition",
                       boardDockSide === "left"
                         ? "border-primary bg-primary/10 text-primary font-bold shadow-xs"
-                        : "border-border hover:bg-muted text-foreground"
+                        : "border-border hover:bg-muted text-foreground",
                     )}
                   >
                     Left only
@@ -402,7 +424,7 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
                       "p-2 rounded-xl border text-xs font-semibold text-center transition",
                       boardDockSide === "right"
                         ? "border-primary bg-primary/10 text-primary font-bold shadow-xs"
-                        : "border-border hover:bg-muted text-foreground"
+                        : "border-border hover:bg-muted text-foreground",
                     )}
                   >
                     Right only
@@ -433,11 +455,13 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
                           "flex flex-col items-center justify-center rounded-xl p-2 text-xs font-bold transition-all border",
                           active
                             ? "border-primary bg-primary text-primary-foreground shadow-sm"
-                            : "border-border/60 hover:bg-muted text-foreground"
+                            : "border-border/60 hover:bg-muted text-foreground",
                         )}
                       >
                         <span>{sizeKey}&quot;</span>
-                        <span className="text-[10px] font-normal opacity-80">{Math.round(p.widthInches)}in</span>
+                        <span className="text-[10px] font-normal opacity-80">
+                          {Math.round(p.widthInches)}in
+                        </span>
                       </button>
                     );
                   })}
@@ -465,7 +489,9 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
                 onClick={() => {
                   setSimpleMode(!simpleMode);
                   toast(simpleMode ? "Advanced Mode Enabled" : "Simple Teacher Mode Enabled", {
-                    description: simpleMode ? "All widgets & 3D tools visible" : "Clean, distraction-free writing interface",
+                    description: simpleMode
+                      ? "All widgets & 3D tools visible"
+                      : "Clean, distraction-free writing interface",
                   });
                 }}
                 className="flex w-full items-center justify-between p-2.5 rounded-xl border border-border hover:bg-muted text-left transition"
@@ -536,7 +562,7 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
           "pointer-events-auto select-none absolute bottom-4 right-4 z-40 flex items-center gap-2 rounded-2xl p-2 shadow-2xl backdrop-blur-md border transition-all duration-300",
           isDark
             ? "bg-slate-900/95 border-slate-700/80 text-slate-100"
-            : "bg-card/95 border-border/80 text-foreground"
+            : "bg-card/95 border-border/80 text-foreground",
         )}
       >
         {/* Laser Pointer Button (usable anytime) */}
@@ -550,8 +576,8 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
             isLaserActive
               ? "bg-rose-600 text-white shadow-lg ring-2 ring-rose-400 ring-offset-2 ring-offset-background animate-pulse"
               : isDark
-              ? "bg-slate-800/80 text-slate-200 hover:bg-slate-700"
-              : "bg-muted/40 text-foreground hover:bg-muted"
+                ? "bg-slate-800/80 text-slate-200 hover:bg-slate-700"
+                : "bg-muted/40 text-foreground hover:bg-muted",
           )}
           title="Laser Pointer (L) — Tap to highlight and guide attention"
         >
@@ -565,11 +591,19 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
         <div className={cn("h-10 w-px mx-0.5", isDark ? "bg-slate-700/80" : "bg-border/80")} />
 
         {/* Zoom Group: Zoom Out (-), Zoom In (+), Fit (F), 100% (0) */}
-        <div className={cn("flex items-center gap-1 rounded-xl p-1", isDark ? "bg-slate-800/60" : "bg-muted/30")}>
+        <div
+          className={cn(
+            "flex items-center gap-1 rounded-xl p-1",
+            isDark ? "bg-slate-800/60" : "bg-muted/30",
+          )}
+        >
           <button
             onClick={() => window.dispatchEvent(new CustomEvent("slate:zoom-out"))}
             aria-label="Zoom out"
-            style={{ height: `${Math.round(targetPx * 0.78)}px`, width: `${Math.round(targetPx * 0.78)}px` }}
+            style={{
+              height: `${Math.round(targetPx * 0.78)}px`,
+              width: `${Math.round(targetPx * 0.78)}px`,
+            }}
             className="flex items-center justify-center rounded-lg hover:bg-muted text-foreground transition active:scale-90"
             title="Zoom out (-)"
           >
@@ -578,7 +612,10 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
           <button
             onClick={() => window.dispatchEvent(new CustomEvent("slate:zoom-in"))}
             aria-label="Zoom in"
-            style={{ height: `${Math.round(targetPx * 0.78)}px`, width: `${Math.round(targetPx * 0.78)}px` }}
+            style={{
+              height: `${Math.round(targetPx * 0.78)}px`,
+              width: `${Math.round(targetPx * 0.78)}px`,
+            }}
             className="flex items-center justify-center rounded-lg hover:bg-muted text-foreground transition active:scale-90"
             title="Zoom in (+)"
           >
@@ -587,7 +624,10 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
           <button
             onClick={() => window.dispatchEvent(new CustomEvent("slate:fit-to-content"))}
             aria-label="Fit all content to view"
-            style={{ height: `${Math.round(targetPx * 0.78)}px`, width: `${Math.round(targetPx * 0.78)}px` }}
+            style={{
+              height: `${Math.round(targetPx * 0.78)}px`,
+              width: `${Math.round(targetPx * 0.78)}px`,
+            }}
             className="flex items-center justify-center rounded-lg hover:bg-muted text-foreground transition active:scale-90"
             title="Fit content to view (F)"
           >
@@ -596,7 +636,10 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
           <button
             onClick={() => window.dispatchEvent(new CustomEvent("slate:zoom-reset"))}
             aria-label="Reset zoom to 100%"
-            style={{ height: `${Math.round(targetPx * 0.78)}px`, minWidth: `${Math.round(targetPx * 0.78)}px` }}
+            style={{
+              height: `${Math.round(targetPx * 0.78)}px`,
+              minWidth: `${Math.round(targetPx * 0.78)}px`,
+            }}
             className="flex px-1.5 items-center justify-center rounded-lg hover:bg-muted text-foreground text-xs font-bold transition active:scale-90"
             title="Reset to 100% (0)"
           >
@@ -618,7 +661,7 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
               ? isDark
                 ? "bg-slate-800/80 text-slate-100 hover:bg-slate-700"
                 : "bg-muted/70 text-foreground hover:bg-muted"
-              : "opacity-40 cursor-not-allowed text-muted-foreground"
+              : "opacity-40 cursor-not-allowed text-muted-foreground",
           )}
           title="Previous Page (Page Up)"
         >
@@ -634,7 +677,7 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
           style={{ height: `${targetPx}px`, minWidth: `${targetPx}px` }}
           className={cn(
             "flex px-3 flex-col items-center justify-center rounded-xl transition-all",
-            isDark ? "bg-slate-800/60 hover:bg-slate-700" : "bg-muted/40 hover:bg-muted"
+            isDark ? "bg-slate-800/60 hover:bg-slate-700" : "bg-muted/40 hover:bg-muted",
           )}
           title="Page Sorter / Slide Grid"
         >
@@ -656,7 +699,7 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
               ? isDark
                 ? "bg-slate-800/80 text-slate-100 hover:bg-slate-700"
                 : "bg-muted/70 text-foreground hover:bg-muted"
-              : "opacity-40 cursor-not-allowed text-muted-foreground"
+              : "opacity-40 cursor-not-allowed text-muted-foreground",
           )}
           title="Next Page (Page Down)"
         >
@@ -683,7 +726,7 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
             collisionPadding={24}
             className={cn(
               "w-80 max-w-[calc(100vw-2rem)] rounded-2xl p-3.5 shadow-2xl space-y-2.5 border max-h-[min(78vh,520px)] overflow-y-auto",
-              isDark ? "bg-slate-900 border-slate-700 text-slate-100" : "bg-card border-border"
+              isDark ? "bg-slate-900 border-slate-700 text-slate-100" : "bg-card border-border",
             )}
           >
             <NewPagePickerContent

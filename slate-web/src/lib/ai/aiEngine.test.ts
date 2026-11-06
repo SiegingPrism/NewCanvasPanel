@@ -34,12 +34,14 @@ describe("AIEngine (online-only)", () => {
   });
 
   it("maps HTTP 429 to a friendly quota error and does not retry", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({ error: { message: "Quota", status: "RESOURCE_EXHAUSTED" } }),
-        { status: 429 },
-      ),
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify({ error: { message: "Quota", status: "RESOURCE_EXHAUSTED" } }),
+          { status: 429 },
+        ),
+      );
     vi.stubGlobal("fetch", fetchMock);
     const err = await AIEngine.askAssistant("hi").catch((e) => e);
     expect(err).toBeInstanceOf(AIError);
@@ -51,19 +53,17 @@ describe("AIEngine (online-only)", () => {
   it("maps a rejected key to invalid_key", async () => {
     vi.stubGlobal(
       "fetch",
-      vi
-        .fn()
-        .mockResolvedValue(
-          new Response(
-            JSON.stringify({
-              error: {
-                message: "API key not valid. Please pass a valid API key.",
-                status: "INVALID_ARGUMENT",
-              },
-            }),
-            { status: 400 },
-          ),
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            error: {
+              message: "API key not valid. Please pass a valid API key.",
+              status: "INVALID_ARGUMENT",
+            },
+          }),
+          { status: 400 },
         ),
+      ),
     );
     await expect(AIEngine.askAssistant("hi")).rejects.toMatchObject({ code: "invalid_key" });
   });
@@ -151,11 +151,12 @@ describe("AIEngine (online-only)", () => {
     expect(fetchMock).toHaveBeenCalled();
     const [url, init] = fetchMock.mock.calls[0];
     expect(String(url)).toContain("/api/ai");
-    expect((init.headers as Record<string, string>)["Authorization"]).toBe("Bearer mock-supabase-token");
+    expect((init.headers as Record<string, string>)["Authorization"]).toBe(
+      "Bearer mock-supabase-token",
+    );
 
     // Clean up
     useAuth.setState({ session: null, user: null });
     useAISettings.setState({ getApiKey: () => useAISettings.getState().geminiKey });
   });
 });
-

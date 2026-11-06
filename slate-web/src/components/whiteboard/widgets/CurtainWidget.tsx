@@ -6,9 +6,19 @@ import { Eye, EyeOff, RotateCcw, Palette, ArrowDown, ArrowRight } from "lucide-r
 const CURTAINS = [
   { id: "blue", name: "Blue Velvet", file: "/curtains/illus_curtain_blue.svg", color: "#2563eb" },
   { id: "red", name: "Crimson Red", file: "/curtains/illus_curtain_red.svg", color: "#dc2626" },
-  { id: "green", name: "Emerald Green", file: "/curtains/illus_curtain_green.svg", color: "#16a34a" },
+  {
+    id: "green",
+    name: "Emerald Green",
+    file: "/curtains/illus_curtain_green.svg",
+    color: "#16a34a",
+  },
   { id: "plum", name: "Royal Plum", file: "/curtains/illus_curtain_plum.svg", color: "#9333ea" },
-  { id: "turquoise", name: "Turquoise", file: "/curtains/illus_curtain_turquoise.svg", color: "#06b6d4" },
+  {
+    id: "turquoise",
+    name: "Turquoise",
+    file: "/curtains/illus_curtain_turquoise.svg",
+    color: "#06b6d4",
+  },
   { id: "rose", name: "Rose Velvet", file: "/curtains/illus_curtain_rose.svg", color: "#f43f5e" },
   { id: "grey", name: "Classic Grey", file: "/curtains/illus_curtain_grey.svg", color: "#4b5563" },
   { id: "white", name: "Silk White", file: "/curtains/illus_curtain_white.svg", color: "#94a3b8" },
@@ -93,7 +103,11 @@ export function CurtainWidget() {
           className="text-xs h-8 gap-1.5 flex-1"
           onClick={() => setDirection(direction === "top-down" ? "left-right" : "top-down")}
         >
-          {direction === "top-down" ? <ArrowDown className="h-3.5 w-3.5" /> : <ArrowRight className="h-3.5 w-3.5" />}
+          {direction === "top-down" ? (
+            <ArrowDown className="h-3.5 w-3.5" />
+          ) : (
+            <ArrowRight className="h-3.5 w-3.5" />
+          )}
           {direction === "top-down" ? "Top-Down" : "Left-Right"}
         </Button>
 
@@ -104,7 +118,11 @@ export function CurtainWidget() {
           className="text-xs h-8 gap-1.5"
           onClick={() => setRevealPercent(revealPercent === 100 ? 0 : 100)}
         >
-          {revealPercent === 100 ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+          {revealPercent === 100 ? (
+            <EyeOff className="h-3.5 w-3.5" />
+          ) : (
+            <Eye className="h-3.5 w-3.5" />
+          )}
           {revealPercent === 100 ? "Conceal" : "Reveal All"}
         </Button>
 
@@ -131,7 +149,9 @@ export function CurtainWidget() {
               key={c.id}
               onClick={() => setSelectedCurtain(c)}
               className={`h-6 w-6 rounded-full border-2 transition-transform active:scale-90 shrink-0 ${
-                selectedCurtain.id === c.id ? "scale-110 border-foreground shadow" : "border-transparent opacity-80"
+                selectedCurtain.id === c.id
+                  ? "scale-110 border-foreground shadow"
+                  : "border-transparent opacity-80"
               }`}
               style={{ backgroundColor: c.color }}
               title={c.name}

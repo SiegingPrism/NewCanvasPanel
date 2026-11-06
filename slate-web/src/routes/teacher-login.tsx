@@ -15,7 +15,9 @@ function TeacherLoginNoticePage() {
         </div>
 
         <div className="space-y-1">
-          <h2 className="text-2xl font-bold text-white tracking-tight">Smart Board Teacher Sign-In</h2>
+          <h2 className="text-2xl font-bold text-white tracking-tight">
+            Smart Board Teacher Sign-In
+          </h2>
           <p className="text-slate-400 text-sm">Account Protection Notice</p>
         </div>
 
@@ -25,7 +27,8 @@ function TeacherLoginNoticePage() {
             <span>Direct Sign-In Required</span>
           </div>
           <p className="text-slate-400 leading-relaxed">
-            To prevent credential leakage and ensure full security on shared classroom displays, tokens are not transmitted over public channels.
+            To prevent credential leakage and ensure full security on shared classroom displays,
+            tokens are not transmitted over public channels.
           </p>
           <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800 space-y-1 text-slate-400 text-[11px]">
             <span className="font-semibold text-slate-300 block">How to sign in on the board:</span>

@@ -45,18 +45,22 @@ export function BoardHelpOverlay({ open, onClose }: BoardHelpOverlayProps) {
       <div className={`${card} left-32 top-1/2 -translate-y-1/2`}>
         <p className={heading}>Side Tools (Move, Pen, Text...)</p>
         <p>
-          <b>Move</b> (pan), <b>Pen</b> (12 styles), <b>Highlight</b>, <b>Eraser</b> (part, whole, ink only), <b>Select</b> (tap & lasso), <b>Text</b>, and <b>Shapes</b>.
+          <b>Move</b> (pan), <b>Pen</b> (12 styles), <b>Highlight</b>, <b>Eraser</b> (part, whole,
+          ink only), <b>Select</b> (tap & lasso), <b>Text</b>, and <b>Shapes</b>.
         </p>
         <p className="mt-1.5">
           <b>Tap any tool a second time</b> to open colors, thickness, handwriting, and full shapes.
         </p>
         <p className="mt-1.5">
-          <b>More</b> opens classroom timers, student picker, dice, periodic table, math grapher, and AI tools.
+          <b>More</b> opens classroom timers, student picker, dice, periodic table, math grapher,
+          and AI tools.
         </p>
       </div>
 
       {/* Center Shortcuts & Gestures Card */}
-      <div className={`${card} left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 max-w-md hidden md:block`}>
+      <div
+        className={`${card} left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 max-w-md hidden md:block`}
+      >
         <div className="flex items-center gap-2 mb-1.5 text-primary">
           <Keyboard className="h-5 w-5" />
           <p className="text-base font-bold">Gestures & Shortcuts</p>
@@ -65,26 +69,50 @@ export function BoardHelpOverlay({ open, onClose }: BoardHelpOverlayProps) {
           Touch gestures & USB keyboard / presenter clicker shortcuts:
         </p>
         <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-          <div><b className="font-mono bg-muted px-1 rounded">P / H / E</b> Pen / Highlight / Eraser</div>
-          <div><b className="font-mono bg-muted px-1 rounded">V / T / S</b> Select / Text / Shapes</div>
-          <div><b className="font-mono bg-muted px-1 rounded">L</b> Laser pointer</div>
-          <div><b className="font-mono bg-muted px-1 rounded">Space + drag</b> Move the board</div>
-          <div><b className="font-mono bg-muted px-1 rounded">1, 2, 3, 4</b> Quick colours</div>
-          <div><b className="font-mono bg-muted px-1 rounded">+ / - / F / 0</b> Zoom in / out / fit / 100%</div>
-          <div><b className="font-mono bg-muted px-1 rounded">PgUp / PgDn</b> Slide clicker navigation</div>
-          <div><b className="font-mono bg-muted px-1 rounded">Ctrl+Z / Y</b> Undo / Redo</div>
-          <div><b className="font-mono bg-muted px-1 rounded">Delete</b> Remove selection</div>
-          <div><b className="font-mono bg-muted px-1 rounded">Ctrl+D</b> Duplicate selection</div>
+          <div>
+            <b className="font-mono bg-muted px-1 rounded">P / H / E</b> Pen / Highlight / Eraser
+          </div>
+          <div>
+            <b className="font-mono bg-muted px-1 rounded">V / T / S</b> Select / Text / Shapes
+          </div>
+          <div>
+            <b className="font-mono bg-muted px-1 rounded">L</b> Laser pointer
+          </div>
+          <div>
+            <b className="font-mono bg-muted px-1 rounded">Space + drag</b> Move the board
+          </div>
+          <div>
+            <b className="font-mono bg-muted px-1 rounded">1, 2, 3, 4</b> Quick colours
+          </div>
+          <div>
+            <b className="font-mono bg-muted px-1 rounded">+ / - / F / 0</b> Zoom in / out / fit /
+            100%
+          </div>
+          <div>
+            <b className="font-mono bg-muted px-1 rounded">PgUp / PgDn</b> Slide clicker navigation
+          </div>
+          <div>
+            <b className="font-mono bg-muted px-1 rounded">Ctrl+Z / Y</b> Undo / Redo
+          </div>
+          <div>
+            <b className="font-mono bg-muted px-1 rounded">Delete</b> Remove selection
+          </div>
+          <div>
+            <b className="font-mono bg-muted px-1 rounded">Ctrl+D</b> Duplicate selection
+          </div>
         </div>
         <div className="mt-2.5 pt-2 border-t border-border text-xs">
-          <b>Wipe with palm or fist</b> to erase. <b>Hold still</b> for radial menu. Multiple students can write simultaneously!
+          <b>Wipe with palm or fist</b> to erase. <b>Hold still</b> for radial menu. Multiple
+          students can write simultaneously!
         </div>
       </div>
 
       {/* Right dock notice */}
       <div className={`${card} right-32 top-1/2 -translate-y-1/2 hidden xl:block`}>
         <p className={heading}>Right-side Dock</p>
-        <p>Identical tools for teachers or students standing on the right side of the smart board.</p>
+        <p>
+          Identical tools for teachers or students standing on the right side of the smart board.
+        </p>
       </div>
 
       {/* Bottom-left corner */}
@@ -94,7 +122,8 @@ export function BoardHelpOverlay({ open, onClose }: BoardHelpOverlayProps) {
           <b>Undo & Redo</b> with history. <b>Clear</b> wipes the canvas with instant undo.
         </p>
         <p className="mt-1">
-          <b>Board button</b> holds reachability lower, freeze lock, screen size (55&quot;–110&quot;), handedness, and lesson save/export.
+          <b>Board button</b> holds reachability lower, freeze lock, screen size
+          (55&quot;–110&quot;), handedness, and lesson save/export.
         </p>
       </div>
 
@@ -105,7 +134,8 @@ export function BoardHelpOverlay({ open, onClose }: BoardHelpOverlayProps) {
           <b>Laser</b> points without drawing. <b>Zoom</b> (+, -, fit all, 100%).
         </p>
         <p className="mt-1">
-          <b>Pages</b>: Back/Forward, tap <b>Pages</b> for the slide sorter, or tap <b>+ New</b> for lined/grid/music templates.
+          <b>Pages</b>: Back/Forward, tap <b>Pages</b> for the slide sorter, or tap <b>+ New</b> for
+          lined/grid/music templates.
         </p>
       </div>
 

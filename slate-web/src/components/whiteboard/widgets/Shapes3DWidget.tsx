@@ -131,7 +131,9 @@ export function Shapes3DWidget() {
             }`}
           >
             <img src={s.file} alt={s.name} className="h-10 w-10 object-contain my-1" />
-            <span className="text-[10px] font-medium leading-tight truncate w-full mt-1">{s.name}</span>
+            <span className="text-[10px] font-medium leading-tight truncate w-full mt-1">
+              {s.name}
+            </span>
           </button>
         ))}
       </div>

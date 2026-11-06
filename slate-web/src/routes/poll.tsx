@@ -112,7 +112,10 @@ function StudentPollPage() {
     // 3. Mark voted in phone localStorage so refreshing page does not permit multiple votes
     try {
       localStorage.setItem(`slate_poll_voted_${params.id}`, String(selectedOption));
-      localStorage.setItem(`slate_poll_vote_${params.id}_${Date.now()}`, JSON.stringify(votePayload));
+      localStorage.setItem(
+        `slate_poll_vote_${params.id}_${Date.now()}`,
+        JSON.stringify(votePayload),
+      );
     } catch {}
 
     setIsSubmitting(false);
@@ -151,13 +154,16 @@ function StudentPollPage() {
             <div className="space-y-1">
               <h2 className="text-2xl font-bold text-white">Vote Recorded!</h2>
               <p className="text-slate-400 text-sm max-w-xs mx-auto">
-                Your response has been registered on the Smart Board. Refreshing this page will not submit a duplicate vote.
+                Your response has been registered on the Smart Board. Refreshing this page will not
+                submit a duplicate vote.
               </p>
             </div>
 
             {selectedOption !== null && params.options[selectedOption] && (
               <div className="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-3.5 max-w-xs mx-auto text-left">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-400 block mb-0.5">Your Choice</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-400 block mb-0.5">
+                  Your Choice
+                </span>
                 <div className="flex items-center gap-2.5">
                   <span className="h-6 w-6 rounded-lg bg-indigo-600 text-white font-bold text-xs flex items-center justify-center">
                     {optionLetters[selectedOption] || selectedOption + 1}
@@ -184,7 +190,9 @@ function StudentPollPage() {
         ) : (
           <div className="space-y-6">
             <div className="space-y-2">
-              <span className="text-xs font-semibold uppercase tracking-wider text-indigo-400">Question</span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-indigo-400">
+                Question
+              </span>
               <h2 className="text-xl font-bold text-white leading-snug">{params.question}</h2>
             </div>
 

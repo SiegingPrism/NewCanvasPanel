@@ -41,13 +41,30 @@ describe("continuesGroup", () => {
 });
 
 describe("scratchOutTargets", () => {
-  const words: InkStroke[] = [letter("w1", 100, 100), letter("w2", 118, 100), letter("w3", 136, 100), letter("other", 100, 300)];
+  const words: InkStroke[] = [
+    letter("w1", 100, 100),
+    letter("w2", 118, 100),
+    letter("w3", 136, 100),
+    letter("other", 100, 300),
+  ];
   const scribble = (x0: number, x1: number, y0: number, y1: number) =>
-    Array.from({ length: 9 }, (_, i) => ({ x: i % 2 ? x1 : x0, y: y0 + ((y1 - y0) * i) / 8 })).flatMap((p, i, a) =>
-      i ? Array.from({ length: 5 }, (_, k) => ({ x: a[i - 1].x + ((p.x - a[i - 1].x) * (k + 1)) / 5, y: a[i - 1].y + ((p.y - a[i - 1].y) * (k + 1)) / 5 })) : [p],
+    Array.from({ length: 9 }, (_, i) => ({
+      x: i % 2 ? x1 : x0,
+      y: y0 + ((y1 - y0) * i) / 8,
+    })).flatMap((p, i, a) =>
+      i
+        ? Array.from({ length: 5 }, (_, k) => ({
+            x: a[i - 1].x + ((p.x - a[i - 1].x) * (k + 1)) / 5,
+            y: a[i - 1].y + ((p.y - a[i - 1].y) * (k + 1)) / 5,
+          }))
+        : [p],
     );
   it("erases the strokes a scribble covers", () => {
-    expect(scratchOutTargets(scribble(96, 156, 100, 120), words).sort()).toEqual(["w1", "w2", "w3"]);
+    expect(scratchOutTargets(scribble(96, 156, 100, 120), words).sort()).toEqual([
+      "w1",
+      "w2",
+      "w3",
+    ]);
   });
   it("leaves strokes outside the scribble alone", () => {
     expect(scratchOutTargets(scribble(96, 156, 100, 120), words)).not.toContain("other");
@@ -60,7 +77,12 @@ describe("scratchOutTargets", () => {
 
 describe("clusterIntoLines", () => {
   it("splits two lines of writing into two clusters", () => {
-    const strokes = [letter("a", 100, 100), letter("b", 118, 100), letter("c", 100, 160), letter("d", 118, 160)];
+    const strokes = [
+      letter("a", 100, 100),
+      letter("b", 118, 100),
+      letter("c", 100, 160),
+      letter("d", 118, 160),
+    ];
     const lines = clusterIntoLines(strokes).map((c) => c.map((s) => s.id).sort());
     expect(lines).toHaveLength(2);
     expect(lines).toContainEqual(["a", "b"]);
@@ -68,7 +90,12 @@ describe("clusterIntoLines", () => {
   });
   it("keeps separated words on the same line in a single line cluster", () => {
     // "hello" (a at 100, b at 116) ... 60px gap ... "world" (c at 190, d at 206)
-    const strokes = [letter("a", 100, 100), letter("b", 116, 100), letter("c", 190, 100), letter("d", 206, 100)];
+    const strokes = [
+      letter("a", 100, 100),
+      letter("b", 116, 100),
+      letter("c", 190, 100),
+      letter("d", 206, 100),
+    ];
     const lines = clusterIntoLines(strokes);
     expect(lines).toHaveLength(1);
     expect(lines[0].map((s) => s.id).sort()).toEqual(["a", "b", "c", "d"]);
@@ -84,7 +111,14 @@ describe("textBoxForInk", () => {
     expect(box.y + box.h / 2).toBeCloseTo(115, 0);
   });
   it("uses the median letter height", () => {
-    const bar = (id: string, h: number): InkStroke => ({ id, points: [{ x: 0, y: 0 }, { x: 2, y: h / 2 }, { x: 0, y: h }] });
+    const bar = (id: string, h: number): InkStroke => ({
+      id,
+      points: [
+        { x: 0, y: 0 },
+        { x: 2, y: h / 2 },
+        { x: 0, y: h },
+      ],
+    });
     expect(typicalLetterHeight([bar("a", 20), bar("b", 22), bar("c", 60), bar("dot", 3)])).toBe(22);
   });
 });

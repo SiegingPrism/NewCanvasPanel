@@ -26,7 +26,13 @@ export function HandwritingLanguageDialog({
   /** "write": the language you write in. "translate": the language to translate into. */
   mode?: "write" | "translate";
 }) {
-  const { language: writeLanguage, setLanguage, translateTo, chooseTranslateLanguage, translatePickerForSelection } = useInk();
+  const {
+    language: writeLanguage,
+    setLanguage,
+    translateTo,
+    chooseTranslateLanguage,
+    translatePickerForSelection,
+  } = useInk();
   const [currentMode, setCurrentMode] = useState<"write" | "translate">(mode);
 
   useEffect(() => {
@@ -74,7 +80,9 @@ export function HandwritingLanguageDialog({
   };
 
   const indianCount = SUPPORTED_LANGUAGES.filter((l) => l.category === "indian").length;
-  const internationalCount = SUPPORTED_LANGUAGES.filter((l) => l.category === "international").length;
+  const internationalCount = SUPPORTED_LANGUAGES.filter(
+    (l) => l.category === "international",
+  ).length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -95,20 +103,24 @@ export function HandwritingLanguageDialog({
         <DialogHeader className="p-4 pb-2 border-b border-slate-100 dark:border-slate-800 space-y-1">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${isTranslate ? "bg-violet-500/10 text-violet-600 dark:bg-violet-500/20 dark:text-violet-400" : "bg-orange-500/10 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400"}`}>
+              <div
+                className={`flex h-8 w-8 items-center justify-center rounded-lg ${isTranslate ? "bg-violet-500/10 text-violet-600 dark:bg-violet-500/20 dark:text-violet-400" : "bg-orange-500/10 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400"}`}
+              >
                 <Languages className="h-4 w-4" />
               </div>
               <div>
                 <DialogTitle className="text-base font-semibold">
                   {isTranslate
-                    ? (translatePickerForSelection ? "Translate Selection — Target" : "Slate Translate — Target")
+                    ? translatePickerForSelection
+                      ? "Translate Selection — Target"
+                      : "Slate Translate — Target"
                     : "Handwriting Language"}
                 </DialogTitle>
                 <DialogDescription className="text-xs text-muted-foreground">
                   {isTranslate
-                    ? (translatePickerForSelection
-                        ? "Translate selected ink or text into this language"
-                        : "Converts writing into authentic native handwriting")
+                    ? translatePickerForSelection
+                      ? "Translate selected ink or text into this language"
+                      : "Converts writing into authentic native handwriting"
                     : "Select script for direct handwriting transcription"}
                 </DialogDescription>
               </div>
@@ -264,9 +276,13 @@ export function HandwritingLanguageDialog({
         <div className="p-3 bg-slate-50 dark:bg-slate-900/60 border-t border-slate-100 dark:border-slate-800 text-[11px] text-muted-foreground flex items-center justify-between">
           <span>
             {isTranslate ? "Translating into" : "Active"}:{" "}
-            <strong className="text-foreground">{current.name} ({current.nativeName})</strong>
+            <strong className="text-foreground">
+              {current.name} ({current.nativeName})
+            </strong>
           </span>
-          <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">● Online AI Ready</span>
+          <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+            ● Online AI Ready
+          </span>
         </div>
       </DialogContent>
     </Dialog>

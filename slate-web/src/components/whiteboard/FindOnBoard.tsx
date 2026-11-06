@@ -5,7 +5,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronUp, Loader2, PenLine, Search, Type, X } from "lucide-react";
 import type { CanvasObject, Point } from "@/lib/whiteboard/types";
-import { WRITING_KINDS, clusterIntoLines, strokesBounds, type InkStroke, type Rect } from "@/lib/ink/inkGeometry";
+import {
+  WRITING_KINDS,
+  clusterIntoLines,
+  strokesBounds,
+  type InkStroke,
+  type Rect,
+} from "@/lib/ink/inkGeometry";
 import { recognizeInk, recognitionAvailable } from "@/lib/ink/recognizer";
 import { cn } from "@/lib/utils";
 
@@ -15,10 +21,24 @@ type StrokeLike = Extract<CanvasObject, { points: Point[] }>;
 const isStroke = (o: CanvasObject): o is StrokeLike =>
   Array.isArray((o as { points?: unknown }).points) && o.kind !== "shape";
 
-const TEXT_FIELDS = ["text", "translatedFrom", "label", "title", "front", "back", "question", "topic", "latex", "solution"] as const;
+const TEXT_FIELDS = [
+  "text",
+  "translatedFrom",
+  "label",
+  "title",
+  "front",
+  "back",
+  "question",
+  "topic",
+  "latex",
+  "solution",
+] as const;
 
 /** Every searchable piece of text on a page, with where it is. */
-export function searchableItems(objects: CanvasObject[], boundsOf: (o: CanvasObject) => Rect): FindHit[] {
+export function searchableItems(
+  objects: CanvasObject[],
+  boundsOf: (o: CanvasObject) => Rect,
+): FindHit[] {
   const items: FindHit[] = [];
   const groups = new Map<string, StrokeLike[]>();
   for (const o of objects) {
@@ -27,8 +47,11 @@ export function searchableItems(objects: CanvasObject[], boundsOf: (o: CanvasObj
       continue;
     }
     const rec = o as unknown as Record<string, unknown>;
-    const parts = TEXT_FIELDS.map((f) => rec[f]).filter((v): v is string => typeof v === "string" && !!v.trim());
-    if (parts.length) items.push({ key: o.id, text: parts.join(" · "), rect: boundsOf(o), handwriting: false });
+    const parts = TEXT_FIELDS.map((f) => rec[f]).filter(
+      (v): v is string => typeof v === "string" && !!v.trim(),
+    );
+    if (parts.length)
+      items.push({ key: o.id, text: parts.join(" · "), rect: boundsOf(o), handwriting: false });
   }
   for (const [gid, strokes] of groups) {
     const text = strokes.find((s) => s.inkText)?.inkText;
@@ -86,7 +109,9 @@ export function FindOnBoard({
 
   const unreadLines = useMemo(() => {
     if (!open) return [] as InkStroke[][];
-    const ink = getObjects().filter((o): o is StrokeLike => isStroke(o) && WRITING_KINDS.has(o.kind) && !o.inkGroup);
+    const ink = getObjects().filter(
+      (o): o is StrokeLike => isStroke(o) && WRITING_KINDS.has(o.kind) && !o.inkGroup,
+    );
     return clusterIntoLines(ink.map((o) => ({ id: o.id, points: o.points })));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, version]);
@@ -106,7 +131,13 @@ export function FindOnBoard({
         const first = batch[i][0].id;
         setObjects(
           getObjects().map((o) =>
-            ids.has(o.id) ? ({ ...o, inkGroup: gid, inkText: o.id === first ? res.text : undefined } as CanvasObject) : o,
+            ids.has(o.id)
+              ? ({
+                  ...o,
+                  inkGroup: gid,
+                  inkText: o.id === first ? res.text : undefined,
+                } as CanvasObject)
+              : o,
           ),
         );
       }
@@ -158,17 +189,37 @@ export function FindOnBoard({
           className="min-w-0 flex-1 bg-transparent px-1 py-1.5 text-sm outline-none placeholder:text-muted-foreground"
         />
         {query && (
-          <span className="shrink-0 text-xs tabular-nums text-muted-foreground" data-testid="find-count">
+          <span
+            className="shrink-0 text-xs tabular-nums text-muted-foreground"
+            data-testid="find-count"
+          >
             {hits.length ? `${index + 1}/${hits.length}` : "0"}
           </span>
         )}
-        <button type="button" aria-label="Previous match" onClick={() => go(-1)} disabled={!hits.length} className="rounded-md p-1 hover:bg-accent disabled:opacity-40">
+        <button
+          type="button"
+          aria-label="Previous match"
+          onClick={() => go(-1)}
+          disabled={!hits.length}
+          className="rounded-md p-1 hover:bg-accent disabled:opacity-40"
+        >
           <ChevronUp className="h-4 w-4" />
         </button>
-        <button type="button" aria-label="Next match" onClick={() => go(1)} disabled={!hits.length} className="rounded-md p-1 hover:bg-accent disabled:opacity-40">
+        <button
+          type="button"
+          aria-label="Next match"
+          onClick={() => go(1)}
+          disabled={!hits.length}
+          className="rounded-md p-1 hover:bg-accent disabled:opacity-40"
+        >
           <ChevronDown className="h-4 w-4" />
         </button>
-        <button type="button" aria-label="Close find" onClick={onClose} className="rounded-md p-1 hover:bg-accent">
+        <button
+          type="button"
+          aria-label="Close find"
+          onClick={onClose}
+          className="rounded-md p-1 hover:bg-accent"
+        >
           <X className="h-4 w-4" />
         </button>
       </div>
@@ -213,9 +264,14 @@ export function FindOnBoard({
             <>
               <PenLine className="h-3 w-3" />
               <span className="flex-1">
-                {unreadLines.length} line{unreadLines.length === 1 ? "" : "s"} of handwriting not searchable yet
+                {unreadLines.length} line{unreadLines.length === 1 ? "" : "s"} of handwriting not
+                searchable yet
               </span>
-              <button type="button" onClick={() => readHandwriting(unreadLines)} className="font-medium text-primary hover:underline">
+              <button
+                type="button"
+                onClick={() => readHandwriting(unreadLines)}
+                className="font-medium text-primary hover:underline"
+              >
                 Read it
               </button>
             </>

@@ -1,5 +1,10 @@
 import { useRef, useState } from "react";
-import { useWhiteboard, syncRetryQueue, persistSyncRetryQueue, type BoardMeta } from "@/lib/whiteboard/store";
+import {
+  useWhiteboard,
+  syncRetryQueue,
+  persistSyncRetryQueue,
+  type BoardMeta,
+} from "@/lib/whiteboard/store";
 import type { ImageObject, PageBackground, Page } from "@/lib/whiteboard/types";
 import {
   Upload,
@@ -50,7 +55,13 @@ import {
 } from "lucide-react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { exportLessonFile, importLessonFile } from "@/lib/whiteboard/lessonFiles";
 import jsPDF from "jspdf";
 import QRCode from "qrcode";
@@ -176,7 +187,9 @@ export function TopBar({
   const confirmEndClass = async () => {
     const currentUser = useAuth.getState().user;
     if (!currentUser) {
-      setEndClassError("No teacher account is signed in on this smart board. Notes cannot be uploaded to the cloud.");
+      setEndClassError(
+        "No teacher account is signed in on this smart board. Notes cannot be uploaded to the cloud.",
+      );
       return;
     }
 
@@ -189,18 +202,19 @@ export function TopBar({
       const boardsToUpload: Array<{ meta: BoardMeta; pages: Page[] }> = [];
 
       // Current active board first
-      const activeMeta: BoardMeta = activeBoardId && boards[activeBoardId]
-        ? boards[activeBoardId]
-        : {
-            id: activeBoardId || uid(),
-            title: boardTitle || "Untitled board",
-            tags: [],
-            folderId: null,
-            favorite: false,
-            archived: false,
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
-          };
+      const activeMeta: BoardMeta =
+        activeBoardId && boards[activeBoardId]
+          ? boards[activeBoardId]
+          : {
+              id: activeBoardId || uid(),
+              title: boardTitle || "Untitled board",
+              tags: [],
+              folderId: null,
+              favorite: false,
+              archived: false,
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+            };
       if (pages && Array.isArray(pages) && pages.length > 0) {
         boardsToUpload.push({ meta: activeMeta, pages });
       }
@@ -241,7 +255,9 @@ export function TopBar({
 
       if (!allSucceeded) {
         setEndClassSaving(false);
-        setEndClassError("Cloud upload failed for one or more session boards. Please download a lesson file (.slate) to save your work.");
+        setEndClassError(
+          "Cloud upload failed for one or more session boards. Please download a lesson file (.slate) to save your work.",
+        );
         return;
       }
 
@@ -259,7 +275,9 @@ export function TopBar({
       setEndClassDialogOpen(false);
     } catch {
       setEndClassSaving(false);
-      setEndClassError("Cloud upload encountered an error. Please download a lesson file (.slate) before clearing.");
+      setEndClassError(
+        "Cloud upload encountered an error. Please download a lesson file (.slate) before clearing.",
+      );
     }
   };
 
@@ -310,8 +328,12 @@ export function TopBar({
     const pageStrings = extractBoardSearchStrings({ pages: activePage ? [activePage] : pages });
     const boardContext = [
       boardTitle ? `Board Title: "${boardTitle}"` : "",
-      pageStrings.length > 0 ? `Text & Formulas on Board: ${pageStrings.slice(0, 15).join("; ")}` : "",
-    ].filter(Boolean).join("\n");
+      pageStrings.length > 0
+        ? `Text & Formulas on Board: ${pageStrings.slice(0, 15).join("; ")}`
+        : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
 
     try {
       const res = await AIEngine.explainBoard(img, boardContext);
@@ -355,9 +377,7 @@ export function TopBar({
   const idx = pages.findIndex((p) => p.id === activePageId);
   const page = pages[idx] || pages[0];
   const isDark =
-    page?.background === "blackboard" ||
-    page?.background === "oled" ||
-    page?.background === "dark";
+    page?.background === "blackboard" || page?.background === "oled" || page?.background === "dark";
   const pad2 = (n: number) => n.toString().padStart(2, "0");
 
   function exportPNG() {
@@ -434,8 +454,11 @@ export function TopBar({
         window.location.protocol === "file:" ||
         window.location.protocol === "capacitor:";
 
-      const targetOrigin = isLocalOrApp && publicAppOrigin ? publicAppOrigin : window.location.origin;
-      const targetUrl = activeBoardId ? `${targetOrigin}/board/${activeBoardId}` : window.location.href;
+      const targetOrigin =
+        isLocalOrApp && publicAppOrigin ? publicAppOrigin : window.location.origin;
+      const targetUrl = activeBoardId
+        ? `${targetOrigin}/board/${activeBoardId}`
+        : window.location.href;
 
       const qr = await QRCode.toDataURL(targetUrl, { margin: 1, width: 320 });
       setQrData(qr);
@@ -479,11 +502,11 @@ export function TopBar({
   const iconBtn = boardMode
     ? cn(
         "flex flex-col items-center justify-center h-16 min-w-16 px-2 rounded-2xl transition active:scale-95 shrink-0",
-        isDark ? "text-slate-200 hover:bg-slate-800" : "text-foreground hover:bg-accent/80"
+        isDark ? "text-slate-200 hover:bg-slate-800" : "text-foreground hover:bg-accent/80",
       )
     : cn(
         "grid h-7 w-7 sm:h-8 sm:w-8 place-items-center rounded-lg transition active:scale-95 shrink-0",
-        isDark ? "text-slate-200 hover:bg-slate-800" : "text-foreground hover:bg-accent/80"
+        isDark ? "text-slate-200 hover:bg-slate-800" : "text-foreground hover:bg-accent/80",
       );
   const iconSize = boardMode ? "h-6 w-6" : "h-3.5 w-3.5 sm:h-4 sm:w-4";
 
@@ -493,7 +516,7 @@ export function TopBar({
         "pointer-events-auto flex items-center gap-0.5 sm:gap-1.5 rounded-full px-2 py-1 sm:px-3 sm:py-1.5 shadow-lg ring-1 transition-colors duration-200 max-w-[calc(100vw-16px)] backdrop-blur-md",
         isDark
           ? "bg-slate-900/95 ring-slate-700/80 text-slate-100"
-          : "bg-card/95 ring-border text-foreground"
+          : "bg-card/95 ring-border text-foreground",
       )}
     >
       {/* Back to Previous Page / Dashboard */}
@@ -532,7 +555,7 @@ export function TopBar({
           }}
           className={cn(
             "hidden max-w-[140px] truncate text-xs font-semibold md:block px-1 cursor-pointer select-none",
-            isDark ? "text-slate-200 hover:text-white" : "text-foreground/80 hover:text-foreground"
+            isDark ? "text-slate-200 hover:text-white" : "text-foreground/80 hover:text-foreground",
           )}
           title="Triple-click to launch Stroke Benchmark Recorder"
         >
@@ -549,19 +572,19 @@ export function TopBar({
           syncStatus === "saving"
             ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800"
             : syncStatus === "offline"
-            ? "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border-amber-200 dark:border-amber-800"
-            : user
-            ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800"
-            : "bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300 border-sky-200 dark:border-sky-800 hover:bg-sky-100"
+              ? "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border-amber-200 dark:border-amber-800"
+              : user
+                ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800"
+                : "bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300 border-sky-200 dark:border-sky-800 hover:bg-sky-100",
         )}
         title={
           syncStatus === "saving"
             ? "Saving to teacher cloud..."
             : syncStatus === "offline"
-            ? "Offline: Edits will automatically upload when reconnected"
-            : user
-            ? `Saved & Synced (${user.email})`
-            : "Save lesson to your teacher account"
+              ? "Offline: Edits will automatically upload when reconnected"
+              : user
+                ? `Saved & Synced (${user.email})`
+                : "Save lesson to your teacher account"
         }
       >
         {syncStatus === "saving" ? (
@@ -575,10 +598,10 @@ export function TopBar({
           {syncStatus === "saving"
             ? "Saving..."
             : syncStatus === "offline"
-            ? "Offline (Will retry)"
-            : user
-            ? "Saved"
-            : "Save to Account"}
+              ? "Offline (Will retry)"
+              : user
+                ? "Saved"
+                : "Save to Account"}
         </span>
       </button>
 
@@ -588,7 +611,7 @@ export function TopBar({
         onClick={handleEndClass}
         className={cn(
           "flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-semibold transition-all select-none border border-rose-500/30 bg-rose-500/10 text-rose-600 hover:bg-rose-500/20 active:scale-95 cursor-pointer",
-          isDark ? "text-rose-400 border-rose-500/40" : "text-rose-700"
+          isDark ? "text-rose-400 border-rose-500/40" : "text-rose-700",
         )}
         title="End Class: Save board, play bell chime, and prep clean board for next period"
       >
@@ -600,7 +623,12 @@ export function TopBar({
           in Board Mode they are exclusively placed in the bottom corner strips to avoid duplicates and reachability strain */}
       {!boardMode && (
         <>
-          <div className={cn("h-3.5 sm:h-4 w-px mx-0.5 shrink-0", isDark ? "bg-slate-700/60" : "bg-border/60")} />
+          <div
+            className={cn(
+              "h-3.5 sm:h-4 w-px mx-0.5 shrink-0",
+              isDark ? "bg-slate-700/60" : "bg-border/60",
+            )}
+          />
 
           {/* Undo / Redo */}
           <button
@@ -622,7 +650,12 @@ export function TopBar({
             <Redo2 className={iconSize} />
           </button>
 
-          <div className={cn("h-3.5 sm:h-4 w-px mx-0.5 shrink-0", isDark ? "bg-slate-700/60" : "bg-border/60")} />
+          <div
+            className={cn(
+              "h-3.5 sm:h-4 w-px mx-0.5 shrink-0",
+              isDark ? "bg-slate-700/60" : "bg-border/60",
+            )}
+          />
 
           {/* Page Navigation */}
           <button
@@ -637,7 +670,7 @@ export function TopBar({
           <span
             className={cn(
               "min-w-8 sm:min-w-10 text-center text-[11px] sm:text-xs font-medium tabular-nums shrink-0 select-none",
-              isDark ? "text-slate-300" : "text-foreground/80"
+              isDark ? "text-slate-300" : "text-foreground/80",
             )}
           >
             {pad2(idx + 1)}/{pad2(pages.length)}
@@ -668,7 +701,9 @@ export function TopBar({
               sideOffset={8}
               className={cn(
                 "w-80 max-w-[calc(100vw-2rem)] rounded-2xl p-3.5 shadow-2xl space-y-2.5 border max-h-[min(78vh,520px)] overflow-y-auto",
-                isDark ? "bg-slate-900 border-slate-700 text-slate-100" : "bg-card border-border text-card-foreground"
+                isDark
+                  ? "bg-slate-900 border-slate-700 text-slate-100"
+                  : "bg-card border-border text-card-foreground",
               )}
             >
               <NewPagePickerContent
@@ -681,7 +716,12 @@ export function TopBar({
         </>
       )}
 
-      <div className={cn("h-3.5 sm:h-4 w-px mx-0.5 shrink-0", isDark ? "bg-slate-700/60" : "bg-border/60")} />
+      <div
+        className={cn(
+          "h-3.5 sm:h-4 w-px mx-0.5 shrink-0",
+          isDark ? "bg-slate-700/60" : "bg-border/60",
+        )}
+      />
 
       {/* Background & Templates Picker */}
       <Popover modal={false} open={templatePopoverOpen} onOpenChange={setTemplatePopoverOpen}>
@@ -700,7 +740,9 @@ export function TopBar({
           align="center"
           className={cn(
             "w-80 p-2.5 space-y-2 shadow-xl rounded-2xl border",
-            isDark ? "bg-slate-900 border-slate-700 text-slate-100" : "bg-card border-border text-card-foreground"
+            isDark
+              ? "bg-slate-900 border-slate-700 text-slate-100"
+              : "bg-card border-border text-card-foreground",
           )}
         >
           {/* Segmented Switch */}
@@ -762,8 +804,8 @@ export function TopBar({
                       page.background === bg.id
                         ? "bg-primary/10 text-primary font-semibold ring-1 ring-primary/20"
                         : isDark
-                        ? "hover:bg-slate-800 text-slate-200"
-                        : "hover:bg-accent text-foreground",
+                          ? "hover:bg-slate-800 text-slate-200"
+                          : "hover:bg-accent text-foreground",
                     )}
                   >
                     <span className="text-base leading-none">{bg.icon}</span>
@@ -795,7 +837,9 @@ export function TopBar({
                     }}
                     className={cn(
                       "flex w-full items-start gap-2.5 rounded-xl px-2.5 py-2 text-left transition active:scale-95 group",
-                      isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+                      isDark
+                        ? "hover:bg-slate-800 text-slate-200"
+                        : "hover:bg-accent text-foreground",
                     )}
                   >
                     <span className="text-xl leading-none mt-0.5">{t.emoji}</span>
@@ -821,7 +865,10 @@ export function TopBar({
       {/* Lecture Presentation Mode */}
       <button
         type="button"
-        className={cn(iconBtn, "hidden sm:flex text-indigo-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/30")}
+        className={cn(
+          iconBtn,
+          "hidden sm:flex text-indigo-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/30",
+        )}
         aria-label="Lecture presentation mode (full screen)"
         title="Present (full screen)"
         onClick={() => window.dispatchEvent(new CustomEvent("slate:start-presentation"))}
@@ -833,7 +880,10 @@ export function TopBar({
       {/* Board map (renamed from Radar Minimap) */}
       <button
         type="button"
-        className={cn(iconBtn, "hidden sm:flex text-sky-500 hover:text-sky-600 hover:bg-sky-50 dark:hover:bg-sky-950/30")}
+        className={cn(
+          iconBtn,
+          "hidden sm:flex text-sky-500 hover:text-sky-600 hover:bg-sky-50 dark:hover:bg-sky-950/30",
+        )}
         aria-label="Toggle board navigation map"
         title="Board map"
         onClick={() => window.dispatchEvent(new CustomEvent("slate:toggle-minimap"))}
@@ -859,12 +909,7 @@ export function TopBar({
       {/* Burger Menu */}
       <Popover modal={false} open={menuOpen} onOpenChange={setMenuOpen}>
         <PopoverTrigger asChild>
-          <button
-            type="button"
-            className={iconBtn}
-            aria-label="Main menu"
-            title="Menu"
-          >
+          <button type="button" className={iconBtn} aria-label="Main menu" title="Menu">
             <Menu className={iconSize} />
             {boardMode && <span className="text-[11px] font-bold mt-0.5 leading-none">Menu</span>}
           </button>
@@ -873,7 +918,9 @@ export function TopBar({
           align="end"
           className={cn(
             "w-56 p-1.5 space-y-1 shadow-xl rounded-2xl border max-h-[85vh] overflow-y-auto",
-            isDark ? "bg-slate-900 border-slate-700 text-slate-100" : "bg-card border-border text-foreground"
+            isDark
+              ? "bg-slate-900 border-slate-700 text-slate-100"
+              : "bg-card border-border text-foreground",
           )}
         >
           {/* AI Features */}
@@ -884,7 +931,7 @@ export function TopBar({
               title="AI Lesson Builder"
               className={cn(
                 "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-semibold text-indigo-600 dark:text-indigo-400 transition",
-                isDark ? "hover:bg-slate-800" : "hover:bg-accent"
+                isDark ? "hover:bg-slate-800" : "hover:bg-accent",
               )}
               onClick={() => {
                 setMenuOpen(false);
@@ -901,7 +948,7 @@ export function TopBar({
             title="AI Assistant"
             className={cn(
               "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-semibold text-primary transition",
-              isDark ? "hover:bg-slate-800" : "hover:bg-accent"
+              isDark ? "hover:bg-slate-800" : "hover:bg-accent",
             )}
             onClick={() => {
               setMenuOpen(false);
@@ -917,7 +964,7 @@ export function TopBar({
             title="Explain Board"
             className={cn(
               "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
-              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground",
             )}
             onClick={() => {
               setMenuOpen(false);
@@ -933,7 +980,7 @@ export function TopBar({
             title="Generate AI Mind-Map"
             className={cn(
               "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
-              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground",
             )}
             onClick={() => {
               setMenuOpen(false);
@@ -949,7 +996,7 @@ export function TopBar({
             title="PDF & Docs Intelligence"
             className={cn(
               "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
-              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground",
             )}
             onClick={() => {
               setMenuOpen(false);
@@ -965,7 +1012,7 @@ export function TopBar({
             title="Plot 2D Math Function"
             className={cn(
               "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
-              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground",
             )}
             onClick={() => {
               setMenuOpen(false);
@@ -981,7 +1028,7 @@ export function TopBar({
             title="Math Formula (LaTeX)"
             className={cn(
               "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
-              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground",
             )}
             onClick={() => {
               setMenuOpen(false);
@@ -997,7 +1044,7 @@ export function TopBar({
             title="Solve Written Math"
             className={cn(
               "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
-              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground",
             )}
             onClick={() => {
               setMenuOpen(false);
@@ -1013,7 +1060,7 @@ export function TopBar({
             title="Settings"
             className={cn(
               "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
-              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground",
             )}
             onClick={() => {
               setMenuOpen(false);
@@ -1032,12 +1079,16 @@ export function TopBar({
             title="Smart Board Layout"
             className={cn(
               "flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-xs font-bold text-primary transition",
-              isDark ? "hover:bg-slate-800" : "hover:bg-accent"
+              isDark ? "hover:bg-slate-800" : "hover:bg-accent",
             )}
             onClick={() => {
               setMenuOpen(false);
               toggleBoardMode();
-              toast(boardMode ? "Switched to Standard Toolbar" : "Switched to Smart Board Mode (Dual Docks)");
+              toast(
+                boardMode
+                  ? "Switched to Standard Toolbar"
+                  : "Switched to Smart Board Mode (Dual Docks)",
+              );
             }}
           >
             <div className="flex items-center gap-2">
@@ -1054,7 +1105,7 @@ export function TopBar({
             title={`Board Setup (${panelSize}")`}
             className={cn(
               "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
-              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground",
             )}
             onClick={() => {
               setMenuOpen(false);
@@ -1070,7 +1121,7 @@ export function TopBar({
             title="60s Smart Board Tour"
             className={cn(
               "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
-              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground",
             )}
             onClick={() => {
               setMenuOpen(false);
@@ -1086,7 +1137,7 @@ export function TopBar({
             title="Classroom Live Poll"
             className={cn(
               "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
-              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground",
             )}
             onClick={() => {
               setMenuOpen(false);
@@ -1102,7 +1153,7 @@ export function TopBar({
             title="Share Notes via QR"
             className={cn(
               "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
-              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground",
             )}
             onClick={() => {
               setMenuOpen(false);
@@ -1118,7 +1169,7 @@ export function TopBar({
             title="Timer & Name Picker"
             className={cn(
               "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
-              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground",
             )}
             onClick={() => {
               setMenuOpen(false);
@@ -1134,7 +1185,7 @@ export function TopBar({
             title="Drag & Drop Activities"
             className={cn(
               "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
-              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground",
             )}
             onClick={() => {
               setMenuOpen(false);
@@ -1150,7 +1201,7 @@ export function TopBar({
             title="Save to Cloud Account"
             className={cn(
               "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
-              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground",
             )}
             onClick={() => {
               setMenuOpen(false);
@@ -1166,7 +1217,7 @@ export function TopBar({
             title="Page Sorter Grid"
             className={cn(
               "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
-              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground",
             )}
             onClick={() => {
               setMenuOpen(false);
@@ -1186,7 +1237,7 @@ export function TopBar({
             title="Find on Board (Ctrl+F)"
             className={cn(
               "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
-              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground",
             )}
             onClick={() => {
               setMenuOpen(false);
@@ -1202,7 +1253,7 @@ export function TopBar({
             title="Widgets"
             className={cn(
               "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
-              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground",
             )}
             onClick={() => {
               setMenuOpen(false);
@@ -1218,7 +1269,7 @@ export function TopBar({
             title="Feature Guide & Tutorial"
             className={cn(
               "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
-              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground",
             )}
             onClick={() => {
               setMenuOpen(false);
@@ -1234,7 +1285,7 @@ export function TopBar({
             title="Lecture Presentation"
             className={cn(
               "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
-              isDark ? "hover:bg-slate-800 text-indigo-400" : "hover:bg-accent text-indigo-500"
+              isDark ? "hover:bg-slate-800 text-indigo-400" : "hover:bg-accent text-indigo-500",
             )}
             onClick={() => {
               setMenuOpen(false);
@@ -1250,7 +1301,7 @@ export function TopBar({
             title="Board map"
             className={cn(
               "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
-              isDark ? "hover:bg-slate-800 text-sky-400" : "hover:bg-accent text-sky-500"
+              isDark ? "hover:bg-slate-800 text-sky-400" : "hover:bg-accent text-sky-500",
             )}
             onClick={() => {
               setMenuOpen(false);
@@ -1266,7 +1317,7 @@ export function TopBar({
             title="Auto-Frame Slides"
             className={cn(
               "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
-              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground",
             )}
             onClick={() => {
               setMenuOpen(false);
@@ -1282,11 +1333,16 @@ export function TopBar({
             title="Save Lesson File (.slate)"
             className={cn(
               "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
-              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground",
             )}
             onClick={() => {
               setMenuOpen(false);
-              exportLessonFile(activeBoardId && boards?.[activeBoardId]?.title ? boards[activeBoardId].title : "Lesson", pages);
+              exportLessonFile(
+                activeBoardId && boards?.[activeBoardId]?.title
+                  ? boards[activeBoardId].title
+                  : "Lesson",
+                pages,
+              );
             }}
           >
             <Save className="h-3.5 w-3.5 text-indigo-400" />
@@ -1298,7 +1354,7 @@ export function TopBar({
             title="Open Lesson File (.slate)"
             className={cn(
               "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
-              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground",
             )}
             onClick={() => {
               setMenuOpen(false);
@@ -1314,7 +1370,7 @@ export function TopBar({
             title="Import Image"
             className={cn(
               "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
-              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground",
             )}
             onClick={() => {
               setMenuOpen(false);
@@ -1330,7 +1386,7 @@ export function TopBar({
             title="Export PNG"
             className={cn(
               "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
-              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground",
             )}
             onClick={() => {
               setMenuOpen(false);
@@ -1346,7 +1402,7 @@ export function TopBar({
             title="Export PDF"
             className={cn(
               "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
-              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground",
             )}
             onClick={() => {
               setMenuOpen(false);
@@ -1362,7 +1418,7 @@ export function TopBar({
             title="Share Board (QR Code)"
             className={cn(
               "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
-              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground",
             )}
             onClick={() => {
               setMenuOpen(false);
@@ -1381,14 +1437,16 @@ export function TopBar({
             title={user ? "Account & Cloud Sync" : "Sign In to Slate"}
             className={cn(
               "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
-              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground"
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground",
             )}
             onClick={() => {
               setMenuOpen(false);
               setAuthOpen(true);
             }}
           >
-            <ShieldCheck className={cn("h-3.5 w-3.5", user ? "text-emerald-500" : "text-primary")} />
+            <ShieldCheck
+              className={cn("h-3.5 w-3.5", user ? "text-emerald-500" : "text-primary")}
+            />
             <span>{user ? "Account & Cloud Sync" : "Sign In to Slate"}</span>
           </button>
         </PopoverContent>
@@ -1463,7 +1521,8 @@ export function TopBar({
               AI Visual Board Explanation
             </DialogTitle>
             <DialogDescription>
-              Multimodal vision analysis of all strokes, geometric diagrams, equations, and elements on canvas.
+              Multimodal vision analysis of all strokes, geometric diagrams, equations, and elements
+              on canvas.
             </DialogDescription>
           </DialogHeader>
 
@@ -1488,8 +1547,12 @@ export function TopBar({
             ) : explainData ? (
               <div className="space-y-3 animate-in fade-in">
                 <div className="p-3.5 rounded-xl border border-primary/20 bg-primary/5">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-primary">Overview</h4>
-                  <p className="text-xs text-foreground mt-1 leading-relaxed">{explainData.summary}</p>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-primary">
+                    Overview
+                  </h4>
+                  <p className="text-xs text-foreground mt-1 leading-relaxed">
+                    {explainData.summary}
+                  </p>
                 </div>
 
                 {explainData.breakdown.length > 0 && (
@@ -1499,7 +1562,10 @@ export function TopBar({
                     </h4>
                     <ul className="space-y-1">
                       {explainData.breakdown.map((item, idx) => (
-                        <li key={idx} className="text-xs text-foreground/90 flex items-start gap-1.5">
+                        <li
+                          key={idx}
+                          className="text-xs text-foreground/90 flex items-start gap-1.5"
+                        >
                           <span className="text-primary font-bold">•</span> {item}
                         </li>
                       ))}
@@ -1514,7 +1580,10 @@ export function TopBar({
                     </h4>
                     <ul className="space-y-1">
                       {explainData.recommendations.map((rec, idx) => (
-                        <li key={idx} className="text-xs text-foreground/90 flex items-start gap-1.5">
+                        <li
+                          key={idx}
+                          className="text-xs text-foreground/90 flex items-start gap-1.5"
+                        >
                           <span className="text-emerald-500 font-bold">✓</span> {rec}
                         </li>
                       ))}
@@ -1538,28 +1607,16 @@ export function TopBar({
       />
 
       {/* Math Formula Dialog */}
-      <MathFormulaDialog
-        open={mathFormulaOpen}
-        onOpenChange={setMathFormulaOpen}
-      />
+      <MathFormulaDialog open={mathFormulaOpen} onOpenChange={setMathFormulaOpen} />
 
       {/* Feature Guide & Tutorial Tour */}
-      <FeatureTourDialog
-        open={tourOpen}
-        onOpenChange={setTourOpen}
-      />
+      <FeatureTourDialog open={tourOpen} onOpenChange={setTourOpen} />
 
       {/* AI Mind-Map Generator Dialog */}
-      <GenerateMindMapDialog
-        open={mindMapDialogOpen}
-        onOpenChange={setMindMapDialogOpen}
-      />
+      <GenerateMindMapDialog open={mindMapDialogOpen} onOpenChange={setMindMapDialogOpen} />
 
       {/* Slide & Document Import Dialog */}
-      <DocumentImportDialog
-        open={docImportOpen}
-        onOpenChange={setDocImportOpen}
-      />
+      <DocumentImportDialog open={docImportOpen} onOpenChange={setDocImportOpen} />
 
       {/* Account & Cloud Sync Dialog */}
       <AuthDialog open={authOpen} onOpenChange={setAuthOpen} />
@@ -1573,7 +1630,8 @@ export function TopBar({
               <span>End Current Class Period?</span>
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground mt-1">
-              Dismiss the class, chime the bell, back up all notes to your cloud account, and reset the board cleanly for the next teacher.
+              Dismiss the class, chime the bell, back up all notes to your cloud account, and reset
+              the board cleanly for the next teacher.
             </DialogDescription>
           </DialogHeader>
 
@@ -1583,7 +1641,8 @@ export function TopBar({
               <div className="flex-1 space-y-2">
                 <p className="font-semibold text-foreground">{endClassError}</p>
                 <p className="text-[11px] text-muted-foreground">
-                  To keep your work safe before resetting the board, download a portable .slate lesson file to your USB drive or device:
+                  To keep your work safe before resetting the board, download a portable .slate
+                  lesson file to your USB drive or device:
                 </p>
                 <button
                   type="button"
@@ -1616,7 +1675,11 @@ export function TopBar({
                     onClick={confirmEndClass}
                     className="px-4 py-2 rounded-xl border border-primary/40 bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold transition active:scale-95 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                   >
-                    {endClassSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                    {endClassSaving ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Save className="h-3.5 w-3.5" />
+                    )}
                     <span>Retry Cloud Save</span>
                   </button>
                 )}

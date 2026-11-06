@@ -11,9 +11,26 @@ describe("extractBoardSearchStrings", () => {
           objects: [
             { id: "1", kind: "formula", latex: "\\int x^2 dx", solution: "x^3 / 3 + C" },
             { id: "2", kind: "graph", fn: "x^2 - 4", title: "Parabola f(x)" },
-            { id: "3", kind: "mind-map", topic: "Photosynthesis", rootNode: { title: "Light Reactions", children: [{ title: "Calvin Cycle" }] } },
-            { id: "4", kind: "table", data: [["Time", "Velocity"], ["0", "9.8"]] },
-            { id: "5", kind: "quiz", question: "What is ATP?", options: ["Energy", "DNA", "Lipid"] },
+            {
+              id: "3",
+              kind: "mind-map",
+              topic: "Photosynthesis",
+              rootNode: { title: "Light Reactions", children: [{ title: "Calvin Cycle" }] },
+            },
+            {
+              id: "4",
+              kind: "table",
+              data: [
+                ["Time", "Velocity"],
+                ["0", "9.8"],
+              ],
+            },
+            {
+              id: "5",
+              kind: "quiz",
+              question: "What is ATP?",
+              options: ["Energy", "DNA", "Lipid"],
+            },
             { id: "6", kind: "text", text: "Physics Lecture Notes" },
           ],
         },
@@ -59,7 +76,16 @@ describe("semanticSearch with BM25", () => {
           id: "p1",
           background: "white",
           objects: [
-            { id: "o1", kind: "formula", latex: "E = mc^2", label: "mass-energy equivalence", x: 0, y: 0, w: 100, h: 50 },
+            {
+              id: "o1",
+              kind: "formula",
+              latex: "E = mc^2",
+              label: "mass-energy equivalence",
+              x: 0,
+              y: 0,
+              w: 100,
+              h: 50,
+            },
           ],
         },
       ],

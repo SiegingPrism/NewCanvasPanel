@@ -62,6 +62,8 @@ describe("Lesson Files (.slate bundle)", () => {
       type: "application/json",
     });
 
-    await expect(importLessonFile(invalidFile)).rejects.toThrow("Invalid .slate lesson file format.");
+    await expect(importLessonFile(invalidFile)).rejects.toThrow(
+      "Invalid .slate lesson file format.",
+    );
   });
 });

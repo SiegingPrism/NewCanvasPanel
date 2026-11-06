@@ -183,14 +183,14 @@ export type PptxImportResult = {
 
 export async function parsePptxFile(
   fileOrBuffer: File | ArrayBuffer | Blob | Uint8Array,
-  onProgress?: (current: number, total: number) => void
+  onProgress?: (current: number, total: number) => void,
 ): Promise<PptxImportResult> {
   let zip: JSZip;
   try {
     zip = await JSZip.loadAsync(fileOrBuffer);
   } catch (err: any) {
     throw new Error(
-      "Failed to read presentation file. Ensure this is a valid modern .pptx presentation (Office Open XML)."
+      "Failed to read presentation file. Ensure this is a valid modern .pptx presentation (Office Open XML).",
     );
   }
 
@@ -397,7 +397,10 @@ export async function parsePptxFile(
             const phType = ph ? ph.getAttribute("type") : null;
             if (!phType || phType === "body") {
               const textNodes = Array.from(sp.getElementsByTagName("a:t"));
-              const t = textNodes.map((tn) => tn.textContent || "").join("").trim();
+              const t = textNodes
+                .map((tn) => tn.textContent || "")
+                .join("")
+                .trim();
               if (t) notesLines.push(t);
             }
           }
@@ -419,7 +422,7 @@ export async function parsePptxFile(
         const r = parseInt(bgClr.slice(1, 3), 16);
         const g = parseInt(bgClr.slice(3, 5), 16);
         const b = parseInt(bgClr.slice(5, 7), 16);
-        const lum = (0.299 * r + 0.587 * g + 0.114 * b);
+        const lum = 0.299 * r + 0.587 * g + 0.114 * b;
         if (lum < 100) isDarkBg = true;
       }
     }
@@ -432,11 +435,24 @@ export async function parsePptxFile(
     // Helper to read position and size
     const getXfrmCoords = (
       spPrEl: Element | null,
-      parentBounds?: { x: number; y: number; w: number; h: number; chX: number; chY: number; chW: number; chH: number }
+      parentBounds?: {
+        x: number;
+        y: number;
+        w: number;
+        h: number;
+        chX: number;
+        chY: number;
+        chW: number;
+        chH: number;
+      },
     ) => {
       if (!spPrEl) return null;
-      let xfrm = spPrEl.getElementsByTagName("a:xfrm")[0] || spPrEl.getElementsByTagName("p:xfrm")[0];
-      if (!xfrm && (spPrEl.tagName === "a:xfrm" || spPrEl.tagName === "p:xfrm" || spPrEl.localName === "xfrm")) {
+      let xfrm =
+        spPrEl.getElementsByTagName("a:xfrm")[0] || spPrEl.getElementsByTagName("p:xfrm")[0];
+      if (
+        !xfrm &&
+        (spPrEl.tagName === "a:xfrm" || spPrEl.tagName === "p:xfrm" || spPrEl.localName === "xfrm")
+      ) {
         xfrm = spPrEl;
       }
       if (!xfrm) return null;
@@ -471,7 +487,10 @@ export async function parsePptxFile(
     };
 
     // Helper to extract image from an <a:blip> element
-    const processBlip = async (blipEl: Element | null, coords: { x: number; y: number; w: number; h: number }) => {
+    const processBlip = async (
+      blipEl: Element | null,
+      coords: { x: number; y: number; w: number; h: number },
+    ) => {
       if (!blipEl) return;
       const rId = blipEl.getAttribute("r:embed") || blipEl.getAttribute("r:link");
       if (!rId) return;
@@ -600,13 +619,20 @@ export async function parsePptxFile(
       if (fullText) {
         // Text is present
         const calculatedFontSize =
-          fontRunsCount > 0 ? Math.round(totalFontSize / fontRunsCount) : textLines.length === 1 ? 28 : 20;
+          fontRunsCount > 0
+            ? Math.round(totalFontSize / fontRunsCount)
+            : textLines.length === 1
+              ? 28
+              : 20;
         const fontSizePx = Math.min(48, Math.max(14, calculatedFontSize));
 
         // Detect if this is likely the slide title
         const ph = spEl.getElementsByTagName("p:ph")[0];
         const phType = ph?.getAttribute("type");
-        const isTitle = phType === "title" || phType === "ctrTitle" || (!discoveredTitle && textLines.length === 1);
+        const isTitle =
+          phType === "title" ||
+          phType === "ctrTitle" ||
+          (!discoveredTitle && textLines.length === 1);
         if (isTitle && !discoveredTitle) {
           discoveredTitle = textLines[0];
         }
@@ -655,7 +681,7 @@ export async function parsePptxFile(
     // Process Tables (<a:tbl> inside <p:graphicFrame>)
     const tablesList: TableObject[] = [];
     const graphicFrames = Array.from(doc.getElementsByTagName("*")).filter(
-      (el) => (el.localName || el.tagName).toLowerCase() === "graphicframe"
+      (el) => (el.localName || el.tagName).toLowerCase() === "graphicframe",
     );
     for (const gf of graphicFrames) {
       if (isInsideGroup(gf)) continue;
@@ -694,7 +720,11 @@ export async function parsePptxFile(
         for (const tc of tcs) {
           const paras = Array.from(tc.getElementsByTagName("a:p"));
           const cellStr = paras
-            .map((p) => Array.from(p.getElementsByTagName("a:t")).map((t) => t.textContent || "").join(""))
+            .map((p) =>
+              Array.from(p.getElementsByTagName("a:t"))
+                .map((t) => t.textContent || "")
+                .join(""),
+            )
             .join("\n")
             .trim();
           rowCells.push(cellStr);
@@ -854,7 +884,11 @@ export async function parsePptxFile(
 
         if (fullText) {
           const calculatedFontSize =
-            fontRunsCount > 0 ? Math.round(totalFontSize / fontRunsCount) : textLines.length === 1 ? 24 : 18;
+            fontRunsCount > 0
+              ? Math.round(totalFontSize / fontRunsCount)
+              : textLines.length === 1
+                ? 24
+                : 18;
           const fontSizePx = Math.min(48, Math.max(14, calculatedFontSize));
           const textColor = detectedTextColor || (isDarkBg ? "#f8fafc" : "#0f172a");
 
@@ -911,7 +945,11 @@ export async function parsePptxFile(
           for (const tc of tcs) {
             const paras = Array.from(tc.getElementsByTagName("a:p"));
             const cellStr = paras
-              .map((p) => Array.from(p.getElementsByTagName("a:t")).map((t) => t.textContent || "").join(""))
+              .map((p) =>
+                Array.from(p.getElementsByTagName("a:t"))
+                  .map((t) => t.textContent || "")
+                  .join(""),
+              )
               .join("\n")
               .trim();
             rowCells.push(cellStr);
@@ -943,7 +981,7 @@ export async function parsePptxFile(
     };
 
     const grpSpElements = Array.from(doc.getElementsByTagName("*")).filter(
-      (el) => (el.localName || el.tagName).toLowerCase() === "grpsp"
+      (el) => (el.localName || el.tagName).toLowerCase() === "grpsp",
     );
     for (const grpEl of grpSpElements) {
       if (!isInsideGroup(grpEl)) {
@@ -980,7 +1018,10 @@ export async function parsePptxFile(
             y: OFFSET_Y + 120,
             w: FRAME_W - 80,
             h: Math.min(480, (fallbackParas.length - 1) * 36),
-            text: fallbackParas.slice(1).map((l) => `• ${l}`).join("\n\n"),
+            text: fallbackParas
+              .slice(1)
+              .map((l) => `• ${l}`)
+              .join("\n\n"),
             color: isDarkBg ? "#cbd5e1" : "#334155",
             fontSize: 20,
           });

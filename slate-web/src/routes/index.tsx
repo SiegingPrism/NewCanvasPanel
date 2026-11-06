@@ -56,22 +56,42 @@ const SUBJECT_TEMPLATES: {
     templates: [
       { key: "graph", label: "Math Graph", icon: "📈", desc: "Cartesian grid with axes" },
       { key: "drafting-3d", label: "3D Drafting", icon: "📐", desc: "Isometric grid with 3D axes" },
-      { key: "millimeter-graph", label: "Precision Grid", icon: "📊", desc: "1mm engineering graph paper" },
+      {
+        key: "millimeter-graph",
+        label: "Precision Grid",
+        icon: "📊",
+        desc: "1mm engineering graph paper",
+      },
       { key: "number-line", label: "Number Line", icon: "➖", desc: "Linear scale for math" },
     ],
   },
   {
     category: "Science",
     templates: [
-      { key: "lab-report", label: "Lab Report", icon: "🧪", desc: "Hypothesis, apparatus, method & results" },
-      { key: "mindmap", label: "Science Mind Map", icon: "🧠", desc: "Hypothesis, experiments & notes" },
+      {
+        key: "lab-report",
+        label: "Lab Report",
+        icon: "🧪",
+        desc: "Hypothesis, apparatus, method & results",
+      },
+      {
+        key: "mindmap",
+        label: "Science Mind Map",
+        icon: "🧠",
+        desc: "Hypothesis, experiments & notes",
+      },
       { key: "dot", label: "Dot Matrix", icon: "📓", desc: "Molecule & chemical layout" },
     ],
   },
   {
     category: "Language",
     templates: [
-      { key: "four-line", label: "4-Line Writing", icon: "✍️", desc: "Handwriting ruling for languages" },
+      {
+        key: "four-line",
+        label: "4-Line Writing",
+        icon: "✍️",
+        desc: "Handwriting ruling for languages",
+      },
       { key: "cornell", label: "Cornell Notes", icon: "🗂️", desc: "Cues, notes, and summary" },
       { key: "kwl", label: "KWL Chart", icon: "📚", desc: "Know · Want to know · Learned" },
       { key: "lined", label: "Ruled Notes", icon: "📝", desc: "Composition & essay ruling" },
@@ -80,7 +100,12 @@ const SUBJECT_TEMPLATES: {
   {
     category: "Geography",
     templates: [
-      { key: "world-map", label: "World Map", icon: "🗺️", desc: "Continents, oceans & climate zones" },
+      {
+        key: "world-map",
+        label: "World Map",
+        icon: "🗺️",
+        desc: "Continents, oceans & climate zones",
+      },
       { key: "india-map", label: "India Map", icon: "🇮🇳", desc: "State boundaries & physical map" },
       { key: "grid", label: "Topographic Grid", icon: "🌐", desc: "Latitude & longitude mapping" },
     ],
@@ -144,7 +169,9 @@ function Dashboard() {
   const [docImportOpen, setDocImportOpen] = useState(false);
   const [aiLessonBuilderOpen, setAiLessonBuilderOpen] = useState(false);
   const [teacherAccountOpen, setTeacherAccountOpen] = useState(false);
-  const [selectedSubjectTab, setSelectedSubjectTab] = useState<"Maths" | "Science" | "Language" | "Geography" | "Arts & Music">("Maths");
+  const [selectedSubjectTab, setSelectedSubjectTab] = useState<
+    "Maths" | "Science" | "Language" | "Geography" | "Arts & Music"
+  >("Maths");
 
   function openNewLessonWithPages(pages: Page[], topic: string) {
     const id = createBoard({
@@ -211,7 +238,9 @@ function Dashboard() {
   function openNew(templateKey?: TemplateKey, folderId?: string | null) {
     const id = createBoard({
       templateKey,
-      folderId: folderId ?? (activeFolderId !== "all" && activeFolderId !== "starred" ? activeFolderId : null),
+      folderId:
+        folderId ??
+        (activeFolderId !== "all" && activeFolderId !== "starred" ? activeFolderId : null),
     });
     navigate({ to: "/board/$boardId", params: { boardId: id } });
   }
@@ -252,7 +281,9 @@ function Dashboard() {
               type="button"
               onClick={() => setTeacherAccountOpen(true)}
               className="flex items-center gap-1.5 px-3 py-2 rounded-2xl border border-border bg-card text-foreground shadow-2xs hover:bg-accent active:scale-95 transition text-xs font-semibold"
-              title={user ? `Signed in as ${user.email} (Manage Cloud Lessons)` : "Teacher Cloud Account"}
+              title={
+                user ? `Signed in as ${user.email} (Manage Cloud Lessons)` : "Teacher Cloud Account"
+              }
             >
               <Cloud className={cn("h-4 w-4", user ? "text-emerald-500" : "text-sky-500")} />
               <span className="hidden sm:inline">{user ? "Cloud Active" : "Teacher Sign In"}</span>
@@ -271,7 +302,9 @@ function Dashboard() {
               </PopoverTrigger>
               <PopoverContent align="end" className="w-80 p-3.5 rounded-2xl shadow-xl">
                 <div className="flex items-center justify-between pb-2 border-b border-border">
-                  <h4 className="font-semibold text-xs tracking-tight text-foreground">Notifications</h4>
+                  <h4 className="font-semibold text-xs tracking-tight text-foreground">
+                    Notifications
+                  </h4>
                   <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
                     2 New
                   </span>
@@ -322,7 +355,9 @@ function Dashboard() {
                 />
               ) : user ? (
                 <div className="grid h-full w-full place-items-center bg-primary/15 text-primary font-bold text-sm">
-                  {displayName ? displayName.charAt(0).toUpperCase() : (user.email?.charAt(0).toUpperCase() || <User className="h-4 w-4" />)}
+                  {displayName
+                    ? displayName.charAt(0).toUpperCase()
+                    : user.email?.charAt(0).toUpperCase() || <User className="h-4 w-4" />}
                 </div>
               ) : (
                 <div className="relative h-full w-full flex items-center justify-center bg-muted text-muted-foreground">
@@ -352,7 +387,9 @@ function Dashboard() {
                   </div>
                   <div>
                     <div className="font-semibold">Library</div>
-                    <div className="text-xs text-muted-foreground">All your boards and archives</div>
+                    <div className="text-xs text-muted-foreground">
+                      All your boards and archives
+                    </div>
                   </div>
                 </Link>
                 <Link
@@ -378,7 +415,9 @@ function Dashboard() {
                   </div>
                   <div>
                     <div className="font-semibold">Learning Hub</div>
-                    <div className="text-xs text-muted-foreground">Flashcards and smart quizzes</div>
+                    <div className="text-xs text-muted-foreground">
+                      Flashcards and smart quizzes
+                    </div>
                   </div>
                 </Link>
                 <button
@@ -394,7 +433,9 @@ function Dashboard() {
                   </div>
                   <div className="text-left">
                     <div className="font-semibold">Feature Guide & Tutorial</div>
-                    <div className="text-xs text-muted-foreground">Inks, widgets, snap & AI overview</div>
+                    <div className="text-xs text-muted-foreground">
+                      Inks, widgets, snap & AI overview
+                    </div>
                   </div>
                 </button>
                 <Link
@@ -592,7 +633,9 @@ function Dashboard() {
 
         {/* QUICK ACTIONS 2x2 Grid */}
         <section>
-          <h2 className="text-xs font-bold uppercase tracking-wider text-foreground mb-3">QUICK ACTIONS</h2>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-foreground mb-3">
+            QUICK ACTIONS
+          </h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {/* Blank Board */}
             <button
@@ -605,7 +648,9 @@ function Dashboard() {
               </div>
               <div className="mt-2.5">
                 <div className="text-xs sm:text-sm font-bold text-foreground">Blank board</div>
-                <div className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 leading-snug">Start with a clean canvas</div>
+                <div className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 leading-snug">
+                  Start with a clean canvas
+                </div>
               </div>
             </button>
 
@@ -623,8 +668,12 @@ function Dashboard() {
                   <Sparkles className="h-5 w-5 text-amber-300" />
                 </div>
                 <div className="mt-2.5">
-                  <div className="text-xs sm:text-sm font-bold text-foreground">AI Lesson Builder</div>
-                  <div className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 leading-snug">Type a topic to get ready whiteboard pages</div>
+                  <div className="text-xs sm:text-sm font-bold text-foreground">
+                    AI Lesson Builder
+                  </div>
+                  <div className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 leading-snug">
+                    Type a topic to get ready whiteboard pages
+                  </div>
                 </div>
               </button>
             )}
@@ -643,7 +692,9 @@ function Dashboard() {
               </div>
               <div className="mt-2.5">
                 <div className="text-xs sm:text-sm font-bold text-foreground">AI Copilot</div>
-                <div className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 leading-snug">Chat with AI teaching assistant</div>
+                <div className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 leading-snug">
+                  Chat with AI teaching assistant
+                </div>
               </div>
             </button>
 
@@ -658,7 +709,9 @@ function Dashboard() {
               </div>
               <div className="mt-2.5">
                 <div className="text-xs sm:text-sm font-bold text-foreground">Open library</div>
-                <div className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 leading-snug">Browse, sort, and organize</div>
+                <div className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 leading-snug">
+                  Browse, sort, and organize
+                </div>
               </div>
             </button>
 
@@ -676,7 +729,9 @@ function Dashboard() {
               </div>
               <div className="mt-2.5">
                 <div className="text-xs sm:text-sm font-bold text-foreground">New note</div>
-                <div className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 leading-snug">Block-based notes with AI actions</div>
+                <div className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 leading-snug">
+                  Block-based notes with AI actions
+                </div>
               </div>
             </button>
           </div>
@@ -728,7 +783,7 @@ function Dashboard() {
                   "px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all",
                   selectedSubjectTab === cat
                     ? "bg-card text-foreground shadow-xs border border-border/80"
-                    : "text-muted-foreground hover:text-foreground hover:bg-card/50"
+                    : "text-muted-foreground hover:text-foreground hover:bg-card/50",
                 )}
               >
                 {cat}
@@ -738,20 +793,26 @@ function Dashboard() {
 
           {/* Subject Template Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
-            {SUBJECT_TEMPLATES.find((s) => s.category === selectedSubjectTab)?.templates.map((tmpl) => (
-              <button
-                key={tmpl.key}
-                type="button"
-                onClick={() => openNew(tmpl.key)}
-                className="group flex flex-col justify-between p-3 rounded-2xl border border-border bg-card text-left hover:border-primary/50 transition active:scale-[0.98] shadow-2xs cursor-pointer"
-              >
-                <div className="text-2xl mb-2 group-hover:scale-110 transition-transform">{tmpl.icon}</div>
-                <div>
-                  <div className="text-xs font-bold text-foreground truncate">{tmpl.label}</div>
-                  <div className="text-[10px] text-muted-foreground line-clamp-1 mt-0.5">{tmpl.desc}</div>
-                </div>
-              </button>
-            ))}
+            {SUBJECT_TEMPLATES.find((s) => s.category === selectedSubjectTab)?.templates.map(
+              (tmpl) => (
+                <button
+                  key={tmpl.key}
+                  type="button"
+                  onClick={() => openNew(tmpl.key)}
+                  className="group flex flex-col justify-between p-3 rounded-2xl border border-border bg-card text-left hover:border-primary/50 transition active:scale-[0.98] shadow-2xs cursor-pointer"
+                >
+                  <div className="text-2xl mb-2 group-hover:scale-110 transition-transform">
+                    {tmpl.icon}
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-foreground truncate">{tmpl.label}</div>
+                    <div className="text-[10px] text-muted-foreground line-clamp-1 mt-0.5">
+                      {tmpl.desc}
+                    </div>
+                  </div>
+                </button>
+              ),
+            )}
           </div>
         </section>
 
@@ -768,12 +829,22 @@ function Dashboard() {
               </div>
               <div className="text-left">
                 <div className="text-sm font-bold text-foreground">Learning Hub</div>
-                <div className="text-xs text-muted-foreground mt-0.5">Study flashcards & take quizzes</div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  Study flashcards & take quizzes
+                </div>
               </div>
             </div>
             <div className="relative flex items-center justify-center shrink-0">
               <svg className="h-12 w-12 -rotate-90" viewBox="0 0 44 44">
-                <circle cx="22" cy="22" r="18" fill="none" stroke="currentColor" className="text-muted/30" strokeWidth="4" />
+                <circle
+                  cx="22"
+                  cy="22"
+                  r="18"
+                  fill="none"
+                  stroke="currentColor"
+                  className="text-muted/30"
+                  strokeWidth="4"
+                />
                 <circle
                   cx="22"
                   cy="22"
@@ -796,7 +867,10 @@ function Dashboard() {
         <section id="boards-section" className="isolate space-y-4 pt-4 border-t border-border/60">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
-              <SectionHeader title="My Boards & Folders" icon={<Folder className="h-4 w-4 text-primary" />} />
+              <SectionHeader
+                title="My Boards & Folders"
+                icon={<Folder className="h-4 w-4 text-primary" />}
+              />
               <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
                 {filteredBoards.length}
               </span>
@@ -839,7 +913,11 @@ function Dashboard() {
                 </PopoverContent>
               </Popover>
 
-              <Button size="sm" onClick={() => openNew()} className="h-8 gap-1.5 text-xs rounded-xl shadow-xs">
+              <Button
+                size="sm"
+                onClick={() => openNew()}
+                className="h-8 gap-1.5 text-xs rounded-xl shadow-xs"
+              >
                 <Plus className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">New Board</span>
               </Button>
@@ -907,7 +985,12 @@ function Dashboard() {
                   ? "Star your favorite boards to access them quickly here."
                   : "Create a new board in this folder to get started."}
               </p>
-              <Button size="sm" variant="outline" onClick={() => openNew()} className="mt-3 gap-1.5 text-xs rounded-xl">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => openNew()}
+                className="mt-3 gap-1.5 text-xs rounded-xl"
+              >
                 <Plus className="h-3.5 w-3.5" /> Create Board
               </Button>
             </div>
@@ -1028,21 +1111,33 @@ function Dashboard() {
 
         {/* Recent AI Activity */}
         <section className="isolate space-y-2 pt-2 border-t border-border/60">
-          <SectionHeader title="Recent AI Activity" icon={<Sparkles className="h-4 w-4 text-primary" />} />
+          <SectionHeader
+            title="Recent AI Activity"
+            icon={<Sparkles className="h-4 w-4 text-primary" />}
+          />
           {recentAI.length === 0 ? (
-            <p className="text-xs text-muted-foreground">No AI questions yet. Open a board and ask anything.</p>
+            <p className="text-xs text-muted-foreground">
+              No AI questions yet. Open a board and ask anything.
+            </p>
           ) : (
             <div className="max-h-[190px] overflow-y-auto space-y-2 pr-1 scrollbar-thin rounded-xl">
               {recentAI.slice(0, 2).map((r) => (
-                <div key={r.id} className="rounded-xl border bg-card p-3.5 transition hover:border-primary/50 shadow-2xs">
+                <div
+                  key={r.id}
+                  className="rounded-xl border bg-card p-3.5 transition hover:border-primary/50 shadow-2xs"
+                >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-xs font-semibold text-foreground">{r.prompt}</div>
+                      <div className="truncate text-xs font-semibold text-foreground">
+                        {r.prompt}
+                      </div>
                       <div className="mt-1 line-clamp-2 text-xs text-muted-foreground whitespace-pre-wrap">
                         {r.response}
                       </div>
                     </div>
-                    <div className="shrink-0 text-[10px] text-muted-foreground">{relTime(r.createdAt)}</div>
+                    <div className="shrink-0 text-[10px] text-muted-foreground">
+                      {relTime(r.createdAt)}
+                    </div>
                   </div>
                   {r.boardId && boards[r.boardId] && (
                     <Link
@@ -1126,7 +1221,9 @@ function WhiteboardPreviewCanvas() {
           <div className="h-4 w-4 rounded-full bg-emerald-500 border border-white" />
           <div className="h-4 w-4 rounded-full bg-amber-500 border border-white" />
         </div>
-        <div className="rounded-md bg-blue-600 px-2 py-0.5 text-[8px] font-bold text-white shadow-2xs">Share</div>
+        <div className="rounded-md bg-blue-600 px-2 py-0.5 text-[8px] font-bold text-white shadow-2xs">
+          Share
+        </div>
       </div>
 
       {/* Mini Left Tools Strip */}

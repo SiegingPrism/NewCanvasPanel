@@ -1,10 +1,5 @@
 import React, { useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import {
   Sparkles,
@@ -42,10 +37,18 @@ const INSPIRATION_TOPICS = [
   { label: "🌿 Photosynthesis", topic: "Photosynthesis & Plant Energy", subject: "Science" },
   { label: "💧 Water Cycle", topic: "The Water Cycle & Precipitation", subject: "Science" },
   { label: "🪐 Solar System", topic: "Planets of the Solar System", subject: "Science" },
-  { label: "📐 Pythagorean Theorem", topic: "Pythagorean Theorem & Right Triangles", subject: "Mathematics" },
+  {
+    label: "📐 Pythagorean Theorem",
+    topic: "Pythagorean Theorem & Right Triangles",
+    subject: "Mathematics",
+  },
   { label: "⚡ Newton's Laws", topic: "Newton's Three Laws of Motion", subject: "Physics" },
   { label: "🏛️ Ancient Rome", topic: "The Roman Republic & Empire", subject: "Social Studies" },
-  { label: "📖 Figurative Language", topic: "Similes, Metaphors & Personification", subject: "English" },
+  {
+    label: "📖 Figurative Language",
+    topic: "Similes, Metaphors & Personification",
+    subject: "English",
+  },
   { label: "🧬 DNA & Genetics", topic: "Structure of DNA & Inherited Traits", subject: "Biology" },
 ];
 
@@ -107,7 +110,10 @@ export function AILessonBuilderDialog({
       toast.success(`Generated curriculum on "${topic.trim()}"! Review preview below.`);
     } catch (err: any) {
       clearInterval(stepInterval);
-      console.warn("AI generation offline or unavailable, falling back to lesson outline template:", err);
+      console.warn(
+        "AI generation offline or unavailable, falling back to lesson outline template:",
+        err,
+      );
 
       // 2. Offline / No API Key: Fallback to structured Lesson Template outline
       const templateCurriculum = generateLessonTemplate(topic.trim(), subject, gradeLevel);
@@ -119,7 +125,7 @@ export function AILessonBuilderDialog({
       setIsGenerating(false);
       toast.info(
         "AI unavailable (offline or key not configured) — generated a structured Lesson Template outline to fill in.",
-        { duration: 6000 }
+        { duration: 6000 },
       );
     }
   };
@@ -161,7 +167,9 @@ export function AILessonBuilderDialog({
             )}
           </div>
           <DialogTitle className="text-2xl font-black text-white mt-1">
-            {generatedCurriculum ? `Preview: ${generatedCurriculum.topic}` : "Build Ready-to-Teach Whiteboard Lesson"}
+            {generatedCurriculum
+              ? `Preview: ${generatedCurriculum.topic}`
+              : "Build Ready-to-Teach Whiteboard Lesson"}
           </DialogTitle>
           <p className="text-xs text-slate-400">
             {generatedCurriculum
@@ -328,16 +336,16 @@ export function AILessonBuilderDialog({
                       {idx === 0
                         ? "Goals & Warmup"
                         : idx === 1
-                        ? "Cornell Notes"
-                        : idx === 2
-                        ? "Flowchart"
-                        : idx === 3
-                        ? "Activity"
-                        : idx === 4
-                        ? "Quiz"
-                        : idx === 5
-                        ? "Flashcards"
-                        : "Exit Ticket"}
+                          ? "Cornell Notes"
+                          : idx === 2
+                            ? "Flowchart"
+                            : idx === 3
+                              ? "Activity"
+                              : idx === 4
+                                ? "Quiz"
+                                : idx === 5
+                                  ? "Flashcards"
+                                  : "Exit Ticket"}
                     </span>
                   </button>
                 ))}
@@ -355,13 +363,17 @@ export function AILessonBuilderDialog({
                       <div className="p-3 rounded-xl bg-blue-950/30 border border-blue-500/20 space-y-1.5">
                         <div className="font-bold text-blue-300">🎯 Learning Goals</div>
                         {generatedCurriculum.objectives.map((obj, i) => (
-                          <div key={i} className="text-slate-300">• {obj}</div>
+                          <div key={i} className="text-slate-300">
+                            • {obj}
+                          </div>
                         ))}
                       </div>
                       <div className="p-3 rounded-xl bg-amber-950/30 border border-amber-500/20 space-y-1.5">
                         <div className="font-bold text-amber-300">🔔 Bell-Ringer Prompts</div>
                         {generatedCurriculum.bellRingerQuestions.map((q, i) => (
-                          <div key={i} className="text-slate-300">• {q}</div>
+                          <div key={i} className="text-slate-300">
+                            • {q}
+                          </div>
                         ))}
                       </div>
                     </div>
@@ -376,7 +388,10 @@ export function AILessonBuilderDialog({
                     </div>
                     <div className="grid grid-cols-3 gap-2 text-xs">
                       {generatedCurriculum.corePrinciples.map((p, i) => (
-                        <div key={i} className="p-3 rounded-xl bg-emerald-950/30 border border-emerald-500/20 space-y-1">
+                        <div
+                          key={i}
+                          className="p-3 rounded-xl bg-emerald-950/30 border border-emerald-500/20 space-y-1"
+                        >
                           <div className="font-bold text-emerald-300">{p.heading}</div>
                           <div className="text-slate-400 text-[11px]">{p.explanation}</div>
                           <div className="mt-2 text-slate-300">
@@ -401,7 +416,10 @@ export function AILessonBuilderDialog({
                     </div>
                     <div className="grid grid-cols-4 gap-2 text-xs">
                       {generatedCurriculum.conceptFlowchart.steps.map((st, i) => (
-                        <div key={i} className="p-2.5 rounded-xl bg-purple-950/30 border border-purple-500/20 text-center space-y-1">
+                        <div
+                          key={i}
+                          className="p-2.5 rounded-xl bg-purple-950/30 border border-purple-500/20 text-center space-y-1"
+                        >
                           <div className="font-bold text-purple-300">{st.label}</div>
                           <div className="text-[11px] text-slate-400">{st.description}</div>
                         </div>
@@ -421,14 +439,20 @@ export function AILessonBuilderDialog({
                     </div>
                     <div className="flex flex-wrap gap-2 text-xs">
                       {generatedCurriculum.sortingActivity.categories.map((c) => (
-                        <span key={c.id} className="px-3 py-1 rounded-lg bg-blue-900/40 text-blue-200 border border-blue-500/30 font-bold">
+                        <span
+                          key={c.id}
+                          className="px-3 py-1 rounded-lg bg-blue-900/40 text-blue-200 border border-blue-500/30 font-bold"
+                        >
                           Category: {c.name}
                         </span>
                       ))}
                     </div>
                     <div className="grid grid-cols-3 gap-1.5 text-[11px]">
                       {generatedCurriculum.sortingActivity.items.map((it) => (
-                        <div key={it.id} className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 truncate">
+                        <div
+                          key={it.id}
+                          className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 truncate"
+                        >
                           📄 {it.text}
                         </div>
                       ))}
@@ -444,15 +468,23 @@ export function AILessonBuilderDialog({
                     </div>
                     <div className="space-y-2 text-xs">
                       {generatedCurriculum.quiz.map((q, idx) => (
-                        <div key={idx} className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
-                          <div className="font-bold text-slate-200">{idx + 1}. {q.question}</div>
+                        <div
+                          key={idx}
+                          className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1"
+                        >
+                          <div className="font-bold text-slate-200">
+                            {idx + 1}. {q.question}
+                          </div>
                           <div className="grid grid-cols-2 gap-1 text-[11px] text-slate-400">
                             {q.options.map((opt, oidx) => (
                               <div
                                 key={oidx}
-                                className={oidx === q.correctIndex ? "text-emerald-400 font-semibold" : ""}
+                                className={
+                                  oidx === q.correctIndex ? "text-emerald-400 font-semibold" : ""
+                                }
                               >
-                                {String.fromCharCode(65 + oidx)}) {opt} {oidx === q.correctIndex && "✓"}
+                                {String.fromCharCode(65 + oidx)}) {opt}{" "}
+                                {oidx === q.correctIndex && "✓"}
                               </div>
                             ))}
                           </div>
@@ -470,7 +502,10 @@ export function AILessonBuilderDialog({
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       {generatedCurriculum.flashcards.map((fc, i) => (
-                        <div key={i} className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
+                        <div
+                          key={i}
+                          className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1"
+                        >
                           <div className="font-bold text-indigo-300">{fc.front}</div>
                           <div className="text-[11px] text-slate-400">{fc.back}</div>
                         </div>
@@ -487,7 +522,10 @@ export function AILessonBuilderDialog({
                     </div>
                     <div className="space-y-2 text-xs">
                       {generatedCurriculum.exitTicket.prompts.map((pr, i) => (
-                        <div key={i} className="p-3 rounded-xl bg-teal-950/30 border border-teal-500/20 text-slate-300">
+                        <div
+                          key={i}
+                          className="p-3 rounded-xl bg-teal-950/30 border border-teal-500/20 text-slate-300"
+                        >
                           📌 Prompt {i + 1}: {pr}
                         </div>
                       ))}

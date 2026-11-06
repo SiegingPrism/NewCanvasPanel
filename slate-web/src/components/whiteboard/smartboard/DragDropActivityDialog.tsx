@@ -1,8 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import {
-  Dialog,
-  DialogContent,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import {
   Layers,
@@ -54,10 +51,10 @@ function playAudioFeedback(type: "correct" | "placed" | "error") {
         o.start(start);
         o.stop(start + dur);
       };
-      playNote(523.25, now, 0.35);        // C5
+      playNote(523.25, now, 0.35); // C5
       playNote(659.25, now + 0.12, 0.35); // E5
       playNote(783.99, now + 0.24, 0.35); // G5
-      playNote(1046.5, now + 0.36, 0.6);  // C6
+      playNote(1046.5, now + 0.36, 0.6); // C6
     }
   } catch {}
 }
@@ -146,7 +143,8 @@ export const PRESET_ACTIVITIES: ActivityTemplate[] = [
     title: "Prime vs Composite Numbers",
     subject: "Math · Grade 5-8",
     type: "sort",
-    instructions: "Sort the numbers into Prime (only 2 factors) or Composite (more than 2 factors).",
+    instructions:
+      "Sort the numbers into Prime (only 2 factors) or Composite (more than 2 factors).",
     categories: ["Prime Numbers", "Composite Numbers"],
     items: [
       { id: "pc-1", text: "2", category: "Prime Numbers" },
@@ -188,11 +186,36 @@ export const PRESET_ACTIVITIES: ActivityTemplate[] = [
     instructions: "Match each cell organelle to its correct biological function.",
     categories: ["Mitochondria", "Ribosome", "Nucleus", "Chloroplast", "Cell Membrane"],
     items: [
-      { id: "cbm-1", text: "Powerhouse of the cell (produces ATP)", category: "Mitochondria", matchText: "Mitochondria" },
-      { id: "cbm-2", text: "Site of protein synthesis", category: "Ribosome", matchText: "Ribosome" },
-      { id: "cbm-3", text: "Stores genetic DNA & directs cell activities", category: "Nucleus", matchText: "Nucleus" },
-      { id: "cbm-4", text: "Captures sunlight for photosynthesis in plants", category: "Chloroplast", matchText: "Chloroplast" },
-      { id: "cbm-5", text: "Regulates entry and exit of substances", category: "Cell Membrane", matchText: "Cell Membrane" },
+      {
+        id: "cbm-1",
+        text: "Powerhouse of the cell (produces ATP)",
+        category: "Mitochondria",
+        matchText: "Mitochondria",
+      },
+      {
+        id: "cbm-2",
+        text: "Site of protein synthesis",
+        category: "Ribosome",
+        matchText: "Ribosome",
+      },
+      {
+        id: "cbm-3",
+        text: "Stores genetic DNA & directs cell activities",
+        category: "Nucleus",
+        matchText: "Nucleus",
+      },
+      {
+        id: "cbm-4",
+        text: "Captures sunlight for photosynthesis in plants",
+        category: "Chloroplast",
+        matchText: "Chloroplast",
+      },
+      {
+        id: "cbm-5",
+        text: "Regulates entry and exit of substances",
+        category: "Cell Membrane",
+        matchText: "Cell Membrane",
+      },
     ],
   },
   // 7. LABEL: Plant Anatomy Targets
@@ -201,7 +224,8 @@ export const PRESET_ACTIVITIES: ActivityTemplate[] = [
     title: "Plant Anatomy: Label the Structures",
     subject: "Botany · Grade 4-9",
     type: "label",
-    instructions: "Drag each anatomical label onto the corresponding target hotspot on the diagram.",
+    instructions:
+      "Drag each anatomical label onto the corresponding target hotspot on the diagram.",
     categories: ["Flower", "Leaf", "Stem", "Root System"],
     spots: [
       { id: "pal-spot-1", label: "Flower", x: 50, y: 16 },
@@ -243,7 +267,9 @@ export function DragDropActivityDialog({
 
   // Multi-Touch Simultaneous Dragging State
   // pointerId -> { itemId, x, y, startX, startY }
-  const [activeDrags, setActiveDrags] = useState<Record<number, { itemId: string; x: number; y: number }>>({});
+  const [activeDrags, setActiveDrags] = useState<
+    Record<number, { itemId: string; x: number; y: number }>
+  >({});
   const activeDragsRef = useRef<Record<number, { itemId: string; x: number; y: number }>>({});
   const bucketRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
@@ -447,8 +473,14 @@ export function DragDropActivityDialog({
     if (!customTitle.trim()) return;
     const cat1 = customCat1.trim() || "Category 1";
     const cat2 = customCat2.trim() || "Category 2";
-    const items1 = customItems1.split(",").map((s) => s.trim()).filter(Boolean);
-    const items2 = customItems2.split(",").map((s) => s.trim()).filter(Boolean);
+    const items1 = customItems1
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const items2 = customItems2
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
 
     const items = [
       ...items1.map((txt) => ({ id: uid(), text: txt, category: cat1 })),
@@ -561,7 +593,10 @@ export function DragDropActivityDialog({
               </div>
               <h3 className="text-2xl font-black text-white mt-1">{currentActivity.title}</h3>
               <p className="text-sm text-slate-300 mt-0.5">
-                {currentActivity.instructions} <span className="text-indigo-400 font-semibold">(Multi-touch: multiple students can drag cards together!)</span>
+                {currentActivity.instructions}{" "}
+                <span className="text-indigo-400 font-semibold">
+                  (Multi-touch: multiple students can drag cards together!)
+                </span>
               </p>
             </div>
 
@@ -574,8 +609,8 @@ export function DragDropActivityDialog({
                   currentActivity.categories.length === 2
                     ? "grid-cols-2"
                     : currentActivity.categories.length === 3
-                    ? "grid-cols-3"
-                    : "grid-cols-4"
+                      ? "grid-cols-3"
+                      : "grid-cols-4"
                 }`}
               >
                 {currentActivity.categories.map((cat, idx) => {
@@ -630,16 +665,14 @@ export function DragDropActivityDialog({
                                 isCorrect
                                   ? "bg-emerald-600 text-white border-2 border-emerald-400"
                                   : isIncorrect
-                                  ? "bg-red-900/80 text-white border-2 border-red-500 animate-shake"
-                                  : "bg-slate-800 text-white border border-slate-700 hover:bg-slate-700"
+                                    ? "bg-red-900/80 text-white border-2 border-red-500 animate-shake"
+                                    : "bg-slate-800 text-white border border-slate-700 hover:bg-slate-700"
                               }`}
                               title="Tap to return to card bank"
                             >
                               <span>{item.text}</span>
                               {checked && (
-                                <span className="text-sm font-black">
-                                  {isCorrect ? "✓" : "✗"}
-                                </span>
+                                <span className="text-sm font-black">{isCorrect ? "✓" : "✗"}</span>
                               )}
                             </div>
                           );
@@ -661,7 +694,9 @@ export function DragDropActivityDialog({
             {currentActivity.type === "match" && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 my-2 flex-1 min-h-[260px] overflow-y-auto pr-1">
                 {currentActivity.categories.map((promptTerm, idx) => {
-                  const placedItemId = Object.entries(placements).find(([_, target]) => target === promptTerm)?.[0];
+                  const placedItemId = Object.entries(placements).find(
+                    ([_, target]) => target === promptTerm,
+                  )?.[0];
                   const placedItem = placedItemId ? itemMap.get(placedItemId) : null;
                   const isCorrect = checked && placedItem?.category === promptTerm;
                   const isIncorrect = checked && placedItem && placedItem.category !== promptTerm;
@@ -677,12 +712,12 @@ export function DragDropActivityDialog({
                         isCorrect
                           ? "border-emerald-500 bg-emerald-950/40 text-emerald-100"
                           : isIncorrect
-                          ? "border-rose-500 bg-rose-950/40 text-rose-100"
-                          : placedItem
-                          ? "border-indigo-500 bg-indigo-950/30 text-white"
-                          : selectedItemId
-                          ? "border-indigo-400 border-dashed bg-slate-800/80 text-slate-200 ring-2 ring-indigo-400/40"
-                          : "border-slate-800 bg-slate-900/60 text-slate-300 hover:border-slate-600"
+                            ? "border-rose-500 bg-rose-950/40 text-rose-100"
+                            : placedItem
+                              ? "border-indigo-500 bg-indigo-950/30 text-white"
+                              : selectedItemId
+                                ? "border-indigo-400 border-dashed bg-slate-800/80 text-slate-200 ring-2 ring-indigo-400/40"
+                                : "border-slate-800 bg-slate-900/60 text-slate-300 hover:border-slate-600"
                       }`}
                     >
                       {/* Left: Term Prompt */}
@@ -705,8 +740,8 @@ export function DragDropActivityDialog({
                               isCorrect
                                 ? "bg-emerald-600 text-white"
                                 : isIncorrect
-                                ? "bg-rose-800 text-white"
-                                : "bg-slate-800 text-white border border-slate-700 hover:bg-slate-700"
+                                  ? "bg-rose-800 text-white"
+                                  : "bg-slate-800 text-white border border-slate-700 hover:bg-slate-700"
                             }`}
                             title="Tap to unpair"
                           >
@@ -733,27 +768,100 @@ export function DragDropActivityDialog({
             {currentActivity.type === "label" && (
               <div className="relative flex-1 min-h-[300px] max-h-[420px] my-2 rounded-2xl border border-slate-800 bg-slate-950/70 overflow-hidden flex items-center justify-center select-none shadow-inner">
                 {/* Embedded Scientific Illustration */}
-                <svg viewBox="0 0 600 380" className="w-full h-full max-h-[380px] object-contain pointer-events-none">
+                <svg
+                  viewBox="0 0 600 380"
+                  className="w-full h-full max-h-[380px] object-contain pointer-events-none"
+                >
                   {/* Ground Layer */}
-                  <path d="M 40 300 Q 300 295 560 300 L 560 380 L 40 380 Z" fill="#2d1b0f" opacity="0.75" />
-                  <line x1="40" y1="300" x2="560" y2="300" stroke="#92400e" strokeWidth="3" strokeDasharray="8 6" />
+                  <path
+                    d="M 40 300 Q 300 295 560 300 L 560 380 L 40 380 Z"
+                    fill="#2d1b0f"
+                    opacity="0.75"
+                  />
+                  <line
+                    x1="40"
+                    y1="300"
+                    x2="560"
+                    y2="300"
+                    stroke="#92400e"
+                    strokeWidth="3"
+                    strokeDasharray="8 6"
+                  />
 
                   {/* Roots */}
-                  <path d="M 300 300 C 290 330 250 350 210 365" stroke="#b45309" strokeWidth="5" strokeLinecap="round" fill="none" />
-                  <path d="M 300 300 C 310 335 350 355 390 370" stroke="#b45309" strokeWidth="5" strokeLinecap="round" fill="none" />
-                  <path d="M 300 300 C 295 330 305 355 300 375" stroke="#d97706" strokeWidth="6" strokeLinecap="round" fill="none" />
-                  <path d="M 260 325 C 230 335 200 340 180 345" stroke="#92400e" strokeWidth="3" strokeLinecap="round" fill="none" />
-                  <path d="M 330 330 C 360 340 390 345 420 350" stroke="#92400e" strokeWidth="3" strokeLinecap="round" fill="none" />
+                  <path
+                    d="M 300 300 C 290 330 250 350 210 365"
+                    stroke="#b45309"
+                    strokeWidth="5"
+                    strokeLinecap="round"
+                    fill="none"
+                  />
+                  <path
+                    d="M 300 300 C 310 335 350 355 390 370"
+                    stroke="#b45309"
+                    strokeWidth="5"
+                    strokeLinecap="round"
+                    fill="none"
+                  />
+                  <path
+                    d="M 300 300 C 295 330 305 355 300 375"
+                    stroke="#d97706"
+                    strokeWidth="6"
+                    strokeLinecap="round"
+                    fill="none"
+                  />
+                  <path
+                    d="M 260 325 C 230 335 200 340 180 345"
+                    stroke="#92400e"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    fill="none"
+                  />
+                  <path
+                    d="M 330 330 C 360 340 390 345 420 350"
+                    stroke="#92400e"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    fill="none"
+                  />
 
                   {/* Main Stem */}
-                  <path d="M 300 300 C 303 220 297 150 300 85" stroke="#16a34a" strokeWidth="12" strokeLinecap="round" fill="none" />
+                  <path
+                    d="M 300 300 C 303 220 297 150 300 85"
+                    stroke="#16a34a"
+                    strokeWidth="12"
+                    strokeLinecap="round"
+                    fill="none"
+                  />
 
                   {/* Foliage / Leaves */}
-                  <path d="M 300 210 C 230 200 160 175 130 145 C 185 135 255 160 300 190 Z" fill="#22c55e" opacity="0.9" stroke="#15803d" strokeWidth="2.5" />
-                  <path d="M 300 200 C 235 180 180 165 130 145" stroke="#15803d" strokeWidth="2.5" fill="none" />
+                  <path
+                    d="M 300 210 C 230 200 160 175 130 145 C 185 135 255 160 300 190 Z"
+                    fill="#22c55e"
+                    opacity="0.9"
+                    stroke="#15803d"
+                    strokeWidth="2.5"
+                  />
+                  <path
+                    d="M 300 200 C 235 180 180 165 130 145"
+                    stroke="#15803d"
+                    strokeWidth="2.5"
+                    fill="none"
+                  />
 
-                  <path d="M 300 165 C 370 155 440 130 470 100 C 415 90 345 115 300 145 Z" fill="#22c55e" opacity="0.9" stroke="#15803d" strokeWidth="2.5" />
-                  <path d="M 300 155 C 365 135 420 120 470 100" stroke="#15803d" strokeWidth="2.5" fill="none" />
+                  <path
+                    d="M 300 165 C 370 155 440 130 470 100 C 415 90 345 115 300 145 Z"
+                    fill="#22c55e"
+                    opacity="0.9"
+                    stroke="#15803d"
+                    strokeWidth="2.5"
+                  />
+                  <path
+                    d="M 300 155 C 365 135 420 120 470 100"
+                    stroke="#15803d"
+                    strokeWidth="2.5"
+                    fill="none"
+                  />
 
                   {/* Flower Petals & Stamen */}
                   <circle cx="300" cy="55" r="16" fill="#facc15" stroke="#ca8a04" strokeWidth="3" />
@@ -768,13 +876,17 @@ export function DragDropActivityDialog({
                 </svg>
 
                 {/* Hotspot Target Pins Overlay */}
-                {(currentActivity.spots || [
-                  { id: "pal-spot-1", label: "Flower", x: 50, y: 16 },
-                  { id: "pal-spot-2", label: "Leaf", x: 26, y: 44 },
-                  { id: "pal-spot-3", label: "Stem", x: 54, y: 55 },
-                  { id: "pal-spot-4", label: "Root System", x: 50, y: 84 },
-                ]).map((spot) => {
-                  const placedItemId = Object.entries(placements).find(([_, target]) => target === spot.label)?.[0];
+                {(
+                  currentActivity.spots || [
+                    { id: "pal-spot-1", label: "Flower", x: 50, y: 16 },
+                    { id: "pal-spot-2", label: "Leaf", x: 26, y: 44 },
+                    { id: "pal-spot-3", label: "Stem", x: 54, y: 55 },
+                    { id: "pal-spot-4", label: "Root System", x: 50, y: 84 },
+                  ]
+                ).map((spot) => {
+                  const placedItemId = Object.entries(placements).find(
+                    ([_, target]) => target === spot.label,
+                  )?.[0];
                   const placedItem = placedItemId ? itemMap.get(placedItemId) : null;
                   const isCorrect = checked && placedItem?.category === spot.label;
                   const isIncorrect = checked && placedItem && placedItem.category !== spot.label;
@@ -800,12 +912,12 @@ export function DragDropActivityDialog({
                           isCorrect
                             ? "bg-emerald-600 border-emerald-400 text-white scale-110"
                             : isIncorrect
-                            ? "bg-rose-600 border-rose-400 text-white scale-110 animate-shake"
-                            : placedItem
-                            ? "bg-indigo-600 border-indigo-400 text-white"
-                            : selectedItemId
-                            ? "bg-amber-500 border-amber-300 text-slate-950 ring-4 ring-amber-400/50"
-                            : "bg-slate-900/90 border-slate-600 text-slate-200 hover:border-indigo-400 hover:scale-105"
+                              ? "bg-rose-600 border-rose-400 text-white scale-110 animate-shake"
+                              : placedItem
+                                ? "bg-indigo-600 border-indigo-400 text-white"
+                                : selectedItemId
+                                  ? "bg-amber-500 border-amber-300 text-slate-950 ring-4 ring-amber-400/50"
+                                  : "bg-slate-900/90 border-slate-600 text-slate-200 hover:border-indigo-400 hover:scale-105"
                         }`}
                       >
                         <span className="w-2 h-2 rounded-full bg-current animate-ping" />
@@ -926,7 +1038,9 @@ export function DragDropActivityDialog({
                     </p>
                   </div>
                   <div className="flex items-center justify-between text-xs text-slate-400 pt-2 border-t border-slate-800/80">
-                    <span>{preset.items.length} cards · {preset.categories.length} categories</span>
+                    <span>
+                      {preset.items.length} cards · {preset.categories.length} categories
+                    </span>
                     <span className="font-bold text-indigo-400 group-hover:translate-x-1 transition-transform">
                       Play Now →
                     </span>

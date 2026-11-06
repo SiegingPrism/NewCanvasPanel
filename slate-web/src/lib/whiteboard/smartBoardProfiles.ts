@@ -25,8 +25,8 @@ export interface SmartBoardProfile {
   // Contact Area Thresholds for Touch / IR / PCAP digitizers (in CSS/device pixels)
   // Contact major axis = Math.max(e.width, e.height)
   contactStylusMaxPx: number; // Anything below this is a stylus tip or fine touch
-  contactPalmMinPx: number;   // Contacts >= this are ignored as resting palms/wrists
-  contactFistMinPx: number;   // Contacts >= this trigger the dynamic Fist Eraser
+  contactPalmMinPx: number; // Contacts >= this are ignored as resting palms/wrists
+  contactFistMinPx: number; // Contacts >= this trigger the dynamic Fist Eraser
   // Split board recommendations
   maxSplitZones: 2 | 3 | 4;
   defaultSplitZones: 2 | 3 | 4;
@@ -37,7 +37,7 @@ export interface SmartBoardProfile {
 export const SMART_BOARD_PROFILES: Record<PanelDiagonal, SmartBoardProfile> = {
   "55": {
     diagonalInches: 55,
-    label: "55\" Interactive Display",
+    label: '55" Interactive Display',
     widthInches: 47.94,
     heightInches: 26.96,
     widthCm: 121.76,
@@ -57,10 +57,10 @@ export const SMART_BOARD_PROFILES: Record<PanelDiagonal, SmartBoardProfile> = {
   },
   "65": {
     diagonalInches: 65,
-    label: "65\" Classroom Panel",
+    label: '65" Classroom Panel',
     widthInches: 56.65,
     heightInches: 31.87,
-    widthCm: 143.90,
+    widthCm: 143.9,
     heightCm: 80.94,
     nativeResolution: { width: 3840, height: 2160 },
     ppi: 67.78,
@@ -77,7 +77,7 @@ export const SMART_BOARD_PROFILES: Record<PanelDiagonal, SmartBoardProfile> = {
   },
   "75": {
     diagonalInches: 75,
-    label: "75\" Classroom Panel",
+    label: '75" Classroom Panel',
     widthInches: 65.37,
     heightInches: 36.77,
     widthCm: 166.04,
@@ -97,7 +97,7 @@ export const SMART_BOARD_PROFILES: Record<PanelDiagonal, SmartBoardProfile> = {
   },
   "86": {
     diagonalInches: 86,
-    label: "86\" Large Classroom Panel",
+    label: '86" Large Classroom Panel',
     widthInches: 74.96,
     heightInches: 42.16,
     widthCm: 190.39,
@@ -117,7 +117,7 @@ export const SMART_BOARD_PROFILES: Record<PanelDiagonal, SmartBoardProfile> = {
   },
   "98": {
     diagonalInches: 98,
-    label: "98\" Auditorium Board",
+    label: '98" Auditorium Board',
     widthInches: 85.41,
     heightInches: 48.05,
     widthCm: 216.95,
@@ -137,7 +137,7 @@ export const SMART_BOARD_PROFILES: Record<PanelDiagonal, SmartBoardProfile> = {
   },
   "110": {
     diagonalInches: 110,
-    label: "110\" Grand Auditorium Board",
+    label: '110" Grand Auditorium Board',
     widthInches: 95.87,
     heightInches: 53.93,
     widthCm: 243.52,
@@ -184,4 +184,3 @@ export function detectSmartBoardProfile(): PanelDiagonal | null {
   }
   return null;
 }
-

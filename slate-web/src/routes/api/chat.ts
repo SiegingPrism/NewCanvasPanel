@@ -29,7 +29,8 @@ export const Route = createFileRoute("/api/chat")({
           if (!modelConfig) {
             return new Response(
               JSON.stringify({
-                error: "Missing API Key. Please provide a GEMINI_API_KEY or configure one in AI Settings.",
+                error:
+                  "Missing API Key. Please provide a GEMINI_API_KEY or configure one in AI Settings.",
               }),
               { status: 400, headers: { "Content-Type": "application/json" } },
             );

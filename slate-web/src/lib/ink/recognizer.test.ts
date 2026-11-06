@@ -50,15 +50,38 @@ describe("findLanguage resolution", () => {
 
 describe("find on board", () => {
   const stroke = (id: string, x: number, extra: object = {}) => ({
-    id, kind: "pen", color: "#000", size: 3, points: [{ x, y: 100 }, { x: x + 10, y: 120 }], ...extra,
+    id,
+    kind: "pen",
+    color: "#000",
+    size: 3,
+    points: [
+      { x, y: 100 },
+      { x: x + 10, y: 120 },
+    ],
+    ...extra,
   });
   const objects = [
     stroke("s1", 100, { inkGroup: "g1", inkText: "photosynthesis" }),
     stroke("s2", 115, { inkGroup: "g1" }),
     stroke("s3", 400),
-    { id: "t1", kind: "text", x: 10, y: 300, w: 100, h: 30, text: "Light reaction", color: "#000", fontSize: 18 },
+    {
+      id: "t1",
+      kind: "text",
+      x: 10,
+      y: 300,
+      w: 100,
+      h: 30,
+      text: "Light reaction",
+      color: "#000",
+      fontSize: 18,
+    },
   ] as never[];
-  const bounds = (o: { x?: number; y?: number; w?: number; h?: number }) => ({ x: o.x ?? 0, y: o.y ?? 0, w: o.w ?? 0, h: o.h ?? 0 });
+  const bounds = (o: { x?: number; y?: number; w?: number; h?: number }) => ({
+    x: o.x ?? 0,
+    y: o.y ?? 0,
+    w: o.w ?? 0,
+    h: o.h ?? 0,
+  });
 
   it("finds recognised handwriting and spans the whole word", () => {
     const hits = matchItems(searchableItems(objects, bounds as never), "photo");
@@ -67,7 +90,9 @@ describe("find on board", () => {
     expect(hits[0].rect).toEqual({ x: 100, y: 100, w: 25, h: 20 });
   });
   it("finds typed text, case-insensitive, all words", () => {
-    expect(matchItems(searchableItems(objects, bounds as never), "LIGHT react").map((h) => h.key)).toEqual(["t1"]);
+    expect(
+      matchItems(searchableItems(objects, bounds as never), "LIGHT react").map((h) => h.key),
+    ).toEqual(["t1"]);
     expect(matchItems(searchableItems(objects, bounds as never), "light dark")).toEqual([]);
   });
 });
@@ -120,4 +145,3 @@ describe("Slate Translate selection decoupling", () => {
     expect(useInk.getState().translatePickerOpen).toBe(false);
   });
 });
-

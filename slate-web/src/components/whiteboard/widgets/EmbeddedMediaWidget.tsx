@@ -4,14 +4,16 @@ import { cn } from "@/lib/utils";
 
 export function EmbeddedMediaWidget() {
   const [tab, setTab] = useState<"youtube" | "web" | "local">("youtube");
-  const [inputUrl, setInputUrl] = useState("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+  const [inputUrl, setInputUrl] = useState("");
   const [embedSrc, setEmbedSrc] = useState<string | null>(null);
   const [localVideoSrc, setLocalVideoSrc] = useState<string | null>(null);
 
   const loadMedia = () => {
     if (tab === "youtube") {
       let videoId = "";
-      const match = inputUrl.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+      const match = inputUrl.match(
+        /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/,
+      );
       if (match && match[1]) {
         videoId = match[1];
         setEmbedSrc(`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0`);
@@ -47,7 +49,9 @@ export function EmbeddedMediaWidget() {
           }}
           className={cn(
             "flex-1 py-1 text-xs font-bold rounded-lg transition-all",
-            tab === "youtube" ? "bg-card text-foreground shadow" : "text-muted-foreground hover:text-foreground"
+            tab === "youtube"
+              ? "bg-card text-foreground shadow"
+              : "text-muted-foreground hover:text-foreground",
           )}
         >
           <Video className="h-3.5 w-3.5 inline mr-1 text-red-500" />
@@ -60,7 +64,9 @@ export function EmbeddedMediaWidget() {
           }}
           className={cn(
             "flex-1 py-1 text-xs font-bold rounded-lg transition-all",
-            tab === "web" ? "bg-card text-foreground shadow" : "text-muted-foreground hover:text-foreground"
+            tab === "web"
+              ? "bg-card text-foreground shadow"
+              : "text-muted-foreground hover:text-foreground",
           )}
         >
           <Globe className="h-3.5 w-3.5 inline mr-1 text-sky-500" />
@@ -70,7 +76,9 @@ export function EmbeddedMediaWidget() {
           onClick={() => setTab("local")}
           className={cn(
             "flex-1 py-1 text-xs font-bold rounded-lg transition-all",
-            tab === "local" ? "bg-card text-foreground shadow" : "text-muted-foreground hover:text-foreground"
+            tab === "local"
+              ? "bg-card text-foreground shadow"
+              : "text-muted-foreground hover:text-foreground",
           )}
         >
           <Upload className="h-3.5 w-3.5 inline mr-1 text-emerald-500" />
@@ -84,7 +92,9 @@ export function EmbeddedMediaWidget() {
             type="text"
             value={inputUrl}
             onChange={(e) => setInputUrl(e.target.value)}
-            placeholder={tab === "youtube" ? "Paste YouTube link..." : "Enter educational webpage URL..."}
+            placeholder={
+              tab === "youtube" ? "Paste YouTube link..." : "Enter educational webpage URL..."
+            }
             className="flex-1 rounded-xl border border-border bg-background px-3 py-1.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary"
           />
           <button
@@ -99,7 +109,9 @@ export function EmbeddedMediaWidget() {
         <div className="space-y-2">
           <label className="flex h-20 w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-border hover:border-primary cursor-pointer bg-muted/20">
             <Upload className="h-6 w-6 text-muted-foreground mb-1" />
-            <span className="text-xs font-semibold text-muted-foreground">Select local MP4 / WebM video file</span>
+            <span className="text-xs font-semibold text-muted-foreground">
+              Select local MP4 / WebM video file
+            </span>
             <input type="file" accept="video/*" onChange={handleFileUpload} className="hidden" />
           </label>
         </div>
@@ -113,6 +125,7 @@ export function EmbeddedMediaWidget() {
           <iframe
             src={embedSrc}
             title="Embedded educational content"
+            sandbox="allow-scripts allow-same-origin allow-presentation"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
             className="h-full w-full border-0"
@@ -127,4 +140,3 @@ export function EmbeddedMediaWidget() {
     </div>
   );
 }
-

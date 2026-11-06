@@ -7,10 +7,7 @@ import { parsePptxFile } from "@/lib/whiteboard/pptxImport";
 import { toast } from "sonner";
 
 // Use official pdfjs worker URL
-const workerUrl = new URL(
-  "pdfjs-dist/build/pdf.worker.min.mjs",
-  import.meta.url
-).toString();
+const workerUrl = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();
 
 interface DocumentImportDialogProps {
   open: boolean;
@@ -20,7 +17,10 @@ interface DocumentImportDialogProps {
 export function DocumentImportDialog({ open, onOpenChange }: DocumentImportDialogProps) {
   const { pushHistory } = useWhiteboard();
   const [importing, setImporting] = useState(false);
-  const [progress, setProgress] = useState<{ current: number; total: number }>({ current: 0, total: 0 });
+  const [progress, setProgress] = useState<{ current: number; total: number }>({
+    current: 0,
+    total: 0,
+  });
   const [fileType, setFileType] = useState<"pdf" | "pptx">("pdf");
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -33,7 +33,7 @@ export function DocumentImportDialog({ open, onOpenChange }: DocumentImportDialo
     if (fileName.endsWith(".ppt") || fileName.endsWith(".doc")) {
       toast.error(
         "Old .ppt binary format (PowerPoint 97-2003) cannot be imported directly. Please save your file as modern .pptx in PowerPoint or Google Slides, or export to PDF (PDF import preserves full layout and visuals).",
-        { duration: 8000 }
+        { duration: 8000 },
       );
       return;
     }
@@ -138,9 +138,12 @@ export function DocumentImportDialog({ open, onOpenChange }: DocumentImportDialo
 
         const imgMsg = res.totalImages > 0 ? `, ${res.totalImages} pictures` : "";
         const shapeMsg = res.totalShapes > 0 ? `, ${res.totalShapes} shapes` : "";
-        const unsuppMsg = res.unsupportedImages > 0 ? ` (skipped ${res.unsupportedImages} unsupported EMF vector shapes)` : "";
+        const unsuppMsg =
+          res.unsupportedImages > 0
+            ? ` (skipped ${res.unsupportedImages} unsupported EMF vector shapes)`
+            : "";
         toast.success(
-          `Imported ${res.pages.length} PowerPoint slides${imgMsg}${shapeMsg}${unsuppMsg}!`
+          `Imported ${res.pages.length} PowerPoint slides${imgMsg}${shapeMsg}${unsuppMsg}!`,
         );
       }
     } catch (err: any) {
@@ -153,7 +156,7 @@ export function DocumentImportDialog({ open, onOpenChange }: DocumentImportDialo
       if (isZipErr) {
         toast.error(
           "This file is not a valid modern .pptx presentation. If this is an older .ppt file, please open it in PowerPoint or Google Slides and save as .pptx or export to .pdf.",
-          { duration: 8000 }
+          { duration: 8000 },
         );
       } else {
         toast.error(err?.message || "Failed to parse PowerPoint (.pptx) file.");
@@ -175,7 +178,8 @@ export function DocumentImportDialog({ open, onOpenChange }: DocumentImportDialo
 
         <div className="space-y-4 py-2">
           <p className="text-xs text-muted-foreground">
-            Convert PowerPoint (.pptx) presentation slides or PDF documents directly into whiteboard pages with full pictures, shapes, and formatted text.
+            Convert PowerPoint (.pptx) presentation slides or PDF documents directly into whiteboard
+            pages with full pictures, shapes, and formatted text.
           </p>
 
           <label className="flex flex-col items-center justify-center border-2 border-dashed border-border rounded-2xl p-8 hover:bg-muted/30 transition-all cursor-pointer text-center group">
@@ -190,7 +194,8 @@ export function DocumentImportDialog({ open, onOpenChange }: DocumentImportDialo
               <div className="flex flex-col items-center gap-2 text-primary">
                 <Loader2 className="h-10 w-10 animate-spin" />
                 <span className="text-sm font-bold">
-                  Converting {fileType.toUpperCase()} Slide {progress.current} of {progress.total}...
+                  Converting {fileType.toUpperCase()} Slide {progress.current} of {progress.total}
+                  ...
                 </span>
               </div>
             ) : (

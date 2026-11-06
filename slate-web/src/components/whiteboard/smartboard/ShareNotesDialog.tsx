@@ -1,6 +1,16 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { QrCode, Download, FileText, CheckCircle2, Share2, Sparkles, Loader2, AlertCircle, RefreshCw } from "lucide-react";
+import {
+  QrCode,
+  Download,
+  FileText,
+  CheckCircle2,
+  Share2,
+  Sparkles,
+  Loader2,
+  AlertCircle,
+  RefreshCw,
+} from "lucide-react";
 import QRCode from "qrcode";
 import { jsPDF } from "jspdf";
 import { useWhiteboard } from "@/lib/whiteboard/store";
@@ -16,7 +26,11 @@ interface ShareNotesDialogProps {
   boardTitle?: string;
 }
 
-export function ShareNotesDialog({ open, onOpenChange, boardTitle = "Lesson Notes" }: ShareNotesDialogProps) {
+export function ShareNotesDialog({
+  open,
+  onOpenChange,
+  boardTitle = "Lesson Notes",
+}: ShareNotesDialogProps) {
   const { pages, activePageId } = useWhiteboard();
   const { user } = useAuth();
   const [shareId] = useState(() => `share-${Math.random().toString(36).slice(2, 9)}`);
@@ -24,7 +38,9 @@ export function ShareNotesDialog({ open, onOpenChange, boardTitle = "Lesson Note
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
   const [publicUrl, setPublicUrl] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState<"uploading" | "ready" | "error" | "local">("uploading");
+  const [uploadStatus, setUploadStatus] = useState<"uploading" | "ready" | "error" | "local">(
+    "uploading",
+  );
   const [uploadErrorMsg, setUploadErrorMsg] = useState<string | null>(null);
   const blobRef = useRef<Blob | null>(null);
 
@@ -67,9 +83,7 @@ export function ShareNotesDialog({ open, onOpenChange, boardTitle = "Lesson Note
         return null;
       }
 
-      const { data: publicUrlData } = supabase.storage
-        .from("shared-notes")
-        .getPublicUrl(fileName);
+      const { data: publicUrlData } = supabase.storage.from("shared-notes").getPublicUrl(fileName);
 
       if (publicUrlData?.publicUrl) {
         setPublicUrl(publicUrlData.publicUrl);
@@ -102,7 +116,8 @@ export function ShareNotesDialog({ open, onOpenChange, boardTitle = "Lesson Note
         if (idx > 0) doc.addPage([1920, 1080], "landscape");
 
         const pageImg =
-          renderPageSnapshot(p, 1920, 1080) || (p.id === activePageId ? captureCanvasSnapshot() : null);
+          renderPageSnapshot(p, 1920, 1080) ||
+          (p.id === activePageId ? captureCanvasSnapshot() : null);
 
         if (pageImg) {
           doc.addImage(pageImg, "JPEG", 0, 0, 1920, 1080, undefined, "FAST");
@@ -110,7 +125,7 @@ export function ShareNotesDialog({ open, onOpenChange, boardTitle = "Lesson Note
           doc.setFillColor(
             p.background === "blackboard" ? 27 : 255,
             p.background === "blackboard" ? 56 : 255,
-            p.background === "blackboard" ? 43 : 255
+            p.background === "blackboard" ? 43 : 255,
           );
           doc.rect(0, 0, 1920, 1080, "F");
 
@@ -214,7 +229,8 @@ export function ShareNotesDialog({ open, onOpenChange, boardTitle = "Lesson Note
               Share Notes via QR Code
             </DialogTitle>
             <p className="text-xs text-muted-foreground">
-              Students point their phone camera to instantly download all {pages.length} pages as a PDF.
+              Students point their phone camera to instantly download all {pages.length} pages as a
+              PDF.
             </p>
           </div>
         </DialogHeader>
@@ -224,7 +240,9 @@ export function ShareNotesDialog({ open, onOpenChange, boardTitle = "Lesson Note
             {isGenerating ? (
               <div className="h-48 w-48 rounded-lg bg-muted animate-pulse flex flex-col items-center justify-center gap-2">
                 <Loader2 className="h-8 w-8 text-muted-foreground animate-spin" />
-                <span className="text-xs font-semibold text-muted-foreground">Rendering Pages...</span>
+                <span className="text-xs font-semibold text-muted-foreground">
+                  Rendering Pages...
+                </span>
               </div>
             ) : qrCodeUrl ? (
               <img src={qrCodeUrl} alt="Lesson Notes QR Code" className="h-48 w-48 rounded-lg" />
@@ -248,7 +266,8 @@ export function ShareNotesDialog({ open, onOpenChange, boardTitle = "Lesson Note
                   <span>Cloud storage upload failed: {uploadErrorMsg || "Bucket not found"}</span>
                 </div>
                 <p className="text-muted-foreground text-[10px]">
-                  Ensure the <code className="font-mono bg-muted px-1 rounded">shared-notes</code> bucket is created in Supabase (SQL in schema.sql).
+                  Ensure the <code className="font-mono bg-muted px-1 rounded">shared-notes</code>{" "}
+                  bucket is created in Supabase (SQL in schema.sql).
                 </p>
                 <button
                   type="button"

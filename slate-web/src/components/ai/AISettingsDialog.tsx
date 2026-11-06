@@ -49,12 +49,7 @@ export function AISettingsDialog({
   const setGeminiKey = useAISettings((s) => s.setGeminiKey);
   const hasBuiltInKey = useAISettings((s) => s.hasBuiltInKey());
 
-  const {
-    showZoomDock,
-    setShowZoomDock,
-    autoSnapEnabled,
-    setAutoSnapEnabled,
-  } = useWhiteboard();
+  const { showZoomDock, setShowZoomDock, autoSnapEnabled, setAutoSnapEnabled } = useWhiteboard();
 
   const showMetrics = useTranslationMetrics((s) => s.showMetrics);
   const setShowMetrics = useTranslationMetrics((s) => s.setShowMetrics);
@@ -130,7 +125,8 @@ export function AISettingsDialog({
                     <span>Zoom & Canvas Controls Dock</span>
                   </div>
                   <div className="text-[11px] text-muted-foreground leading-snug">
-                    Show the floating [- 100% + | ⤢ 🧭 📺] zoom, fit, and presentation dock on the screen.
+                    Show the floating [- 100% + | ⤢ 🧭 📺] zoom, fit, and presentation dock on the
+                    screen.
                   </div>
                 </div>
                 <Switch
@@ -138,9 +134,7 @@ export function AISettingsDialog({
                   onCheckedChange={(checked) => {
                     setShowZoomDock(checked);
                     toast.success(
-                      checked
-                        ? "Zoom dock enabled on canvas"
-                        : "Zoom dock hidden from canvas"
+                      checked ? "Zoom dock enabled on canvas" : "Zoom dock hidden from canvas",
                     );
                   }}
                   aria-label="Toggle Zoom Dock"
@@ -156,18 +150,15 @@ export function AISettingsDialog({
                     <span>Smart Shape Auto-Snap</span>
                   </div>
                   <div className="text-[11px] text-muted-foreground leading-snug">
-                    Automatically convert hand-drawn rough strokes into clean circles, rectangles, and lines.
+                    Automatically convert hand-drawn rough strokes into clean circles, rectangles,
+                    and lines.
                   </div>
                 </div>
                 <Switch
                   checked={autoSnapEnabled}
                   onCheckedChange={(checked) => {
                     setAutoSnapEnabled(checked);
-                    toast.success(
-                      checked
-                        ? "Auto-snap enabled"
-                        : "Auto-snap turned off"
-                    );
+                    toast.success(checked ? "Auto-snap enabled" : "Auto-snap turned off");
                   }}
                   aria-label="Toggle Auto-Snap"
                 />
@@ -183,7 +174,8 @@ export function AISettingsDialog({
                     <span>Stroke Benchmark Recorder</span>
                   </div>
                   <div className="text-[11px] text-muted-foreground leading-snug">
-                    Record, tag, and export hand-drawn strokes for continuous recognizer accuracy tuning.
+                    Record, tag, and export hand-drawn strokes for continuous recognizer accuracy
+                    tuning.
                   </div>
                 </div>
                 <Button
@@ -209,14 +201,17 @@ export function AISettingsDialog({
                     <span>Translation Latency & Metrics</span>
                   </div>
                   <div className="text-[11px] text-muted-foreground leading-snug">
-                    Displays live timing readout (pen lifted → request sent → reply → shown, payload size & request count).
+                    Displays live timing readout (pen lifted → request sent → reply → shown, payload
+                    size & request count).
                   </div>
                 </div>
                 <Switch
                   checked={showMetrics}
                   onCheckedChange={(checked) => {
                     setShowMetrics(checked);
-                    toast.info(checked ? "Translation metrics readout enabled" : "Metrics readout hidden");
+                    toast.info(
+                      checked ? "Translation metrics readout enabled" : "Metrics readout hidden",
+                    );
                   }}
                   aria-label="Toggle Translation Metrics"
                 />
@@ -241,7 +236,9 @@ export function AISettingsDialog({
                   className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium text-slate-700 hover:text-foreground hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800 transition-colors border border-border shadow-xs"
                 >
                   <Languages className="h-3.5 w-3.5 text-orange-500" />
-                  <span className="max-w-[130px] truncate">{currentLang.nativeName} ({currentLang.name})</span>
+                  <span className="max-w-[130px] truncate">
+                    {currentLang.nativeName} ({currentLang.name})
+                  </span>
                   <ChevronRight className="h-3 w-3 opacity-50" />
                 </button>
               </div>
@@ -395,7 +392,12 @@ export function AISettingsDialog({
             )}
             Test connection
           </Button>
-          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)} className="text-xs">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onOpenChange(false)}
+            className="text-xs"
+          >
             Close
           </Button>
           <Button size="sm" onClick={handleSave} className="gap-1.5 text-xs">

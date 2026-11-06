@@ -131,10 +131,9 @@ export function WidgetsSheet({
     if (!file) return;
     try {
       const bundle = await importLessonFile(file);
-      useWhiteboard.getState().setPages(
-        bundle.pages.length ? bundle.pages : (p) => p,
-        bundle.pages[0]?.id
-      );
+      useWhiteboard
+        .getState()
+        .setPages(bundle.pages.length ? bundle.pages : (p) => p, bundle.pages[0]?.id);
       toast.success(`Loaded lesson "${bundle.title}" (${bundle.pages.length} pages)!`);
     } catch {
       toast.error("Could not load .slate lesson file.");
@@ -487,7 +486,7 @@ export function WidgetsSheet({
                     "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-full whitespace-nowrap transition-all active:scale-95",
                     isActive
                       ? "bg-primary text-primary-foreground shadow-sm"
-                      : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground"
+                      : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground",
                   )}
                 >
                   <tab.icon className="h-3.5 w-3.5" />
@@ -517,7 +516,9 @@ export function WidgetsSheet({
                     </span>
                     <div>
                       <div className="text-xs font-semibold leading-tight">Sticky Note</div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Coloured notes</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        Coloured notes
+                      </div>
                     </div>
                   </button>
 
@@ -533,7 +534,9 @@ export function WidgetsSheet({
                     </span>
                     <div>
                       <div className="text-xs font-semibold leading-tight">Image</div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Online & upload</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        Online & upload
+                      </div>
                     </div>
                   </button>
 
@@ -549,7 +552,9 @@ export function WidgetsSheet({
                     </span>
                     <div>
                       <div className="text-xs font-semibold leading-tight">Table</div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Rows & columns</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        Rows & columns
+                      </div>
                     </div>
                   </button>
 
@@ -565,7 +570,9 @@ export function WidgetsSheet({
                     </span>
                     <div>
                       <div className="text-xs font-semibold leading-tight">Math Formula</div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">LaTeX equation</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        LaTeX equation
+                      </div>
                     </div>
                   </button>
 
@@ -581,7 +588,9 @@ export function WidgetsSheet({
                     </span>
                     <div>
                       <div className="text-xs font-semibold leading-tight">Video & Web</div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">YouTube & embed</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        YouTube & embed
+                      </div>
                     </div>
                   </button>
                 </div>
@@ -602,7 +611,9 @@ export function WidgetsSheet({
                     onClick={() => {
                       setTool("tape");
                       onOpenChange(false);
-                      toast("Cover tape active", { description: "Draw tape over answers to hide them. Tap tape to reveal." });
+                      toast("Cover tape active", {
+                        description: "Draw tape over answers to hide them. Tap tape to reveal.",
+                      });
                     }}
                     className="flex flex-col items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/5 p-2.5 text-center transition hover:bg-amber-500/10 active:scale-95 group"
                   >
@@ -610,8 +621,12 @@ export function WidgetsSheet({
                       <EyeOff className="h-5 w-5" />
                     </span>
                     <div>
-                      <div className="text-xs font-bold leading-tight text-amber-700 dark:text-amber-300">Cover Tape</div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Hide & tap answers</div>
+                      <div className="text-xs font-bold leading-tight text-amber-700 dark:text-amber-300">
+                        Cover Tape
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        Hide & tap answers
+                      </div>
                     </div>
                   </button>
 
@@ -619,7 +634,9 @@ export function WidgetsSheet({
                     onClick={() => {
                       setTool("frame");
                       onOpenChange(false);
-                      toast("Slide area active", { description: "Drag a box around content to create a presentation slide." });
+                      toast("Slide area active", {
+                        description: "Drag a box around content to create a presentation slide.",
+                      });
                     }}
                     className="flex flex-col items-center gap-1.5 rounded-xl border border-blue-500/30 bg-blue-500/5 p-2.5 text-center transition hover:bg-blue-500/10 active:scale-95 group"
                   >
@@ -627,8 +644,12 @@ export function WidgetsSheet({
                       <MonitorPlay className="h-5 w-5" />
                     </span>
                     <div>
-                      <div className="text-xs font-bold leading-tight text-blue-700 dark:text-blue-300">Slide Area</div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Frame for present</div>
+                      <div className="text-xs font-bold leading-tight text-blue-700 dark:text-blue-300">
+                        Slide Area
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        Frame for present
+                      </div>
                     </div>
                   </button>
 
@@ -644,7 +665,9 @@ export function WidgetsSheet({
                     </span>
                     <div>
                       <div className="text-xs font-semibold leading-tight">Curtain</div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Hide & reveal</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        Hide & reveal
+                      </div>
                     </div>
                   </button>
 
@@ -660,7 +683,9 @@ export function WidgetsSheet({
                     </span>
                     <div>
                       <div className="text-xs font-semibold leading-tight">Spotlight</div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Focus on one area</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        Focus on one area
+                      </div>
                     </div>
                   </button>
 
@@ -676,7 +701,9 @@ export function WidgetsSheet({
                     </span>
                     <div>
                       <div className="text-xs font-semibold leading-tight">Magnifier</div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Back row zoom</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        Back row zoom
+                      </div>
                     </div>
                   </button>
                 </div>
@@ -705,7 +732,9 @@ export function WidgetsSheet({
                     </span>
                     <div>
                       <div className="text-xs font-semibold leading-tight">Classroom Timer</div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Big centre countdown</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        Big centre countdown
+                      </div>
                     </div>
                   </button>
 
@@ -721,7 +750,9 @@ export function WidgetsSheet({
                     </span>
                     <div>
                       <div className="text-xs font-semibold leading-tight">Name Picker & Teams</div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Big wheel & groups</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        Big wheel & groups
+                      </div>
                     </div>
                   </button>
 
@@ -737,7 +768,9 @@ export function WidgetsSheet({
                     </span>
                     <div>
                       <div className="text-xs font-semibold leading-tight">Drag & Drop</div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Sort, match & label</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        Sort, match & label
+                      </div>
                     </div>
                   </button>
 
@@ -754,7 +787,9 @@ export function WidgetsSheet({
                       </span>
                       <div>
                         <div className="text-xs font-semibold leading-tight">AI Lesson Builder</div>
-                        <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">5-8 ready pages</div>
+                        <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                          5-8 ready pages
+                        </div>
                       </div>
                     </button>
                   )}
@@ -771,7 +806,9 @@ export function WidgetsSheet({
                     </span>
                     <div>
                       <div className="text-xs font-semibold leading-tight">Teacher Account</div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Cloud save & sync</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        Cloud save & sync
+                      </div>
                     </div>
                   </button>
 
@@ -787,7 +824,9 @@ export function WidgetsSheet({
                     </span>
                     <div>
                       <div className="text-xs font-semibold leading-tight">Stopwatch</div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Lap counter</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        Lap counter
+                      </div>
                     </div>
                   </button>
 
@@ -803,7 +842,9 @@ export function WidgetsSheet({
                     </span>
                     <div>
                       <div className="text-xs font-semibold leading-tight">Dice</div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Roll 1 to 4 dice</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        Roll 1 to 4 dice
+                      </div>
                     </div>
                   </button>
 
@@ -819,7 +860,9 @@ export function WidgetsSheet({
                     </span>
                     <div>
                       <div className="text-xs font-semibold leading-tight">Scoreboard</div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Team points</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        Team points
+                      </div>
                     </div>
                   </button>
 
@@ -835,7 +878,9 @@ export function WidgetsSheet({
                     </span>
                     <div>
                       <div className="text-xs font-semibold leading-tight">Class Signals</div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Noise meter & lights</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        Noise meter & lights
+                      </div>
                     </div>
                   </button>
 
@@ -851,7 +896,9 @@ export function WidgetsSheet({
                     </span>
                     <div>
                       <div className="text-xs font-bold leading-tight">Live QR Poll</div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Student voting</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        Student voting
+                      </div>
                     </div>
                   </button>
 
@@ -866,8 +913,12 @@ export function WidgetsSheet({
                       <Vote className="h-5 w-5" />
                     </span>
                     <div>
-                      <div className="text-xs font-bold leading-tight text-purple-700 dark:text-purple-400">Live Quiz</div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Class competition</div>
+                      <div className="text-xs font-bold leading-tight text-purple-700 dark:text-purple-400">
+                        Live Quiz
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        Class competition
+                      </div>
                     </div>
                   </button>
 
@@ -882,8 +933,12 @@ export function WidgetsSheet({
                       <Share2 className="h-5 w-5" />
                     </span>
                     <div>
-                      <div className="text-xs font-bold leading-tight text-emerald-700 dark:text-emerald-400">Share via QR</div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">PDF download</div>
+                      <div className="text-xs font-bold leading-tight text-emerald-700 dark:text-emerald-400">
+                        Share via QR
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        PDF download
+                      </div>
                     </div>
                   </button>
 
@@ -899,7 +954,9 @@ export function WidgetsSheet({
                     </span>
                     <div>
                       <div className="text-xs font-semibold leading-tight">Page Sorter</div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Reorder slides</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        Reorder slides
+                      </div>
                     </div>
                   </button>
                 </div>
@@ -928,7 +985,9 @@ export function WidgetsSheet({
                     </span>
                     <div>
                       <div className="text-xs font-semibold leading-tight">Grapher</div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Plot y = f(x)</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        Plot y = f(x)
+                      </div>
                     </div>
                   </button>
 
@@ -944,7 +1003,9 @@ export function WidgetsSheet({
                     </span>
                     <div>
                       <div className="text-xs font-semibold leading-tight">Ruler</div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Measure & align</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        Measure & align
+                      </div>
                     </div>
                   </button>
 
@@ -960,7 +1021,9 @@ export function WidgetsSheet({
                     </span>
                     <div>
                       <div className="text-xs font-semibold leading-tight">Protractor</div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Angle measurer</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        Angle measurer
+                      </div>
                     </div>
                   </button>
 
@@ -976,7 +1039,9 @@ export function WidgetsSheet({
                     </span>
                     <div>
                       <div className="text-xs font-semibold leading-tight">Geometry Kit</div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Compass & set-square</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        Compass & set-square
+                      </div>
                     </div>
                   </button>
 
@@ -992,7 +1057,9 @@ export function WidgetsSheet({
                     </span>
                     <div>
                       <div className="text-xs font-semibold leading-tight">Maths Models</div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Clock & fractions</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        Clock & fractions
+                      </div>
                     </div>
                   </button>
 
@@ -1009,7 +1076,9 @@ export function WidgetsSheet({
                       </span>
                       <div>
                         <div className="text-xs font-semibold leading-tight">3D Solids</div>
-                        <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Geometry solids</div>
+                        <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                          Geometry solids
+                        </div>
                       </div>
                     </button>
                   )}
@@ -1026,7 +1095,9 @@ export function WidgetsSheet({
                     </span>
                     <div>
                       <div className="text-xs font-semibold leading-tight">Calculator</div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Scientific math</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        Scientific math
+                      </div>
                     </div>
                   </button>
 
@@ -1042,7 +1113,9 @@ export function WidgetsSheet({
                     </span>
                     <div>
                       <div className="text-xs font-semibold leading-tight">Periodic Table</div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">118 elements</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        118 elements
+                      </div>
                     </div>
                   </button>
 
@@ -1055,8 +1128,12 @@ export function WidgetsSheet({
                       <Grid3X3 className="h-5 w-5" />
                     </span>
                     <div>
-                      <div className="text-xs font-semibold leading-tight text-teal-700 dark:text-teal-300">Whole Table</div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">All 118 on board</div>
+                      <div className="text-xs font-semibold leading-tight text-teal-700 dark:text-teal-300">
+                        Whole Table
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        All 118 on board
+                      </div>
                     </div>
                   </button>
 
@@ -1072,7 +1149,9 @@ export function WidgetsSheet({
                     </span>
                     <div>
                       <div className="text-xs font-semibold leading-tight">Geo Maps</div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">World & continents</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        World & continents
+                      </div>
                     </div>
                   </button>
 
@@ -1088,7 +1167,9 @@ export function WidgetsSheet({
                     </span>
                     <div>
                       <div className="text-xs font-semibold leading-tight">Grid Paper</div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Notebook & lines</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        Notebook & lines
+                      </div>
                     </div>
                   </button>
                 </div>
@@ -1118,7 +1199,9 @@ export function WidgetsSheet({
                       </span>
                       <div>
                         <div className="text-xs font-bold leading-tight text-primary">Slate AI</div>
-                        <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Ask & solve anything</div>
+                        <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                          Ask & solve anything
+                        </div>
                       </div>
                     </button>
 
@@ -1134,8 +1217,12 @@ export function WidgetsSheet({
                           <Sparkles className="h-5 w-5" />
                         </span>
                         <div>
-                          <div className="text-xs font-bold leading-tight text-violet-700 dark:text-violet-300">Solve Math</div>
-                          <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Reads handwriting</div>
+                          <div className="text-xs font-bold leading-tight text-violet-700 dark:text-violet-300">
+                            Solve Math
+                          </div>
+                          <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                            Reads handwriting
+                          </div>
                         </div>
                       </button>
                     )}
@@ -1152,8 +1239,12 @@ export function WidgetsSheet({
                           <Sparkles className="h-5 w-5" />
                         </span>
                         <div>
-                          <div className="text-xs font-semibold leading-tight text-amber-700 dark:text-amber-300">Magic Doodle</div>
-                          <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">AI drawings to icons</div>
+                          <div className="text-xs font-semibold leading-tight text-amber-700 dark:text-amber-300">
+                            Magic Doodle
+                          </div>
+                          <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                            AI drawings to icons
+                          </div>
                         </div>
                       </button>
                     )}
@@ -1170,7 +1261,9 @@ export function WidgetsSheet({
                       </span>
                       <div>
                         <div className="text-xs font-semibold leading-tight">Flashcards</div>
-                        <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Study quiz generator</div>
+                        <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                          Study quiz generator
+                        </div>
                       </div>
                     </button>
                   </div>
@@ -1196,7 +1289,9 @@ export function WidgetsSheet({
                       </span>
                       <div>
                         <div className="text-xs font-semibold leading-tight">Save Lesson</div>
-                        <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">.slate bundle</div>
+                        <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                          .slate bundle
+                        </div>
                       </div>
                     </button>
 
@@ -1212,7 +1307,9 @@ export function WidgetsSheet({
                       </span>
                       <div>
                         <div className="text-xs font-semibold leading-tight">Open Lesson</div>
-                        <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Load .slate file</div>
+                        <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                          Load .slate file
+                        </div>
                       </div>
                     </button>
 
@@ -1228,7 +1325,9 @@ export function WidgetsSheet({
                       </span>
                       <div>
                         <div className="text-xs font-semibold leading-tight">60s Tour</div>
-                        <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">Board basics</div>
+                        <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                          Board basics
+                        </div>
                       </div>
                     </button>
                   </div>
@@ -1269,9 +1368,7 @@ export function WidgetsSheet({
       {gridTemplatesOpen && (
         <GridTemplatesDialog open={gridTemplatesOpen} onOpenChange={setGridTemplatesOpen} />
       )}
-      {geoMapsOpen && (
-        <GeoMapsDialog open={geoMapsOpen} onOpenChange={setGeoMapsOpen} />
-      )}
+      {geoMapsOpen && <GeoMapsDialog open={geoMapsOpen} onOpenChange={setGeoMapsOpen} />}
       <QuickPollDialog open={quickPollOpen} onOpenChange={setQuickPollOpen} />
       <ShareNotesDialog open={shareNotesOpen} onOpenChange={setShareNotesOpen} />
       <PageSorterDialog open={pageSorterOpen} onOpenChange={setPageSorterOpen} />
@@ -1320,10 +1417,7 @@ export function useWidgetLauncher() {
     const defaultY = isMobile
       ? 80 + (openWidgets.length % 4) * 20
       : 120 + (openWidgets.length % 5) * 30;
-    setOpenWidgets((w) => [
-      ...w,
-      { id: uid(), kind, x: defaultX, y: defaultY },
-    ]);
+    setOpenWidgets((w) => [...w, { id: uid(), kind, x: defaultX, y: defaultY }]);
   }
   function close(id: string) {
     setOpenWidgets((w) => w.filter((x) => x.id !== id));

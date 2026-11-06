@@ -79,7 +79,12 @@ type NotesActions = {
   setNoteBoardId: (id: string, boardId: string | null) => void;
   addNoteTag: (id: string, tag: string) => void;
   removeNoteTag: (id: string, tag: string) => void;
-  addBlock: (noteId: string, type?: NoteBlock["type"], afterId?: string, content?: string) => string;
+  addBlock: (
+    noteId: string,
+    type?: NoteBlock["type"],
+    afterId?: string,
+    content?: string,
+  ) => string;
   updateBlock: (noteId: string, blockId: string, patch: Partial<NoteBlock>) => void;
   deleteBlock: (noteId: string, blockId: string) => void;
   moveBlock: (noteId: string, fromIndex: number, toIndex: number) => void;
@@ -107,10 +112,13 @@ function saveStorage(notes: Record<string, Note>, noteOrder: string[]) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ notes, noteOrder }));
   } catch (err) {
     console.error("[NotesStore] Save failure:", err);
-    toast.error("Storage full! Unable to save note locally. Sync with Cloud to protect your notes.", {
-      id: "notes-storage-quota-error",
-      duration: 5000,
-    });
+    toast.error(
+      "Storage full! Unable to save note locally. Sync with Cloud to protect your notes.",
+      {
+        id: "notes-storage-quota-error",
+        duration: 5000,
+      },
+    );
   }
 }
 
@@ -350,10 +358,14 @@ export const useNotes = create<NotesState & NotesActions>((set, get) => {
 
         for (const cn of cloudNotes) {
           const localNote = mergedNotes[cn.id];
-          if (!localNote || (cn.updated_at && new Date(cn.updated_at).getTime() > localNote.updatedAt)) {
+          if (
+            !localNote ||
+            (cn.updated_at && new Date(cn.updated_at).getTime() > localNote.updatedAt)
+          ) {
             const updatedAt = cn.updated_at ? new Date(cn.updated_at).getTime() : Date.now();
             const createdAt = cn.created_at ? new Date(cn.created_at).getTime() : Date.now();
-            const blocks = Array.isArray(cn.blocks) && cn.blocks.length ? cn.blocks : [createEmptyBlock("text")];
+            const blocks =
+              Array.isArray(cn.blocks) && cn.blocks.length ? cn.blocks : [createEmptyBlock("text")];
             mergedNotes[cn.id] = {
               id: cn.id,
               title: cn.title || "",
@@ -389,6 +401,9 @@ if (typeof window !== "undefined") {
   queueMicrotask(() => {
     const loaded = loadStorage();
     useNotes.setState({ ...loaded, hydrated: true });
-    useNotes.getState().syncWithCloud().catch(() => {});
+    useNotes
+      .getState()
+      .syncWithCloud()
+      .catch(() => {});
   });
 }

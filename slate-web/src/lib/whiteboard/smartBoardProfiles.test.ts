@@ -7,7 +7,7 @@ import {
 } from "./smartBoardProfiles";
 import { classifyPointerContact } from "./palmClassifier";
 
-describe("Smart Board Hardware Profiles (55\", 65\", 75\", 86\", 98\", 110\")", () => {
+describe('Smart Board Hardware Profiles (55", 65", 75", 86", 98", 110")', () => {
   const panelSizes: PanelDiagonal[] = ["55", "65", "75", "86", "98", "110"];
 
   it("defines calibration profiles for all 6 target smart board dimensions", () => {
@@ -26,7 +26,7 @@ describe("Smart Board Hardware Profiles (55\", 65\", 75\", 86\", 98\", 110\")", 
     });
   });
 
-  it("calculates reachability offsets proportionally for tall panels (86\", 98\", 110\")", () => {
+  it('calculates reachability offsets proportionally for tall panels (86", 98", 110")', () => {
     expect(SMART_BOARD_PROFILES["55"].recommendedPullDownOffset).toBe(0);
     expect(SMART_BOARD_PROFILES["65"].recommendedPullDownOffset).toBe(0.1);
     expect(SMART_BOARD_PROFILES["75"].recommendedPullDownOffset).toBe(0.18);

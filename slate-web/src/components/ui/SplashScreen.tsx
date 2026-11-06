@@ -60,9 +60,7 @@ export function SplashScreen({ onFinish }: { onFinish?: () => void }) {
         </h2>
 
         {/* App Title */}
-        <h1 className="mt-2 text-2xl font-black tracking-tight text-[#1E255E]">
-          Slate Whiteboard
-        </h1>
+        <h1 className="mt-2 text-2xl font-black tracking-tight text-[#1E255E]">Slate Whiteboard</h1>
         <p className="mt-1 text-xs text-slate-500 font-medium">
           Next-Gen Interactive Digital Classroom & Canvas
         </p>

@@ -334,11 +334,19 @@ export function pagesForTemplate(key: TemplateKey): Page[] {
           ...base,
           background: "four-line",
           objects: [
-            text(60, 40, "Handwriting Practice (4-Line Ruling)", { fontSize: 24, color: "#1e293b" }),
-            text(60, 100, "Aa Bb Cc Dd Ee Ff Gg Hh Ii Jj Kk Ll Mm Nn Oo Pp Qq Rr Ss Tt Uu Vv Ww Xx Yy Zz", {
-              fontSize: 22,
-              color: "#0369a1",
+            text(60, 40, "Handwriting Practice (4-Line Ruling)", {
+              fontSize: 24,
+              color: "#1e293b",
             }),
+            text(
+              60,
+              100,
+              "Aa Bb Cc Dd Ee Ff Gg Hh Ii Jj Kk Ll Mm Nn Oo Pp Qq Rr Ss Tt Uu Vv Ww Xx Yy Zz",
+              {
+                fontSize: 22,
+                color: "#0369a1",
+              },
+            ),
           ],
         },
       ];
@@ -349,7 +357,10 @@ export function pagesForTemplate(key: TemplateKey): Page[] {
           background: "music-staves",
           objects: [
             text(60, 30, "Music Theory & Staves", { fontSize: 24, color: "#0f172a" }),
-            text(60, 75, "Treble Clef & Key Signature Practice", { fontSize: 16, color: "#64748b" }),
+            text(60, 75, "Treble Clef & Key Signature Practice", {
+              fontSize: 16,
+              color: "#64748b",
+            }),
           ],
         },
       ];
@@ -403,7 +414,10 @@ export function pagesForTemplate(key: TemplateKey): Page[] {
               color: "#3b82f6",
               size: 2,
             },
-            text(120, 150, "India Map Outline (States & Union Territories)", { fontSize: 18, color: "#1e3a8a" }),
+            text(120, 150, "India Map Outline (States & Union Territories)", {
+              fontSize: 18,
+              color: "#1e3a8a",
+            }),
           ],
         },
       ];
@@ -429,7 +443,10 @@ export function pagesForTemplate(key: TemplateKey): Page[] {
               color: "#059669",
               size: 2,
             },
-            text(120, 150, "World Continents & Oceans Reference", { fontSize: 18, color: "#065f46" }),
+            text(120, 150, "World Continents & Oceans Reference", {
+              fontSize: 18,
+              color: "#065f46",
+            }),
           ],
         },
       ];

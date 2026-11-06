@@ -142,7 +142,11 @@ export function ImageSearchDialog({
       const pages = data?.query?.pages ? Object.values(data.query.pages) : [];
 
       const parsed: ImageItem[] = [];
-      for (const p of pages as Array<{ title?: string; thumbnail?: { source: string }; pageid?: number }>) {
+      for (const p of pages as Array<{
+        title?: string;
+        thumbnail?: { source: string };
+        pageid?: number;
+      }>) {
         if (p.thumbnail?.source) {
           parsed.push({
             id: `wiki-${p.pageid || uid()}`,
@@ -191,22 +195,22 @@ export function ImageSearchDialog({
     reader.readAsDataURL(file);
   }
 
-async function urlToDataUrl(url: string): Promise<string> {
-  if (url.startsWith("data:")) return url;
-  try {
-    const res = await fetch(url, { mode: "cors" });
-    if (!res.ok) return url;
-    const blob = await res.blob();
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve((reader.result as string) || url);
-      reader.onerror = () => resolve(url);
-      reader.readAsDataURL(blob);
-    });
-  } catch {
-    return url;
+  async function urlToDataUrl(url: string): Promise<string> {
+    if (url.startsWith("data:")) return url;
+    try {
+      const res = await fetch(url, { mode: "cors" });
+      if (!res.ok) return url;
+      const blob = await res.blob();
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve((reader.result as string) || url);
+        reader.onerror = () => resolve(url);
+        reader.readAsDataURL(blob);
+      });
+    } catch {
+      return url;
+    }
   }
-}
 
   async function insertImageToCanvas(srcUrl: string, title?: string) {
     let finalSrc = srcUrl;
@@ -246,7 +250,8 @@ async function urlToDataUrl(url: string): Promise<string> {
             Image Search & Insert
           </DialogTitle>
           <DialogDescription className="text-xs">
-            Search educational diagrams, encyclopedic illustrations, or upload custom imagery to the whiteboard.
+            Search educational diagrams, encyclopedic illustrations, or upload custom imagery to the
+            whiteboard.
           </DialogDescription>
         </DialogHeader>
 
@@ -269,7 +274,11 @@ async function urlToDataUrl(url: string): Promise<string> {
             disabled={loading}
             className="flex items-center gap-1.5 rounded-xl bg-primary text-primary-foreground px-3.5 py-2 text-xs font-semibold hover:bg-primary/90 transition active:scale-95 disabled:opacity-50"
           >
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+            {loading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Search className="h-4 w-4" />
+            )}
             <span className="hidden sm:inline">Search</span>
           </button>
           <label className="flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-2 text-xs font-medium text-foreground hover:bg-accent cursor-pointer transition active:scale-95">

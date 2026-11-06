@@ -6,7 +6,7 @@ describe("PowerPoint (.pptx) Import Engine", () => {
   it("rejects non-zip files with a clear error message", async () => {
     const fakeBuffer = new TextEncoder().encode("This is not a zip file");
     await expect(parsePptxFile(fakeBuffer)).rejects.toThrowError(
-      /valid modern \.pptx presentation/
+      /valid modern \.pptx presentation/,
     );
   });
 
@@ -19,7 +19,7 @@ describe("PowerPoint (.pptx) Import Engine", () => {
       `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
       <p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
         <p:sldSz cx="12192000" cy="6858000" type="screen16x9"/>
-      </p:presentation>`
+      </p:presentation>`,
     );
 
     // 2. Slide 1 Relationships (referencing image1.png)
@@ -28,7 +28,7 @@ describe("PowerPoint (.pptx) Import Engine", () => {
       `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
       <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
         <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image1.png"/>
-      </Relationships>`
+      </Relationships>`,
     );
 
     // 3. Embedded sample image
@@ -94,7 +94,7 @@ describe("PowerPoint (.pptx) Import Engine", () => {
             </p:sp>
           </p:spTree>
         </p:cSld>
-      </p:sld>`
+      </p:sld>`,
     );
 
     const pptxBuffer = await zip.generateAsync({ type: "arraybuffer" });
@@ -113,7 +113,7 @@ describe("PowerPoint (.pptx) Import Engine", () => {
 
     // Title text exists
     const textObj = page.objects.find(
-      (o) => o.kind === "text" && (o as any).text.includes("Photosynthesis & Plants")
+      (o) => o.kind === "text" && (o as any).text.includes("Photosynthesis & Plants"),
     );
     expect(textObj).toBeDefined();
 
@@ -141,7 +141,7 @@ describe("PowerPoint (.pptx) Import Engine", () => {
           <p:sldId id="257" r:id="rId2"/>
           <p:sldId id="256" r:id="rId1"/>
         </p:sldIdLst>
-      </p:presentation>`
+      </p:presentation>`,
     );
 
     zip.file(
@@ -150,7 +150,7 @@ describe("PowerPoint (.pptx) Import Engine", () => {
       <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
         <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide1.xml"/>
         <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide2.xml"/>
-      </Relationships>`
+      </Relationships>`,
     );
 
     zip.file(
@@ -158,7 +158,7 @@ describe("PowerPoint (.pptx) Import Engine", () => {
       `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
       <p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
         <p:cSld><p:spTree><p:sp><p:txBody><a:p><a:r><a:t>I Am Slide One</a:t></a:r></a:p></p:txBody></p:sp></p:spTree></p:cSld>
-      </p:sld>`
+      </p:sld>`,
     );
 
     zip.file(
@@ -166,7 +166,7 @@ describe("PowerPoint (.pptx) Import Engine", () => {
       `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
       <p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
         <p:cSld><p:spTree><p:sp><p:txBody><a:p><a:r><a:t>I Am Slide Two (First)</a:t></a:r></a:p></p:txBody></p:sp></p:spTree></p:cSld>
-      </p:sld>`
+      </p:sld>`,
     );
 
     const pptxBuffer = await zip.generateAsync({ type: "arraybuffer" });
@@ -190,7 +190,7 @@ describe("PowerPoint (.pptx) Import Engine", () => {
       `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
       <p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
         <p:sldSz cx="12192000" cy="6858000" type="screen16x9"/>
-      </p:presentation>`
+      </p:presentation>`,
     );
 
     zip.file(
@@ -199,10 +199,11 @@ describe("PowerPoint (.pptx) Import Engine", () => {
       <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
         <Relationship Id="rIdPng" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/sample.png"/>
         <Relationship Id="rIdEmf" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/vector.emf"/>
-      </Relationships>`
+      </Relationships>`,
     );
 
-    const samplePngBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+    const samplePngBase64 =
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
     zip.file("ppt/media/sample.png", samplePngBase64, { base64: true });
     zip.file("ppt/media/vector.emf", "fake-emf-binary-data");
 
@@ -241,7 +242,7 @@ describe("PowerPoint (.pptx) Import Engine", () => {
             </p:grpSp>
           </p:spTree>
         </p:cSld>
-      </p:sld>`
+      </p:sld>`,
     );
 
     const pptxBuffer = await zip.generateAsync({ type: "arraybuffer" });
@@ -269,7 +270,7 @@ describe("PowerPoint (.pptx) Import Engine", () => {
         <p:sldIdLst>
           <p:sldId id="256" r:id="rId1" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/>
         </p:sldIdLst>
-      </p:presentation>`
+      </p:presentation>`,
     );
 
     zip.file(
@@ -277,7 +278,7 @@ describe("PowerPoint (.pptx) Import Engine", () => {
       `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
       <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
         <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide1.xml"/>
-      </Relationships>`
+      </Relationships>`,
     );
 
     zip.file(
@@ -285,7 +286,7 @@ describe("PowerPoint (.pptx) Import Engine", () => {
       `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
       <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
         <Relationship Id="rIdNotes" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide" Target="../notesSlides/notesSlide1.xml"/>
-      </Relationships>`
+      </Relationships>`,
     );
 
     // Notes slide with teacher notes
@@ -302,7 +303,7 @@ describe("PowerPoint (.pptx) Import Engine", () => {
             </p:sp>
           </p:spTree>
         </p:cSld>
-      </p:notes>`
+      </p:notes>`,
     );
 
     // Slide 1 with a table and nested groups
@@ -373,7 +374,7 @@ describe("PowerPoint (.pptx) Import Engine", () => {
             </p:grpSp>
           </p:spTree>
         </p:cSld>
-      </p:sld>`
+      </p:sld>`,
     );
 
     const pptxBuffer = await zip.generateAsync({ type: "arraybuffer" });
@@ -385,7 +386,7 @@ describe("PowerPoint (.pptx) Import Engine", () => {
     // Speaker notes verification
     expect(page.notes).toContain("cellular respiration");
     const notesSticky = page.objects.find(
-      (o) => (o as any).text && (o as any).text.includes("Speaker Notes")
+      (o) => (o as any).text && (o as any).text.includes("Speaker Notes"),
     );
     expect(notesSticky).toBeDefined();
 
@@ -399,9 +400,8 @@ describe("PowerPoint (.pptx) Import Engine", () => {
 
     // Nested text placement verification
     const nestedText = page.objects.find(
-      (o) => o.kind === "text" && (o as any).text.includes("Nested Label")
+      (o) => o.kind === "text" && (o as any).text.includes("Nested Label"),
     );
     expect(nestedText).toBeDefined();
   });
 });
-

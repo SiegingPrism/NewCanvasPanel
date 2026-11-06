@@ -79,7 +79,9 @@ export function ClassroomManagerWidget() {
     <div className="w-80 select-none space-y-4 p-1">
       {/* 1. Behavior Traffic Light */}
       <div className="space-y-2">
-        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Classroom Mode</p>
+        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+          Classroom Mode
+        </p>
         <div className="flex items-center justify-between rounded-2xl bg-card border border-border p-3 shadow-inner">
           {/* Red Light */}
           <button
@@ -91,12 +93,17 @@ export function ClassroomManagerWidget() {
                 "h-14 w-14 rounded-full border-2 transition-all flex items-center justify-center",
                 traffic === "red"
                   ? "bg-rose-500 border-white shadow-[0_0_24px_rgba(244,63,94,0.8)] scale-105"
-                  : "bg-rose-950/40 border-rose-900/60 opacity-40 hover:opacity-75"
+                  : "bg-rose-950/40 border-rose-900/60 opacity-40 hover:opacity-75",
               )}
             >
               <span className="text-[10px] font-black text-white">QUIET</span>
             </div>
-            <span className={cn("text-[10px] font-bold", traffic === "red" ? "text-rose-500" : "text-muted-foreground")}>
+            <span
+              className={cn(
+                "text-[10px] font-bold",
+                traffic === "red" ? "text-rose-500" : "text-muted-foreground",
+              )}
+            >
               Silence
             </span>
           </button>
@@ -111,12 +118,17 @@ export function ClassroomManagerWidget() {
                 "h-14 w-14 rounded-full border-2 transition-all flex items-center justify-center",
                 traffic === "yellow"
                   ? "bg-amber-400 border-white shadow-[0_0_24px_rgba(251,191,36,0.8)] scale-105"
-                  : "bg-amber-950/40 border-amber-900/60 opacity-40 hover:opacity-75"
+                  : "bg-amber-950/40 border-amber-900/60 opacity-40 hover:opacity-75",
               )}
             >
               <span className="text-[10px] font-black text-slate-900">WHISPER</span>
             </div>
-            <span className={cn("text-[10px] font-bold", traffic === "yellow" ? "text-amber-500" : "text-muted-foreground")}>
+            <span
+              className={cn(
+                "text-[10px] font-bold",
+                traffic === "yellow" ? "text-amber-500" : "text-muted-foreground",
+              )}
+            >
               Pairs
             </span>
           </button>
@@ -131,12 +143,17 @@ export function ClassroomManagerWidget() {
                 "h-14 w-14 rounded-full border-2 transition-all flex items-center justify-center",
                 traffic === "green"
                   ? "bg-emerald-500 border-white shadow-[0_0_24px_rgba(16,185,129,0.8)] scale-105"
-                  : "bg-emerald-950/40 border-emerald-900/60 opacity-40 hover:opacity-75"
+                  : "bg-emerald-950/40 border-emerald-900/60 opacity-40 hover:opacity-75",
               )}
             >
               <span className="text-[10px] font-black text-white">GROUP</span>
             </div>
-            <span className={cn("text-[10px] font-bold", traffic === "green" ? "text-emerald-500" : "text-muted-foreground")}>
+            <span
+              className={cn(
+                "text-[10px] font-bold",
+                traffic === "green" ? "text-emerald-500" : "text-muted-foreground",
+              )}
+            >
               Discussion
             </span>
           </button>
@@ -148,12 +165,16 @@ export function ClassroomManagerWidget() {
       {/* 2. Audio Noise Meter */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Classroom Noise Meter</p>
+          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            Classroom Noise Meter
+          </p>
           <button
             onClick={micActive ? stopMic : startMic}
             className={cn(
               "flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition-all",
-              micActive ? "bg-rose-500/10 text-rose-500 hover:bg-rose-500/20" : "bg-primary text-primary-foreground hover:bg-primary/90"
+              micActive
+                ? "bg-rose-500/10 text-rose-500 hover:bg-rose-500/20"
+                : "bg-primary text-primary-foreground hover:bg-primary/90",
             )}
           >
             {micActive ? <MicOff className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
@@ -167,7 +188,12 @@ export function ClassroomManagerWidget() {
             <div className="space-y-1">
               <div className="flex justify-between text-[11px] font-semibold text-muted-foreground">
                 <span>Room Noise</span>
-                <span className={cn("font-bold font-mono", noiseAlert ? "text-rose-500 animate-pulse" : "text-foreground")}>
+                <span
+                  className={cn(
+                    "font-bold font-mono",
+                    noiseAlert ? "text-rose-500 animate-pulse" : "text-foreground",
+                  )}
+                >
                   {volumeLevel} dB
                 </span>
               </div>
@@ -178,8 +204,8 @@ export function ClassroomManagerWidget() {
                     volumeLevel > threshold
                       ? "bg-rose-500"
                       : volumeLevel > threshold * 0.7
-                      ? "bg-amber-400"
-                      : "bg-emerald-500"
+                        ? "bg-amber-400"
+                        : "bg-emerald-500",
                   )}
                   style={{ width: `${volumeLevel}%` }}
                 />
@@ -217,4 +243,3 @@ export function ClassroomManagerWidget() {
     </div>
   );
 }
-

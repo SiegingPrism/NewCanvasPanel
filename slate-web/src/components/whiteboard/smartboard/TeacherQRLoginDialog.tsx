@@ -29,9 +29,7 @@ export function TeacherQRLoginDialog({ open, onOpenChange }: TeacherQRLoginDialo
               <DialogTitle className="text-xl font-extrabold text-foreground">
                 Teacher Direct Sign-In
               </DialogTitle>
-              <p className="text-xs text-muted-foreground">
-                Account Security Notice
-              </p>
+              <p className="text-xs text-muted-foreground">Account Security Notice</p>
             </div>
           </DialogHeader>
 
@@ -42,12 +40,14 @@ export function TeacherQRLoginDialog({ open, onOpenChange }: TeacherQRLoginDialo
                 <span>QR Token Transfer Deactivated</span>
               </div>
               <p className="text-muted-foreground leading-relaxed">
-                To prevent session hijacking and token exposure on public classroom displays, fast QR token exchange over public channels has been disabled.
+                To prevent session hijacking and token exposure on public classroom displays, fast
+                QR token exchange over public channels has been disabled.
               </p>
             </div>
 
             <p className="text-xs text-muted-foreground">
-              Please sign in directly using your email and password or Google account. Your session remains strictly private and encrypted on this device.
+              Please sign in directly using your email and password or Google account. Your session
+              remains strictly private and encrypted on this device.
             </p>
 
             <Button

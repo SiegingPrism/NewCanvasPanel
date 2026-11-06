@@ -121,7 +121,9 @@ export function GeometryKitWidget() {
           onClick={() => setTab("compass")}
           className={cn(
             "flex-1 py-1 text-xs font-bold rounded-lg transition-all",
-            tab === "compass" ? "bg-card text-foreground shadow" : "text-muted-foreground hover:text-foreground"
+            tab === "compass"
+              ? "bg-card text-foreground shadow"
+              : "text-muted-foreground hover:text-foreground",
           )}
         >
           <Compass className="h-3.5 w-3.5 inline mr-1" />
@@ -131,7 +133,9 @@ export function GeometryKitWidget() {
           onClick={() => setTab("setsquare")}
           className={cn(
             "flex-1 py-1 text-xs font-bold rounded-lg transition-all",
-            tab === "setsquare" ? "bg-card text-foreground shadow" : "text-muted-foreground hover:text-foreground"
+            tab === "setsquare"
+              ? "bg-card text-foreground shadow"
+              : "text-muted-foreground hover:text-foreground",
           )}
         >
           <Triangle className="h-3.5 w-3.5 inline mr-1" />
@@ -145,13 +149,37 @@ export function GeometryKitWidget() {
           <div className="flex h-36 w-full items-center justify-center rounded-xl bg-muted/30 border border-border relative overflow-hidden">
             <svg className="h-32 w-32" viewBox="0 0 100 100">
               {/* Compass Needle */}
-              <line x1="50" y1="20" x2="35" y2="85" stroke="#64748b" strokeWidth="3" strokeLinecap="round" />
+              <line
+                x1="50"
+                y1="20"
+                x2="35"
+                y2="85"
+                stroke="#64748b"
+                strokeWidth="3"
+                strokeLinecap="round"
+              />
               {/* Compass Pencil Arm */}
-              <line x1="50" y1="20" x2="65" y2="85" stroke="#3b82f6" strokeWidth="3" strokeLinecap="round" />
+              <line
+                x1="50"
+                y1="20"
+                x2="65"
+                y2="85"
+                stroke="#3b82f6"
+                strokeWidth="3"
+                strokeLinecap="round"
+              />
               {/* Hinge */}
               <circle cx="50" cy="20" r="5" fill="#1e293b" />
               {/* Radius line */}
-              <line x1="35" y1="85" x2="65" y2="85" stroke="#cbd5e1" strokeDasharray="2 2" strokeWidth="1" />
+              <line
+                x1="35"
+                y1="85"
+                x2="65"
+                y2="85"
+                stroke="#cbd5e1"
+                strokeDasharray="2 2"
+                strokeWidth="1"
+              />
               {/* Drawn Arc */}
               <path
                 d="M 65 85 A 30 30 0 0 1 35 85"
@@ -211,7 +239,9 @@ export function GeometryKitWidget() {
               onClick={() => setSquareType("30-60")}
               className={cn(
                 "flex-1 py-1.5 text-xs font-bold rounded-xl border transition-all",
-                squareType === "30-60" ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-muted"
+                squareType === "30-60"
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border hover:bg-muted",
               )}
             >
               30° - 60° - 90°
@@ -220,7 +250,9 @@ export function GeometryKitWidget() {
               onClick={() => setSquareType("45")}
               className={cn(
                 "flex-1 py-1.5 text-xs font-bold rounded-xl border transition-all",
-                squareType === "45" ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-muted"
+                squareType === "45"
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border hover:bg-muted",
               )}
             >
               45° - 45° - 90°
@@ -237,7 +269,15 @@ export function GeometryKitWidget() {
               />
               {/* Millimeter ticks */}
               {Array.from({ length: 10 }).map((_, i) => (
-                <line key={i} x1={25 + i * 11} y1="80" x2={25 + i * 11} y2="74" stroke="#0369a1" strokeWidth="1" />
+                <line
+                  key={i}
+                  x1={25 + i * 11}
+                  y1="80"
+                  x2={25 + i * 11}
+                  y2="74"
+                  stroke="#0369a1"
+                  strokeWidth="1"
+                />
               ))}
             </svg>
             <span className="absolute bottom-2 right-2 text-[10px] font-mono font-bold text-muted-foreground">
@@ -271,4 +311,3 @@ export function GeometryKitWidget() {
     </div>
   );
 }
-

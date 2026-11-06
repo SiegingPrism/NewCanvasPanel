@@ -52,7 +52,12 @@ let dbPromise: Promise<IDBDatabase> | null = null;
 
 function getIndexedDB(): IDBFactory | null {
   if (typeof window === "undefined") return null;
-  return window.indexedDB || (window as unknown as { mozIndexedDB?: IDBFactory; webkitIndexedDB?: IDBFactory }).webkitIndexedDB || null;
+  return (
+    window.indexedDB ||
+    (window as unknown as { mozIndexedDB?: IDBFactory; webkitIndexedDB?: IDBFactory })
+      .webkitIndexedDB ||
+    null
+  );
 }
 
 function openDB(): Promise<IDBDatabase> {
@@ -98,10 +103,13 @@ function openDB(): Promise<IDBDatabase> {
 function notifyStorageError(err: unknown) {
   console.error("[SlateStorage] Save failure:", err);
   if (typeof window !== "undefined") {
-    toast.error("Storage quota full! Please sync to Cloud or remove unused images to avoid data loss.", {
-      id: "slate-storage-quota-error",
-      duration: 6000,
-    });
+    toast.error(
+      "Storage quota full! Please sync to Cloud or remove unused images to avoid data loss.",
+      {
+        id: "slate-storage-quota-error",
+        duration: 6000,
+      },
+    );
   }
 }
 
@@ -266,7 +274,11 @@ export async function loadFromStorage(): Promise<FullPersistShape> {
     }
 
     // If IndexedDB had nothing but legacy localStorage has data, migrate it!
-    if (Object.keys(boardDataMap).length === 0 && legacyData && Object.keys(legacyData.boards || {}).length > 0) {
+    if (
+      Object.keys(boardDataMap).length === 0 &&
+      legacyData &&
+      Object.keys(legacyData.boards || {}).length > 0
+    ) {
       console.log("[SlateStorage] Migrating localStorage boards into IndexedDB...");
       try {
         await saveFullPersist(legacyData);
@@ -274,7 +286,10 @@ export async function loadFromStorage(): Promise<FullPersistShape> {
         localStorage.removeItem(LS_MULTI_KEY);
         localStorage.removeItem(LS_LEGACY_KEY);
       } catch (migrationErr) {
-        console.error("[SlateStorage] Migration failed; keeping legacy localStorage copy:", migrationErr);
+        console.error(
+          "[SlateStorage] Migration failed; keeping legacy localStorage copy:",
+          migrationErr,
+        );
       }
       return legacyData;
     }
@@ -688,4 +703,3 @@ if (typeof window !== "undefined") {
   window.addEventListener("beforeunload", handleFlush);
   document.addEventListener("pause", handleFlush);
 }
-

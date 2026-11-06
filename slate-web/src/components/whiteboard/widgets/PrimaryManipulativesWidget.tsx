@@ -151,7 +151,9 @@ export function PrimaryManipulativesWidget() {
           onClick={() => setTab("clock")}
           className={cn(
             "flex-1 py-1 text-xs font-bold rounded-lg transition-all",
-            tab === "clock" ? "bg-card text-foreground shadow" : "text-muted-foreground hover:text-foreground"
+            tab === "clock"
+              ? "bg-card text-foreground shadow"
+              : "text-muted-foreground hover:text-foreground",
           )}
         >
           <Clock className="h-3.5 w-3.5 inline mr-1" />
@@ -161,7 +163,9 @@ export function PrimaryManipulativesWidget() {
           onClick={() => setTab("fractions")}
           className={cn(
             "flex-1 py-1 text-xs font-bold rounded-lg transition-all",
-            tab === "fractions" ? "bg-card text-foreground shadow" : "text-muted-foreground hover:text-foreground"
+            tab === "fractions"
+              ? "bg-card text-foreground shadow"
+              : "text-muted-foreground hover:text-foreground",
           )}
         >
           <Divide className="h-3.5 w-3.5 inline mr-1" />
@@ -171,7 +175,9 @@ export function PrimaryManipulativesWidget() {
           onClick={() => setTab("numberline")}
           className={cn(
             "flex-1 py-1 text-xs font-bold rounded-lg transition-all",
-            tab === "numberline" ? "bg-card text-foreground shadow" : "text-muted-foreground hover:text-foreground"
+            tab === "numberline"
+              ? "bg-card text-foreground shadow"
+              : "text-muted-foreground hover:text-foreground",
           )}
         >
           <MoveHorizontal className="h-3.5 w-3.5 inline mr-1" />
@@ -287,7 +293,9 @@ export function PrimaryManipulativesWidget() {
       {/* Tab 2: Fraction Bars */}
       {tab === "fractions" && (
         <div className="space-y-2">
-          <p className="text-[11px] text-muted-foreground">Tap any fraction strip to place on the board:</p>
+          <p className="text-[11px] text-muted-foreground">
+            Tap any fraction strip to place on the board:
+          </p>
           <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1">
             {FRACTIONS.map((f) => (
               <button
@@ -344,4 +352,3 @@ export function PrimaryManipulativesWidget() {
     </div>
   );
 }
-

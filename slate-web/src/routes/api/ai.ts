@@ -37,7 +37,7 @@ export const Route = createFileRoute("/api/ai")({
               JSON.stringify({
                 error: "Authentication required. Please sign in to Slate to use cloud AI.",
               }),
-              { status: 401, headers: { "Content-Type": "application/json" } }
+              { status: 401, headers: { "Content-Type": "application/json" } },
             );
           }
 
@@ -53,7 +53,7 @@ export const Route = createFileRoute("/api/ai")({
               JSON.stringify({
                 error: "Invalid or expired sign-in session. Please sign in again.",
               }),
-              { status: 401, headers: { "Content-Type": "application/json" } }
+              { status: 401, headers: { "Content-Type": "application/json" } },
             );
           }
 
@@ -66,14 +66,13 @@ export const Route = createFileRoute("/api/ai")({
               JSON.stringify({
                 error: `Daily AI usage limit reached (${DAILY_REQUEST_LIMIT} requests/day). Quota resets tomorrow.`,
               }),
-              { status: 429, headers: { "Content-Type": "application/json" } }
+              { status: 429, headers: { "Content-Type": "application/json" } },
             );
           }
 
           // 3. Obtain server-side secret Gemini API key
           const serverKey =
-            process.env.GEMINI_API_KEY?.trim() ||
-            process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim();
+            process.env.GEMINI_API_KEY?.trim() || process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim();
 
           if (!serverKey) {
             return new Response(
@@ -81,7 +80,7 @@ export const Route = createFileRoute("/api/ai")({
                 error:
                   "Server AI key is not configured. Please add GEMINI_API_KEY to server secrets, or supply a personal key in AI Settings.",
               }),
-              { status: 503, headers: { "Content-Type": "application/json" } }
+              { status: 503, headers: { "Content-Type": "application/json" } },
             );
           }
 
@@ -97,7 +96,7 @@ export const Route = createFileRoute("/api/ai")({
           if (!body?.contents || !Array.isArray(body.contents)) {
             return new Response(
               JSON.stringify({ error: "Invalid payload: contents array required" }),
-              { status: 400, headers: { "Content-Type": "application/json" } }
+              { status: 400, headers: { "Content-Type": "application/json" } },
             );
           }
 
@@ -124,10 +123,10 @@ export const Route = createFileRoute("/api/ai")({
 
           if (!geminiRes.ok) {
             const errorMsg = geminiData?.error?.message || `Gemini error ${geminiRes.status}`;
-            return new Response(
-              JSON.stringify({ error: errorMsg }),
-              { status: geminiRes.status, headers: { "Content-Type": "application/json" } }
-            );
+            return new Response(JSON.stringify({ error: errorMsg }), {
+              status: geminiRes.status,
+              headers: { "Content-Type": "application/json" },
+            });
           }
 
           return new Response(JSON.stringify(geminiData), {
@@ -140,7 +139,7 @@ export const Route = createFileRoute("/api/ai")({
         } catch (err: any) {
           return new Response(
             JSON.stringify({ error: err?.message || "Internal server error in AI proxy" }),
-            { status: 500, headers: { "Content-Type": "application/json" } }
+            { status: 500, headers: { "Content-Type": "application/json" } },
           );
         }
       },

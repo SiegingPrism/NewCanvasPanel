@@ -78,7 +78,10 @@ function BoardPage() {
   const [activeActivity, setActiveActivity] = useState<ActivityObject | null>(null);
   const [aiLessonBuilderOpen, setAiLessonBuilderOpen] = useState(false);
   const [teacherAccountOpen, setTeacherAccountOpen] = useState(false);
-  const [minimizedTimer, setMinimizedTimer] = useState<{ remaining: number; running: boolean } | null>(null);
+  const [minimizedTimer, setMinimizedTimer] = useState<{
+    remaining: number;
+    running: boolean;
+  } | null>(null);
   const {
     selectedId,
     pages,
@@ -374,9 +377,16 @@ function BoardPage() {
         .then((cb) => {
           if (cancelled) return;
           if (cb) {
-            const pages = Array.isArray(cb.pages) && cb.pages.length
-              ? cb.pages
-              : [{ id: Math.random().toString(36).slice(2, 10), objects: [], background: (cb.background as any) || "white" }];
+            const pages =
+              Array.isArray(cb.pages) && cb.pages.length
+                ? cb.pages
+                : [
+                    {
+                      id: Math.random().toString(36).slice(2, 10),
+                      objects: [],
+                      background: (cb.background as any) || "white",
+                    },
+                  ];
             const meta = {
               id: cb.id,
               title: cb.title || "Untitled board",
@@ -390,7 +400,9 @@ function BoardPage() {
             useWhiteboard.setState((prev) => ({
               ...prev,
               boards: { ...prev.boards, [cb.id]: meta },
-              boardOrder: prev.boardOrder.includes(cb.id) ? prev.boardOrder : [cb.id, ...prev.boardOrder],
+              boardOrder: prev.boardOrder.includes(cb.id)
+                ? prev.boardOrder
+                : [cb.id, ...prev.boardOrder],
               boardData: { ...prev.boardData, [cb.id]: { pages, activePageId: pages[0].id } },
               activeBoardId: cb.id,
               pages,
@@ -511,7 +523,8 @@ function BoardPage() {
       <div
         className="h-full w-full transition-transform duration-300 ease-out"
         style={{
-          transform: reachabilityOffset > 0 ? `translateY(${reachabilityOffset * 100}%)` : undefined,
+          transform:
+            reachabilityOffset > 0 ? `translateY(${reachabilityOffset * 100}%)` : undefined,
         }}
       >
         <WhiteboardCanvas onOpenAI={handleOpenAI} onPresentationChange={setIsPresenting} />
@@ -533,7 +546,10 @@ function BoardPage() {
         )}
         style={{
           // Move the top bar down with the pulled-down board so shorter teachers can reach it too.
-          transform: boardMode && reachabilityOffset > 0 ? `translateY(${reachabilityOffset * 100}dvh)` : undefined,
+          transform:
+            boardMode && reachabilityOffset > 0
+              ? `translateY(${reachabilityOffset * 100}dvh)`
+              : undefined,
         }}
       >
         <TopBar
@@ -660,7 +676,9 @@ function BoardPage() {
             {String(Math.floor(minimizedTimer.remaining / 60)).padStart(2, "0")}:
             {String(minimizedTimer.remaining % 60).padStart(2, "0")}
           </span>
-          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Timer</span>
+          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            Timer
+          </span>
         </div>
       )}
 

@@ -168,7 +168,9 @@ export function FlashcardsDialog({
               <div className="grid h-8 w-8 place-items-center rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400">
                 <Layers className="h-4 w-4" />
               </div>
-              <DialogTitle className="text-base sm:text-lg">Interactive Study Flashcards</DialogTitle>
+              <DialogTitle className="text-base sm:text-lg">
+                Interactive Study Flashcards
+              </DialogTitle>
             </div>
             <Button
               variant="outline"
@@ -180,7 +182,8 @@ export function FlashcardsDialog({
             </Button>
           </div>
           <DialogDescription className="text-xs">
-            Review key formulas and concepts with interactive flip cards, or paste them onto the whiteboard.
+            Review key formulas and concepts with interactive flip cards, or paste them onto the
+            whiteboard.
           </DialogDescription>
         </DialogHeader>
 

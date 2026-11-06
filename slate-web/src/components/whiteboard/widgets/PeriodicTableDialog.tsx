@@ -64,7 +64,9 @@ export function PeriodicTableDialog({
   const [selectedCategory, setSelectedCategory] = useState<ElementCategory | "all">("all");
   const [viewMode, setViewMode] = useState<"table" | "list">("table");
   const [selectedElement, setSelectedElement] = useState<ElementData>(
-    initialElementNumber ? getElement(initialElementNumber) || ALL_118_ELEMENTS[0] : ALL_118_ELEMENTS[0]
+    initialElementNumber
+      ? getElement(initialElementNumber) || ALL_118_ELEMENTS[0]
+      : ALL_118_ELEMENTS[0],
   );
 
   useEffect(() => {
@@ -86,7 +88,7 @@ export function PeriodicTableDialog({
           el.name.toLowerCase().includes(q) ||
           el.symbol.toLowerCase().includes(q) ||
           el.number.toString() === q ||
-          el.category.toLowerCase().includes(q)
+          el.category.toLowerCase().includes(q),
       );
     }
     return list;
@@ -130,7 +132,8 @@ export function PeriodicTableDialog({
                   </span>
                 </DialogTitle>
                 <DialogDescription className="text-xs">
-                  Full IUPAC chemical series, atomic masses, electron shells, and educational properties.
+                  Full IUPAC chemical series, atomic masses, electron shells, and educational
+                  properties.
                 </DialogDescription>
               </div>
             </div>
@@ -155,7 +158,7 @@ export function PeriodicTableDialog({
                     "px-2.5 py-1 rounded-md font-medium transition",
                     viewMode === "table"
                       ? "bg-background text-foreground shadow-xs font-semibold"
-                      : "text-muted-foreground hover:text-foreground"
+                      : "text-muted-foreground hover:text-foreground",
                   )}
                 >
                   <LayoutGrid className="h-3.5 w-3.5 inline mr-1" />
@@ -168,7 +171,7 @@ export function PeriodicTableDialog({
                     "px-2.5 py-1 rounded-md font-medium transition",
                     viewMode === "list"
                       ? "bg-background text-foreground shadow-xs font-semibold"
-                      : "text-muted-foreground hover:text-foreground"
+                      : "text-muted-foreground hover:text-foreground",
                   )}
                 >
                   <Layers className="h-3.5 w-3.5 inline mr-1" />
@@ -199,7 +202,7 @@ export function PeriodicTableDialog({
                     "px-2.5 py-1 rounded-full whitespace-nowrap transition border text-[11px] font-medium",
                     selectedCategory === cat.id
                       ? "bg-primary text-primary-foreground border-primary shadow-xs"
-                      : "bg-muted/40 hover:bg-muted text-muted-foreground border-transparent"
+                      : "bg-muted/40 hover:bg-muted text-muted-foreground border-transparent",
                   )}
                 >
                   {cat.label}
@@ -272,15 +275,22 @@ export function PeriodicTableDialog({
                                 catStyle.bg,
                                 catStyle.border,
                                 isSelected && "ring-2 ring-primary shadow-md scale-105 z-10",
-                                !isMatched && "opacity-25 grayscale-[60%]"
+                                !isMatched && "opacity-25 grayscale-[60%]",
                               )}
                               title={`${el.number}: ${el.name} (${el.symbol})\nCategory: ${el.category}\nMass: ${el.mass} u`}
                             >
                               <div className="flex items-center justify-between text-[8px] text-muted-foreground font-mono leading-none">
                                 <span>{el.number}</span>
-                                <span className="hidden sm:inline text-[7px] truncate max-w-[22px]">{el.mass.toFixed(0)}</span>
+                                <span className="hidden sm:inline text-[7px] truncate max-w-[22px]">
+                                  {el.mass.toFixed(0)}
+                                </span>
                               </div>
-                              <div className={cn("text-xs font-black tracking-tight leading-none text-center", catStyle.text)}>
+                              <div
+                                className={cn(
+                                  "text-xs font-black tracking-tight leading-none text-center",
+                                  catStyle.text,
+                                )}
+                              >
                                 {el.symbol}
                               </div>
                               <div className="text-[7px] font-semibold truncate text-foreground/80 leading-none text-center">
@@ -311,7 +321,8 @@ export function PeriodicTableDialog({
                           const el = gridMatrix.get(`${row}-${col}`);
                           if (!el) return <div key={`${row}-${col}`} className="h-11" />;
 
-                          const catStyle = CATEGORY_COLORS[el.category] || CATEGORY_COLORS.lanthanide;
+                          const catStyle =
+                            CATEGORY_COLORS[el.category] || CATEGORY_COLORS.lanthanide;
                           const isSelected = selectedElement?.number === el.number;
                           const isMatched = filteredElements.some((fe) => fe.number === el.number);
 
@@ -325,15 +336,22 @@ export function PeriodicTableDialog({
                                 catStyle.bg,
                                 catStyle.border,
                                 isSelected && "ring-2 ring-primary shadow-md scale-105 z-10",
-                                !isMatched && "opacity-25 grayscale-[60%]"
+                                !isMatched && "opacity-25 grayscale-[60%]",
                               )}
                               title={`${el.number}: ${el.name} (${el.symbol})\nCategory: ${el.category}\nMass: ${el.mass} u`}
                             >
                               <div className="flex items-center justify-between text-[8px] text-muted-foreground font-mono leading-none">
                                 <span>{el.number}</span>
-                                <span className="hidden sm:inline text-[7px] truncate max-w-[22px]">{el.mass.toFixed(0)}</span>
+                                <span className="hidden sm:inline text-[7px] truncate max-w-[22px]">
+                                  {el.mass.toFixed(0)}
+                                </span>
                               </div>
-                              <div className={cn("text-xs font-black tracking-tight leading-none text-center", catStyle.text)}>
+                              <div
+                                className={cn(
+                                  "text-xs font-black tracking-tight leading-none text-center",
+                                  catStyle.text,
+                                )}
+                              >
                                 {el.symbol}
                               </div>
                               <div className="text-[7px] font-semibold truncate text-foreground/80 leading-none text-center">
@@ -362,14 +380,16 @@ export function PeriodicTableDialog({
                         "flex flex-col p-2 rounded-xl border text-left transition hover:scale-105 active:scale-95",
                         catStyle.bg,
                         catStyle.border,
-                        isSelected ? "ring-2 ring-primary shadow-md scale-105" : "shadow-xs"
+                        isSelected ? "ring-2 ring-primary shadow-md scale-105" : "shadow-xs",
                       )}
                     >
                       <div className="flex items-center justify-between w-full text-[10px] text-muted-foreground font-mono">
                         <span>{el.number}</span>
                         <span>{el.mass.toFixed(1)}</span>
                       </div>
-                      <div className={cn("text-lg font-black mt-0.5 tracking-tight", catStyle.text)}>
+                      <div
+                        className={cn("text-lg font-black mt-0.5 tracking-tight", catStyle.text)}
+                      >
                         {el.symbol}
                       </div>
                       <div className="text-[11px] font-semibold truncate text-foreground/90">
@@ -397,7 +417,8 @@ export function PeriodicTableDialog({
                     </h3>
                     <div className="flex items-center gap-1.5 mt-1">
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-primary/10 text-primary">
-                        {CATEGORY_COLORS[selectedElement.category]?.name || selectedElement.category}
+                        {CATEGORY_COLORS[selectedElement.category]?.name ||
+                          selectedElement.category}
                       </span>
                       <span className="text-[11px] text-muted-foreground font-medium">
                         Period {selectedElement.period} • Group {selectedElement.group}
@@ -409,7 +430,7 @@ export function PeriodicTableDialog({
                       "grid h-16 w-16 place-items-center rounded-2xl border-2 text-2xl font-black shadow-inner",
                       CATEGORY_COLORS[selectedElement.category]?.bg,
                       CATEGORY_COLORS[selectedElement.category]?.border,
-                      CATEGORY_COLORS[selectedElement.category]?.text
+                      CATEGORY_COLORS[selectedElement.category]?.text,
                     )}
                   >
                     {selectedElement.symbol}
@@ -419,21 +440,35 @@ export function PeriodicTableDialog({
                 {/* Key Chemical Metrics */}
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div className="rounded-xl bg-muted/40 p-2.5 border border-border/40">
-                    <span className="text-[10px] text-muted-foreground block font-medium">Standard Atomic Weight</span>
-                    <span className="font-semibold text-foreground text-sm">{selectedElement.mass} u</span>
-                  </div>
-                  <div className="rounded-xl bg-muted/40 p-2.5 border border-border/40">
-                    <span className="text-[10px] text-muted-foreground block font-medium">Phase at STP</span>
-                    <span className="font-semibold text-foreground text-sm">{selectedElement.phase}</span>
-                  </div>
-                  <div className="rounded-xl bg-muted/40 p-2.5 border border-border/40">
-                    <span className="text-[10px] text-muted-foreground block font-medium">Electronegativity</span>
-                    <span className="font-semibold text-foreground">
-                      {selectedElement.electronegativity ? `${selectedElement.electronegativity} (Pauling)` : "N/A"}
+                    <span className="text-[10px] text-muted-foreground block font-medium">
+                      Standard Atomic Weight
+                    </span>
+                    <span className="font-semibold text-foreground text-sm">
+                      {selectedElement.mass} u
                     </span>
                   </div>
                   <div className="rounded-xl bg-muted/40 p-2.5 border border-border/40">
-                    <span className="text-[10px] text-muted-foreground block font-medium">Melting / Boiling Point</span>
+                    <span className="text-[10px] text-muted-foreground block font-medium">
+                      Phase at STP
+                    </span>
+                    <span className="font-semibold text-foreground text-sm">
+                      {selectedElement.phase}
+                    </span>
+                  </div>
+                  <div className="rounded-xl bg-muted/40 p-2.5 border border-border/40">
+                    <span className="text-[10px] text-muted-foreground block font-medium">
+                      Electronegativity
+                    </span>
+                    <span className="font-semibold text-foreground">
+                      {selectedElement.electronegativity
+                        ? `${selectedElement.electronegativity} (Pauling)`
+                        : "N/A"}
+                    </span>
+                  </div>
+                  <div className="rounded-xl bg-muted/40 p-2.5 border border-border/40">
+                    <span className="text-[10px] text-muted-foreground block font-medium">
+                      Melting / Boiling Point
+                    </span>
                     <span className="font-semibold text-foreground text-[11px]">
                       {selectedElement.melt !== undefined ? `${selectedElement.melt}°C` : "N/A"} /{" "}
                       {selectedElement.boil !== undefined ? `${selectedElement.boil}°C` : "N/A"}

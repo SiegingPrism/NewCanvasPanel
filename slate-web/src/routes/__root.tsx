@@ -138,7 +138,7 @@ function AndroidBackHandler() {
     (window as any).__handleAndroidBack = () => {
       // 1. Check if any open modal, dialog, sheet, or popover is open
       const openModal = document.querySelector(
-        '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"], [data-radix-portal] [data-state="open"]'
+        '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"], [data-radix-portal] [data-state="open"]',
       );
       if (openModal) {
         // Dispatch Escape key
@@ -152,7 +152,7 @@ function AndroidBackHandler() {
         });
         document.dispatchEvent(escEvent);
         const closeBtn = openModal.querySelector<HTMLElement>(
-          'button[aria-label="Close"], button.close, [data-state="open"] button'
+          'button[aria-label="Close"], button.close, [data-state="open"] button',
         );
         if (closeBtn) {
           closeBtn.click();
@@ -192,7 +192,9 @@ function AndroidBackHandler() {
 function AndroidInsetsHandler() {
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const isMobile = /android|iphone|ipad|ipod/i.test(navigator.userAgent) || Boolean((window as any).Capacitor?.isNativePlatform?.());
+    const isMobile =
+      /android|iphone|ipad|ipod/i.test(navigator.userAgent) ||
+      Boolean((window as any).Capacitor?.isNativePlatform?.());
     if (!isMobile) return;
 
     const apply = () => {

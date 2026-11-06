@@ -13,7 +13,11 @@ import {
   Volume2,
 } from "lucide-react";
 import { useWhiteboard } from "@/lib/whiteboard/store";
-import { getSmartBoardProfile, SMART_BOARD_PROFILES, PanelDiagonal } from "@/lib/whiteboard/smartBoardProfiles";
+import {
+  getSmartBoardProfile,
+  SMART_BOARD_PROFILES,
+  PanelDiagonal,
+} from "@/lib/whiteboard/smartBoardProfiles";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
@@ -61,7 +65,9 @@ export function BoardSettingsDialog({ open, onOpenChange }: BoardSettingsDialogP
             onClick={() => setTab("writing")}
             className={cn(
               "flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold rounded-xl transition-all",
-              tab === "writing" ? "bg-card text-foreground shadow" : "text-muted-foreground hover:text-foreground"
+              tab === "writing"
+                ? "bg-card text-foreground shadow"
+                : "text-muted-foreground hover:text-foreground",
             )}
           >
             <PenTool className="h-4 w-4" />
@@ -71,7 +77,9 @@ export function BoardSettingsDialog({ open, onOpenChange }: BoardSettingsDialogP
             onClick={() => setTab("pages")}
             className={cn(
               "flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold rounded-xl transition-all",
-              tab === "pages" ? "bg-card text-foreground shadow" : "text-muted-foreground hover:text-foreground"
+              tab === "pages"
+                ? "bg-card text-foreground shadow"
+                : "text-muted-foreground hover:text-foreground",
             )}
           >
             <Layers className="h-4 w-4" />
@@ -81,7 +89,9 @@ export function BoardSettingsDialog({ open, onOpenChange }: BoardSettingsDialogP
             onClick={() => setTab("classroom")}
             className={cn(
               "flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold rounded-xl transition-all",
-              tab === "classroom" ? "bg-card text-foreground shadow" : "text-muted-foreground hover:text-foreground"
+              tab === "classroom"
+                ? "bg-card text-foreground shadow"
+                : "text-muted-foreground hover:text-foreground",
             )}
           >
             <Users className="h-4 w-4" />
@@ -91,7 +101,9 @@ export function BoardSettingsDialog({ open, onOpenChange }: BoardSettingsDialogP
             onClick={() => setTab("display")}
             className={cn(
               "flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold rounded-xl transition-all",
-              tab === "display" ? "bg-card text-foreground shadow" : "text-muted-foreground hover:text-foreground"
+              tab === "display"
+                ? "bg-card text-foreground shadow"
+                : "text-muted-foreground hover:text-foreground",
             )}
           >
             <Tv className="h-4 w-4" />
@@ -104,7 +116,9 @@ export function BoardSettingsDialog({ open, onOpenChange }: BoardSettingsDialogP
           <div className="space-y-4 py-2">
             <div className="flex items-center justify-between rounded-2xl border border-border/80 p-3 bg-muted/20">
               <div className="space-y-0.5">
-                <span className="text-xs font-bold text-foreground">Contact-Size Palm Rejection</span>
+                <span className="text-xs font-bold text-foreground">
+                  Contact-Size Palm Rejection
+                </span>
                 <p className="text-[11px] text-muted-foreground">
                   Rest wrist and palm naturally on glass while writing with passive pens.
                 </p>
@@ -128,7 +142,9 @@ export function BoardSettingsDialog({ open, onOpenChange }: BoardSettingsDialogP
 
             <div className="flex items-center justify-between rounded-2xl border border-border/80 p-3 bg-muted/20">
               <div className="space-y-0.5">
-                <span className="text-xs font-bold text-foreground">Shape Recognition & Auto-Snap</span>
+                <span className="text-xs font-bold text-foreground">
+                  Shape Recognition & Auto-Snap
+                </span>
                 <p className="text-[11px] text-muted-foreground">
                   Hand-drawn circles, triangles, arrows and boxes snap to geometric perfection.
                 </p>
@@ -173,7 +189,9 @@ export function BoardSettingsDialog({ open, onOpenChange }: BoardSettingsDialogP
           <div className="space-y-4 py-2">
             <div className="flex items-center justify-between rounded-2xl border border-border/80 p-3 bg-muted/20">
               <div className="space-y-0.5">
-                <span className="text-xs font-bold text-foreground">Lock Board (Freeze Pan & Zoom)</span>
+                <span className="text-xs font-bold text-foreground">
+                  Lock Board (Freeze Pan & Zoom)
+                </span>
                 <p className="text-[11px] text-muted-foreground">
                   Prevents accidental panning and zooming while students solve at the board.
                 </p>
@@ -183,7 +201,9 @@ export function BoardSettingsDialog({ open, onOpenChange }: BoardSettingsDialogP
 
             <div className="space-y-2 rounded-2xl border border-border/80 p-3 bg-muted/20">
               <div className="flex justify-between items-center">
-                <span className="text-xs font-bold text-foreground">Split Board Multi-User Zones</span>
+                <span className="text-xs font-bold text-foreground">
+                  Split Board Multi-User Zones
+                </span>
                 <span className="text-xs font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-full">
                   {splitBoardZones === 1 ? "Full Board" : `${splitBoardZones} Zones`}
                 </span>
@@ -198,7 +218,7 @@ export function BoardSettingsDialog({ open, onOpenChange }: BoardSettingsDialogP
                       "py-2 rounded-xl text-xs font-black transition-all border",
                       splitBoardZones === z
                         ? "border-primary bg-primary text-primary-foreground shadow"
-                        : "border-border hover:bg-muted disabled:opacity-30"
+                        : "border-border hover:bg-muted disabled:opacity-30",
                     )}
                   >
                     {z === 1 ? "1 (Full)" : `${z} Zones`}
@@ -228,7 +248,7 @@ export function BoardSettingsDialog({ open, onOpenChange }: BoardSettingsDialogP
                         "flex flex-col items-center justify-center rounded-xl p-3 text-xs font-bold border transition-all",
                         active
                           ? "border-primary bg-primary text-primary-foreground shadow"
-                          : "border-border hover:bg-muted"
+                          : "border-border hover:bg-muted",
                       )}
                     >
                       <span className="text-sm font-black">{sizeKey}&quot; Panel</span>
@@ -236,7 +256,8 @@ export function BoardSettingsDialog({ open, onOpenChange }: BoardSettingsDialogP
                         {p.widthCm} × {p.heightCm} cm
                       </span>
                       <span className="text-[9px] text-muted-foreground">
-                        {Math.round(p.widthInches)}″ × {Math.round(p.heightInches)}″ · {p.minTouchTargetPx}px touch
+                        {Math.round(p.widthInches)}″ × {Math.round(p.heightInches)}″ ·{" "}
+                        {p.minTouchTargetPx}px touch
                       </span>
                     </button>
                   );
@@ -246,7 +267,9 @@ export function BoardSettingsDialog({ open, onOpenChange }: BoardSettingsDialogP
 
             <div className="flex items-center justify-between rounded-2xl border border-border/80 p-3 bg-muted/20">
               <div className="space-y-0.5">
-                <span className="text-xs font-bold text-foreground">Dedicated Smart Board UI Layout</span>
+                <span className="text-xs font-bold text-foreground">
+                  Dedicated Smart Board UI Layout
+                </span>
                 <p className="text-[11px] text-muted-foreground">
                   Dual mirrored vertical side docks and corner navigation strips.
                 </p>
@@ -269,4 +292,3 @@ export function BoardSettingsDialog({ open, onOpenChange }: BoardSettingsDialogP
     </Dialog>
   );
 }
-

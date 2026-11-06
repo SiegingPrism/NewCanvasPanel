@@ -19,15 +19,47 @@ export interface RAGChunk {
 }
 
 const STOP_WORDS = new Set([
-  "is", "am", "are", "was", "were", "be", "been", "being",
-  "in", "on", "at", "to", "for", "of", "with", "by", "from",
-  "an", "the", "it", "as", "or", "if", "so", "do", "no", "my", "we", "he", "me", "up",
+  "is",
+  "am",
+  "are",
+  "was",
+  "were",
+  "be",
+  "been",
+  "being",
+  "in",
+  "on",
+  "at",
+  "to",
+  "for",
+  "of",
+  "with",
+  "by",
+  "from",
+  "an",
+  "the",
+  "it",
+  "as",
+  "or",
+  "if",
+  "so",
+  "do",
+  "no",
+  "my",
+  "we",
+  "he",
+  "me",
+  "up",
 ]);
 
 const ALLOWED_SHORT = new Set(["ai", "ml", "ui", "ux", "db", "os", "id", "2d", "3d"]);
 
 // Tokenize text into normalized words and character 3-grams
-function tokenize(text: string): { words: string[]; wordCounts: Map<string, number>; ngrams: Set<string> } {
+function tokenize(text: string): {
+  words: string[];
+  wordCounts: Map<string, number>;
+  ngrams: Set<string>;
+} {
   const clean = text.toLowerCase().replace(/[^a-z0-9_\-\^\+\=\/\\]+/g, " ");
   const rawWords = clean.split(/\s+/).filter((w) => {
     if (w.length < 2) return false;
@@ -65,7 +97,9 @@ function extractSnippetWindow(text: string, qWords: string[], maxLen = 380): str
   if (firstIdx === -1) return text.slice(0, maxLen).trim() + "...";
   const start = Math.max(0, firstIdx - Math.floor(maxLen / 3));
   const end = Math.min(text.length, start + maxLen);
-  return (start > 0 ? "..." : "") + text.slice(start, end).trim() + (end < text.length ? "..." : "");
+  return (
+    (start > 0 ? "..." : "") + text.slice(start, end).trim() + (end < text.length ? "..." : "")
+  );
 }
 
 // Extract rich searchable text from all whiteboard canvas objects
@@ -82,7 +116,8 @@ export function extractBoardSearchStrings(bData: any): string[] {
       // Handwriting recognised on the board (stored on the first stroke of each word/line)
       if (typeof obj.inkText === "string" && obj.inkText.trim()) chunks.push(obj.inkText.trim());
       // Translations remember what was originally written
-      if (typeof obj.translatedFrom === "string" && obj.translatedFrom.trim()) chunks.push(obj.translatedFrom.trim());
+      if (typeof obj.translatedFrom === "string" && obj.translatedFrom.trim())
+        chunks.push(obj.translatedFrom.trim());
       // 2. Flashcards
       if (typeof obj.front === "string" && obj.front.trim()) chunks.push(obj.front.trim());
       if (typeof obj.back === "string" && obj.back.trim()) chunks.push(obj.back.trim());
@@ -181,7 +216,7 @@ export function semanticSearch(query: string, limit = 10): SearchResult[] {
       const tokens = tokenize(fullText);
       // Snippet selection centered around query words
       const matchingBlock = n.blocks?.find((b) =>
-        qWords.some((w) => b.content.toLowerCase().includes(w))
+        qWords.some((w) => b.content.toLowerCase().includes(w)),
       );
       const snippet = extractSnippetWindow(matchingBlock?.content || fullText, qWords);
 
@@ -213,7 +248,7 @@ export function semanticSearch(query: string, limit = 10): SearchResult[] {
 
       const tokens = tokenize(fullText);
       const matchingChunk = extractedChunks.find((c) =>
-        qWords.some((w) => c.toLowerCase().includes(w))
+        qWords.some((w) => c.toLowerCase().includes(w)),
       );
       const snippet = extractSnippetWindow(matchingChunk || fullText, qWords);
 
@@ -238,8 +273,7 @@ export function semanticSearch(query: string, limit = 10): SearchResult[] {
   const k1 = 1.2;
   const b = 0.75;
   const totalDocs = corpus.length;
-  const avgDocLength =
-    corpus.reduce((acc, d) => acc + d.docLength, 0) / totalDocs;
+  const avgDocLength = corpus.reduce((acc, d) => acc + d.docLength, 0) / totalDocs;
 
   // Calculate IDF for each query word
   const idf = new Map<string, number>();
@@ -278,7 +312,7 @@ export function semanticSearch(query: string, limit = 10): SearchResult[] {
     // Title match bonus using whole-word boundary matching rather than substring inclusion
     const titleLower = doc.title.toLowerCase();
     const titleBonus = qWords.some((w) =>
-      new RegExp(`(^|[^a-z0-9])${w}([^a-z0-9]|$)`, "i").test(titleLower)
+      new RegExp(`(^|[^a-z0-9])${w}([^a-z0-9]|$)`, "i").test(titleLower),
     )
       ? 0.4
       : 0;

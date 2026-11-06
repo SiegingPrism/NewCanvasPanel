@@ -24,7 +24,12 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
-import { SHAPES_2D, DIAGRAMS_3D, PEN_STYLES, COLOR_CATEGORIES } from "@/components/whiteboard/Toolbar";
+import {
+  SHAPES_2D,
+  DIAGRAMS_3D,
+  PEN_STYLES,
+  COLOR_CATEGORIES,
+} from "@/components/whiteboard/Toolbar";
 import { HandwritingSettings } from "@/components/whiteboard/HandwritingSettings";
 import type { ShapeType, ToolId, TextObject } from "@/lib/whiteboard/types";
 import { useInk, findLanguage } from "@/lib/ink/recognizer";
@@ -127,7 +132,7 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
     tool === "parallel";
 
   const handleToolClick = (
-    targetTool: "pan" | "pen" | "highlighter" | "eraser" | "select" | "text" | "shape"
+    targetTool: "pan" | "pen" | "highlighter" | "eraser" | "select" | "text" | "shape",
   ) => {
     if (targetTool === "pan") {
       if (tool === "pan") setMovePopoverOpen((prev) => !prev);
@@ -256,7 +261,7 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
         verticalAlign === "mid" && "top-1/2 -translate-y-1/2",
         verticalAlign === "top" && "top-16",
         verticalAlign === "bottom" && "bottom-32",
-        "max-h-[calc(100vh-140px)] overflow-visible"
+        "max-h-[calc(100vh-140px)] overflow-visible",
       )}
       style={{
         width: `${targetSizePx + 16}px`,
@@ -287,8 +292,8 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
               tool === "pan"
                 ? "bg-primary text-primary-foreground shadow-md ring-2 ring-primary ring-offset-2 ring-offset-background"
                 : isDark
-                ? "bg-slate-800/80 text-slate-200 hover:bg-slate-700"
-                : "bg-muted/40 text-foreground hover:bg-muted"
+                  ? "bg-slate-800/80 text-slate-200 hover:bg-slate-700"
+                  : "bg-muted/40 text-foreground hover:bg-muted",
             )}
             style={{ width: `${targetSizePx}px`, height: `${targetSizePx}px` }}
             title="Move (pan around board, or tap again for fit/zoom)"
@@ -309,7 +314,7 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
           collisionPadding={24}
           className={cn(
             "w-72 max-w-[calc(100vw-2rem)] max-h-[min(80vh,500px)] overflow-y-auto rounded-2xl p-4 shadow-2xl border space-y-3",
-            isDark ? "bg-slate-900 border-slate-700 text-slate-100" : "bg-card border-border"
+            isDark ? "bg-slate-900 border-slate-700 text-slate-100" : "bg-card border-border",
           )}
         >
           <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
@@ -325,7 +330,7 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
                 "flex w-full items-center justify-between p-3 rounded-xl border text-left transition active:scale-98",
                 tool === "pan"
                   ? "border-primary bg-primary/10 text-primary font-bold"
-                  : "border-border hover:bg-muted text-foreground"
+                  : "border-border hover:bg-muted text-foreground",
               )}
             >
               <div className="flex items-center gap-2.5">
@@ -376,8 +381,8 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
               isPenFamily
                 ? "bg-primary text-primary-foreground shadow-md ring-2 ring-primary ring-offset-2 ring-offset-background"
                 : isDark
-                ? "bg-slate-800/80 text-slate-200 hover:bg-slate-700"
-                : "bg-muted/40 text-foreground hover:bg-muted"
+                  ? "bg-slate-800/80 text-slate-200 hover:bg-slate-700"
+                  : "bg-muted/40 text-foreground hover:bg-muted",
             )}
             style={{ width: `${targetSizePx}px`, height: `${targetSizePx}px` }}
             title="Pen (tap again for colour, size, style, writing)"
@@ -403,15 +408,23 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
           collisionPadding={24}
           className={cn(
             "w-84 max-w-[calc(100vw-2rem)] max-h-[min(80vh,540px)] overflow-y-auto rounded-2xl p-3 shadow-2xl border",
-            isDark ? "bg-slate-900 border-slate-700 text-slate-100" : "bg-card border-border"
+            isDark ? "bg-slate-900 border-slate-700 text-slate-100" : "bg-card border-border",
           )}
         >
           <Tabs defaultValue="colour" className="w-full">
             <TabsList className="grid w-full grid-cols-4 mb-3">
-              <TabsTrigger value="colour" className="text-xs">Colour</TabsTrigger>
-              <TabsTrigger value="size" className="text-xs">Size</TabsTrigger>
-              <TabsTrigger value="style" className="text-xs">Style</TabsTrigger>
-              <TabsTrigger value="writing" className="text-xs">Writing</TabsTrigger>
+              <TabsTrigger value="colour" className="text-xs">
+                Colour
+              </TabsTrigger>
+              <TabsTrigger value="size" className="text-xs">
+                Size
+              </TabsTrigger>
+              <TabsTrigger value="style" className="text-xs">
+                Style
+              </TabsTrigger>
+              <TabsTrigger value="writing" className="text-xs">
+                Writing
+              </TabsTrigger>
             </TabsList>
 
             {/* TAB 1: COLOUR */}
@@ -422,7 +435,9 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
                   onClick={() => setColorPaletteTab("bright")}
                   className={cn(
                     "flex-1 py-1 rounded-md transition",
-                    colorPaletteTab === "bright" ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                    colorPaletteTab === "bright"
+                      ? "bg-card text-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground",
                   )}
                 >
                   Bright
@@ -432,7 +447,9 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
                   onClick={() => setColorPaletteTab("soft")}
                   className={cn(
                     "flex-1 py-1 rounded-md transition",
-                    colorPaletteTab === "soft" ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                    colorPaletteTab === "soft"
+                      ? "bg-card text-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground",
                   )}
                 >
                   Soft
@@ -442,7 +459,9 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
                   onClick={() => setColorPaletteTab("chalk")}
                   className={cn(
                     "flex-1 py-1 rounded-md transition",
-                    colorPaletteTab === "chalk" ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                    colorPaletteTab === "chalk"
+                      ? "bg-card text-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground",
                   )}
                 >
                   Chalk
@@ -454,8 +473,8 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
                 {(colorPaletteTab === "bright"
                   ? COLOR_CATEGORIES.vivid
                   : colorPaletteTab === "soft"
-                  ? COLOR_CATEGORIES.pastel
-                  : COLOR_CATEGORIES.chalk
+                    ? COLOR_CATEGORIES.pastel
+                    : COLOR_CATEGORIES.chalk
                 ).map((c) => {
                   const isSelected = color.toLowerCase() === c.toLowerCase();
                   return (
@@ -471,7 +490,7 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
                         "h-10 w-full rounded-xl border flex items-center justify-center transition-transform active:scale-90",
                         isSelected
                           ? "ring-4 ring-primary ring-offset-2 scale-105 border-primary shadow-sm"
-                          : "border-black/10 dark:border-white/10 hover:scale-102"
+                          : "border-black/10 dark:border-white/10 hover:scale-102",
                       )}
                       style={{ backgroundColor: c }}
                     >
@@ -479,9 +498,13 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
                         <Check
                           className={cn(
                             "h-4 w-4 drop-shadow stroke-[3]",
-                            c === "#ffffff" || c.startsWith("#fee") || c.startsWith("#fef") || c.startsWith("#dcf") || c.startsWith("#e0f")
+                            c === "#ffffff" ||
+                              c.startsWith("#fee") ||
+                              c.startsWith("#fef") ||
+                              c.startsWith("#dcf") ||
+                              c.startsWith("#e0f")
                               ? "text-black"
-                              : "text-white"
+                              : "text-white",
                           )}
                         />
                       )}
@@ -512,7 +535,9 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
             {/* TAB 2: SIZE */}
             <TabsContent value="size" className="space-y-4">
               <div>
-                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Presets</p>
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">
+                  Presets
+                </p>
                 <div className="grid grid-cols-4 gap-2">
                   {PEN_SIZE_PRESETS.map((s) => (
                     <button
@@ -526,7 +551,7 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
                         "flex flex-col items-center justify-center gap-1.5 rounded-xl border p-2 text-xs font-medium transition-all active:scale-95",
                         size === s.value
                           ? "border-primary bg-primary/10 text-primary font-bold shadow-xs"
-                          : "border-border hover:bg-muted"
+                          : "border-border hover:bg-muted",
                       )}
                     >
                       <div className={cn("w-8 rounded-full bg-foreground", s.lineH)} />
@@ -538,7 +563,9 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
 
               <div>
                 <div className="flex justify-between items-center mb-1.5">
-                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Fine-tune Thickness</span>
+                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                    Fine-tune Thickness
+                  </span>
                   <span className="text-xs font-bold font-mono">{size} px</span>
                 </div>
                 <Slider
@@ -553,7 +580,9 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
 
             {/* TAB 3: STYLE */}
             <TabsContent value="style" className="space-y-2">
-              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Pen Styles</p>
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">
+                Pen Styles
+              </p>
               <div className="grid grid-cols-3 gap-2 max-h-56 overflow-y-auto p-1">
                 {PEN_STYLES.filter((p) => p.id !== "tape" && p.id !== "frame").map((style) => {
                   const Icon = style.icon;
@@ -570,11 +599,13 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
                         "flex flex-col items-center justify-center gap-1.5 p-2 rounded-xl border transition active:scale-95",
                         isCurrent
                           ? "border-primary bg-primary/10 text-primary font-bold shadow-xs ring-2 ring-primary/40"
-                          : "border-border hover:bg-muted text-foreground"
+                          : "border-border hover:bg-muted text-foreground",
                       )}
                     >
                       <Icon className="h-5 w-5" />
-                      <span className="text-[11px] text-center font-medium leading-tight">{style.label}</span>
+                      <span className="text-[11px] text-center font-medium leading-tight">
+                        {style.label}
+                      </span>
                     </button>
                   );
                 })}
@@ -586,7 +617,9 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
               <div className="flex items-center justify-between p-2.5 rounded-xl border border-border bg-card">
                 <div className="space-y-0.5">
                   <div className="text-xs font-semibold">Auto-straighten shapes</div>
-                  <div className="text-[11px] text-muted-foreground">Draw a rough shape & hold to straighten</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    Draw a rough shape & hold to straighten
+                  </div>
                 </div>
                 <Switch
                   checked={autoSnapEnabled}
@@ -616,8 +649,8 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
               tool === "highlighter"
                 ? "bg-amber-500 text-white shadow-md ring-2 ring-amber-400 ring-offset-2 ring-offset-background"
                 : isDark
-                ? "bg-slate-800/80 text-slate-200 hover:bg-slate-700"
-                : "bg-muted/40 text-foreground hover:bg-muted"
+                  ? "bg-slate-800/80 text-slate-200 hover:bg-slate-700"
+                  : "bg-muted/40 text-foreground hover:bg-muted",
             )}
             style={{ width: `${targetSizePx}px`, height: `${targetSizePx}px` }}
             title="Highlighter (tap again for colors & thickness)"
@@ -638,11 +671,13 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
           collisionPadding={24}
           className={cn(
             "w-72 max-w-[calc(100vw-2rem)] max-h-[min(80vh,480px)] overflow-y-auto rounded-2xl p-4 shadow-2xl border space-y-3",
-            isDark ? "bg-slate-900 border-slate-700 text-slate-100" : "bg-card border-border"
+            isDark ? "bg-slate-900 border-slate-700 text-slate-100" : "bg-card border-border",
           )}
         >
           <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Highlighter Colour</p>
+            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">
+              Highlighter Colour
+            </p>
             <div className="grid grid-cols-6 gap-2">
               {HIGHLIGHTER_COLORS.map((hc) => (
                 <button
@@ -655,7 +690,9 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
                   className={cn(
                     "h-10 w-full rounded-xl border flex items-center justify-center transition active:scale-90",
                     hc.bg,
-                    color === hc.value ? "ring-2 ring-primary ring-offset-1 border-primary" : "border-black/10"
+                    color === hc.value
+                      ? "ring-2 ring-primary ring-offset-1 border-primary"
+                      : "border-black/10",
                   )}
                   title={hc.name}
                 >
@@ -665,7 +702,9 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
             </div>
           </div>
           <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Highlighter Size</p>
+            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">
+              Highlighter Size
+            </p>
             <div className="grid grid-cols-3 gap-2">
               {HIGHLIGHTER_SIZE_PRESETS.map((hs) => (
                 <button
@@ -677,7 +716,9 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
                   }}
                   className={cn(
                     "flex flex-col items-center justify-center p-2 rounded-xl border text-xs font-medium transition active:scale-95",
-                    size === hs.value ? "border-amber-500 bg-amber-500/10 text-amber-600 font-bold" : "border-border hover:bg-muted"
+                    size === hs.value
+                      ? "border-amber-500 bg-amber-500/10 text-amber-600 font-bold"
+                      : "border-border hover:bg-muted",
                   )}
                 >
                   {hs.label}
@@ -700,8 +741,8 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
               tool === "eraser-object" || tool === "eraser-pixel"
                 ? "bg-rose-600 text-white shadow-md ring-2 ring-rose-400 ring-offset-2 ring-offset-background"
                 : isDark
-                ? "bg-slate-800/80 text-slate-200 hover:bg-slate-700"
-                : "bg-muted/40 text-foreground hover:bg-muted"
+                  ? "bg-slate-800/80 text-slate-200 hover:bg-slate-700"
+                  : "bg-muted/40 text-foreground hover:bg-muted",
             )}
             style={{ width: `${targetSizePx}px`, height: `${targetSizePx}px` }}
             title="Eraser (or wipe canvas with palm / fist)"
@@ -722,10 +763,12 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
           collisionPadding={24}
           className={cn(
             "w-72 max-w-[calc(100vw-2rem)] max-h-[min(80vh,480px)] overflow-y-auto rounded-2xl p-4 shadow-2xl border space-y-2",
-            isDark ? "bg-slate-900 border-slate-700 text-slate-100" : "bg-card border-border"
+            isDark ? "bg-slate-900 border-slate-700 text-slate-100" : "bg-card border-border",
           )}
         >
-          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Eraser Options</p>
+          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">
+            Eraser Options
+          </p>
 
           <button
             onClick={() => {
@@ -736,12 +779,14 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
               "flex w-full items-center justify-between p-2.5 rounded-xl border text-left transition active:scale-98",
               tool === "eraser-pixel"
                 ? "border-rose-500 bg-rose-500/10 text-rose-600 font-bold"
-                : "border-border hover:bg-muted text-foreground"
+                : "border-border hover:bg-muted text-foreground",
             )}
           >
             <div className="flex flex-col">
               <span className="text-xs font-bold">Part of a line</span>
-              <span className="text-[11px] text-muted-foreground">Rub out small mistakes precision-style</span>
+              <span className="text-[11px] text-muted-foreground">
+                Rub out small mistakes precision-style
+              </span>
             </div>
             {tool === "eraser-pixel" && <Check className="h-4 w-4 text-rose-600" />}
           </button>
@@ -755,7 +800,7 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
               "flex w-full items-center justify-between p-2.5 rounded-xl border text-left transition active:scale-98",
               tool === "eraser-object"
                 ? "border-rose-500 bg-rose-500/10 text-rose-600 font-bold"
-                : "border-border hover:bg-muted text-foreground"
+                : "border-border hover:bg-muted text-foreground",
             )}
           >
             <div className="flex flex-col">
@@ -773,7 +818,9 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
           >
             <div className="flex flex-col">
               <span className="text-xs font-bold text-amber-700 dark:text-amber-400">Ink only</span>
-              <span className="text-[11px] text-muted-foreground">Keep text boxes, stickies & images</span>
+              <span className="text-[11px] text-muted-foreground">
+                Keep text boxes, stickies & images
+              </span>
             </div>
           </button>
 
@@ -783,7 +830,9 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
           >
             <div className="flex flex-col">
               <span className="text-xs font-bold text-rose-600">Clear page</span>
-              <span className="text-[11px] text-muted-foreground">Empty board with instant Undo</span>
+              <span className="text-[11px] text-muted-foreground">
+                Empty board with instant Undo
+              </span>
             </div>
           </button>
         </PopoverContent>
@@ -801,8 +850,8 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
               tool === "select" || tool === "lasso"
                 ? "bg-primary text-primary-foreground shadow-md ring-2 ring-primary ring-offset-2 ring-offset-background"
                 : isDark
-                ? "bg-slate-800/80 text-slate-200 hover:bg-slate-700"
-                : "bg-muted/40 text-foreground hover:bg-muted"
+                  ? "bg-slate-800/80 text-slate-200 hover:bg-slate-700"
+                  : "bg-muted/40 text-foreground hover:bg-muted",
             )}
             style={{ width: `${targetSizePx}px`, height: `${targetSizePx}px` }}
             title="Select (tap again for Lasso / Tap mode)"
@@ -823,10 +872,12 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
           collisionPadding={24}
           className={cn(
             "w-64 max-w-[calc(100vw-2rem)] max-h-[min(80vh,480px)] overflow-y-auto rounded-2xl p-4 shadow-2xl border space-y-2",
-            isDark ? "bg-slate-900 border-slate-700 text-slate-100" : "bg-card border-border"
+            isDark ? "bg-slate-900 border-slate-700 text-slate-100" : "bg-card border-border",
           )}
         >
-          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Selection Mode</p>
+          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">
+            Selection Mode
+          </p>
           <button
             onClick={() => {
               setTool("select");
@@ -836,7 +887,7 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
               "flex w-full items-center justify-between p-2.5 rounded-xl border text-left transition active:scale-98",
               tool === "select"
                 ? "border-primary bg-primary/10 text-primary font-bold"
-                : "border-border hover:bg-muted text-foreground"
+                : "border-border hover:bg-muted text-foreground",
             )}
           >
             <div className="flex flex-col">
@@ -854,7 +905,7 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
               "flex w-full items-center justify-between p-2.5 rounded-xl border text-left transition active:scale-98",
               tool === "lasso"
                 ? "border-primary bg-primary/10 text-primary font-bold"
-                : "border-border hover:bg-muted text-foreground"
+                : "border-border hover:bg-muted text-foreground",
             )}
           >
             <div className="flex flex-col">
@@ -878,8 +929,8 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
               tool === "text"
                 ? "bg-primary text-primary-foreground shadow-md ring-2 ring-primary ring-offset-2 ring-offset-background"
                 : isDark
-                ? "bg-slate-800/80 text-slate-200 hover:bg-slate-700"
-                : "bg-muted/40 text-foreground hover:bg-muted"
+                  ? "bg-slate-800/80 text-slate-200 hover:bg-slate-700"
+                  : "bg-muted/40 text-foreground hover:bg-muted",
             )}
             style={{ width: `${targetSizePx}px`, height: `${targetSizePx}px` }}
             title="Text (tap board to type, or tap again for font size & cards)"
@@ -900,10 +951,12 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
           collisionPadding={24}
           className={cn(
             "w-76 max-w-[calc(100vw-2rem)] max-h-[min(80vh,500px)] overflow-y-auto rounded-2xl p-4 shadow-2xl border space-y-3",
-            isDark ? "bg-slate-900 border-slate-700 text-slate-100" : "bg-card border-border"
+            isDark ? "bg-slate-900 border-slate-700 text-slate-100" : "bg-card border-border",
           )}
         >
-          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Text Size & Style</p>
+          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            Text Size & Style
+          </p>
 
           <div className="grid grid-cols-5 gap-1.5">
             {TEXT_SIZE_PRESETS.map((ts) => (
@@ -919,7 +972,9 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
           </div>
 
           <div className="space-y-1.5 pt-1 border-t border-border">
-            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Card Background</p>
+            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              Card Background
+            </p>
             <div className="grid grid-cols-3 gap-2">
               <button
                 onClick={() => insertTextBox(24, undefined)}
@@ -960,8 +1015,8 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
               tool === "shape"
                 ? "bg-primary text-primary-foreground shadow-md ring-2 ring-primary ring-offset-2 ring-offset-background"
                 : isDark
-                ? "bg-slate-800/80 text-slate-200 hover:bg-slate-700"
-                : "bg-muted/40 text-foreground hover:bg-muted"
+                  ? "bg-slate-800/80 text-slate-200 hover:bg-slate-700"
+                  : "bg-muted/40 text-foreground hover:bg-muted",
             )}
             style={{ width: `${targetSizePx}px`, height: `${targetSizePx}px` }}
             title="Shapes (draw rough shape or tap again to choose)"
@@ -982,14 +1037,16 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
           collisionPadding={24}
           className={cn(
             "w-[26rem] max-w-[calc(100vw-2rem)] max-h-[min(76vh,500px)] flex flex-col rounded-2xl p-3.5 shadow-2xl border space-y-2.5 overflow-hidden",
-            isDark ? "bg-slate-900 border-slate-700 text-slate-100" : "bg-card border-border"
+            isDark ? "bg-slate-900 border-slate-700 text-slate-100" : "bg-card border-border",
           )}
         >
           {/* Smart Hold-to-Snap auto-straighten switch */}
           <div className="flex items-center justify-between p-2 rounded-xl bg-muted/50 border border-border shrink-0">
             <div className="space-y-0.5">
               <div className="text-xs font-semibold">Auto-straighten rough shapes</div>
-              <div className="text-[10px] text-muted-foreground">Draw and pause to straighten circles, triangles, etc.</div>
+              <div className="text-[10px] text-muted-foreground">
+                Draw and pause to straighten circles, triangles, etc.
+              </div>
             </div>
             <Switch
               checked={autoSnapEnabled}
@@ -1012,7 +1069,10 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
             </TabsList>
 
             {/* TAB 1: COMMON SHAPES */}
-            <TabsContent value="common" className="flex-1 min-h-0 overflow-y-auto mt-0 pr-1 space-y-2">
+            <TabsContent
+              value="common"
+              className="flex-1 min-h-0 overflow-y-auto mt-0 pr-1 space-y-2"
+            >
               <p className="text-[11px] text-muted-foreground">
                 Tap a shape to insert into center of board:
               </p>
@@ -1037,7 +1097,10 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
             </TabsContent>
 
             {/* TAB 2: ALL 2D SHAPES */}
-            <TabsContent value="2d" className="flex-1 min-h-0 overflow-y-auto mt-0 pr-1 space-y-1.5 pb-2">
+            <TabsContent
+              value="2d"
+              className="flex-1 min-h-0 overflow-y-auto mt-0 pr-1 space-y-1.5 pb-2"
+            >
               <p className="text-[11px] text-muted-foreground">
                 All 30 2D geometric shapes & lines:
               </p>
@@ -1062,7 +1125,10 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
             </TabsContent>
 
             {/* TAB 3: ALL 3D SOLIDS */}
-            <TabsContent value="3d" className="flex-1 min-h-0 overflow-y-auto mt-0 pr-1 space-y-1.5 pb-2">
+            <TabsContent
+              value="3d"
+              className="flex-1 min-h-0 overflow-y-auto mt-0 pr-1 space-y-1.5 pb-2"
+            >
               <p className="text-[11px] text-muted-foreground">
                 All 21 3D geometric solids & wireframes:
               </p>
@@ -1102,7 +1168,7 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
           "flex flex-col items-center justify-center rounded-xl transition-all active:scale-95 font-semibold",
           isDark
             ? "bg-slate-800/80 text-slate-200 hover:bg-slate-700"
-            : "bg-muted/40 text-foreground hover:bg-muted"
+            : "bg-muted/40 text-foreground hover:bg-muted",
         )}
         style={{ width: `${targetSizePx}px`, height: `${targetSizePx}px` }}
         title="More Tools & Classroom Widgets"

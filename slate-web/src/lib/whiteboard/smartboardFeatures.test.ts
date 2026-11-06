@@ -154,7 +154,11 @@ describe("Smart Board Features", () => {
       const allBoards = {
         active_board: activeMeta,
         board_with_data: { id: "board_with_data", title: "Saved Board", updatedAt: Date.now() },
-        board_without_data: { id: "board_without_data", title: "Unloaded Board", updatedAt: Date.now() },
+        board_without_data: {
+          id: "board_without_data",
+          title: "Unloaded Board",
+          updatedAt: Date.now(),
+        },
         old_board: { id: "old_board", title: "Old Board", updatedAt: startOfToday - 1000 },
       };
 
@@ -187,4 +191,3 @@ describe("Smart Board Features", () => {
     });
   });
 });
-

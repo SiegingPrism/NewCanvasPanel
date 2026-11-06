@@ -43,7 +43,7 @@ export function MagnifierWidget({ onClose }: { onClose?: () => void }) {
               0,
               0,
               size,
-              size
+              size,
             );
           } catch {}
 
@@ -115,7 +115,9 @@ export function MagnifierWidget({ onClose }: { onClose?: () => void }) {
           onClick={() => setZoomLevel(2)}
           className={cn(
             "rounded-full px-2.5 py-1 text-xs font-bold transition-all",
-            zoomLevel === 2 ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
+            zoomLevel === 2
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:bg-muted",
           )}
         >
           2x
@@ -124,7 +126,9 @@ export function MagnifierWidget({ onClose }: { onClose?: () => void }) {
           onClick={() => setZoomLevel(3)}
           className={cn(
             "rounded-full px-2.5 py-1 text-xs font-bold transition-all",
-            zoomLevel === 3 ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
+            zoomLevel === 3
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:bg-muted",
           )}
         >
           3x
@@ -133,7 +137,9 @@ export function MagnifierWidget({ onClose }: { onClose?: () => void }) {
           onClick={() => setZoomLevel(4)}
           className={cn(
             "rounded-full px-2.5 py-1 text-xs font-bold transition-all",
-            zoomLevel === 4 ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
+            zoomLevel === 4
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:bg-muted",
           )}
         >
           4x
@@ -142,7 +148,7 @@ export function MagnifierWidget({ onClose }: { onClose?: () => void }) {
           onClick={() => setShowCrosshairs(!showCrosshairs)}
           className={cn(
             "rounded-full p-1.5 transition-all",
-            showCrosshairs ? "text-primary bg-primary/10" : "text-muted-foreground hover:bg-muted"
+            showCrosshairs ? "text-primary bg-primary/10" : "text-muted-foreground hover:bg-muted",
           )}
           title="Toggle crosshairs"
         >
@@ -161,4 +167,3 @@ export function MagnifierWidget({ onClose }: { onClose?: () => void }) {
     </div>
   );
 }
-

@@ -5,7 +5,13 @@ import { fetchNoteById } from "@/lib/supabase/dbService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import {
   ArrowLeft,
   Star,
@@ -109,9 +115,10 @@ export function NoteEditorPage() {
     if (hydrated && !note) {
       fetchNoteById(noteId).then((cn) => {
         if (cn) {
-          const blocks = Array.isArray(cn.blocks) && cn.blocks.length
-            ? cn.blocks
-            : [{ id: uid(), type: "text" as const, content: cn.content || "" }];
+          const blocks =
+            Array.isArray(cn.blocks) && cn.blocks.length
+              ? cn.blocks
+              : [{ id: uid(), type: "text" as const, content: cn.content || "" }];
           const loadedNote = {
             id: cn.id,
             title: cn.title || "Untitled Note",
@@ -492,7 +499,11 @@ export function NoteEditorPage() {
               className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
               title="Copy as Markdown"
             >
-              {copied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
+              {copied ? (
+                <Check className="h-4 w-4 text-emerald-500" />
+              ) : (
+                <Copy className="h-4 w-4" />
+              )}
             </Button>
 
             <Button
@@ -738,7 +749,9 @@ export function NoteEditorPage() {
                     placeholder={b.type === "checklist" ? "Checklist item..." : "Start typing..."}
                     rows={Math.max(1, (b.content || "").split("\n").length)}
                     className={`w-full bg-transparent text-sm leading-relaxed text-foreground outline-none resize-none ${
-                      b.type === "checklist" && b.checked ? "line-through text-muted-foreground" : ""
+                      b.type === "checklist" && b.checked
+                        ? "line-through text-muted-foreground"
+                        : ""
                     }`}
                   />
                 )}
@@ -838,7 +851,11 @@ export function NoteEditorPage() {
             className="h-7 gap-1 text-xs text-primary border-primary/30 hover:bg-primary/10"
             onClick={handleSummarizeNote}
           >
-            {aiLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+            {aiLoading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="h-3.5 w-3.5" />
+            )}
             AI Summary
           </Button>
 
@@ -969,8 +986,11 @@ export function NoteEditorPage() {
 
                     let btnClass = "border-border hover:bg-accent";
                     if (showFeedback) {
-                      if (isCorrect) btnClass = "border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold";
-                      else if (isSelected) btnClass = "border-destructive bg-destructive/10 text-destructive";
+                      if (isCorrect)
+                        btnClass =
+                          "border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold";
+                      else if (isSelected)
+                        btnClass = "border-destructive bg-destructive/10 text-destructive";
                     }
 
                     return (
@@ -984,7 +1004,9 @@ export function NoteEditorPage() {
                         className={`w-full rounded-xl border p-3 text-left text-xs transition flex items-center justify-between ${btnClass}`}
                       >
                         <span>{opt}</span>
-                        {showFeedback && isCorrect && <Check className="h-4 w-4 text-emerald-500" />}
+                        {showFeedback && isCorrect && (
+                          <Check className="h-4 w-4 text-emerald-500" />
+                        )}
                       </button>
                     );
                   })}

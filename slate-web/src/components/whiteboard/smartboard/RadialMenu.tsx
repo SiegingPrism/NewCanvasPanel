@@ -28,8 +28,14 @@ export function RadialMenu({ position, onClose }: RadialMenuProps) {
 
   // Clamp position so the menu doesn't overflow screen boundaries
   const menuRadius = 110;
-  const clampedX = Math.max(menuRadius + 20, Math.min(window.innerWidth - menuRadius - 20, position.x));
-  const clampedY = Math.max(menuRadius + 20, Math.min(window.innerHeight - menuRadius - 20, position.y));
+  const clampedX = Math.max(
+    menuRadius + 20,
+    Math.min(window.innerWidth - menuRadius - 20, position.x),
+  );
+  const clampedY = Math.max(
+    menuRadius + 20,
+    Math.min(window.innerHeight - menuRadius - 20, position.y),
+  );
 
   const items = [
     {
@@ -117,7 +123,7 @@ export function RadialMenu({ position, onClose }: RadialMenuProps) {
               "absolute flex h-13 w-13 flex-col items-center justify-center rounded-full shadow-xl backdrop-blur-md border border-border/80 transition-all active:scale-90",
               item.active
                 ? "bg-primary text-primary-foreground ring-2 ring-primary/40 font-bold"
-                : "bg-card/95 text-foreground hover:bg-muted"
+                : "bg-card/95 text-foreground hover:bg-muted",
             )}
             style={{
               left: `calc(50% + ${x}px - 26px)`,
@@ -158,4 +164,3 @@ export function RadialMenu({ position, onClose }: RadialMenuProps) {
     </div>
   );
 }
-

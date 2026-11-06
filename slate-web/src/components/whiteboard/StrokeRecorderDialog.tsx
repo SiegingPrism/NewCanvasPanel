@@ -7,10 +7,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import {
-  useStrokeRecorderStore,
-  RECORDABLE_SHAPES,
-} from "@/lib/whiteboard/strokeRecorderStore";
+import { useStrokeRecorderStore, RECORDABLE_SHAPES } from "@/lib/whiteboard/strokeRecorderStore";
 import {
   CircleDot,
   Copy,
@@ -85,7 +82,9 @@ export function StrokeRecorderDialog() {
           className="fixed bottom-6 left-6 z-50 flex items-center gap-2 rounded-full bg-red-600/90 hover:bg-red-600 px-4 py-2 text-xs font-semibold text-white shadow-xl cursor-pointer animate-pulse backdrop-blur-md transition-all border border-red-400/30"
         >
           <span className="h-2.5 w-2.5 rounded-full bg-white animate-ping" />
-          <span>REC: {selectedShape} ({total})</span>
+          <span>
+            REC: {selectedShape} ({total})
+          </span>
         </div>
       )}
 
@@ -119,7 +118,8 @@ export function StrokeRecorderDialog() {
               </div>
             </div>
             <DialogDescription className="text-xs text-muted-foreground">
-              Tag and record hand-drawn strokes directly into the benchmark dataset for continuous shape recognizer tuning.
+              Tag and record hand-drawn strokes directly into the benchmark dataset for continuous
+              shape recognizer tuning.
             </DialogDescription>
           </DialogHeader>
 
@@ -133,7 +133,7 @@ export function StrokeRecorderDialog() {
                 {RECORDABLE_SHAPES.map((shape) => {
                   const isSelected = selectedShape === shape.id;
                   const countForShape = recordedStrokes.filter(
-                    (s) => s.expectedShape === shape.id
+                    (s) => s.expectedShape === shape.id,
                   ).length;
                   return (
                     <button
@@ -143,7 +143,7 @@ export function StrokeRecorderDialog() {
                         "flex flex-col items-center justify-center py-2 px-1 rounded-lg border text-xs font-medium transition-all",
                         isSelected
                           ? "border-primary bg-primary/10 text-primary ring-1 ring-primary"
-                          : "border-border/60 bg-muted/40 text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+                          : "border-border/60 bg-muted/40 text-muted-foreground hover:bg-muted/70 hover:text-foreground",
                       )}
                     >
                       <span className="truncate max-w-full text-[11px]">{shape.label}</span>
@@ -158,17 +158,28 @@ export function StrokeRecorderDialog() {
             <div className="grid grid-cols-3 gap-2 p-3 rounded-xl border bg-card/60">
               <div className="text-center">
                 <div className="text-lg font-bold text-foreground">{total}</div>
-                <div className="text-[10px] text-muted-foreground uppercase font-medium">Strokes</div>
+                <div className="text-[10px] text-muted-foreground uppercase font-medium">
+                  Strokes
+                </div>
               </div>
               <div className="text-center border-x border-border/40">
                 <div className="text-lg font-bold text-emerald-500">{matches}</div>
-                <div className="text-[10px] text-muted-foreground uppercase font-medium">Passed</div>
+                <div className="text-[10px] text-muted-foreground uppercase font-medium">
+                  Passed
+                </div>
               </div>
               <div className="text-center">
-                <div className={cn("text-lg font-bold", accuracy >= 80 ? "text-emerald-500" : "text-amber-500")}>
+                <div
+                  className={cn(
+                    "text-lg font-bold",
+                    accuracy >= 80 ? "text-emerald-500" : "text-amber-500",
+                  )}
+                >
                   {accuracy}%
                 </div>
-                <div className="text-[10px] text-muted-foreground uppercase font-medium">Live Accuracy</div>
+                <div className="text-[10px] text-muted-foreground uppercase font-medium">
+                  Live Accuracy
+                </div>
               </div>
             </div>
 
@@ -192,7 +203,8 @@ export function StrokeRecorderDialog() {
                   <CircleDot className="h-6 w-6 text-muted-foreground/40 mb-1" />
                   <p className="font-medium text-foreground">No strokes recorded yet</p>
                   <p className="text-[11px] max-w-xs">
-                    Click <strong className="text-primary font-semibold">Start REC</strong> above, then draw on the whiteboard with your pen or finger.
+                    Click <strong className="text-primary font-semibold">Start REC</strong> above,
+                    then draw on the whiteboard with your pen or finger.
                   </p>
                 </div>
               ) : (
@@ -221,7 +233,7 @@ export function StrokeRecorderDialog() {
                             "px-1.5 py-0.5 rounded text-[10px] font-mono",
                             s.match
                               ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                              : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                              : "bg-amber-500/10 text-amber-600 dark:text-amber-400",
                           )}
                         >
                           {s.recognizedShape ? `-> ${s.recognizedShape}` : "-> rejected"}
@@ -254,7 +266,11 @@ export function StrokeRecorderDialog() {
                 disabled={recordedStrokes.length === 0}
                 className="gap-1.5 h-8 text-xs"
               >
-                {copied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                {copied ? (
+                  <Check className="h-3.5 w-3.5 text-emerald-500" />
+                ) : (
+                  <Copy className="h-3.5 w-3.5" />
+                )}
                 Copy JSON
               </Button>
               <Button

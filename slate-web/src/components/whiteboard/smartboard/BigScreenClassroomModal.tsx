@@ -1,10 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import {
   Timer,
@@ -113,29 +108,38 @@ export function BigScreenClassroomModal({
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const timerIntervalRef = useRef<any>(null);
+  const targetEndTimeRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (isTimerRunning) {
+      targetEndTimeRef.current = Date.now() + remainingSeconds * 1000;
       timerIntervalRef.current = setInterval(() => {
-        setRemainingSeconds((prev) => {
-          if (prev <= 1) {
-            clearInterval(timerIntervalRef.current);
-            setIsTimerRunning(false);
-            if (soundEnabled) {
-              playClassroomChime();
-            }
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
+        if (!targetEndTimeRef.current) return;
+        const left = Math.max(0, Math.ceil((targetEndTimeRef.current - Date.now()) / 1000));
+        setRemainingSeconds(left);
+        if (left <= 0) {
+          clearInterval(timerIntervalRef.current);
+          setIsTimerRunning(false);
+          targetEndTimeRef.current = null;
+        }
+      }, 250);
     } else {
+      targetEndTimeRef.current = null;
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     }
     return () => {
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     };
-  }, [isTimerRunning, soundEnabled]);
+  }, [isTimerRunning]);
+
+  // Play chime in effect when countdown reaches 0
+  const prevRemainingRef = useRef(remainingSeconds);
+  useEffect(() => {
+    if (prevRemainingRef.current > 0 && remainingSeconds === 0 && soundEnabled) {
+      playClassroomChime();
+    }
+    prevRemainingRef.current = remainingSeconds;
+  }, [remainingSeconds, soundEnabled]);
 
   const setTimerPreset = (sec: number) => {
     setIsTimerRunning(false);
@@ -245,7 +249,9 @@ export function BigScreenClassroomModal({
             <Button
               variant={activeTab === "timer" ? "secondary" : "ghost"}
               className={`h-12 px-6 gap-2.5 text-base font-bold rounded-xl ${
-                activeTab === "timer" ? "bg-indigo-600 text-white hover:bg-indigo-500" : "text-slate-400 hover:text-white"
+                activeTab === "timer"
+                  ? "bg-indigo-600 text-white hover:bg-indigo-500"
+                  : "text-slate-400 hover:text-white"
               }`}
               onClick={() => setActiveTab("timer")}
             >
@@ -255,7 +261,9 @@ export function BigScreenClassroomModal({
             <Button
               variant={activeTab === "picker" ? "secondary" : "ghost"}
               className={`h-12 px-6 gap-2.5 text-base font-bold rounded-xl ${
-                activeTab === "picker" ? "bg-indigo-600 text-white hover:bg-indigo-500" : "text-slate-400 hover:text-white"
+                activeTab === "picker"
+                  ? "bg-indigo-600 text-white hover:bg-indigo-500"
+                  : "text-slate-400 hover:text-white"
               }`}
               onClick={() => setActiveTab("picker")}
             >
@@ -265,7 +273,9 @@ export function BigScreenClassroomModal({
             <Button
               variant={activeTab === "teams" ? "secondary" : "ghost"}
               className={`h-12 px-6 gap-2.5 text-base font-bold rounded-xl ${
-                activeTab === "teams" ? "bg-indigo-600 text-white hover:bg-indigo-500" : "text-slate-400 hover:text-white"
+                activeTab === "teams"
+                  ? "bg-indigo-600 text-white hover:bg-indigo-500"
+                  : "text-slate-400 hover:text-white"
               }`}
               onClick={() => {
                 setActiveTab("teams");
@@ -285,7 +295,11 @@ export function BigScreenClassroomModal({
               title={soundEnabled ? "Mute audio chime" : "Enable audio chime"}
               onClick={() => setSoundEnabled(!soundEnabled)}
             >
-              {soundEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6 text-red-400" />}
+              {soundEnabled ? (
+                <Volume2 className="w-6 h-6" />
+              ) : (
+                <VolumeX className="w-6 h-6 text-red-400" />
+              )}
             </Button>
             {activeTab === "timer" && onMinimizeTimer && (
               <Button
@@ -340,8 +354,8 @@ export function BigScreenClassroomModal({
                     remainingSeconds <= 10
                       ? "text-red-500 animate-pulse"
                       : remainingSeconds <= 60
-                      ? "text-amber-500"
-                      : "text-indigo-500"
+                        ? "text-amber-500"
+                        : "text-indigo-500"
                   }`}
                   fill="transparent"
                 />
@@ -358,7 +372,9 @@ export function BigScreenClassroomModal({
                   {String(timerMinutes).padStart(2, "0")}:{String(timerSeconds).padStart(2, "0")}
                 </span>
                 {remainingSeconds === 0 && (
-                  <span className="text-2xl font-black uppercase tracking-widest text-red-400 mt-4">Time's Up!</span>
+                  <span className="text-2xl font-black uppercase tracking-widest text-red-400 mt-4">
+                    Time's Up!
+                  </span>
                 )}
               </div>
             </div>
@@ -470,15 +486,19 @@ export function BigScreenClassroomModal({
                 {/* Centre Winner Display (>= 100px font for smart boards) */}
                 <div className="w-full max-w-4xl py-14 px-8 rounded-3xl bg-slate-950/80 border border-slate-800 shadow-2xl flex flex-col items-center justify-center text-center">
                   <span className="text-sm font-bold uppercase tracking-widest text-indigo-400 mb-3">
-                    {isSpinning ? "Selecting random student..." : currentWinner ? "Selected Student:" : "Ready to Pick"}
+                    {isSpinning
+                      ? "Selecting random student..."
+                      : currentWinner
+                        ? "Selected Student:"
+                        : "Ready to Pick"}
                   </span>
                   <div
                     className={`font-black tracking-tight transition-all duration-150 min-h-[130px] flex items-center justify-center ${
                       isSpinning
                         ? "text-6xl md:text-7xl text-slate-400 scale-95"
                         : currentWinner
-                        ? "text-7xl md:text-[104px] text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-pink-400 to-indigo-400 scale-105 drop-shadow-2xl"
-                        : "text-5xl md:text-6xl text-slate-600"
+                          ? "text-7xl md:text-[104px] text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-pink-400 to-indigo-400 scale-105 drop-shadow-2xl"
+                          : "text-5xl md:text-6xl text-slate-600"
                     }`}
                   >
                     {currentWinner || "Tap Spin to Start"}
@@ -525,7 +545,9 @@ export function BigScreenClassroomModal({
                       onChange={(e) => setRemoveAfterPick(e.target.checked)}
                       className="rounded border-slate-700 bg-slate-800 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
                     />
-                    <span>Remove from pool after picked ({availableStudents.length} remaining)</span>
+                    <span>
+                      Remove from pool after picked ({availableStudents.length} remaining)
+                    </span>
                   </label>
 
                   {pickedHistory.length > 0 && (
@@ -555,7 +577,9 @@ export function BigScreenClassroomModal({
                       </span>
                     ))}
                     {pickedHistory.length > 8 && (
-                      <span className="text-xs text-slate-500">+{pickedHistory.length - 8} more</span>
+                      <span className="text-xs text-slate-500">
+                        +{pickedHistory.length - 8} more
+                      </span>
                     )}
                   </div>
                 )}
@@ -607,10 +631,10 @@ export function BigScreenClassroomModal({
                 teamCount === 2
                   ? "grid-cols-2"
                   : teamCount === 3
-                  ? "grid-cols-3"
-                  : teamCount === 4
-                  ? "grid-cols-2 md:grid-cols-4"
-                  : "grid-cols-2 md:grid-cols-3"
+                    ? "grid-cols-3"
+                    : teamCount === 4
+                      ? "grid-cols-2 md:grid-cols-4"
+                      : "grid-cols-2 md:grid-cols-3"
               }`}
             >
               {generatedTeams.map((team, idx) => {
@@ -637,7 +661,10 @@ export function BigScreenClassroomModal({
                     </div>
                     <ul className="space-y-1.5 flex-1">
                       {team.members.map((m, mIdx) => (
-                        <li key={mIdx} className="text-sm font-semibold text-white/90 flex items-center gap-1.5">
+                        <li
+                          key={mIdx}
+                          className="text-sm font-semibold text-white/90 flex items-center gap-1.5"
+                        >
                           <span className="w-1.5 h-1.5 rounded-full bg-white/40" />
                           {m}
                         </li>
@@ -653,4 +680,3 @@ export function BigScreenClassroomModal({
     </Dialog>
   );
 }
-

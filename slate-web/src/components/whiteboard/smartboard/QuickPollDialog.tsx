@@ -19,14 +19,15 @@ export function QuickPollDialog({ open, onOpenChange, initialQuiz }: QuickPollDi
   const page = pages.find((p) => p.id === activePageId);
 
   // Pull quiz object from page if available
-  const quizOnBoard = initialQuiz || (page?.objects.find((o) => o.kind === "quiz") as QuizObject | undefined);
+  const quizOnBoard =
+    initialQuiz || (page?.objects.find((o) => o.kind === "quiz") as QuizObject | undefined);
 
   const [pollId] = useState(() => `poll-${Math.random().toString(36).slice(2, 9)}`);
   const [question] = useState(
-    quizOnBoard?.question || "Which planet in our solar system has the most moons?"
+    quizOnBoard?.question || "Which planet in our solar system has the most moons?",
   );
   const [options] = useState<string[]>(
-    quizOnBoard?.options || ["Mars", "Jupiter", "Saturn", "Neptune"]
+    quizOnBoard?.options || ["Mars", "Jupiter", "Saturn", "Neptune"],
   );
   const [correctIndex] = useState(quizOnBoard?.answerIndex ?? 2);
   const [votes, setVotes] = useState<number[]>([0, 0, 0, 0]);
@@ -67,8 +68,8 @@ export function QuickPollDialog({ open, onOpenChange, initialQuiz }: QuickPollDi
             typeof payload?.payload?.optionIndex === "number"
               ? payload.payload.optionIndex
               : typeof payload?.optionIndex === "number"
-              ? payload.optionIndex
-              : undefined;
+                ? payload.optionIndex
+                : undefined;
           if (typeof optIdx === "number") {
             handleIncomingVote(optIdx);
           }
@@ -112,7 +113,7 @@ export function QuickPollDialog({ open, onOpenChange, initialQuiz }: QuickPollDi
   useEffect(() => {
     const base = getPublicAppOrigin();
     const pollUrl = `${base}/poll?id=${pollId}&q=${encodeURIComponent(question)}&opts=${encodeURIComponent(
-      JSON.stringify(options)
+      JSON.stringify(options),
     )}&ans=${correctIndex}`;
 
     QRCode.toDataURL(pollUrl, {
@@ -160,7 +161,11 @@ export function QuickPollDialog({ open, onOpenChange, initialQuiz }: QuickPollDi
               Scan with Phone
             </span>
             {qrDataUrl ? (
-              <img src={qrDataUrl} alt="Poll QR Code" className="h-44 w-44 rounded-xl shadow-md border bg-white p-1" />
+              <img
+                src={qrDataUrl}
+                alt="Poll QR Code"
+                className="h-44 w-44 rounded-xl shadow-md border bg-white p-1"
+              />
             ) : (
               <div className="h-44 w-44 rounded-xl bg-muted animate-pulse" />
             )}
@@ -212,7 +217,7 @@ export function QuickPollDialog({ open, onOpenChange, initialQuiz }: QuickPollDi
                       <div
                         className={cn(
                           "h-full rounded-full transition-all duration-500",
-                          isCorrect ? "bg-emerald-500" : optionColors[idx % optionColors.length]
+                          isCorrect ? "bg-emerald-500" : optionColors[idx % optionColors.length],
                         )}
                         style={{ width: `${pct}%` }}
                       />
@@ -240,7 +245,7 @@ export function QuickPollDialog({ open, onOpenChange, initialQuiz }: QuickPollDi
                   "flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-extrabold transition-all shadow-sm",
                   revealed
                     ? "bg-emerald-500 text-white"
-                    : "bg-primary text-primary-foreground hover:bg-primary/90"
+                    : "bg-primary text-primary-foreground hover:bg-primary/90",
                 )}
               >
                 <Trophy className="h-3.5 w-3.5" />

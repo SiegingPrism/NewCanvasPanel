@@ -118,9 +118,7 @@ export function TableDialog({
                 >
                   <Minus className="h-3.5 w-3.5" />
                 </button>
-                <span className="flex-1 text-center font-mono font-semibold text-sm">
-                  {rows}
-                </span>
+                <span className="flex-1 text-center font-mono font-semibold text-sm">{rows}</span>
                 <button
                   type="button"
                   onClick={() => setRows((r) => Math.min(8, r + 1))}
@@ -143,9 +141,7 @@ export function TableDialog({
                 >
                   <Minus className="h-3.5 w-3.5" />
                 </button>
-                <span className="flex-1 text-center font-mono font-semibold text-sm">
-                  {cols}
-                </span>
+                <span className="flex-1 text-center font-mono font-semibold text-sm">{cols}</span>
                 <button
                   type="button"
                   onClick={() => setCols((c) => Math.min(6, c + 1))}

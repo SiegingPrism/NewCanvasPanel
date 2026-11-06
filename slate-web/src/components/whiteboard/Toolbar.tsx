@@ -274,13 +274,17 @@ export function Toolbar() {
     boardMode,
   } = useWhiteboard();
 
-  const [activeFlyout, setActiveFlyout] = useState<"select" | "pen" | "shapes" | "color" | null>(null);
+  const [activeFlyout, setActiveFlyout] = useState<"select" | "pen" | "shapes" | "color" | null>(
+    null,
+  );
   const [shapesTab, setShapesTab] = useState<"2d" | "3d">("2d");
   const [penFlyoutTab, setPenFlyoutTab] = useState<"styles" | "handwriting">("styles");
   const [eraseDialogOpen, setEraseDialogOpen] = useState(false);
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [mathDialogOpen, setMathDialogOpen] = useState(false);
-  const [colorCategory, setColorCategory] = useState<"vivid" | "chalk" | "pastel" | "earthy">("vivid");
+  const [colorCategory, setColorCategory] = useState<"vivid" | "chalk" | "pastel" | "earthy">(
+    "vivid",
+  );
   const [mounted, setMounted] = useState(false);
   const {
     langPickerOpen,
@@ -404,589 +408,600 @@ export function Toolbar() {
   return (
     <>
       <div className="relative flex flex-col items-center">
-      {/* Backdrop for active flyout to close on tap outside */}
-      {activeFlyout && (
-        <div
-          className="fixed inset-0 z-40 bg-black/10 pointer-events-auto"
-          onPointerDown={(e) => {
-            e.stopPropagation();
-            setActiveFlyout(null);
-          }}
-          onClick={() => setActiveFlyout(null)}
-        />
-      )}
-
-      {/* Flyout 1: Select / Lasso */}
-      {activeFlyout === "select" && (
-        <div
-          className="pointer-events-auto absolute bottom-full mb-3 w-44 p-1.5 space-y-0.5 shadow-2xl rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 select-none z-50"
-          onPointerDown={(e) => e.stopPropagation()}
-          onTouchStart={(e) => e.stopPropagation()}
-        >
-          <button
-            type="button"
-            onClick={() => {
-              setTool("select");
+        {/* Backdrop for active flyout to close on tap outside */}
+        {activeFlyout && (
+          <div
+            className="fixed inset-0 z-40 bg-black/10 pointer-events-auto"
+            onPointerDown={(e) => {
+              e.stopPropagation();
               setActiveFlyout(null);
             }}
-            className={cn(
-              "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition",
-              tool === "select"
-                ? "bg-slate-100 dark:bg-slate-800 text-foreground font-semibold"
-                : "hover:bg-slate-50 dark:hover:bg-slate-800/60 text-muted-foreground",
-            )}
-          >
-            <MousePointer2 className="h-3.5 w-3.5" />
-            <span>Pointer</span>
-            {tool === "select" && <Check className="ml-auto h-3.5 w-3.5" />}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setTool("lasso");
-              setActiveFlyout(null);
-            }}
-            className={cn(
-              "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition",
-              tool === "lasso"
-                ? "bg-slate-100 dark:bg-slate-800 text-foreground font-semibold"
-                : "hover:bg-slate-50 dark:hover:bg-slate-800/60 text-muted-foreground",
-            )}
-          >
-            <LassoSelect className="h-3.5 w-3.5" />
-            <span>Freehand Lasso</span>
-            {tool === "lasso" && <Check className="ml-auto h-3.5 w-3.5" />}
-          </button>
-        </div>
-      )}
+            onClick={() => setActiveFlyout(null)}
+          />
+        )}
 
-      {/* Flyout 2: Pen Styles */}
-      {activeFlyout === "pen" && (
-        <div
-          className="pointer-events-auto absolute bottom-full mb-3 w-[356px] max-w-[calc(100vw-24px)] max-h-[min(78vh,640px)] overflow-y-auto overscroll-contain p-3 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 select-none z-50"
-          onPointerDown={(e) => e.stopPropagation()}
-          onTouchStart={(e) => e.stopPropagation()}
-        >
-          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl text-xs font-medium mb-2.5">
+        {/* Flyout 1: Select / Lasso */}
+        {activeFlyout === "select" && (
+          <div
+            className="pointer-events-auto absolute bottom-full mb-3 w-44 p-1.5 space-y-0.5 shadow-2xl rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 select-none z-50"
+            onPointerDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+          >
             <button
               type="button"
-              onClick={() => setPenFlyoutTab("styles")}
+              onClick={() => {
+                setTool("select");
+                setActiveFlyout(null);
+              }}
               className={cn(
-                "flex-1 py-1 px-2 rounded-lg transition text-xs font-semibold text-center flex items-center justify-center gap-1.5",
-                penFlyoutTab === "styles"
-                  ? "bg-white dark:bg-slate-900 text-foreground shadow-xs"
-                  : "text-muted-foreground hover:text-foreground",
+                "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition",
+                tool === "select"
+                  ? "bg-slate-100 dark:bg-slate-800 text-foreground font-semibold"
+                  : "hover:bg-slate-50 dark:hover:bg-slate-800/60 text-muted-foreground",
               )}
             >
-              <Pen className="h-3.5 w-3.5 text-primary" />
-              <span>Pen Styles ({PEN_STYLES.length})</span>
+              <MousePointer2 className="h-3.5 w-3.5" />
+              <span>Pointer</span>
+              {tool === "select" && <Check className="ml-auto h-3.5 w-3.5" />}
             </button>
             <button
               type="button"
-              onClick={() => setPenFlyoutTab("handwriting")}
+              onClick={() => {
+                setTool("lasso");
+                setActiveFlyout(null);
+              }}
               className={cn(
-                "flex-1 py-1 px-2 rounded-lg transition text-xs font-semibold text-center flex items-center justify-center gap-1.5",
-                penFlyoutTab === "handwriting"
-                  ? "bg-white dark:bg-slate-900 text-foreground shadow-xs"
-                  : "text-muted-foreground hover:text-foreground",
+                "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition",
+                tool === "lasso"
+                  ? "bg-slate-100 dark:bg-slate-800 text-foreground font-semibold"
+                  : "hover:bg-slate-50 dark:hover:bg-slate-800/60 text-muted-foreground",
               )}
             >
-              <Languages className="h-3.5 w-3.5 text-orange-500" />
-              <span>Handwriting</span>
+              <LassoSelect className="h-3.5 w-3.5" />
+              <span>Freehand Lasso</span>
+              {tool === "lasso" && <Check className="ml-auto h-3.5 w-3.5" />}
             </button>
           </div>
+        )}
 
-          {penFlyoutTab === "styles" ? (
-            <div className="grid grid-cols-2 gap-2 pt-1">
-              {(simpleMode
-                ? PEN_STYLES.filter((p) => ["pen", "fountain", "brush", "marker", "pencil", "dashed", "dotted"].includes(p.id))
-                : PEN_STYLES
-              ).map((p) => {
-                const Icon = p.icon;
-                const active = tool === p.id;
-                return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    title={p.label}
-                    onClick={() => {
-                      setTool(p.id);
-                      setActiveFlyout(null);
-                    }}
-                    className={cn(
-                      "flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium active:opacity-80 text-left min-w-0 border",
-                      active
-                        ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-semibold border-slate-900 dark:border-white"
-                        : "bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 border-slate-200 dark:border-slate-700",
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "grid h-6 w-6 place-items-center rounded-lg shrink-0",
-                        active
-                          ? "bg-white/20 text-white dark:bg-slate-900/20 dark:text-slate-900"
-                          : "bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-300 border border-slate-200 dark:border-slate-600",
-                      )}
-                    >
-                      <Icon className="h-3.5 w-3.5" />
-                    </span>
-                    <span className="truncate text-xs font-medium leading-none whitespace-nowrap text-inherit flex-1 min-w-0">
-                      {p.label}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          ) : (
-            <HandwritingSettings className="p-1" />
-          )}
-        </div>
-      )}
-
-      {/* Flyout 3: Shapes & 3D */}
-      {activeFlyout === "shapes" && (
-        <div
-          className="pointer-events-auto absolute bottom-full mb-3 w-[360px] max-w-[calc(100vw-24px)] p-3 shadow-2xl space-y-2.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 select-none z-50"
-          onPointerDown={(e) => e.stopPropagation()}
-          onTouchStart={(e) => e.stopPropagation()}
-        >
-          <div className="flex items-center justify-between pb-1.5 border-b border-border">
-            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg text-xs font-medium">
+        {/* Flyout 2: Pen Styles */}
+        {activeFlyout === "pen" && (
+          <div
+            className="pointer-events-auto absolute bottom-full mb-3 w-[356px] max-w-[calc(100vw-24px)] max-h-[min(78vh,640px)] overflow-y-auto overscroll-contain p-3 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 select-none z-50"
+            onPointerDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl text-xs font-medium mb-2.5">
               <button
                 type="button"
-                onClick={() => setShapesTab("2d")}
+                onClick={() => setPenFlyoutTab("styles")}
                 className={cn(
-                  "px-2.5 py-1 rounded-md transition text-xs",
-                  shapesTab === "2d"
-                    ? "bg-white dark:bg-slate-900 text-foreground shadow-xs font-semibold"
+                  "flex-1 py-1 px-2 rounded-lg transition text-xs font-semibold text-center flex items-center justify-center gap-1.5",
+                  penFlyoutTab === "styles"
+                    ? "bg-white dark:bg-slate-900 text-foreground shadow-xs"
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
-                2D Shapes ({SHAPES_2D.length})
+                <Pen className="h-3.5 w-3.5 text-primary" />
+                <span>Pen Styles ({PEN_STYLES.length})</span>
               </button>
-              {!simpleMode && (
-                <button
-                  type="button"
-                  onClick={() => setShapesTab("3d")}
-                  className={cn(
-                    "px-2.5 py-1 rounded-md transition text-xs",
-                    shapesTab === "3d"
-                      ? "bg-white dark:bg-slate-900 text-foreground shadow-xs font-semibold"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  3D Solids ({DIAGRAMS_3D.length})
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => setPenFlyoutTab("handwriting")}
+                className={cn(
+                  "flex-1 py-1 px-2 rounded-lg transition text-xs font-semibold text-center flex items-center justify-center gap-1.5",
+                  penFlyoutTab === "handwriting"
+                    ? "bg-white dark:bg-slate-900 text-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <Languages className="h-3.5 w-3.5 text-orange-500" />
+                <span>Handwriting</span>
+              </button>
             </div>
-            <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
-              Tap to insert
-            </span>
-          </div>
 
-          <div className="max-h-68 overflow-y-auto overscroll-contain pr-1">
-            {shapesTab === "2d" ? (
-              <div className="grid grid-cols-4 gap-1.5">
-                {SHAPES_2D.map((s) => {
-                  const Icon = s.icon;
+            {penFlyoutTab === "styles" ? (
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                {(simpleMode
+                  ? PEN_STYLES.filter((p) =>
+                      ["pen", "fountain", "brush", "marker", "pencil", "dashed", "dotted"].includes(
+                        p.id,
+                      ),
+                    )
+                  : PEN_STYLES
+                ).map((p) => {
+                  const Icon = p.icon;
+                  const active = tool === p.id;
                   return (
                     <button
-                      key={s.id}
+                      key={p.id}
                       type="button"
+                      title={p.label}
                       onClick={() => {
-                        insertShape(s.id as ShapeType);
+                        setTool(p.id);
                         setActiveFlyout(null);
                       }}
-                      className="flex flex-col items-center justify-center gap-1 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 border border-transparent hover:border-border transition group active:scale-95"
-                      title={s.label}
+                      className={cn(
+                        "flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium active:opacity-80 text-left min-w-0 border",
+                        active
+                          ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-semibold border-slate-900 dark:border-white"
+                          : "bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 border-slate-200 dark:border-slate-700",
+                      )}
                     >
-                      <Icon className="h-5 w-5 text-muted-foreground group-hover:text-primary transition" />
-                      <span className="text-[10px] text-muted-foreground group-hover:text-foreground truncate w-full text-center">
-                        {s.label}
+                      <span
+                        className={cn(
+                          "grid h-6 w-6 place-items-center rounded-lg shrink-0",
+                          active
+                            ? "bg-white/20 text-white dark:bg-slate-900/20 dark:text-slate-900"
+                            : "bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-300 border border-slate-200 dark:border-slate-600",
+                        )}
+                      >
+                        <Icon className="h-3.5 w-3.5" />
+                      </span>
+                      <span className="truncate text-xs font-medium leading-none whitespace-nowrap text-inherit flex-1 min-w-0">
+                        {p.label}
                       </span>
                     </button>
                   );
                 })}
               </div>
             ) : (
-              <div className="grid grid-cols-4 gap-1.5">
-                {DIAGRAMS_3D.map((s) => {
-                  const Icon = s.icon;
-                  return (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() => {
-                        insertShape(s.id as ShapeType);
-                        setActiveFlyout(null);
-                      }}
-                      className="flex flex-col items-center justify-center gap-1 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 border border-transparent hover:border-border transition group active:scale-95"
-                      title={s.label}
-                    >
-                      <Icon className="h-5 w-5 text-muted-foreground group-hover:text-primary transition" />
-                      <span className="text-[10px] text-muted-foreground group-hover:text-foreground text-center truncate w-full">
-                        {s.label}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+              <HandwritingSettings className="p-1" />
             )}
           </div>
+        )}
 
-          <div className="flex items-center justify-between border-t border-border pt-2">
-            <div className="space-y-0.5">
-              <div className="text-xs font-medium">Smart Auto-Snap</div>
-              <div className="text-[10px] text-muted-foreground">
-                Recognizes & snaps drawn shapes
-              </div>
-            </div>
-            <Switch
-              checked={autoSnapEnabled}
-              onCheckedChange={(checked) => setAutoSnapEnabled(checked)}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Flyout 4: Color & Stroke Size */}
-      {activeFlyout === "color" && (
-        <div
-          className="pointer-events-auto absolute bottom-full mb-3 w-72 max-w-[calc(100vw-24px)] space-y-3 p-3 shadow-2xl rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 select-none z-50"
-          onPointerDown={(e) => e.stopPropagation()}
-          onTouchStart={(e) => e.stopPropagation()}
-        >
-          <div>
-            <div className="mb-2 flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              <span className="flex items-center gap-1.5">
-                <Palette className="h-3.5 w-3.5" /> Color
-              </span>
-              <div className="flex rounded-lg bg-muted p-0.5 text-[10px] font-medium">
-                {(["vivid", "chalk", "pastel", "earthy"] as const).map((cat) => (
+        {/* Flyout 3: Shapes & 3D */}
+        {activeFlyout === "shapes" && (
+          <div
+            className="pointer-events-auto absolute bottom-full mb-3 w-[360px] max-w-[calc(100vw-24px)] p-3 shadow-2xl space-y-2.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 select-none z-50"
+            onPointerDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-1.5 border-b border-border">
+              <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg text-xs font-medium">
+                <button
+                  type="button"
+                  onClick={() => setShapesTab("2d")}
+                  className={cn(
+                    "px-2.5 py-1 rounded-md transition text-xs",
+                    shapesTab === "2d"
+                      ? "bg-white dark:bg-slate-900 text-foreground shadow-xs font-semibold"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  2D Shapes ({SHAPES_2D.length})
+                </button>
+                {!simpleMode && (
                   <button
-                    key={cat}
                     type="button"
-                    onClick={() => setColorCategory(cat)}
+                    onClick={() => setShapesTab("3d")}
                     className={cn(
-                      "px-1.5 py-0.5 rounded capitalize transition",
-                      colorCategory === cat
-                        ? "bg-background text-foreground font-semibold shadow-xs"
+                      "px-2.5 py-1 rounded-md transition text-xs",
+                      shapesTab === "3d"
+                        ? "bg-white dark:bg-slate-900 text-foreground shadow-xs font-semibold"
                         : "text-muted-foreground hover:text-foreground",
                     )}
                   >
-                    {cat}
+                    3D Solids ({DIAGRAMS_3D.length})
+                  </button>
+                )}
+              </div>
+              <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
+                Tap to insert
+              </span>
+            </div>
+
+            <div className="max-h-68 overflow-y-auto overscroll-contain pr-1">
+              {shapesTab === "2d" ? (
+                <div className="grid grid-cols-4 gap-1.5">
+                  {SHAPES_2D.map((s) => {
+                    const Icon = s.icon;
+                    return (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => {
+                          insertShape(s.id as ShapeType);
+                          setActiveFlyout(null);
+                        }}
+                        className="flex flex-col items-center justify-center gap-1 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 border border-transparent hover:border-border transition group active:scale-95"
+                        title={s.label}
+                      >
+                        <Icon className="h-5 w-5 text-muted-foreground group-hover:text-primary transition" />
+                        <span className="text-[10px] text-muted-foreground group-hover:text-foreground truncate w-full text-center">
+                          {s.label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="grid grid-cols-4 gap-1.5">
+                  {DIAGRAMS_3D.map((s) => {
+                    const Icon = s.icon;
+                    return (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => {
+                          insertShape(s.id as ShapeType);
+                          setActiveFlyout(null);
+                        }}
+                        className="flex flex-col items-center justify-center gap-1 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 border border-transparent hover:border-border transition group active:scale-95"
+                        title={s.label}
+                      >
+                        <Icon className="h-5 w-5 text-muted-foreground group-hover:text-primary transition" />
+                        <span className="text-[10px] text-muted-foreground group-hover:text-foreground text-center truncate w-full">
+                          {s.label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between border-t border-border pt-2">
+              <div className="space-y-0.5">
+                <div className="text-xs font-medium">Smart Auto-Snap</div>
+                <div className="text-[10px] text-muted-foreground">
+                  Recognizes & snaps drawn shapes
+                </div>
+              </div>
+              <Switch
+                checked={autoSnapEnabled}
+                onCheckedChange={(checked) => setAutoSnapEnabled(checked)}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Flyout 4: Color & Stroke Size */}
+        {activeFlyout === "color" && (
+          <div
+            className="pointer-events-auto absolute bottom-full mb-3 w-72 max-w-[calc(100vw-24px)] space-y-3 p-3 shadow-2xl rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 select-none z-50"
+            onPointerDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+          >
+            <div>
+              <div className="mb-2 flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <span className="flex items-center gap-1.5">
+                  <Palette className="h-3.5 w-3.5" /> Color
+                </span>
+                <div className="flex rounded-lg bg-muted p-0.5 text-[10px] font-medium">
+                  {(["vivid", "chalk", "pastel", "earthy"] as const).map((cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setColorCategory(cat)}
+                      className={cn(
+                        "px-1.5 py-0.5 rounded capitalize transition",
+                        colorCategory === cat
+                          ? "bg-background text-foreground font-semibold shadow-xs"
+                          : "text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="grid grid-cols-5 gap-1.5 max-h-36 overflow-y-auto pr-0.5">
+                {COLOR_CATEGORIES[colorCategory].map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setColor(c)}
+                    className={cn(
+                      "h-8 w-8 rounded-full ring-2 transition flex items-center justify-center shadow-sm active:scale-95",
+                      color.toLowerCase() === c.toLowerCase()
+                        ? "ring-primary scale-105"
+                        : "ring-border",
+                    )}
+                    style={{ backgroundColor: c }}
+                  >
+                    {color.toLowerCase() === c.toLowerCase() && (
+                      <Check
+                        className={cn(
+                          "h-3.5 w-3.5",
+                          c === "#ffffff" ||
+                            c.startsWith("#fe") ||
+                            c.startsWith("#ff") ||
+                            c.startsWith("#ec") ||
+                            c.startsWith("#dc") ||
+                            c.startsWith("#d1") ||
+                            c.startsWith("#cc") ||
+                            c.startsWith("#cf") ||
+                            c.startsWith("#e0") ||
+                            c.startsWith("#ed") ||
+                            c.startsWith("#fa")
+                            ? "text-slate-900"
+                            : "text-white",
+                        )}
+                      />
+                    )}
                   </button>
                 ))}
               </div>
-            </div>
-            <div className="grid grid-cols-5 gap-1.5 max-h-36 overflow-y-auto pr-0.5">
-              {COLOR_CATEGORIES[colorCategory].map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => setColor(c)}
-                  className={cn(
-                    "h-8 w-8 rounded-full ring-2 transition flex items-center justify-center shadow-sm active:scale-95",
-                    color.toLowerCase() === c.toLowerCase()
-                      ? "ring-primary scale-105"
-                      : "ring-border",
-                  )}
-                  style={{ backgroundColor: c }}
-                >
-                  {color.toLowerCase() === c.toLowerCase() && (
-                    <Check
-                      className={cn(
-                        "h-3.5 w-3.5",
-                        c === "#ffffff" ||
-                          c.startsWith("#fe") ||
-                          c.startsWith("#ff") ||
-                          c.startsWith("#ec") ||
-                          c.startsWith("#dc") ||
-                          c.startsWith("#d1") ||
-                          c.startsWith("#cc") ||
-                          c.startsWith("#cf") ||
-                          c.startsWith("#e0") ||
-                          c.startsWith("#ed") ||
-                          c.startsWith("#fa")
-                          ? "text-slate-900"
-                          : "text-white",
-                      )}
-                    />
-                  )}
-                </button>
-              ))}
-            </div>
-            <div className="mt-2.5 flex items-center gap-2">
-              <input
-                type="color"
-                value={color}
-                onChange={(e) => setColor(e.target.value)}
-                className="h-7 w-10 cursor-pointer rounded border border-border bg-transparent p-0.5"
-              />
-              <span className="text-[11px] text-muted-foreground font-mono">
-                {color.toUpperCase()}
-              </span>
-            </div>
-          </div>
-
-          <div className="space-y-1.5 border-t border-border pt-2.5">
-            <div className="flex items-center justify-between text-xs font-medium text-muted-foreground">
-              <span>Stroke Size</span>
-              <span className="font-semibold text-foreground">{size}px</span>
-            </div>
-            <div className="flex gap-1 pb-1">
-              {SIZE_PRESETS.map((p) => (
-                <button
-                  key={p.label}
-                  onClick={() => setSize(p.val)}
-                  className={cn(
-                    "flex-1 py-1 rounded text-[11px] font-medium border transition",
-                    size === p.val
-                      ? "border-primary bg-primary/10 text-primary font-semibold"
-                      : "border-border text-muted-foreground hover:bg-accent",
-                  )}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-            <Slider
-              value={[size]}
-              min={1}
-              max={36}
-              step={1}
-              onValueChange={(v) => setSize(v[0])}
-            />
-          </div>
-
-          <div className="flex items-center justify-between border-t border-border pt-2.5">
-            <div className="space-y-0.5">
-              <div className="text-xs font-medium">Smart Hold-to-Snap</div>
-              <div className="text-[10px] text-muted-foreground">
-                Auto-straightens lines & shapes
+              <div className="mt-2.5 flex items-center gap-2">
+                <input
+                  type="color"
+                  value={color}
+                  onChange={(e) => setColor(e.target.value)}
+                  className="h-7 w-10 cursor-pointer rounded border border-border bg-transparent p-0.5"
+                />
+                <span className="text-[11px] text-muted-foreground font-mono">
+                  {color.toUpperCase()}
+                </span>
               </div>
             </div>
-            <Switch
-              checked={autoSnapEnabled}
-              onCheckedChange={(checked) => setAutoSnapEnabled(checked)}
-            />
+
+            <div className="space-y-1.5 border-t border-border pt-2.5">
+              <div className="flex items-center justify-between text-xs font-medium text-muted-foreground">
+                <span>Stroke Size</span>
+                <span className="font-semibold text-foreground">{size}px</span>
+              </div>
+              <div className="flex gap-1 pb-1">
+                {SIZE_PRESETS.map((p) => (
+                  <button
+                    key={p.label}
+                    onClick={() => setSize(p.val)}
+                    className={cn(
+                      "flex-1 py-1 rounded text-[11px] font-medium border transition",
+                      size === p.val
+                        ? "border-primary bg-primary/10 text-primary font-semibold"
+                        : "border-border text-muted-foreground hover:bg-accent",
+                    )}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+              <Slider
+                value={[size]}
+                min={1}
+                max={36}
+                step={1}
+                onValueChange={(v) => setSize(v[0])}
+              />
+            </div>
+
+            <div className="flex items-center justify-between border-t border-border pt-2.5">
+              <div className="space-y-0.5">
+                <div className="text-xs font-medium">Smart Hold-to-Snap</div>
+                <div className="text-[10px] text-muted-foreground">
+                  Auto-straightens lines & shapes
+                </div>
+              </div>
+              <Switch
+                checked={autoSnapEnabled}
+                onCheckedChange={(checked) => setAutoSnapEnabled(checked)}
+              />
+            </div>
           </div>
-        </div>
-      )}
-
-      {/* Main Scrollable Toolbar Bar */}
-      <div className="pointer-events-auto relative flex items-center gap-1 sm:gap-1.5 rounded-full bg-white dark:bg-slate-900 px-2.5 py-1.5 shadow-lg ring-1 ring-border max-w-[calc(100vw-16px)] overflow-x-auto scrollbar-none touch-pan-x shrink-0">
-        {/* 1. Select / Lasso Menu */}
-        <button
-          type="button"
-          onClick={() => {
-            if (!isSelectActive) setTool("select");
-            setActiveFlyout(activeFlyout === "select" ? null : "select");
-          }}
-          className={btnClass(isSelectActive)}
-          title={tool === "lasso" ? "Lasso Select" : "Object Select"}
-        >
-          {tool === "lasso" ? (
-            <LassoSelect className="h-4 w-4" />
-          ) : (
-            <MousePointer2 className="h-4 w-4" />
-          )}
-        </button>
-
-        {/* 2. Pan / Hand */}
-        <button
-          type="button"
-          onClick={() => {
-            setTool("pan");
-            setActiveFlyout(null);
-          }}
-          className={btnClass(tool === "pan")}
-          title="Move the board"
-        >
-          <Hand className="h-4 w-4" />
-        </button>
-
-        {/* 3. Pen Button & Flyout */}
-        <button
-          type="button"
-          onClick={() => {
-            if (!isPenToolActive) setTool(activePenStyle.id);
-            setActiveFlyout(activeFlyout === "pen" ? null : "pen");
-          }}
-          className={btnClass(isPenToolActive)}
-          title={activePenStyle.label}
-        >
-          <ActivePenIcon className="h-4 w-4" />
-        </button>
-
-        {/* Quick Handwriting Language Badge / Slate Translate Badge when pen tool is active and handwriting is active */}
-        {isPenToolActive && (translateLive || livePreview || autoType) && (
-          translateLive ? (
-            <button
-              type="button"
-              onClick={() => {
-                setActiveFlyout(null);
-                openTranslatePicker();
-              }}
-              className="flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold bg-violet-600/15 text-violet-700 dark:bg-violet-500/25 dark:text-violet-300 hover:bg-violet-600/25 transition-all border border-violet-500/40 shrink-0 cursor-pointer active:scale-95 shadow-xs"
-              title={`Slate Translate is ON (translating into ${targetInkLang.name}) — Tap to change target language`}
-            >
-              <Languages className="h-3 w-3 shrink-0 text-violet-600 dark:text-violet-400" />
-              <span className="text-[10px] uppercase font-bold tracking-tight opacity-75">➔</span>
-              <span className="max-w-[70px] truncate font-bold">{targetInkLang.nativeName || targetInkLang.name}</span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => {
-                setActiveFlyout(null);
-                setLangPickerOpen(true);
-              }}
-              className="flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold bg-orange-500/10 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400 hover:bg-orange-500/20 transition-all border border-orange-500/30 shrink-0 cursor-pointer active:scale-95"
-              title={`Handwriting Language: ${currentInkLang.name} (${currentInkLang.nativeName}) — Tap to change`}
-            >
-              <Languages className="h-3 w-3 shrink-0" />
-              <span className="max-w-[65px] truncate">{currentInkLang.nativeName || currentInkLang.name}</span>
-            </button>
-          )
         )}
 
-        {/* 4. Highlighter */}
-        <button
-          type="button"
-          onClick={() => {
-            setTool("highlighter");
-            setActiveFlyout(null);
-          }}
-          className={btnClass(tool === "highlighter")}
-          title="Highlighter"
-        >
-          <Highlighter className="h-4 w-4" />
-        </button>
+        {/* Main Scrollable Toolbar Bar */}
+        <div className="pointer-events-auto relative flex items-center gap-1 sm:gap-1.5 rounded-full bg-white dark:bg-slate-900 px-2.5 py-1.5 shadow-lg ring-1 ring-border max-w-[calc(100vw-16px)] overflow-x-auto scrollbar-none touch-pan-x shrink-0">
+          {/* 1. Select / Lasso Menu */}
+          <button
+            type="button"
+            onClick={() => {
+              if (!isSelectActive) setTool("select");
+              setActiveFlyout(activeFlyout === "select" ? null : "select");
+            }}
+            className={btnClass(isSelectActive)}
+            title={tool === "lasso" ? "Lasso Select" : "Object Select"}
+          >
+            {tool === "lasso" ? (
+              <LassoSelect className="h-4 w-4" />
+            ) : (
+              <MousePointer2 className="h-4 w-4" />
+            )}
+          </button>
 
-        {/* 5. Eraser (Pixel vs Object Toggle, Double-tap to swipe erase board) */}
-        <button
-          type="button"
-          onClick={handleEraserClick}
-          onDoubleClick={() => setEraseDialogOpen(true)}
-          className={btnClass(tool === "eraser-pixel" || tool === "eraser-object")}
-          title={
-            tool === "eraser-object"
-              ? "Object Eraser (Double-tap to erase board)"
-              : "Pixel Eraser (Double-tap to erase board)"
-          }
-        >
-          <Eraser className="h-4 w-4" />
-        </button>
+          {/* 2. Pan / Hand */}
+          <button
+            type="button"
+            onClick={() => {
+              setTool("pan");
+              setActiveFlyout(null);
+            }}
+            className={btnClass(tool === "pan")}
+            title="Move the board"
+          >
+            <Hand className="h-4 w-4" />
+          </button>
 
-        {/* 6. Bin / Trash (Single tap: delete selection; Double tap: Swipe to clear board) */}
-        <button
-          type="button"
-          onClick={handleBinClick}
-          onDoubleClick={() => setClearDialogOpen(true)}
-          className={btnClass(false)}
-          title="Clear page"
-        >
-          <Trash2 className="h-4 w-4 hover:text-rose-500 transition-colors" />
-        </button>
+          {/* 3. Pen Button & Flyout */}
+          <button
+            type="button"
+            onClick={() => {
+              if (!isPenToolActive) setTool(activePenStyle.id);
+              setActiveFlyout(activeFlyout === "pen" ? null : "pen");
+            }}
+            className={btnClass(isPenToolActive)}
+            title={activePenStyle.label}
+          >
+            <ActivePenIcon className="h-4 w-4" />
+          </button>
 
-        {/* 7. Shape & 3D Diagrams Button & Flyout */}
-        <button
-          type="button"
-          onClick={() => {
-            setTool("shape");
-            setActiveFlyout(activeFlyout === "shapes" ? null : "shapes");
-          }}
-          className={btnClass(tool === "shape")}
-          title="Shapes"
-        >
-          <Shapes className="h-4 w-4" />
-        </button>
+          {/* Quick Handwriting Language Badge / Slate Translate Badge when pen tool is active and handwriting is active */}
+          {isPenToolActive &&
+            (translateLive || livePreview || autoType) &&
+            (translateLive ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveFlyout(null);
+                  openTranslatePicker();
+                }}
+                className="flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold bg-violet-600/15 text-violet-700 dark:bg-violet-500/25 dark:text-violet-300 hover:bg-violet-600/25 transition-all border border-violet-500/40 shrink-0 cursor-pointer active:scale-95 shadow-xs"
+                title={`Slate Translate is ON (translating into ${targetInkLang.name}) — Tap to change target language`}
+              >
+                <Languages className="h-3 w-3 shrink-0 text-violet-600 dark:text-violet-400" />
+                <span className="text-[10px] uppercase font-bold tracking-tight opacity-75">➔</span>
+                <span className="max-w-[70px] truncate font-bold">
+                  {targetInkLang.nativeName || targetInkLang.name}
+                </span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveFlyout(null);
+                  setLangPickerOpen(true);
+                }}
+                className="flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold bg-orange-500/10 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400 hover:bg-orange-500/20 transition-all border border-orange-500/30 shrink-0 cursor-pointer active:scale-95"
+                title={`Handwriting Language: ${currentInkLang.name} (${currentInkLang.nativeName}) — Tap to change`}
+              >
+                <Languages className="h-3 w-3 shrink-0" />
+                <span className="max-w-[65px] truncate">
+                  {currentInkLang.nativeName || currentInkLang.name}
+                </span>
+              </button>
+            ))}
 
-        {/* 8. Text Note */}
-        <button
-          type="button"
-          onClick={() => {
-            setTool("text");
-            setActiveFlyout(null);
-          }}
-          className={btnClass(tool === "text")}
-          title="Text Box"
-        >
-          <Type className="h-4 w-4" />
-        </button>
+          {/* 4. Highlighter */}
+          <button
+            type="button"
+            onClick={() => {
+              setTool("highlighter");
+              setActiveFlyout(null);
+            }}
+            className={btnClass(tool === "highlighter")}
+            title="Highlighter"
+          >
+            <Highlighter className="h-4 w-4" />
+          </button>
 
-        {/* 9. Math Formula (LaTeX) */}
-        <button
-          type="button"
-          onClick={() => {
-            setMathDialogOpen(true);
-            setActiveFlyout(null);
-          }}
-          className={btnClass(false)}
-          title="Type an equation"
-        >
-          <Sigma className="h-4 w-4 text-violet-600 dark:text-violet-400" />
-        </button>
+          {/* 5. Eraser (Pixel vs Object Toggle, Double-tap to swipe erase board) */}
+          <button
+            type="button"
+            onClick={handleEraserClick}
+            onDoubleClick={() => setEraseDialogOpen(true)}
+            className={btnClass(tool === "eraser-pixel" || tool === "eraser-object")}
+            title={
+              tool === "eraser-object"
+                ? "Object Eraser (Double-tap to erase board)"
+                : "Pixel Eraser (Double-tap to erase board)"
+            }
+          >
+            <Eraser className="h-4 w-4" />
+          </button>
 
-        {/* 10. Solve Written Math (Handwriting -> Answer) */}
-        <button
-          type="button"
-          onClick={() => {
-            setActiveFlyout(null);
-            window.dispatchEvent(new CustomEvent("slate:solve-math"));
-          }}
-          className={btnClass(false)}
-          title="Solve Written Math on Board (Calculates handwriting & inserts answer directly)"
-        >
-          <Sparkles className="h-4 w-4 text-amber-500 hover:text-amber-600 transition-colors" />
-        </button>
+          {/* 6. Bin / Trash (Single tap: delete selection; Double tap: Swipe to clear board) */}
+          <button
+            type="button"
+            onClick={handleBinClick}
+            onDoubleClick={() => setClearDialogOpen(true)}
+            className={btnClass(false)}
+            title="Clear page"
+          >
+            <Trash2 className="h-4 w-4 hover:text-rose-500 transition-colors" />
+          </button>
 
-        {/* 11. AI Whiteboard Copilot & Assistant */}
-        <button
-          type="button"
-          onClick={() => {
-            setActiveFlyout(null);
-            window.dispatchEvent(new CustomEvent("slate:open-ai"));
-          }}
-          className={btnClass(false)}
-          title="AI helper"
-        >
-          <Bot className="h-4 w-4 text-indigo-500 hover:text-indigo-600 transition-colors" />
-        </button>
+          {/* 7. Shape & 3D Diagrams Button & Flyout */}
+          <button
+            type="button"
+            onClick={() => {
+              setTool("shape");
+              setActiveFlyout(activeFlyout === "shapes" ? null : "shapes");
+            }}
+            className={btnClass(tool === "shape")}
+            title="Shapes"
+          >
+            <Shapes className="h-4 w-4" />
+          </button>
 
-        {/* 11. Widgets & Classroom Tools */}
-        <button
-          type="button"
-          onClick={() => {
-            setActiveFlyout(null);
-            window.dispatchEvent(new CustomEvent("slate:open-widgets"));
-          }}
-          className={btnClass(false)}
-          title="Widgets, Periodic Table & Classroom Tools"
-        >
-          <Package className="h-4 w-4 text-teal-600 dark:text-teal-400" />
-        </button>
+          {/* 8. Text Note */}
+          <button
+            type="button"
+            onClick={() => {
+              setTool("text");
+              setActiveFlyout(null);
+            }}
+            className={btnClass(tool === "text")}
+            title="Text Box"
+          >
+            <Type className="h-4 w-4" />
+          </button>
 
-        <div className="h-4 w-px bg-border/60 mx-1 shrink-0" />
+          {/* 9. Math Formula (LaTeX) */}
+          <button
+            type="button"
+            onClick={() => {
+              setMathDialogOpen(true);
+              setActiveFlyout(null);
+            }}
+            className={btnClass(false)}
+            title="Type an equation"
+          >
+            <Sigma className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+          </button>
 
-        {/* 11. Color Dot & Thickness Slider */}
-        <button
-          type="button"
-          onClick={() => setActiveFlyout(activeFlyout === "color" ? null : "color")}
-          className={cn(
-            "place-items-center rounded-2xl hover:bg-accent/80 transition active:scale-95 shrink-0",
-            boardMode ? "grid h-16 w-16" : "grid h-9 w-9 sm:h-10 sm:w-10 rounded-full"
-          )}
-          title="Color & Nib Size"
-        >
-          <span
-            className={cn("rounded-full ring-2 ring-border shadow-inner", boardMode ? "h-8 w-8" : "h-5 w-5")}
-            style={{ backgroundColor: color }}
-          />
-        </button>
+          {/* 10. Solve Written Math (Handwriting -> Answer) */}
+          <button
+            type="button"
+            onClick={() => {
+              setActiveFlyout(null);
+              window.dispatchEvent(new CustomEvent("slate:solve-math"));
+            }}
+            className={btnClass(false)}
+            title="Solve Written Math on Board (Calculates handwriting & inserts answer directly)"
+          >
+            <Sparkles className="h-4 w-4 text-amber-500 hover:text-amber-600 transition-colors" />
+          </button>
+
+          {/* 11. AI Whiteboard Copilot & Assistant */}
+          <button
+            type="button"
+            onClick={() => {
+              setActiveFlyout(null);
+              window.dispatchEvent(new CustomEvent("slate:open-ai"));
+            }}
+            className={btnClass(false)}
+            title="AI helper"
+          >
+            <Bot className="h-4 w-4 text-indigo-500 hover:text-indigo-600 transition-colors" />
+          </button>
+
+          {/* 11. Widgets & Classroom Tools */}
+          <button
+            type="button"
+            onClick={() => {
+              setActiveFlyout(null);
+              window.dispatchEvent(new CustomEvent("slate:open-widgets"));
+            }}
+            className={btnClass(false)}
+            title="Widgets, Periodic Table & Classroom Tools"
+          >
+            <Package className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+          </button>
+
+          <div className="h-4 w-px bg-border/60 mx-1 shrink-0" />
+
+          {/* 11. Color Dot & Thickness Slider */}
+          <button
+            type="button"
+            onClick={() => setActiveFlyout(activeFlyout === "color" ? null : "color")}
+            className={cn(
+              "place-items-center rounded-2xl hover:bg-accent/80 transition active:scale-95 shrink-0",
+              boardMode ? "grid h-16 w-16" : "grid h-9 w-9 sm:h-10 sm:w-10 rounded-full",
+            )}
+            title="Color & Nib Size"
+          >
+            <span
+              className={cn(
+                "rounded-full ring-2 ring-border shadow-inner",
+                boardMode ? "h-8 w-8" : "h-5 w-5",
+              )}
+              style={{ backgroundColor: color }}
+            />
+          </button>
+        </div>
       </div>
-    </div>
 
       {/* Swipe to Erase Dialog */}
       <SwipeConfirmDialog
@@ -1017,10 +1032,7 @@ export function Toolbar() {
       />
 
       {/* Math Formula Dialog */}
-      <MathFormulaDialog
-        open={mathDialogOpen}
-        onOpenChange={setMathDialogOpen}
-      />
+      <MathFormulaDialog open={mathDialogOpen} onOpenChange={setMathDialogOpen} />
     </>
   );
 }

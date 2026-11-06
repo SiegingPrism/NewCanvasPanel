@@ -310,7 +310,9 @@ function Library() {
                 <Input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder={useSemanticSearch ? "Semantic AI Search across boards..." : "Search boards..."}
+                  placeholder={
+                    useSemanticSearch ? "Semantic AI Search across boards..." : "Search boards..."
+                  }
                   className="pl-9"
                 />
               </div>

@@ -51,27 +51,32 @@ const TOUR_CATEGORIES: TourCategory[] = [
     features: [
       {
         name: "Fine Pen & Calligraphy",
-        description: "Velocity-responsive ink stroke with tapered tips for neat note-taking and headings.",
+        description:
+          "Velocity-responsive ink stroke with tapered tips for neat note-taking and headings.",
         badge: "Writing",
       },
       {
         name: "Watercolor Brush & Chisel Marker",
-        description: "Layered blending and chisel angles for high-impact highlighting and sketches.",
+        description:
+          "Layered blending and chisel angles for high-impact highlighting and sketches.",
         badge: "Art",
       },
       {
         name: "Neon Glow, Rainbow & Glitter",
-        description: "Electrifying glowing strokes, multi-hue gradient inks, and sparkling particle lines.",
+        description:
+          "Electrifying glowing strokes, multi-hue gradient inks, and sparkling particle lines.",
         badge: "Creative",
       },
       {
         name: "Classic Blackboard & Neon Chalk",
-        description: "Switch to authentic chalkboard green or pitch-black OLED with luminous neon chalk palettes.",
+        description:
+          "Switch to authentic chalkboard green or pitch-black OLED with luminous neon chalk palettes.",
         badge: "Blackboard",
       },
       {
         name: "Dashed, Dotted & Dual Ribbon",
-        description: "Geometric diagramming lines and parallel ribbon tracks for architectural planning.",
+        description:
+          "Geometric diagramming lines and parallel ribbon tracks for architectural planning.",
         badge: "Technical",
       },
     ],
@@ -86,17 +91,20 @@ const TOUR_CATEGORIES: TourCategory[] = [
     features: [
       {
         name: "Smart Hold-to-Snap",
-        description: "Draw any freehand circle, triangle, or rectangle—hold your pen still at the end and it instantly straightens!",
+        description:
+          "Draw any freehand circle, triangle, or rectangle—hold your pen still at the end and it instantly straightens!",
         badge: "Smart AI",
       },
       {
         name: "2D Polygon Library",
-        description: "Insert 30+ clean geometric shapes including speech bubbles, stars, banners, and arrows.",
+        description:
+          "Insert 30+ clean geometric shapes including speech bubbles, stars, banners, and arrows.",
         badge: "2D",
       },
       {
         name: "3D Geometric Solids",
-        description: "Drop isometric cubes, cylinders, cones, pyramids, and 3D coordinate axes onto your board.",
+        description:
+          "Drop isometric cubes, cylinders, cones, pyramids, and 3D coordinate axes onto your board.",
         badge: "3D",
       },
     ],
@@ -111,27 +119,32 @@ const TOUR_CATEGORIES: TourCategory[] = [
     features: [
       {
         name: "Timer & Stopwatch",
-        description: "Countdown timers with audio chimes and lap stopwatches for timed student activities.",
+        description:
+          "Countdown timers with audio chimes and lap stopwatches for timed student activities.",
         badge: "Classroom",
       },
       {
         name: "Periodic Table & Flashcards",
-        description: "Interactive chemistry elements directory and 3D study quiz flashcards with 1-click board insertion.",
+        description:
+          "Interactive chemistry elements directory and 3D study quiz flashcards with 1-click board insertion.",
         badge: "Science & Quiz",
       },
       {
         name: "Dice & Scoreboard",
-        description: "Roll 3D dice for probability games and track live points between competing teams.",
+        description:
+          "Roll 3D dice for probability games and track live points between competing teams.",
         badge: "Games",
       },
       {
         name: "Calculator & MathPad 2D",
-        description: "Floating pocket scientific calculator and interactive 2D function curve plotting.",
+        description:
+          "Floating pocket scientific calculator and interactive 2D function curve plotting.",
         badge: "STEM",
       },
       {
         name: "Sticky Notes, Tables & Ruler",
-        description: "Pin colorful memos, build custom data grid tables, and measure with on-screen rulers.",
+        description:
+          "Pin colorful memos, build custom data grid tables, and measure with on-screen rulers.",
         badge: "Productivity",
       },
     ],
@@ -146,22 +159,26 @@ const TOUR_CATEGORIES: TourCategory[] = [
     features: [
       {
         name: "Solve Written Math",
-        description: "Handwrite any algebraic equation on the board, click Solve Math, and AI computes step-by-step solutions.",
+        description:
+          "Handwrite any algebraic equation on the board, click Solve Math, and AI computes step-by-step solutions.",
         badge: "Vision AI",
       },
       {
         name: "Explain Board Overview",
-        description: "AI analyzes everything drawn and written on your current canvas and provides a structured lesson summary.",
+        description:
+          "AI analyzes everything drawn and written on your current canvas and provides a structured lesson summary.",
         badge: "Analysis",
       },
       {
         name: "Generate AI Mind-Map",
-        description: "Automatically converts topics and board notes into branching, color-coded node diagrams.",
+        description:
+          "Automatically converts topics and board notes into branching, color-coded node diagrams.",
         badge: "Generative",
       },
       {
         name: "Ask AI Assistant",
-        description: "Chat with an AI tutor that has full context of your whiteboard strokes and active notes.",
+        description:
+          "Chat with an AI tutor that has full context of your whiteboard strokes and active notes.",
         badge: "Chat",
       },
     ],
@@ -176,17 +193,20 @@ const TOUR_CATEGORIES: TourCategory[] = [
     features: [
       {
         name: "AI Block Notes",
-        description: "Organized markdown notes with AI summarization, semantic tagging, and quick conversion to whiteboard boards.",
+        description:
+          "Organized markdown notes with AI summarization, semantic tagging, and quick conversion to whiteboard boards.",
         badge: "Notes",
       },
       {
         name: "Learning Hub Flashcards",
-        description: "Interactive flashcard decks with smart flip reviews, retention tracking, and practice quizzes.",
+        description:
+          "Interactive flashcard decks with smart flip reviews, retention tracking, and practice quizzes.",
         badge: "Study",
       },
       {
         name: "Document & PDF Intelligence",
-        description: "Import textbooks and lecture PDFs, highlight key excerpts, and study side-by-side with your canvas.",
+        description:
+          "Import textbooks and lecture PDFs, highlight key excerpts, and study side-by-side with your canvas.",
         badge: "PDF",
       },
     ],
@@ -201,22 +221,26 @@ const TOUR_CATEGORIES: TourCategory[] = [
     features: [
       {
         name: "Lecture Presentation (Slides Mode)",
-        description: "Deliver whiteboard content like dynamic slides with smooth camera panning, slide drawer, and fullscreen mode.",
+        description:
+          "Deliver whiteboard content like dynamic slides with smooth camera panning, slide drawer, and fullscreen mode.",
         badge: "Presentation",
       },
       {
         name: "Live Laser Pointer & Annotations",
-        description: "Spotlight important formulas and live-draw notes during your presentation without leaving slide mode.",
+        description:
+          "Spotlight important formulas and live-draw notes during your presentation without leaving slide mode.",
         badge: "Lectures",
       },
       {
         name: "Auto-Frame Slides from Content",
-        description: "1-click auto detection groups your whiteboard clusters and handwritten notes into sequential 16:9 slides.",
+        description:
+          "1-click auto detection groups your whiteboard clusters and handwritten notes into sequential 16:9 slides.",
         badge: "Smart Frames",
       },
       {
         name: "Interactive Radar Minimap",
-        description: "Collapsible bird's-eye radar view showing live strokes and objects. Click or drag the viewport rectangle to navigate instantly.",
+        description:
+          "Collapsible bird's-eye radar view showing live strokes and objects. Click or drag the viewport rectangle to navigate instantly.",
         badge: "Spatial Radar",
       },
     ],
@@ -249,7 +273,8 @@ export function FeatureTourDialog({
                 Slate Feature Guide & Tutorial
               </DialogTitle>
               <DialogDescription className="text-xs sm:text-sm text-muted-foreground">
-                Everything you need to know about your smart whiteboard, inks, widgets, and AI tutor.
+                Everything you need to know about your smart whiteboard, inks, widgets, and AI
+                tutor.
               </DialogDescription>
             </div>
           </div>
@@ -282,16 +307,18 @@ export function FeatureTourDialog({
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 overscroll-contain">
           {/* Active Category Header */}
           <div className="flex items-center gap-3 p-3.5 rounded-xl border border-border bg-muted/20">
-            <span className={cn("grid h-10 w-10 place-items-center rounded-xl shrink-0", currentCat.bgColor, currentCat.color)}>
+            <span
+              className={cn(
+                "grid h-10 w-10 place-items-center rounded-xl shrink-0",
+                currentCat.bgColor,
+                currentCat.color,
+              )}
+            >
               <Icon className="h-5 w-5" />
             </span>
             <div>
-              <h3 className="text-sm sm:text-base font-bold text-foreground">
-                {currentCat.title}
-              </h3>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {currentCat.subtitle}
-              </p>
+              <h3 className="text-sm sm:text-base font-bold text-foreground">{currentCat.title}</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">{currentCat.subtitle}</p>
             </div>
           </div>
 
@@ -303,9 +330,7 @@ export function FeatureTourDialog({
                 className="flex flex-col justify-between rounded-xl border border-border bg-background p-3.5 shadow-xs space-y-1.5"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-semibold text-foreground">
-                    {feat.name}
-                  </span>
+                  <span className="text-xs font-semibold text-foreground">{feat.name}</span>
                   {feat.badge && (
                     <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[9px] font-semibold text-primary">
                       {feat.badge}

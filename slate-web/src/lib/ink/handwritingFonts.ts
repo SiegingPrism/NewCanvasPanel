@@ -28,12 +28,20 @@ const SCRIPTS: Record<string, ScriptInfo> = {
   telugu: { script: "Telugu", font: "Gurajada", fallback: '"Noto Sans Telugu"' },
   kannada: { script: "Kannada", font: "Baloo Tamma 2", fallback: '"Noto Sans Kannada"' },
   malayalam: { script: "Malayalam", font: "Baloo Chettan 2", fallback: '"Noto Sans Malayalam"' },
-  nastaliq: { script: "Perso-Arabic (Nastaliq)", font: "Gulzar", fallback: '"Noto Nastaliq Urdu", "Noto Sans Arabic"' },
+  nastaliq: {
+    script: "Perso-Arabic (Nastaliq)",
+    font: "Gulzar",
+    fallback: '"Noto Nastaliq Urdu", "Noto Sans Arabic"',
+  },
   arabic: { script: "Arabic", font: "Aref Ruqaa", fallback: '"Noto Sans Arabic"' },
   olchiki: { script: "Ol Chiki", font: "Noto Sans Ol Chiki", fallback: "sans-serif" },
   meetei: { script: "Meetei Mayek", font: "Noto Sans Meetei Mayek", fallback: "sans-serif" },
   japanese: { script: "Japanese (kana and kanji)", font: "Yomogi", fallback: '"Noto Sans JP"' },
-  chinese: { script: "Simplified Chinese characters", font: "Ma Shan Zheng", fallback: '"Noto Sans SC"' },
+  chinese: {
+    script: "Simplified Chinese characters",
+    font: "Ma Shan Zheng",
+    fallback: '"Noto Sans SC"',
+  },
 };
 
 /** Base language → script. */
@@ -210,4 +218,3 @@ export function handwritingFontReady(font: string | undefined): boolean {
   if (!font || typeof document === "undefined") return true;
   return loaded.has(font);
 }
-

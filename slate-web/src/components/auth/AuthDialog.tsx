@@ -32,7 +32,8 @@ interface AuthDialogProps {
 }
 
 export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
-  const { user, signIn, signUp, signInWithGoogle, resetPassword, deleteAccount, signOut } = useAuth();
+  const { user, signIn, signUp, signInWithGoogle, resetPassword, deleteAccount, signOut } =
+    useAuth();
   const [tab, setTab] = useState<"signin" | "signup" | "reset">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -77,7 +78,9 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
     if (res.error) {
       toast.error(res.error.message || "Failed to create account.");
     } else if (res.unconfirmed) {
-      toast.info("Account created! If email confirmation is enabled in Supabase, please check your inbox.");
+      toast.info(
+        "Account created! If email confirmation is enabled in Supabase, please check your inbox.",
+      );
       onOpenChange(false);
     } else {
       toast.success("Account created successfully! Welcome to Slate.");
@@ -172,7 +175,8 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
             </div>
 
             <p className="text-[11px] text-muted-foreground">
-              Your boards and notes are encrypted and isolated to your user ID. Only you can view or modify your data.
+              Your boards and notes are encrypted and isolated to your user ID. Only you can view or
+              modify your data.
             </p>
 
             <div className="space-y-2 pt-2">
@@ -193,7 +197,8 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
                     <span>Permanently delete account and all cloud data?</span>
                   </div>
                   <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    This will permanently remove your user profile, cloud boards, notes, and study decks from Slate. This cannot be undone.
+                    This will permanently remove your user profile, cloud boards, notes, and study
+                    decks from Slate. This cannot be undone.
                   </p>
                   <div className="flex gap-2 pt-1">
                     <Button
@@ -404,7 +409,8 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
             <div className="rounded-lg bg-muted/30 p-2.5 text-[11px] text-muted-foreground flex items-start gap-2">
               <Lock className="h-4 w-4 shrink-0 text-muted-foreground mt-0.5" />
               <span>
-                Your data stays local until you sign in. When signed in, private cloud sync and AI assistant features are enabled automatically.
+                Your data stays local until you sign in. When signed in, private cloud sync and AI
+                assistant features are enabled automatically.
               </span>
             </div>
           </div>

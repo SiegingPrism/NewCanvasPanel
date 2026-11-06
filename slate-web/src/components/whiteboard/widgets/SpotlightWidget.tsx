@@ -10,7 +10,9 @@ export function SpotlightWidget({ onClose }: { onClose?: () => void }) {
   const [opacity, setOpacity] = useState(0.8);
   const [shadeY, setShadeY] = useState(window.innerHeight * 0.4);
   const [isDragging, setIsDragging] = useState(false);
-  const dragStartRef = useRef<{ x: number; y: number; origPos: { x: number; y: number } } | null>(null);
+  const dragStartRef = useRef<{ x: number; y: number; origPos: { x: number; y: number } } | null>(
+    null,
+  );
 
   const handlePointerDown = (e: React.PointerEvent) => {
     setIsDragging(true);
@@ -29,8 +31,14 @@ export function SpotlightWidget({ onClose }: { onClose?: () => void }) {
     const dx = e.clientX - dragStartRef.current.x;
     const dy = e.clientY - dragStartRef.current.y;
     setPos({
-      x: Math.max(radius, Math.min(window.innerWidth - radius, dragStartRef.current.origPos.x + dx)),
-      y: Math.max(radius, Math.min(window.innerHeight - radius, dragStartRef.current.origPos.y + dy)),
+      x: Math.max(
+        radius,
+        Math.min(window.innerWidth - radius, dragStartRef.current.origPos.x + dx),
+      ),
+      y: Math.max(
+        radius,
+        Math.min(window.innerHeight - radius, dragStartRef.current.origPos.y + dy),
+      ),
     });
   };
 
@@ -88,7 +96,9 @@ export function SpotlightWidget({ onClose }: { onClose?: () => void }) {
               const startY = e.clientY;
               const origY = shadeY;
               const onMove = (me: PointerEvent) => {
-                setShadeY(Math.max(80, Math.min(window.innerHeight - 80, origY + (me.clientY - startY))));
+                setShadeY(
+                  Math.max(80, Math.min(window.innerHeight - 80, origY + (me.clientY - startY))),
+                );
               };
               const onUp = () => {
                 window.removeEventListener("pointermove", onMove);
@@ -136,7 +146,9 @@ export function SpotlightWidget({ onClose }: { onClose?: () => void }) {
             onClick={() => setMode("spotlight")}
             className={cn(
               "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all",
-              mode === "spotlight" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"
+              mode === "spotlight"
+                ? "bg-primary text-primary-foreground shadow"
+                : "text-muted-foreground hover:text-foreground",
             )}
           >
             <Circle className="h-4 w-4" />
@@ -146,7 +158,9 @@ export function SpotlightWidget({ onClose }: { onClose?: () => void }) {
             onClick={() => setMode("shade")}
             className={cn(
               "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all",
-              mode === "shade" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"
+              mode === "shade"
+                ? "bg-primary text-primary-foreground shadow"
+                : "text-muted-foreground hover:text-foreground",
             )}
           >
             <Square className="h-4 w-4" />
@@ -194,4 +208,3 @@ export function SpotlightWidget({ onClose }: { onClose?: () => void }) {
     </div>
   );
 }
-

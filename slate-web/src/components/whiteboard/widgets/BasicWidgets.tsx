@@ -22,19 +22,24 @@ export function TimerWidget() {
   const [total, setTotal] = useState(60);
   const [remaining, setRemaining] = useState(60);
   const [running, setRunning] = useState(false);
+  const targetEndTimeRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!running) return;
-    const t = setInterval(() => {
-      setRemaining((r) => {
-        if (r <= 1) {
+    if (running) {
+      targetEndTimeRef.current = Date.now() + remaining * 1000;
+      const t = setInterval(() => {
+        if (!targetEndTimeRef.current) return;
+        const left = Math.max(0, Math.ceil((targetEndTimeRef.current - Date.now()) / 1000));
+        setRemaining(left);
+        if (left <= 0) {
           setRunning(false);
-          return 0;
+          targetEndTimeRef.current = null;
         }
-        return r - 1;
-      });
-    }, 1000);
-    return () => clearInterval(t);
+      }, 250);
+      return () => clearInterval(t);
+    } else {
+      targetEndTimeRef.current = null;
+    }
   }, [running]);
 
   const mm = String(Math.floor(remaining / 60)).padStart(2, "0");
@@ -302,7 +307,8 @@ export function VoiceNoteWidget() {
           interimStr += event.results[i][0].transcript;
         }
       }
-      if (finalStr) setTranscript((prev) => (prev ? prev + " " + finalStr.trim() : finalStr.trim()));
+      if (finalStr)
+        setTranscript((prev) => (prev ? prev + " " + finalStr.trim() : finalStr.trim()));
       setInterim(interimStr);
     };
 
@@ -326,7 +332,9 @@ export function VoiceNoteWidget() {
   const toggleListen = () => {
     if (!recognitionRef.current) {
       if (!isSupported) {
-        toast.info("Voice recognition isn't natively supported in this browser; you can type in the note.");
+        toast.info(
+          "Voice recognition isn't natively supported in this browser; you can type in the note.",
+        );
       }
       return;
     }
@@ -411,10 +419,17 @@ export function VoiceNoteWidget() {
         <span
           className={cn(
             "flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full",
-            isListening ? "bg-red-500/10 text-red-500 animate-pulse" : "bg-muted text-muted-foreground",
+            isListening
+              ? "bg-red-500/10 text-red-500 animate-pulse"
+              : "bg-muted text-muted-foreground",
           )}
         >
-          <span className={cn("h-2 w-2 rounded-full", isListening ? "bg-red-500" : "bg-muted-foreground")} />
+          <span
+            className={cn(
+              "h-2 w-2 rounded-full",
+              isListening ? "bg-red-500" : "bg-muted-foreground",
+            )}
+          />
           {isListening ? "Listening..." : "Idle"}
         </span>
       </div>

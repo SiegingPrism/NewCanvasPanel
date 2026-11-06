@@ -176,7 +176,9 @@ export function MagicDoodleDialog({
                   <h4 className="text-sm font-bold text-foreground capitalize mt-1">
                     {selected.category}
                   </h4>
-                  <span className="text-[10px] text-muted-foreground">Icon #{selected.iconIndex}</span>
+                  <span className="text-[10px] text-muted-foreground">
+                    Icon #{selected.iconIndex}
+                  </span>
                 </div>
 
                 {selected.fact && (
@@ -192,7 +194,9 @@ export function MagicDoodleDialog({
                 )}
               </div>
             ) : (
-              <div className="text-xs text-muted-foreground text-center my-auto">Select a doodle to preview</div>
+              <div className="text-xs text-muted-foreground text-center my-auto">
+                Select a doodle to preview
+              </div>
             )}
 
             {/* Actions */}

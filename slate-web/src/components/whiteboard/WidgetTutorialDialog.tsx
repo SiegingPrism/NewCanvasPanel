@@ -64,7 +64,8 @@ export const WIDGET_GUIDE_ITEMS: WidgetGuideItem[] = [
     color: "text-orange-500",
     bgColor: "bg-orange-500/15",
     summary: "Sets a timed countdown with audio chimes and visual progress rings.",
-    howToUse: "Use for time-boxed student quizzes, speaking rounds, group sprints, or study intervals.",
+    howToUse:
+      "Use for time-boxed student quizzes, speaking rounds, group sprints, or study intervals.",
     actionLabel: "Launch Timer",
   },
   {
@@ -76,7 +77,8 @@ export const WIDGET_GUIDE_ITEMS: WidgetGuideItem[] = [
     color: "text-blue-500",
     bgColor: "bg-blue-500/15",
     summary: "Precision elapsed stopwatch with split laps and millisecond accuracy.",
-    howToUse: "Ideal for timing science experiments, physics speed runs, and presentation rehearsals.",
+    howToUse:
+      "Ideal for timing science experiments, physics speed runs, and presentation rehearsals.",
     actionLabel: "Launch Stopwatch",
   },
   {
@@ -88,7 +90,8 @@ export const WIDGET_GUIDE_ITEMS: WidgetGuideItem[] = [
     color: "text-purple-500",
     bgColor: "bg-purple-500/15",
     summary: "Interactive 3D/2D dice roller with randomized bounce physics.",
-    howToUse: "Great for probability lessons, board games, turn-taking, and generating random numbers.",
+    howToUse:
+      "Great for probability lessons, board games, turn-taking, and generating random numbers.",
     actionLabel: "Roll Dice",
   },
   {
@@ -124,7 +127,8 @@ export const WIDGET_GUIDE_ITEMS: WidgetGuideItem[] = [
     color: "text-rose-500",
     bgColor: "bg-rose-500/15",
     summary: "Records audio notes and reflections directly onto the whiteboard canvas.",
-    howToUse: "Record student voice memos, pronunciation checks, or teacher explanations that stay pinned on the board.",
+    howToUse:
+      "Record student voice memos, pronunciation checks, or teacher explanations that stay pinned on the board.",
     actionLabel: "Record Voice",
   },
   {
@@ -136,7 +140,8 @@ export const WIDGET_GUIDE_ITEMS: WidgetGuideItem[] = [
     color: "text-cyan-500",
     bgColor: "bg-cyan-500/15",
     summary: "Interactive 2D Cartesian graphing utility for functions, coordinates, and curves.",
-    howToUse: "Plot mathematical functions like f(x) = sin(x) or quadratic curves with interactive axes.",
+    howToUse:
+      "Plot mathematical functions like f(x) = sin(x) or quadratic curves with interactive axes.",
     actionLabel: "Plot Graph",
   },
   {
@@ -148,7 +153,8 @@ export const WIDGET_GUIDE_ITEMS: WidgetGuideItem[] = [
     color: "text-yellow-500",
     bgColor: "bg-yellow-400/20",
     summary: "Colorful post-it style note (5 pastel colors) with editable multi-line text.",
-    howToUse: "Pin reminders, brainstorming ideas, task callouts, or key definitions anywhere on the board.",
+    howToUse:
+      "Pin reminders, brainstorming ideas, task callouts, or key definitions anywhere on the board.",
     actionLabel: "Add Sticky Note",
   },
   {
@@ -208,7 +214,8 @@ export const WIDGET_GUIDE_ITEMS: WidgetGuideItem[] = [
     color: "text-violet-600 dark:text-violet-400",
     bgColor: "bg-violet-600/15",
     summary: "AI vision recognition that scans handwritten formulas and calculates solutions.",
-    howToUse: "Draw any math equation with the pen, tap Solve Math, and AI computes step-by-step answers!",
+    howToUse:
+      "Draw any math equation with the pen, tap Solve Math, and AI computes step-by-step answers!",
     actionLabel: "Solve Math",
   },
   {
@@ -219,8 +226,10 @@ export const WIDGET_GUIDE_ITEMS: WidgetGuideItem[] = [
     icon: Layers,
     color: "text-amber-500",
     bgColor: "bg-amber-500/15",
-    summary: "Interactive 3D flip cards for rapid memorization, physics constants, formulas & custom notes.",
-    howToUse: "Flip cards to reveal answers, test comprehension, and insert question/answer cards onto the whiteboard.",
+    summary:
+      "Interactive 3D flip cards for rapid memorization, physics constants, formulas & custom notes.",
+    howToUse:
+      "Flip cards to reveal answers, test comprehension, and insert question/answer cards onto the whiteboard.",
     actionLabel: "Open Flashcards",
   },
   {
@@ -231,8 +240,10 @@ export const WIDGET_GUIDE_ITEMS: WidgetGuideItem[] = [
     icon: Atom,
     color: "text-teal-600 dark:text-teal-400",
     bgColor: "bg-teal-500/15",
-    summary: "Full chemical elements directory with atomic numbers, masses, electron configurations & phases.",
-    howToUse: "Search elements by symbol, name, or number, and insert chemistry element badges directly onto the canvas.",
+    summary:
+      "Full chemical elements directory with atomic numbers, masses, electron configurations & phases.",
+    howToUse:
+      "Search elements by symbol, name, or number, and insert chemistry element badges directly onto the canvas.",
     actionLabel: "Explore Elements",
   },
 ];

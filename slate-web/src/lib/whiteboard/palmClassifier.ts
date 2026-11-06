@@ -20,7 +20,7 @@ export interface ContactMetrics {
  */
 export function classifyPointerContact(
   e: PointerEvent | React.PointerEvent,
-  panelDiagonal: PanelDiagonal = "75"
+  panelDiagonal: PanelDiagonal = "75",
 ): ContactMetrics {
   const profile = getSmartBoardProfile(panelDiagonal);
 
@@ -65,4 +65,3 @@ export function classifyPointerContact(
     eraserRadiusPx,
   };
 }
-

@@ -69,7 +69,9 @@ export const useStrokeRecorderStore = create<StrokeRecorderState>((set, get) => 
       // Negative control: matching means recognizedShape is null (left alone)
       match = recognizedShape === null;
     } else if (selectedShape === "square") {
-      match = recognizedShape === "rect" && Boolean(res && res.kind === "shape" && Math.abs(res.w - res.h) <= 12);
+      match =
+        recognizedShape === "rect" &&
+        Boolean(res && res.kind === "shape" && Math.abs(res.w - res.h) <= 12);
     } else {
       match = recognizedShape === selectedShape;
     }
@@ -79,7 +81,11 @@ export const useStrokeRecorderStore = create<StrokeRecorderState>((set, get) => 
       expectedShape: selectedShape,
       recognizedShape,
       match,
-      points: points.map((p) => ({ x: Math.round(p.x * 10) / 10, y: Math.round(p.y * 10) / 10, p: p.p })),
+      points: points.map((p) => ({
+        x: Math.round(p.x * 10) / 10,
+        y: Math.round(p.y * 10) / 10,
+        p: p.p,
+      })),
       timestamp: Date.now(),
     };
 
@@ -105,7 +111,7 @@ export const useStrokeRecorderStore = create<StrokeRecorderState>((set, get) => 
         points: s.points,
       })),
       null,
-      2
+      2,
     );
   },
 }));

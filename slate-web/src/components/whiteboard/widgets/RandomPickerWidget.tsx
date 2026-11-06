@@ -4,9 +4,21 @@ import { useWhiteboard } from "@/lib/whiteboard/store";
 import { cn } from "@/lib/utils";
 
 const DEFAULT_NAMES = [
-  "Aarav", "Ananya", "Diya", "Ishan", "Priya",
-  "Rohan", "Kabir", "Tanya", "Vihaan", "Zara",
-  "Aditya", "Meera", "Arjun", "Kavya", "Siddharth",
+  "Aarav",
+  "Ananya",
+  "Diya",
+  "Ishan",
+  "Priya",
+  "Rohan",
+  "Kabir",
+  "Tanya",
+  "Vihaan",
+  "Zara",
+  "Aditya",
+  "Meera",
+  "Arjun",
+  "Kavya",
+  "Siddharth",
 ];
 
 export function RandomPickerWidget() {
@@ -105,7 +117,9 @@ export function RandomPickerWidget() {
           onClick={() => setTab("pick")}
           className={cn(
             "flex-1 py-1 text-xs font-bold rounded-lg transition-all",
-            tab === "pick" ? "bg-card text-foreground shadow" : "text-muted-foreground hover:text-foreground"
+            tab === "pick"
+              ? "bg-card text-foreground shadow"
+              : "text-muted-foreground hover:text-foreground",
           )}
         >
           Pick Student
@@ -117,7 +131,9 @@ export function RandomPickerWidget() {
           }}
           className={cn(
             "flex-1 py-1 text-xs font-bold rounded-lg transition-all",
-            tab === "groups" ? "bg-card text-foreground shadow" : "text-muted-foreground hover:text-foreground"
+            tab === "groups"
+              ? "bg-card text-foreground shadow"
+              : "text-muted-foreground hover:text-foreground",
           )}
         >
           Make Groups
@@ -129,7 +145,9 @@ export function RandomPickerWidget() {
           }}
           className={cn(
             "flex-1 py-1 text-xs font-bold rounded-lg transition-all",
-            tab === "roster" ? "bg-card text-foreground shadow" : "text-muted-foreground hover:text-foreground"
+            tab === "roster"
+              ? "bg-card text-foreground shadow"
+              : "text-muted-foreground hover:text-foreground",
           )}
         >
           Class List ({names.length})
@@ -142,19 +160,29 @@ export function RandomPickerWidget() {
           <div className="flex h-32 w-full flex-col items-center justify-center rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-muted/40 p-4 border border-border shadow-inner">
             {chosenStudent ? (
               <div className="text-center animate-in zoom-in-90 duration-200">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-primary">Selected Student</span>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-primary">
+                  Selected Student
+                </span>
                 <p className="text-3xl font-black text-foreground mt-1">{chosenStudent}</p>
-                <span className="text-xs text-muted-foreground mt-0.5 inline-block">🎉 Your turn to solve!</span>
+                <span className="text-xs text-muted-foreground mt-0.5 inline-block">
+                  🎉 Your turn to solve!
+                </span>
               </div>
             ) : isSpinning ? (
               <div className="text-center">
-                <span className="text-xs font-semibold text-muted-foreground animate-pulse">Picking...</span>
-                <p className="text-2xl font-extrabold text-foreground mt-1 font-mono tracking-wide">{displayName}</p>
+                <span className="text-xs font-semibold text-muted-foreground animate-pulse">
+                  Picking...
+                </span>
+                <p className="text-2xl font-extrabold text-foreground mt-1 font-mono tracking-wide">
+                  {displayName}
+                </p>
               </div>
             ) : (
               <div className="text-center text-muted-foreground">
                 <Shuffle className="h-8 w-8 mx-auto opacity-40 mb-1" />
-                <p className="text-xs font-medium">Tap &apos;Pick Random&apos; to call on a student</p>
+                <p className="text-xs font-medium">
+                  Tap &apos;Pick Random&apos; to call on a student
+                </p>
               </div>
             )}
           </div>
@@ -184,7 +212,9 @@ export function RandomPickerWidget() {
                   }}
                   className={cn(
                     "h-7 w-7 rounded-lg text-xs font-bold transition-all",
-                    numGroups === n ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"
+                    numGroups === n
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground hover:text-foreground",
                   )}
                 >
                   {n}
@@ -205,7 +235,9 @@ export function RandomPickerWidget() {
           <div className="max-h-48 overflow-y-auto space-y-2 pr-1">
             {generatedGroups.map((grp, i) => (
               <div key={i} className="rounded-xl bg-muted/40 p-2 border border-border/80">
-                <p className="text-xs font-bold text-primary mb-1">Team {i + 1} ({grp.length})</p>
+                <p className="text-xs font-bold text-primary mb-1">
+                  Team {i + 1} ({grp.length})
+                </p>
                 <p className="text-xs text-foreground/90 font-medium">{grp.join(", ")}</p>
               </div>
             ))}
@@ -226,7 +258,9 @@ export function RandomPickerWidget() {
       {/* Tab 3: Roster Input */}
       {tab === "roster" && (
         <div className="space-y-2">
-          <p className="text-[11px] text-muted-foreground">Enter student names separated by commas or new lines:</p>
+          <p className="text-[11px] text-muted-foreground">
+            Enter student names separated by commas or new lines:
+          </p>
           <textarea
             value={rosterInput}
             onChange={(e) => setRosterInput(e.target.value)}
@@ -256,4 +290,3 @@ export function RandomPickerWidget() {
     </div>
   );
 }
-

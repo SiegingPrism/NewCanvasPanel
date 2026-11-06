@@ -142,7 +142,8 @@ const API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 
 /** Model used for every request. Override with VITE_GEMINI_MODEL in .env if needed. */
 export const GEMINI_MODEL: string =
-  ((import.meta.env?.VITE_GEMINI_MODEL as string | undefined) || "").trim() || "gemini-flash-lite-latest";
+  ((import.meta.env?.VITE_GEMINI_MODEL as string | undefined) || "").trim() ||
+  "gemini-flash-lite-latest";
 
 const FALLBACK_MODELS: string[] = [
   "gemini-flash-lite-latest",
@@ -235,7 +236,6 @@ function ensureReady(): string {
   if (auth.type === "userKey") return auth.key;
   return "proxy";
 }
-
 
 function buildBody(contents: Content[], opts: CallOptions) {
   const generationConfig: Record<string, unknown> = {
@@ -397,15 +397,24 @@ async function callGemini(contents: Content[], opts: CallOptions = {}): Promise<
           errorMsg = j?.error || "";
         } catch {}
         if (res.status === 429) {
-          throw new AIError("quota", errorMsg || "Daily AI usage limit reached. Your limit resets tomorrow.");
+          throw new AIError(
+            "quota",
+            errorMsg || "Daily AI usage limit reached. Your limit resets tomorrow.",
+          );
         }
         if (res.status === 401) {
           throw new AIError("no_key", errorMsg || "Sign in required to use cloud AI services.");
         }
         if (res.status === 503) {
-          throw new AIError("no_key", errorMsg || "Server AI key is not configured. Add a Gemini API key in AI Settings.");
+          throw new AIError(
+            "no_key",
+            errorMsg || "Server AI key is not configured. Add a Gemini API key in AI Settings.",
+          );
         }
-        throw new AIError("server", errorMsg || `AI server error (${res.status}). Please try again.`);
+        throw new AIError(
+          "server",
+          errorMsg || `AI server error (${res.status}). Please try again.`,
+        );
       }
 
       const data = await res.json();
@@ -554,7 +563,12 @@ export async function testGeminiConnection(key?: string): Promise<ConnectionTest
       /* not JSON */
     }
     const err = await toAIError(res);
-    return done({ ok: false, status: res.status, message: err.message, detail: detail || undefined });
+    return done({
+      ok: false,
+      status: res.status,
+      message: err.message,
+      detail: detail || undefined,
+    });
   } catch (e) {
     const aborted = e instanceof Error && e.name === "AbortError";
     return done({
@@ -631,7 +645,10 @@ async function streamGemini(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         if ((json as any)?.error) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          throw new AIError("server", `AI error: ${(json as any).error.message || "stream failed"}`);
+          throw new AIError(
+            "server",
+            `AI error: ${(json as any).error.message || "stream failed"}`,
+          );
         }
         const piece = extractText(json);
         if (piece) {
@@ -639,7 +656,6 @@ async function streamGemini(
           opts.onText(full);
         }
       };
-
 
       while (true) {
         const { done, value } = await reader.read();
@@ -912,7 +928,8 @@ function matchesExpectedScript(text: string, script: string): boolean {
   if (s.includes("telugu")) return /[\u0C00-\u0C7F]/.test(text);
   if (s.includes("kannada")) return /[\u0C80-\u0CFF]/.test(text);
   if (s.includes("malayalam")) return /[\u0D00-\u0D7F]/.test(text);
-  if (s.includes("nastaliq") || s.includes("arabic")) return /[\u0600-\u06FF\u0750-\u077F]/.test(text);
+  if (s.includes("nastaliq") || s.includes("arabic"))
+    return /[\u0600-\u06FF\u0750-\u077F]/.test(text);
   if (s.includes("cyrillic")) return /[\u0400-\u04FF]/.test(text);
   if (s.includes("japanese")) return /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(text);
   if (s.includes("chinese")) return /[\u4E00-\u9FFF]/.test(text);
@@ -926,39 +943,37 @@ function parseTranslation(raw: string): TranslationResult {
   const p = parseJSON<any>(raw);
   const translation = String(
     p?.translation ??
-    p?.translated_text ??
-    p?.translatedText ??
-    p?.translated ??
-    p?.target ??
-    p?.result ??
-    ""
+      p?.translated_text ??
+      p?.translatedText ??
+      p?.translated ??
+      p?.target ??
+      p?.result ??
+      "",
   )
     .replace(/^["'`]+|["'`]+$/g, "")
     .trim();
 
   const source = String(
-    p?.source ??
-    p?.original ??
-    p?.source_text ??
-    p?.sourceText ??
-    p?.text ??
-    ""
+    p?.source ?? p?.original ?? p?.source_text ?? p?.sourceText ?? p?.text ?? "",
   ).trim();
 
   const sourceLanguage = String(
-    p?.sourceLanguage ??
-    p?.source_language ??
-    p?.language ??
-    p?.sourceLang ??
-    ""
+    p?.sourceLanguage ?? p?.source_language ?? p?.language ?? p?.sourceLang ?? "",
   ).trim();
 
   if (!translation && !source) {
-    throw new AIError("bad_response", "Couldn't read that — try writing a little larger or clearer.");
+    throw new AIError(
+      "bad_response",
+      "Couldn't read that — try writing a little larger or clearer.",
+    );
   }
   const alternatives = Array.isArray(p?.alternatives)
     ? p.alternatives
-        .map((a: unknown) => String(a || "").replace(/^["'`]+|["'`]+$/g, "").trim())
+        .map((a: unknown) =>
+          String(a || "")
+            .replace(/^["'`]+|["'`]+$/g, "")
+            .trim(),
+        )
         .filter((a: string) => a && a !== translation)
     : [];
   return {
@@ -1152,7 +1167,10 @@ Only output the transcribed characters when there is genuine handwritten text or
       ),
       { temperature: 0, thinkingBudget: 0, ...opts },
     );
-    const clean = text.replace(/^```\w*\s*|```$/g, "").replace(/^["'`]+|["'`]+$/g, "").trim();
+    const clean = text
+      .replace(/^```\w*\s*|```$/g, "")
+      .replace(/^["'`]+|["'`]+$/g, "")
+      .trim();
     if (!clean || /^\[unreadable\]$/i.test(clean)) {
       throw new AIError(
         "bad_response",
@@ -1171,7 +1189,13 @@ Only output the transcribed characters when there is genuine handwritten text or
     imageDataUrl: string | undefined,
     target: string,
     script: string,
-    opts: { timeoutMs?: number; signal?: AbortSignal; context?: string; prefix?: string; thinkingBudget?: number } = {},
+    opts: {
+      timeoutMs?: number;
+      signal?: AbortSignal;
+      context?: string;
+      prefix?: string;
+      thinkingBudget?: number;
+    } = {},
   ): Promise<TranslationResult> {
     if (!imageDataUrl) throw new AIError("bad_input", "Select some handwriting first.");
     const contextClause = opts.context
@@ -1193,7 +1217,14 @@ Return JSON with:
 Only return empty strings if the image is a drawing/shape, completely blank, accidental noise, or contains no words/math.`,
         imageDataUrl,
       ),
-      { system: TRANSLATE_SYSTEM, json: true, schema: TRANSLATION_SCHEMA, temperature: 0.1, thinkingBudget: opts.thinkingBudget ?? 0, ...opts },
+      {
+        system: TRANSLATE_SYSTEM,
+        json: true,
+        schema: TRANSLATION_SCHEMA,
+        temperature: 0.1,
+        thinkingBudget: opts.thinkingBudget ?? 0,
+        ...opts,
+      },
     );
     const parsed = parseTranslation(raw);
 
@@ -1204,12 +1235,11 @@ Only return empty strings if the image is a drawing/shape, completely blank, acc
     ) {
       try {
         const textToTranslate = parsed.source.trim() || parsed.translation.trim();
-        const fixed = await AIEngine.translateText(
-          textToTranslate,
-          target,
-          script,
-          { timeoutMs: 5000, signal: opts.signal, thinkingBudget: 0 },
-        );
+        const fixed = await AIEngine.translateText(textToTranslate, target, script, {
+          timeoutMs: 5000,
+          signal: opts.signal,
+          thinkingBudget: 0,
+        });
         if (matchesExpectedScript(fixed.translation, script)) {
           return { ...parsed, translation: fixed.translation };
         }
@@ -1238,7 +1268,14 @@ Return JSON with source (the text as given), sourceLanguage (English name of its
 TEXT:
 ${clean.slice(0, 8000)}`,
       ),
-      { system: TRANSLATE_SYSTEM, json: true, schema: TRANSLATION_SCHEMA, temperature: 0.1, thinkingBudget: opts.thinkingBudget ?? 0, ...opts },
+      {
+        system: TRANSLATE_SYSTEM,
+        json: true,
+        schema: TRANSLATION_SCHEMA,
+        temperature: 0.1,
+        thinkingBudget: opts.thinkingBudget ?? 0,
+        ...opts,
+      },
     );
     const r = parseTranslation(raw);
     return { ...r, source: r.source || clean };
@@ -1491,10 +1528,12 @@ children: 4–6 key branches covering the main aspects/principles/steps, each wi
       : `Create a concept mind map for: "${topicOrContext.trim().slice(0, 2000)}".
 label: the central topic in 1–5 words. children: 4–6 main branches, each with 2–4 short sub-concepts (1–5 words each).`;
 
-    const raw = await callGemini(
-      userContent(promptText, opts?.imageDataUrl),
-      { system: JSON_SYSTEM, json: true, schema: MINDMAP_SCHEMA, temperature: 0.4 },
-    );
+    const raw = await callGemini(userContent(promptText, opts?.imageDataUrl), {
+      system: JSON_SYSTEM,
+      json: true,
+      schema: MINDMAP_SCHEMA,
+      temperature: 0.4,
+    });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const p = parseJSON<any>(raw);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

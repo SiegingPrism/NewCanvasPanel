@@ -1,10 +1,5 @@
 import React, { useState, useEffect } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import {
   Cloud,
@@ -158,7 +153,8 @@ export function TeacherAccountDialog({
             Access Lessons on Any Smart Board
           </DialogTitle>
           <p className="text-xs text-slate-400">
-            Sign in once so your prepared lessons, interactive activities, and notes open on any smart board in the school.
+            Sign in once so your prepared lessons, interactive activities, and notes open on any
+            smart board in the school.
           </p>
         </DialogHeader>
 
@@ -182,7 +178,8 @@ export function TeacherAccountDialog({
                       </span>
                     </div>
                     <span className="text-xs text-slate-400">
-                      Smart board ID: {activeBoardId ? activeBoardId.slice(0, 8) : "None"} · School Cloud Connected
+                      Smart board ID: {activeBoardId ? activeBoardId.slice(0, 8) : "None"} · School
+                      Cloud Connected
                     </span>
                   </div>
                 </div>
@@ -215,7 +212,11 @@ export function TeacherAccountDialog({
                 <div>
                   <h4 className="font-black text-lg text-white">Save Current Lesson to Cloud</h4>
                   <p className="text-xs text-indigo-200/80 mt-0.5">
-                    "{activeBoardId && boards[activeBoardId] ? boards[activeBoardId].title : "Untitled Lesson"}" ({pages.length} pages)
+                    "
+                    {activeBoardId && boards[activeBoardId]
+                      ? boards[activeBoardId].title
+                      : "Untitled Lesson"}
+                    " ({pages.length} pages)
                   </p>
                 </div>
                 <Button
@@ -362,7 +363,8 @@ export function TeacherAccountDialog({
                   Secure School Sign-In
                 </div>
                 <p>
-                  Lessons saved to your account are private and only accessible with your credentials. You can safely sign out before leaving the classroom.
+                  Lessons saved to your account are private and only accessible with your
+                  credentials. You can safely sign out before leaving the classroom.
                 </p>
               </div>
             </div>

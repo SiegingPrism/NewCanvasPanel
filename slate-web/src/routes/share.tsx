@@ -82,7 +82,8 @@ function SharedNotesDownloadPage() {
             <span>Multi-Page Board Summary</span>
           </div>
           <p>
-            Complete high-resolution document including handwriting, diagrams, equations, and annotations generated directly from the Smart Board.
+            Complete high-resolution document including handwriting, diagrams, equations, and
+            annotations generated directly from the Smart Board.
           </p>
         </div>
 
@@ -98,7 +99,13 @@ function SharedNotesDownloadPage() {
           ) : (
             <Download className="h-5 w-5" />
           )}
-          <span>{loading ? "Preparing PDF..." : downloaded ? "Downloaded (Tap to Download Again)" : "Download Notes (PDF)"}</span>
+          <span>
+            {loading
+              ? "Preparing PDF..."
+              : downloaded
+                ? "Downloaded (Tap to Download Again)"
+                : "Download Notes (PDF)"}
+          </span>
         </Button>
 
         {downloadUrl && downloadUrl.startsWith("http") && (

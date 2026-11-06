@@ -256,9 +256,13 @@ export function AISheet({
 
   function handleFeedback(msgId: string, type: "up" | "down") {
     setMessages((prev) =>
-      prev.map((m) => (m.id === msgId ? { ...m, feedback: m.feedback === type ? undefined : type } : m)),
+      prev.map((m) =>
+        m.id === msgId ? { ...m, feedback: m.feedback === type ? undefined : type } : m,
+      ),
     );
-    toast.success(type === "up" ? "Thanks for your feedback!" : "Feedback recorded. We'll improve this.");
+    toast.success(
+      type === "up" ? "Thanks for your feedback!" : "Feedback recorded. We'll improve this.",
+    );
   }
 
   function handlePlaceAnswerOnBoard(content: string) {
@@ -472,7 +476,10 @@ export function AISheet({
         (m) => !(m.role === "assistant" && (m.error || !m.content.trim())),
       );
       void runChat(
-        [...history, { id: uid(), role: "user", content: initialPrompt, imageDataUrl: snap || undefined }],
+        [
+          ...history,
+          { id: uid(), role: "user", content: initialPrompt, imageDataUrl: snap || undefined },
+        ],
         snap,
       );
     }
@@ -482,7 +489,10 @@ export function AISheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="flex w-full flex-col h-full max-h-dvh p-0 sm:max-w-md overflow-hidden bg-background">
+      <SheetContent
+        side="right"
+        className="flex w-full flex-col h-full max-h-dvh p-0 sm:max-w-md overflow-hidden bg-background"
+      >
         <SheetHeader className="border-b border-border/80 px-4 pb-3.5 pt-[calc(var(--sat,0px)+1.15rem)] shrink-0 bg-background/95 backdrop-blur-md">
           <div className="flex items-center justify-between">
             <SheetTitle className="flex items-center gap-2 text-base font-bold text-foreground">
@@ -542,7 +552,9 @@ export function AISheet({
             />
             <div className="flex-1 min-w-0">
               <p className="font-medium truncate">Board snapshot attached</p>
-              <p className="text-[11px] text-muted-foreground">AI can now see your drawing or diagram</p>
+              <p className="text-[11px] text-muted-foreground">
+                AI can now see your drawing or diagram
+              </p>
             </div>
             <button
               type="button"
@@ -575,7 +587,10 @@ export function AISheet({
           </div>
         )}
 
-        <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto px-4 py-3.5 overscroll-contain flex flex-col gap-4">
+        <div
+          ref={scrollRef}
+          className="flex-1 min-h-0 overflow-y-auto px-4 py-3.5 overscroll-contain flex flex-col gap-4"
+        >
           {contextText && (
             <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-primary shrink-0">
               <span className="font-semibold">Using your selection: </span>
@@ -594,7 +609,8 @@ export function AISheet({
                 </div>
                 <h3 className="text-base font-bold text-foreground tracking-tight">Ask Slate AI</h3>
                 <p className="mt-1 text-xs text-muted-foreground leading-relaxed max-w-xs">
-                  Solve problems, check your work, explain diagrams, or create flashcards. Tap "See Board" to let the AI see your canvas!
+                  Solve problems, check your work, explain diagrams, or create flashcards. Tap "See
+                  Board" to let the AI see your canvas!
                 </p>
               </div>
 
@@ -603,7 +619,9 @@ export function AISheet({
                   <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80">
                     Quick Prompts
                   </span>
-                  <span className="text-[10px] text-muted-foreground/60 font-medium">Select a topic</span>
+                  <span className="text-[10px] text-muted-foreground/60 font-medium">
+                    Select a topic
+                  </span>
                 </div>
                 <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
                   {QUICK.map((q) => (
@@ -773,7 +791,8 @@ export function AISheet({
                               onClick={() => handleFeedback(m.id, "up")}
                               className={cn(
                                 "inline-flex items-center justify-center h-6 w-6 rounded hover:bg-accent transition text-muted-foreground",
-                                m.feedback === "up" && "text-emerald-500 font-bold bg-emerald-500/10",
+                                m.feedback === "up" &&
+                                  "text-emerald-500 font-bold bg-emerald-500/10",
                               )}
                               title="Good answer"
                             >
@@ -830,7 +849,9 @@ export function AISheet({
             type="button"
             variant={attachedSnapshot ? "default" : "outline"}
             onClick={handleAttachSnapshot}
-            title={attachedSnapshot ? "Snapshot attached" : "Attach board snapshot to your question"}
+            title={
+              attachedSnapshot ? "Snapshot attached" : "Attach board snapshot to your question"
+            }
             className="h-11 w-11 rounded-xl shrink-0"
           >
             <Camera className="h-4 w-4" />
@@ -860,11 +881,24 @@ export function AISheet({
             className="min-h-[44px] max-h-32 flex-1 resize-none rounded-xl border border-border bg-background px-3 py-2.5 text-sm leading-snug outline-none focus:ring-2 focus:ring-ring focus:border-primary transition disabled:opacity-60"
           />
           {loading ? (
-            <Button size="icon" type="button" variant="secondary" onClick={stop} title="Stop" className="h-11 w-11 rounded-xl shrink-0">
+            <Button
+              size="icon"
+              type="button"
+              variant="secondary"
+              onClick={stop}
+              title="Stop"
+              className="h-11 w-11 rounded-xl shrink-0"
+            >
               <Square className="h-4 w-4" />
             </Button>
           ) : (
-            <Button size="icon" type="submit" disabled={!canSend} title="Send" className="h-11 w-11 rounded-xl shrink-0">
+            <Button
+              size="icon"
+              type="submit"
+              disabled={!canSend}
+              title="Send"
+              className="h-11 w-11 rounded-xl shrink-0"
+            >
               <Send className="h-4 w-4" />
             </Button>
           )}

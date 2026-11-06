@@ -17,18 +17,78 @@ function uid() {
 }
 
 const TEMPLATES = [
-  { id: "1", name: "Ruled Notebook Lines", file: "/grid_templates/template1.svg", desc: "Standard ruled lines for handwriting" },
-  { id: "2", name: "Square Grid Paper", file: "/grid_templates/template2.svg", desc: "Math calculation & geometry grid" },
-  { id: "3", name: "Double Ruled Lines", file: "/grid_templates/template3.svg", desc: "Primary handwriting guide lines" },
-  { id: "4", name: "Four-Line Cursive", file: "/grid_templates/template4.svg", desc: "English cursive letter practice lines" },
-  { id: "5", name: "Isometric Dot Matrix", file: "/grid_templates/template5.svg", desc: "Engineering 3D sketching dot grid" },
-  { id: "6", name: "Millimeter Graph", file: "/grid_templates/template6.svg", desc: "High-precision science plotting paper" },
-  { id: "7", name: "Music Notation Staves", file: "/grid_templates/template7.svg", desc: "Five-line musical staff sheet" },
-  { id: "8", name: "Coordinate X-Y Plane", file: "/grid_templates/template8.svg", desc: "Cartesian 4-quadrant coordinate axes" },
-  { id: "9", name: "Basketball Court", file: "/grid_templates/template9.svg", desc: "Sports tactic & play diagram" },
-  { id: "10", name: "Football / Soccer Pitch", file: "/grid_templates/template10.svg", desc: "Soccer field tactical formation pitch" },
-  { id: "11", name: "Cricket Pitch", file: "/grid_templates/template11.svg", desc: "Cricket field layout & batting crease" },
-  { id: "12", name: "Badminton / Tennis Court", file: "/grid_templates/template12.svg", desc: "Racquet sports court boundaries" },
+  {
+    id: "1",
+    name: "Ruled Notebook Lines",
+    file: "/grid_templates/template1.svg",
+    desc: "Standard ruled lines for handwriting",
+  },
+  {
+    id: "2",
+    name: "Square Grid Paper",
+    file: "/grid_templates/template2.svg",
+    desc: "Math calculation & geometry grid",
+  },
+  {
+    id: "3",
+    name: "Double Ruled Lines",
+    file: "/grid_templates/template3.svg",
+    desc: "Primary handwriting guide lines",
+  },
+  {
+    id: "4",
+    name: "Four-Line Cursive",
+    file: "/grid_templates/template4.svg",
+    desc: "English cursive letter practice lines",
+  },
+  {
+    id: "5",
+    name: "Isometric Dot Matrix",
+    file: "/grid_templates/template5.svg",
+    desc: "Engineering 3D sketching dot grid",
+  },
+  {
+    id: "6",
+    name: "Millimeter Graph",
+    file: "/grid_templates/template6.svg",
+    desc: "High-precision science plotting paper",
+  },
+  {
+    id: "7",
+    name: "Music Notation Staves",
+    file: "/grid_templates/template7.svg",
+    desc: "Five-line musical staff sheet",
+  },
+  {
+    id: "8",
+    name: "Coordinate X-Y Plane",
+    file: "/grid_templates/template8.svg",
+    desc: "Cartesian 4-quadrant coordinate axes",
+  },
+  {
+    id: "9",
+    name: "Basketball Court",
+    file: "/grid_templates/template9.svg",
+    desc: "Sports tactic & play diagram",
+  },
+  {
+    id: "10",
+    name: "Football / Soccer Pitch",
+    file: "/grid_templates/template10.svg",
+    desc: "Soccer field tactical formation pitch",
+  },
+  {
+    id: "11",
+    name: "Cricket Pitch",
+    file: "/grid_templates/template11.svg",
+    desc: "Cricket field layout & batting crease",
+  },
+  {
+    id: "12",
+    name: "Badminton / Tennis Court",
+    file: "/grid_templates/template12.svg",
+    desc: "Racquet sports court boundaries",
+  },
 ];
 
 export function GridTemplatesDialog({

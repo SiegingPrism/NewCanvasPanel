@@ -1,5 +1,11 @@
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { AIEngine, aiErrorMessage } from "@/lib/ai/aiEngine";
 import { useWhiteboard } from "@/lib/whiteboard/store";
@@ -66,7 +72,9 @@ export function DocumentViewerDialog({
       const isPptx = lowerName.endsWith(".pptx");
 
       if (lowerName.endsWith(".doc") || lowerName.endsWith(".ppt")) {
-        toast.error("Legacy .doc and .ppt binary formats are not supported. Please save as .docx or .pptx.");
+        toast.error(
+          "Legacy .doc and .ppt binary formats are not supported. Please save as .docx or .pptx.",
+        );
         setLoading(false);
         setFile(null);
         return;
@@ -84,21 +92,19 @@ export function DocumentViewerDialog({
           for (let pageNum = 1; pageNum <= maxPages; pageNum++) {
             const page = await pdf.getPage(pageNum);
             const textContent = await page.getTextContent();
-            const pageText = textContent.items
-              .map((item: any) => item.str || "")
-              .join(" ");
+            const pageText = textContent.items.map((item: any) => item.str || "").join(" ");
             if (pageText.trim()) {
               fullText += `--- Page ${pageNum} ---\n${pageText.trim()}\n\n`;
             }
           }
           setDocContent(
             fullText.trim() ||
-              `PDF Document: ${f.name}\n(Page text is scanned/image-based or contains no selectable text layer)`
+              `PDF Document: ${f.name}\n(Page text is scanned/image-based or contains no selectable text layer)`,
           );
         } catch (pdfErr) {
           console.warn("pdfjs-dist extraction failed:", pdfErr);
           setDocContent(
-            `Could not read text from "${f.name}". The document may be password-protected or scanned images without a text layer.`
+            `Could not read text from "${f.name}". The document may be password-protected or scanned images without a text layer.`,
           );
           toast.error("Could not extract text from PDF.");
         }
@@ -129,17 +135,15 @@ export function DocumentViewerDialog({
           let fullPptText = "";
           for (let i = 0; i < slideFiles.length; i++) {
             const xml = await zip.files[slideFiles[i]].async("text");
-            const matches = Array.from(xml.matchAll(/<a:t[^>]*>(.*?)<\/a:t>/gi)).map(
-              (m) => decodeXmlEntities(m[1])
+            const matches = Array.from(xml.matchAll(/<a:t[^>]*>(.*?)<\/a:t>/gi)).map((m) =>
+              decodeXmlEntities(m[1]),
             );
             const slideText = matches.join(" ").trim();
             if (slideText) {
               fullPptText += `--- Slide ${i + 1} ---\n${slideText}\n\n`;
             }
           }
-          setDocContent(
-            fullPptText.trim() || `Presentation: ${f.name} (No slide text found)`
-          );
+          setDocContent(fullPptText.trim() || `Presentation: ${f.name} (No slide text found)`);
         } catch (pptErr) {
           console.warn("pptx extraction fallback:", pptErr);
           toast.error("Failed to parse PowerPoint (.pptx) presentation.");
@@ -265,7 +269,8 @@ export function DocumentViewerDialog({
             PDF & Document Intelligence
           </DialogTitle>
           <DialogDescription>
-            Upload a PDF, presentation, lecture notes, or document for instant AI analysis, quiz & flashcard generation.
+            Upload a PDF, presentation, lecture notes, or document for instant AI analysis, quiz &
+            flashcard generation.
           </DialogDescription>
         </DialogHeader>
 
@@ -316,7 +321,11 @@ export function DocumentViewerDialog({
                 disabled={loading}
                 className="gap-1.5 text-xs h-9"
               >
-                {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5 text-amber-500" />}
+                {loading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                )}
                 Summarize
               </Button>
 
@@ -348,13 +357,17 @@ export function DocumentViewerDialog({
           {summary && (
             <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-3 animate-in fade-in">
               <div>
-                <h4 className="text-xs font-bold uppercase tracking-wider text-primary">Executive Summary</h4>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-primary">
+                  Executive Summary
+                </h4>
                 <p className="text-xs text-foreground mt-1 leading-relaxed">{summary.overview}</p>
               </div>
 
               {summary.keyPoints.length > 0 && (
                 <div>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-primary">Key Takeaways</h4>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-primary">
+                    Key Takeaways
+                  </h4>
                   <ul className="mt-1 space-y-1">
                     {summary.keyPoints.map((kp, idx) => (
                       <li key={idx} className="text-xs text-foreground/90 flex items-start gap-1.5">

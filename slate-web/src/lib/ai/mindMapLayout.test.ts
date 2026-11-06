@@ -3,14 +3,46 @@ import { layoutMindMap, type MindMapNode } from "./aiEngine";
 
 /** Builds a map the same way generateMindMap does (x/y = centres before layout). */
 function radial(branches: [string, string[]][], sx = 600, sy = 400): MindMapNode {
-  const root: MindMapNode = { id: "r", label: "Photosynthesis in green plants", x: sx, y: sy, w: 0, h: 0, level: 0, color: "#000", children: [] };
+  const root: MindMapNode = {
+    id: "r",
+    label: "Photosynthesis in green plants",
+    x: sx,
+    y: sy,
+    w: 0,
+    h: 0,
+    level: 0,
+    color: "#000",
+    children: [],
+  };
   branches.forEach(([bl, subs], i) => {
     const angle = (i * 2 * Math.PI) / branches.length - Math.PI / 2;
-    const bx = sx + Math.cos(angle) * 300, by = sy + Math.sin(angle) * 230;
-    const b: MindMapNode = { id: "b" + i, label: bl, x: bx, y: by, w: 0, h: 0, level: 1, color: "#000", parentId: "r", children: [] };
+    const bx = sx + Math.cos(angle) * 300,
+      by = sy + Math.sin(angle) * 230;
+    const b: MindMapNode = {
+      id: "b" + i,
+      label: bl,
+      x: bx,
+      y: by,
+      w: 0,
+      h: 0,
+      level: 1,
+      color: "#000",
+      parentId: "r",
+      children: [],
+    };
     subs.forEach((l, j) => {
       const sa = subs.length > 1 ? angle - 0.45 + (j * 0.9) / (subs.length - 1) : angle;
-      b.children!.push({ id: `s${i}${j}`, label: l, x: bx + Math.cos(sa) * 210, y: by + Math.sin(sa) * 150, w: 0, h: 0, level: 2, color: "#000", parentId: b.id });
+      b.children!.push({
+        id: `s${i}${j}`,
+        label: l,
+        x: bx + Math.cos(sa) * 210,
+        y: by + Math.sin(sa) * 150,
+        w: 0,
+        h: 0,
+        level: 2,
+        color: "#000",
+        parentId: b.id,
+      });
     });
     root.children!.push(b);
   });
@@ -32,7 +64,8 @@ describe("mind map layout", () => {
       for (const n of all) expect(n.w).toBeGreaterThanOrEqual(n.label.length * 7);
       for (let i = 0; i < all.length; i++)
         for (let j = i + 1; j < all.length; j++) {
-          const a = all[i], b = all[j];
+          const a = all[i],
+            b = all[j];
           const overlap = a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
           expect(overlap, `${a.label} overlaps ${b.label}`).toBe(false);
         }

@@ -19,7 +19,11 @@ function uid() {
 }
 
 const FORMULA_PRESETS = [
-  { label: "Quadratic Formula", latex: "x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}", cat: "Algebra" },
+  {
+    label: "Quadratic Formula",
+    latex: "x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}",
+    cat: "Algebra",
+  },
   { label: "Pythagorean Theorem", latex: "a^2 + b^2 = c^2", cat: "Geometry" },
   { label: "Parabola Function", latex: "f(x) = x^2 - 4", cat: "Algebra" },
   { label: "Euler's Identity", latex: "e^{i\\pi} + 1 = 0", cat: "Complex" },
@@ -27,7 +31,11 @@ const FORMULA_PRESETS = [
   { label: "Definite Integral", latex: "\\int_{a}^{b} f(x) \\, dx = F(b) - F(a)", cat: "Calculus" },
   { label: "Trig Identity", latex: "\\sin^2(\\theta) + \\cos^2(\\theta) = 1", cat: "Trigonometry" },
   { label: "Sine Wave", latex: "f(x) = \\sin(x)", cat: "Functions" },
-  { label: "Normal Distribution", latex: "f(x) = \\frac{1}{\\sigma \\sqrt{2\\pi}} e^{-\\frac{(x-\\mu)^2}{2\\sigma^2}}", cat: "Stats" },
+  {
+    label: "Normal Distribution",
+    latex: "f(x) = \\frac{1}{\\sigma \\sqrt{2\\pi}} e^{-\\frac{(x-\\mu)^2}{2\\sigma^2}}",
+    cat: "Stats",
+  },
   { label: "Einstein Energy", latex: "E = m c^2", cat: "Physics" },
   { label: "Exponential Growth", latex: "P(t) = P_0 e^{rt}", cat: "Calculus" },
   { label: "Circle Area", latex: "A = \\pi r^2", cat: "Geometry" },

@@ -17,15 +17,55 @@ function uid() {
 }
 
 const MAPS = [
-  { id: "world", name: "World Map", file: "/geo_maps/world_map.svg", region: "Global Continents & Oceans" },
-  { id: "asia", name: "Asia", file: "/geo_maps/Asia.svg", region: "Largest continent, 48 countries" },
-  { id: "europe", name: "Europe", file: "/geo_maps/Europe.svg", region: "European nations & borders" },
+  {
+    id: "world",
+    name: "World Map",
+    file: "/geo_maps/world_map.svg",
+    region: "Global Continents & Oceans",
+  },
+  {
+    id: "asia",
+    name: "Asia",
+    file: "/geo_maps/Asia.svg",
+    region: "Largest continent, 48 countries",
+  },
+  {
+    id: "europe",
+    name: "Europe",
+    file: "/geo_maps/Europe.svg",
+    region: "European nations & borders",
+  },
   { id: "africa", name: "Africa", file: "/geo_maps/Africa.svg", region: "54 sovereign countries" },
-  { id: "north_america", name: "North America", file: "/geo_maps/North_America.svg", region: "USA, Canada, Mexico & Caribbean" },
-  { id: "south_america", name: "South America", file: "/geo_maps/South_America.svg", region: "12 South American nations" },
-  { id: "australia", name: "Australia & Oceania", file: "/geo_maps/Australia.svg", region: "Australia & surrounding islands" },
-  { id: "india", name: "India Political Map", file: "/geo_maps/India_map.svg", region: "States & Union Territories" },
-  { id: "antarctica", name: "Antarctica", file: "/geo_maps/Antractica.svg", region: "Southern polar region" },
+  {
+    id: "north_america",
+    name: "North America",
+    file: "/geo_maps/North_America.svg",
+    region: "USA, Canada, Mexico & Caribbean",
+  },
+  {
+    id: "south_america",
+    name: "South America",
+    file: "/geo_maps/South_America.svg",
+    region: "12 South American nations",
+  },
+  {
+    id: "australia",
+    name: "Australia & Oceania",
+    file: "/geo_maps/Australia.svg",
+    region: "Australia & surrounding islands",
+  },
+  {
+    id: "india",
+    name: "India Political Map",
+    file: "/geo_maps/India_map.svg",
+    region: "States & Union Territories",
+  },
+  {
+    id: "antarctica",
+    name: "Antarctica",
+    file: "/geo_maps/Antractica.svg",
+    region: "Southern polar region",
+  },
 ];
 
 export function GeoMapsDialog({
@@ -72,7 +112,8 @@ export function GeoMapsDialog({
             <span>Interactive Geography & Historical Maps</span>
           </DialogTitle>
           <DialogDescription className="text-xs">
-            Insert high-resolution maps onto the whiteboard to draw trade routes, borders, and geography notes.
+            Insert high-resolution maps onto the whiteboard to draw trade routes, borders, and
+            geography notes.
           </DialogDescription>
         </DialogHeader>
 

@@ -50,4 +50,3 @@ export async function importLessonFile(file: File): Promise<SlateLessonBundle> {
 
   return data as SlateLessonBundle;
 }
-

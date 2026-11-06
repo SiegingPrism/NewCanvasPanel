@@ -163,7 +163,11 @@ function NotesPage() {
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder={useSemanticSearch ? "Semantic AI Search across concepts & notes..." : "Search notes (title & content)..."}
+                placeholder={
+                  useSemanticSearch
+                    ? "Semantic AI Search across concepts & notes..."
+                    : "Search notes (title & content)..."
+                }
                 className="pl-9"
               />
             </div>

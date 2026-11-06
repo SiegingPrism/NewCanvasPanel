@@ -1,5 +1,13 @@
 import { create } from "zustand";
-import type { CanvasObject, Page, ToolId, WhiteboardState, PanelDiagonal, SyncStatus, ZoneToolSetting } from "./types";
+import type {
+  CanvasObject,
+  Page,
+  ToolId,
+  WhiteboardState,
+  PanelDiagonal,
+  SyncStatus,
+  ZoneToolSetting,
+} from "./types";
 import { pagesForTemplate, type TemplateKey } from "./templates";
 import { detectSmartBoardProfile } from "./smartBoardProfiles";
 import {
@@ -138,7 +146,8 @@ type Actions = {
   toggleBoardMode: () => void;
 };
 
-type State = WhiteboardState & PersistShape & { activeBoardId: string | null; hydrated: boolean; clipboard: CanvasObject[] };
+type State = WhiteboardState &
+  PersistShape & { activeBoardId: string | null; hydrated: boolean; clipboard: CanvasObject[] };
 
 const cloudSyncTimers: Record<string, ReturnType<typeof setTimeout>> = {};
 const LS_DELETED_BOARDS_KEY = "slate_deleted_boards_tombstones";
@@ -401,7 +410,7 @@ function loadSmartBoardSettings(): {
         : "both";
     return {
       boardMode: isBoard,
-      panelSize: rawSize && validSizes.includes(rawSize) ? rawSize : (detected || "75"),
+      panelSize: rawSize && validSizes.includes(rawSize) ? rawSize : detected || "75",
       lockBoard: isBoard,
       simpleMode: rawSimple === "true",
       reachabilityOffset: 0,
@@ -670,7 +679,7 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
       const bd = s.boardData[boardId] || { pages: [emptyPage()], activePageId: "" };
       const targetPageId = bd.activePageId || bd.pages[0]?.id || "";
       const pages = bd.pages.map((p) =>
-        p.id === targetPageId ? { ...p, objects: [...p.objects, ...objects] } : p
+        p.id === targetPageId ? { ...p, objects: [...p.objects, ...objects] } : p,
       );
       const boardData = { ...s.boardData, [boardId]: { ...bd, pages } };
       const meta = s.boards[boardId];
@@ -689,9 +698,7 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
     },
     setObjects: (objects: CanvasObject[]) => {
       const s = get();
-      const pages = s.pages.map((p) =>
-        p.id === s.activePageId ? { ...p, objects } : p
-      );
+      const pages = s.pages.map((p) => (p.id === s.activePageId ? { ...p, objects } : p));
       set(syncActive({ ...s, pages }));
     },
     updateObject: (id, patch) => {
@@ -774,11 +781,16 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
       const nextPages = typeof updater === "function" ? updater(s.pages) : updater;
       const activePageId =
         newActivePageId ||
-        (nextPages.some((p) => p.id === s.activePageId) ? s.activePageId : (nextPages[0]?.id || s.activePageId));
+        (nextPages.some((p) => p.id === s.activePageId)
+          ? s.activePageId
+          : nextPages[0]?.id || s.activePageId);
       set(syncActive({ ...s, pages: nextPages, activePageId }));
       get().pushHistory();
     },
-    undoZone: (zoneIdx: number, screenWidth = typeof window !== "undefined" ? window.innerWidth : 1920) => {
+    undoZone: (
+      zoneIdx: number,
+      screenWidth = typeof window !== "undefined" ? window.innerWidth : 1920,
+    ) => {
       const s = get();
       const activeP = s.pages.find((p) => p.id === s.activePageId) || s.pages[0];
       if (!activeP || !activeP.objects.length) return;
@@ -791,7 +803,11 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
       const xMaxWorld = (rightScreen - s.camera.x) / s.camera.zoom;
 
       const isObjInZone = (obj: CanvasObject) => {
-        if ("points" in obj && Array.isArray((obj as any).points) && (obj as any).points.length > 0) {
+        if (
+          "points" in obj &&
+          Array.isArray((obj as any).points) &&
+          (obj as any).points.length > 0
+        ) {
           const pts = (obj as any).points as { x: number; y: number }[];
           const avgX = pts.reduce((sum: number, pt: { x: number }) => sum + pt.x, 0) / pts.length;
           return avgX >= xMinWorld && avgX <= xMaxWorld;
@@ -820,7 +836,10 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
       set(syncActive({ ...s, pages: nextPages }));
       get().pushHistory();
     },
-    clearZone: (zoneIdx: number, screenWidth = typeof window !== "undefined" ? window.innerWidth : 1920) => {
+    clearZone: (
+      zoneIdx: number,
+      screenWidth = typeof window !== "undefined" ? window.innerWidth : 1920,
+    ) => {
       const s = get();
       const activeP = s.pages.find((p) => p.id === s.activePageId) || s.pages[0];
       if (!activeP || !activeP.objects.length) return;
@@ -833,7 +852,11 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
       const xMaxWorld = (rightScreen - s.camera.x) / s.camera.zoom;
 
       const isObjInZone = (obj: CanvasObject) => {
-        if ("points" in obj && Array.isArray((obj as any).points) && (obj as any).points.length > 0) {
+        if (
+          "points" in obj &&
+          Array.isArray((obj as any).points) &&
+          (obj as any).points.length > 0
+        ) {
           const pts = (obj as any).points as { x: number; y: number }[];
           const avgX = pts.reduce((sum: number, pt: { x: number }) => sum + pt.x, 0) / pts.length;
           return avgX >= xMinWorld && avgX <= xMaxWorld;
@@ -901,7 +924,15 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
         id: uid(),
         objects: tPages[0].objects.map((o) => ({ ...o, id: uid() })),
       };
-      set(syncActive({ ...s, pages: [...s.pages, newPage], activePageId: newPage.id, selectedId: null, selectedIds: [] }));
+      set(
+        syncActive({
+          ...s,
+          pages: [...s.pages, newPage],
+          activePageId: newPage.id,
+          selectedId: null,
+          selectedIds: [],
+        }),
+      );
       get().pushHistory();
     },
     removePage: (id) => {
@@ -934,7 +965,8 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
     },
     pushHistory: () => {
       const s = get();
-      const snap = structuredClone(s.pages);
+      // Store immutable page reference instead of 50 deep clones to save memory on heavy decks
+      const snap = s.pages;
       const history = [...s.history.slice(0, s.historyIndex + 1), snap].slice(-50);
       set({ history, historyIndex: history.length - 1 });
     },
@@ -942,7 +974,7 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
       const s = get();
       if (s.historyIndex <= 0) return;
       const i = s.historyIndex - 1;
-      const pages = structuredClone(s.history[i]);
+      const pages = s.history[i];
       const activePageId = pages.some((p) => p.id === s.activePageId)
         ? s.activePageId
         : pages[pages.length - 1]?.id || s.activePageId;
@@ -952,7 +984,7 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
       const s = get();
       if (s.historyIndex >= s.history.length - 1) return;
       const i = s.historyIndex + 1;
-      const pages = structuredClone(s.history[i]);
+      const pages = s.history[i];
       const activePageId = pages.some((p) => p.id === s.activePageId)
         ? s.activePageId
         : pages[pages.length - 1]?.id || s.activePageId;
@@ -987,8 +1019,8 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
         opts?.pages && opts.pages.length
           ? opts.pages
           : templateKey
-          ? pagesForTemplate(templateKey)
-          : [emptyPage()];
+            ? pagesForTemplate(templateKey)
+            : [emptyPage()];
       const title = opts?.title ?? "Untitled board";
       const meta: BoardMeta = {
         id,
@@ -1038,7 +1070,9 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
       }
 
       const safePages = Array.isArray(bd.pages) && bd.pages.length > 0 ? bd.pages : [emptyPage()];
-      const safeActivePageId = safePages.some((p) => p.id === bd.activePageId) ? bd.activePageId : safePages[0].id;
+      const safeActivePageId = safePages.some((p) => p.id === bd.activePageId)
+        ? bd.activePageId
+        : safePages[0].id;
 
       // sync outgoing
       if (s.activeBoardId && s.boards[s.activeBoardId]) {
@@ -1058,7 +1092,7 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
         activeBoardId: id,
         pages: safePages,
         activePageId: safeActivePageId,
-        history: [structuredClone(safePages)],
+        history: [safePages],
         historyIndex: 0,
         selectedId: null,
         camera: { x: 0, y: 0, zoom: 1 },
@@ -1248,9 +1282,13 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
               if (!mergedBoardOrder.includes(cb.id)) {
                 mergedBoardOrder.push(cb.id);
               }
-            } else if (cb.updated_at && new Date(cb.updated_at).getTime() > localMeta.updatedAt + 2000) {
+            } else if (
+              cb.updated_at &&
+              new Date(cb.updated_at).getTime() > localMeta.updatedAt + 2000
+            ) {
               // Remote board has newer edits than local! Keep both by saving remote as "[Title] (copy)"
-              const remotePages = Array.isArray(cb.pages) && cb.pages.length ? cb.pages : [emptyPage()];
+              const remotePages =
+                Array.isArray(cb.pages) && cb.pages.length ? cb.pages : [emptyPage()];
               const copyId = uid();
               const copyTitle = `${cb.title || "Untitled board"} (copy)`;
               mergedBoards[copyId] = {
@@ -1431,7 +1469,10 @@ if (typeof window !== "undefined") {
           activePageId: activeData?.activePageId || prev.activePageId,
         };
       });
-      useWhiteboard.getState().syncWithCloud().catch(() => {});
+      useWhiteboard
+        .getState()
+        .syncWithCloud()
+        .catch(() => {});
     })
     .catch((err) => {
       clearTimeout(hydrationTimer);

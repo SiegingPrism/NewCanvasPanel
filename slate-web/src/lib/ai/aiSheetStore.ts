@@ -52,4 +52,3 @@ export const useAISheetStore = create<AISheetStore>((set) => ({
       return { isOpen: true };
     }),
 }));
-

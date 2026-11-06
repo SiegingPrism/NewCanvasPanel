@@ -22,7 +22,8 @@ describe("handwriting fonts for translation", () => {
       const s = scriptFor(l.code);
       expect(s.font, l.code).toBeTruthy();
       // only English-family languages and Latin-script European ones should fall back to Latin
-      if (s.font === "Caveat") expect(["en", "es", "fr", "de", "pt", "ru"]).toContain(l.code.split("-")[0]);
+      if (s.font === "Caveat")
+        expect(["en", "es", "fr", "de", "pt", "ru"]).toContain(l.code.split("-")[0]);
     }
   });
 

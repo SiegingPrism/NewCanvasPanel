@@ -19,15 +19,8 @@ interface PageSorterDialogProps {
 }
 
 export function PageSorterDialog({ open, onOpenChange }: PageSorterDialogProps) {
-  const {
-    pages,
-    activePageId,
-    setActivePage,
-    addPage,
-    removePage,
-    duplicatePage,
-    reorderPages,
-  } = useWhiteboard();
+  const { pages, activePageId, setActivePage, addPage, removePage, duplicatePage, reorderPages } =
+    useWhiteboard();
 
   const handleDuplicatePage = (pageId: string) => {
     duplicatePage(pageId);
@@ -70,7 +63,7 @@ export function PageSorterDialog({ open, onOpenChange }: PageSorterDialogProps) 
                     "group relative flex flex-col rounded-2xl border-2 p-2.5 transition-all bg-muted/20 select-none",
                     isActive
                       ? "border-primary bg-primary/5 shadow-md ring-2 ring-primary/30"
-                      : "border-border/80 hover:border-primary/50 hover:bg-muted/40"
+                      : "border-border/80 hover:border-primary/50 hover:bg-muted/40",
                   )}
                 >
                   {/* Thumbnail Card */}
@@ -81,9 +74,7 @@ export function PageSorterDialog({ open, onOpenChange }: PageSorterDialogProps) 
                     }}
                     className="relative flex h-28 w-full cursor-pointer flex-col items-center justify-center rounded-xl bg-background border border-border/60 shadow-inner overflow-hidden"
                   >
-                    <span className="text-xs font-black text-foreground">
-                      Slide {idx + 1}
-                    </span>
+                    <span className="text-xs font-black text-foreground">Slide {idx + 1}</span>
                     <span className="text-[10px] text-muted-foreground mt-1">
                       {p.objects.length} items · {p.background}
                     </span>
@@ -138,4 +129,3 @@ export function PageSorterDialog({ open, onOpenChange }: PageSorterDialogProps) 
     </Dialog>
   );
 }
-

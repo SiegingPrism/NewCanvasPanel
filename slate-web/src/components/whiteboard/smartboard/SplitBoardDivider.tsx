@@ -13,14 +13,8 @@ const ZONE_COLORS = [
 ];
 
 export function SplitBoardDivider() {
-  const {
-    splitBoardZones,
-    zoneSettings,
-    setZoneTool,
-    setZoneColor,
-    undoZone,
-    clearZone,
-  } = useWhiteboard();
+  const { splitBoardZones, zoneSettings, setZoneTool, setZoneColor, undoZone, clearZone } =
+    useWhiteboard();
 
   if (splitBoardZones <= 1) return null;
 
@@ -51,7 +45,7 @@ export function SplitBoardDivider() {
             key={zoneIdx}
             className={cn(
               "relative flex-1 h-full",
-              !isLast && "border-r-2 border-dashed border-primary/30"
+              !isLast && "border-r-2 border-dashed border-primary/30",
             )}
           >
             {/* Zone Control Pill */}
@@ -73,7 +67,7 @@ export function SplitBoardDivider() {
                         "h-7 w-7 rounded-lg flex items-center justify-center transition active:scale-95 cursor-pointer",
                         isActive
                           ? "bg-primary text-primary-foreground shadow-xs"
-                          : "text-muted-foreground hover:bg-muted"
+                          : "text-muted-foreground hover:bg-muted",
                       )}
                       title={`Zone ${zoneIdx + 1}: ${t}`}
                     >
@@ -95,7 +89,9 @@ export function SplitBoardDivider() {
                       onClick={() => setZoneColor(zoneIdx, c.value)}
                       className={cn(
                         "h-5 w-5 rounded-full transition-transform active:scale-90 border cursor-pointer",
-                        isActive ? "scale-110 ring-2 ring-primary ring-offset-1" : "opacity-80 hover:opacity-100"
+                        isActive
+                          ? "scale-110 ring-2 ring-primary ring-offset-1"
+                          : "opacity-80 hover:opacity-100",
                       )}
                       style={{ backgroundColor: c.value }}
                       title={`Zone ${zoneIdx + 1}: ${c.name}`}
@@ -132,4 +128,3 @@ export function SplitBoardDivider() {
     </div>
   );
 }
-

@@ -40,7 +40,13 @@ export interface LanguageOption {
 export const SUPPORTED_LANGUAGES: LanguageOption[] = [
   // ---------------- Indian Languages (22 Constitutional + English India) ----------------
   { code: "hi-IN", mlkitTag: "hi", name: "Hindi", nativeName: "हिन्दी", category: "indian" },
-  { code: "en-IN", mlkitTag: "en-IN", name: "English (India)", nativeName: "English (India)", category: "indian" },
+  {
+    code: "en-IN",
+    mlkitTag: "en-IN",
+    name: "English (India)",
+    nativeName: "English (India)",
+    category: "indian",
+  },
   { code: "bn-IN", mlkitTag: "bn", name: "Bengali", nativeName: "বাংলা", category: "indian" },
   { code: "te-IN", mlkitTag: "te", name: "Telugu", nativeName: "తెలుగు", category: "indian" },
   { code: "mr-IN", mlkitTag: "mr", name: "Marathi", nativeName: "मराठी", category: "indian" },
@@ -52,8 +58,20 @@ export const SUPPORTED_LANGUAGES: LanguageOption[] = [
   { code: "ml-IN", mlkitTag: "ml", name: "Malayalam", nativeName: "മലയാളം", category: "indian" },
   { code: "pa-IN", mlkitTag: "pa", name: "Punjabi", nativeName: "ਪੰਜਾਬੀ", category: "indian" },
   { code: "as-IN", mlkitTag: "as", name: "Assamese", nativeName: "অসমীয়া", category: "indian" },
-  { code: "sa-IN", mlkitTag: "sa-Deva-IN", name: "Sanskrit", nativeName: "संस्कृतम्", category: "indian" },
-  { code: "mai-IN", mlkitTag: "mai-IN", name: "Maithili", nativeName: "मैथिली", category: "indian" },
+  {
+    code: "sa-IN",
+    mlkitTag: "sa-Deva-IN",
+    name: "Sanskrit",
+    nativeName: "संस्कृतम्",
+    category: "indian",
+  },
+  {
+    code: "mai-IN",
+    mlkitTag: "mai-IN",
+    name: "Maithili",
+    nativeName: "मैथिली",
+    category: "indian",
+  },
   { code: "sat-IN", mlkitTag: "sat", name: "Santali", nativeName: "ᱥᱟᱱᱛᱟᱲᱤ", category: "indian" },
   { code: "ks-IN", mlkitTag: "ks", name: "Kashmiri", nativeName: "كٲشُر", category: "indian" },
   { code: "ne-NP", mlkitTag: "ne", name: "Nepali", nativeName: "नेपाली", category: "indian" },
@@ -64,15 +82,57 @@ export const SUPPORTED_LANGUAGES: LanguageOption[] = [
   { code: "brx-IN", mlkitTag: "brx-Deva", name: "Bodo", nativeName: "बड़ो", category: "indian" },
 
   // ---------------- International Languages ----------------
-  { code: "en-US", mlkitTag: "en-US", name: "American English", nativeName: "English (US)", category: "international" },
-  { code: "en-GB", mlkitTag: "en-GB", name: "British English", nativeName: "English (UK)", category: "international" },
-  { code: "es-ES", mlkitTag: "es-ES", name: "Spanish", nativeName: "Español", category: "international" },
-  { code: "fr-FR", mlkitTag: "fr-FR", name: "French", nativeName: "Français", category: "international" },
-  { code: "de-DE", mlkitTag: "de-DE", name: "German", nativeName: "Deutsch", category: "international" },
+  {
+    code: "en-US",
+    mlkitTag: "en-US",
+    name: "American English",
+    nativeName: "English (US)",
+    category: "international",
+  },
+  {
+    code: "en-GB",
+    mlkitTag: "en-GB",
+    name: "British English",
+    nativeName: "English (UK)",
+    category: "international",
+  },
+  {
+    code: "es-ES",
+    mlkitTag: "es-ES",
+    name: "Spanish",
+    nativeName: "Español",
+    category: "international",
+  },
+  {
+    code: "fr-FR",
+    mlkitTag: "fr-FR",
+    name: "French",
+    nativeName: "Français",
+    category: "international",
+  },
+  {
+    code: "de-DE",
+    mlkitTag: "de-DE",
+    name: "German",
+    nativeName: "Deutsch",
+    category: "international",
+  },
   { code: "ja", mlkitTag: "ja", name: "Japanese", nativeName: "日本語", category: "international" },
-  { code: "zh-CN", mlkitTag: "zh-Hani-CN", name: "Chinese (Simplified)", nativeName: "简体中文", category: "international" },
+  {
+    code: "zh-CN",
+    mlkitTag: "zh-Hani-CN",
+    name: "Chinese (Simplified)",
+    nativeName: "简体中文",
+    category: "international",
+  },
   { code: "ar", mlkitTag: "ar", name: "Arabic", nativeName: "العربية", category: "international" },
-  { code: "pt-BR", mlkitTag: "pt-BR", name: "Portuguese", nativeName: "Português", category: "international" },
+  {
+    code: "pt-BR",
+    mlkitTag: "pt-BR",
+    name: "Portuguese",
+    nativeName: "Português",
+    category: "international",
+  },
   { code: "ru", mlkitTag: "ru", name: "Russian", nativeName: "Русский", category: "international" },
 ];
 
@@ -159,7 +219,13 @@ export type RecognizerStatus =
 
 const SETTINGS_KEY = "slate_ink_settings_v1";
 const LANGUAGE_KEY = "slate_ink_language_v1";
-const DEFAULTS: InkSettings = { livePreview: true, autoType: false, scratchOut: true, translateLive: false, textFont: "plain" };
+const DEFAULTS: InkSettings = {
+  livePreview: true,
+  autoType: false,
+  scratchOut: true,
+  translateLive: false,
+  textFont: "plain",
+};
 const TRANSLATE_KEY = "slate_ink_translate_to_v1";
 
 function loadTranslateTo(): string {
@@ -180,10 +246,13 @@ function loadSettings(): InkSettings {
       return {
         ...DEFAULTS,
         ...parsed,
-        livePreview: typeof parsed.livePreview === "boolean" ? parsed.livePreview : DEFAULTS.livePreview,
+        livePreview:
+          typeof parsed.livePreview === "boolean" ? parsed.livePreview : DEFAULTS.livePreview,
         autoType: typeof parsed.autoType === "boolean" ? parsed.autoType : DEFAULTS.autoType,
-        scratchOut: typeof parsed.scratchOut === "boolean" ? parsed.scratchOut : DEFAULTS.scratchOut,
-        translateLive: typeof parsed.translateLive === "boolean" ? parsed.translateLive : DEFAULTS.translateLive,
+        scratchOut:
+          typeof parsed.scratchOut === "boolean" ? parsed.scratchOut : DEFAULTS.scratchOut,
+        translateLive:
+          typeof parsed.translateLive === "boolean" ? parsed.translateLive : DEFAULTS.translateLive,
         textFont: typeof parsed.textFont === "string" ? parsed.textFont : DEFAULTS.textFont,
       };
     }
@@ -202,7 +271,6 @@ function loadLanguage(): string {
   }
   return deviceLanguageCode();
 }
-
 
 type InkState = InkSettings & {
   status: RecognizerStatus;
@@ -256,7 +324,10 @@ export const useInk = create<InkState>((set, get) => ({
       }
     }
     try {
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify({ livePreview, autoType, scratchOut, translateLive, textFont }));
+      localStorage.setItem(
+        SETTINGS_KEY,
+        JSON.stringify({ livePreview, autoType, scratchOut, translateLive, textFont }),
+      );
     } catch {
       /* ignore */
     }
@@ -272,7 +343,12 @@ export const useInk = create<InkState>((set, get) => ({
   setLangPickerOpen: (langPickerOpen) => set({ langPickerOpen }),
   setStatus: (status) => set({ status }),
   setTranslateTo: (code) => {
-    set((s) => ({ translateTo: code, translatePickerOpen: false, translatePickerForSelection: false, langVersion: (s.langVersion || 0) + 1 }));
+    set((s) => ({
+      translateTo: code,
+      translatePickerOpen: false,
+      translatePickerForSelection: false,
+      langVersion: (s.langVersion || 0) + 1,
+    }));
     void ensureHandwritingFont(scriptFor(code).font);
     try {
       localStorage.setItem(TRANSLATE_KEY, code);
@@ -295,7 +371,10 @@ export const useInk = create<InkState>((set, get) => ({
     set({ translateLive: true });
     try {
       const currentSettings = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}");
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...currentSettings, translateLive: true }));
+      localStorage.setItem(
+        SETTINGS_KEY,
+        JSON.stringify({ ...currentSettings, translateLive: true }),
+      );
     } catch {}
     get().setTranslateTo(code);
     return true;
@@ -453,7 +532,9 @@ const inFlight = new Map<string, Promise<Recognition | null>>();
 
 function cacheKey(strokes: InkStroke[], translateTo?: string) {
   const lang = useInk.getState().language;
-  return `${lang}>${translateTo ?? ""}::` + strokes.map((s) => `${s.id}:${s.points.length}`).join("|");
+  return (
+    `${lang}>${translateTo ?? ""}::` + strokes.map((s) => `${s.id}:${s.points.length}`).join("|")
+  );
 }
 
 function fail(status: RecognizerStatus, message: string): null {
@@ -522,7 +603,8 @@ export async function recognizeInk(
       if (!text) return fail("error", "Couldn't read that — try writing a little larger.");
     } else {
       if (!isOnline()) return fail("offline", "You're offline — handwriting needs internet.");
-      if (!aiConfigured()) return fail("unavailable", "AI isn't set up — sign in or add a Gemini key in Settings.");
+      if (!aiConfigured())
+        return fail("unavailable", "AI isn't set up — sign in or add a Gemini key in Settings.");
       const rendered = renderInkImage(strokes);
       if (!rendered) {
         return null;
@@ -533,7 +615,10 @@ export async function recognizeInk(
 
       const lang = findLanguage(useInk.getState().language);
       const timeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new AIError("timeout", "The AI took too long to read your writing.")), RECOGNITION_TIMEOUT_MS),
+        setTimeout(
+          () => reject(new AIError("timeout", "The AI took too long to read your writing.")),
+          RECOGNITION_TIMEOUT_MS,
+        ),
       );
       try {
         if (translateTo) {
@@ -578,7 +663,8 @@ export async function recognizeInk(
           useInk.setState({ status: "idle", lastError: null });
           return null;
         }
-        if (code === "offline") return fail("offline", "You're offline — handwriting needs internet.");
+        if (code === "offline")
+          return fail("offline", "You're offline — handwriting needs internet.");
         return fail("error", aiErrorMessage(err));
       }
     }
@@ -591,7 +677,9 @@ export async function recognizeInk(
       text: clean,
       alternatives,
       source: "cloud",
-      ...(translateTo ? { original: original || undefined, fromLanguage, translatedTo: translateTo } : {}),
+      ...(translateTo
+        ? { original: original || undefined, fromLanguage, translatedTo: translateTo }
+        : {}),
     };
 
     const replyReceivedAt = Date.now();

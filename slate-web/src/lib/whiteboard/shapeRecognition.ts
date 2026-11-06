@@ -151,7 +151,7 @@ function countCorners(points: Point[], isClosed = false): { count: number; corne
       const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
       if (angle < Math.PI - minAngleThresh) {
         const isFarFromExisting = corners.every(
-          (c) => Math.hypot(pStart.x - c.x, pStart.y - c.y) > 16
+          (c) => Math.hypot(pStart.x - c.x, pStart.y - c.y) > 16,
         );
         if (isFarFromExisting) {
           corners.unshift(pStart);
@@ -349,7 +349,10 @@ export function recognizeShape(
   }
 
   // Reject spirals: multi-turn loops (more than 1.4 turns ~ 8.8 rad) that do not close onto their start point
-  if ((Math.abs(totalAngleDelta) >= 8.8 && endpointDist > 0.20 * maxSpan) || Math.abs(totalAngleDelta) >= 10.5) {
+  if (
+    (Math.abs(totalAngleDelta) >= 8.8 && endpointDist > 0.2 * maxSpan) ||
+    Math.abs(totalAngleDelta) >= 10.5
+  ) {
     return null;
   }
 
@@ -456,8 +459,6 @@ export function recognizeShape(
     };
   }
 
-
-
   // ----------------------------------------------------
   // D. Check CROSS / PLUS (4 arms, notches)
   // ----------------------------------------------------
@@ -479,7 +480,9 @@ export function recognizeShape(
   // E. Check CIRCLE / ELLIPSE
   // ----------------------------------------------------
   // Compute principal axes using second moments to support tilted ellipses
-  let sxx = 0, syy = 0, sxy = 0;
+  let sxx = 0,
+    syy = 0,
+    sxy = 0;
   for (const p of points) {
     sxx += (p.x - cx) ** 2;
     syy += (p.y - cy) ** 2;
@@ -489,7 +492,10 @@ export function recognizeShape(
   const cosT = Math.cos(-ellipseTheta);
   const sinT = Math.sin(-ellipseTheta);
 
-  let rotMinX = Infinity, rotMaxX = -Infinity, rotMinY = Infinity, rotMaxY = -Infinity;
+  let rotMinX = Infinity,
+    rotMaxX = -Infinity,
+    rotMinY = Infinity,
+    rotMaxY = -Infinity;
   for (const p of points) {
     const rx = (p.x - cx) * cosT - (p.y - cy) * sinT;
     const ry = (p.x - cx) * sinT + (p.y - cy) * cosT;
@@ -515,15 +521,12 @@ export function recognizeShape(
   const hasQuad = corners === 4 || rdpCount === 4 || isTiltedRect;
 
   const fivePoints =
-    rdpVertices.length >= 6
-      ? rdpVertices.slice(0, 5)
-      : cornerPts.length === 5
-        ? cornerPts
-        : [];
+    rdpVertices.length >= 6 ? rdpVertices.slice(0, 5) : cornerPts.length === 5 ? cornerPts : [];
   const isPentagon =
     !isTiltedRect &&
     (rdpCount === 5 || corners === 5) &&
-    (isPentagonLike(fivePoints) || (solidity > 0.85 && normRectDev >= 0.09 && !isRectangleAngles(fivePoints)));
+    (isPentagonLike(fivePoints) ||
+      (solidity > 0.85 && normRectDev >= 0.09 && !isRectangleAngles(fivePoints)));
 
   const isHexagon = (rdpCount === 6 || corners === 6) && solidity > 0.86 && ellipseDev > 0.07;
 
@@ -533,7 +536,10 @@ export function recognizeShape(
     !isHexagon &&
     ((ellipseDev < 0.16 && cornerElongation < 1.26) ||
       (hasFullLoop && ellipseDev < 0.24 && cornerElongation < 1.28) ||
-      (!hasQuad && rotEllipseDev < 0.18 && Math.max(rotA, rotB) / Math.min(rotA, rotB) < 1.25 && cornerElongation < 1.26));
+      (!hasQuad &&
+        rotEllipseDev < 0.18 &&
+        Math.max(rotA, rotB) / Math.min(rotA, rotB) < 1.25 &&
+        cornerElongation < 1.26));
 
   if (isCircle) {
     const diam = Math.max(w, h);
@@ -556,7 +562,7 @@ export function recognizeShape(
     !isHexagon &&
     solidity > 0.78 &&
     rotEllipseDev < 0.18 &&
-    (!isTiltedRect || rotEllipseDev < 0.10) &&
+    (!isTiltedRect || rotEllipseDev < 0.1) &&
     (normRectDev >= 0.03 || rotEllipseDev < 0.08);
 
   if (isEllipse) {
@@ -643,7 +649,7 @@ export function recognizeShape(
       (normRectDev < 0.08 && cornerElongation > 1.2 && corners <= 4) ||
       (corners === 4 && normRectDev < 0.13) ||
       (rdpCount === 4 && normRectDev < 0.13) ||
-      ((corners === 5 || rdpCount === 5) && normRectDev < 0.10 && isRectangleAngles(fivePoints)) ||
+      ((corners === 5 || rdpCount === 5) && normRectDev < 0.1 && isRectangleAngles(fivePoints)) ||
       (aspect < 0.45 && normRectDev < 0.15) ||
       (aspect > 2.2 && normRectDev < 0.15));
 
@@ -657,7 +663,10 @@ export function recognizeShape(
     let rotation: number | undefined;
     const ptsForAngle = (cornerPts.length === 4 ? cornerPts : quadCorners) || [];
     if (ptsForAngle.length >= 2) {
-      const angle = Math.atan2(ptsForAngle[1].y - ptsForAngle[0].y, ptsForAngle[1].x - ptsForAngle[0].x);
+      const angle = Math.atan2(
+        ptsForAngle[1].y - ptsForAngle[0].y,
+        ptsForAngle[1].x - ptsForAngle[0].x,
+      );
       // Mathematical positive modulo in JavaScript
       const mod = (n: number, m: number) => ((n % m) + m) % m;
       let normA = mod(angle + Math.PI / 4, Math.PI / 2) - Math.PI / 4;
@@ -896,8 +905,8 @@ function detectCloud(
   normRectDev: number,
   rotEllipseDev: number,
 ): boolean {
-  if (normRectDev < 0.14 || rotEllipseDev < 0.20) return false;
-  if (solidity < 0.70 || solidity > 0.92) return false;
+  if (normRectDev < 0.14 || rotEllipseDev < 0.2) return false;
+  if (solidity < 0.7 || solidity > 0.92) return false;
   const aspect = w / (h || 1);
   if (aspect < 1.05 || aspect > 2.4) return false;
 
@@ -1081,7 +1090,7 @@ function detectDiamond(
 
   if (!hasTopMid || !hasBotMid || !hasLeftMid || !hasRightMid) return false;
 
-  const cornerTol = Math.min(w, h) * 0.20;
+  const cornerTol = Math.min(w, h) * 0.2;
   const inCorners = points.some(
     (p) =>
       (p.x < minX + cornerTol && p.y < minY + cornerTol) ||
@@ -1132,7 +1141,7 @@ function detectLine(
   for (let i = 1; i < points.length; i++) {
     pathLen += Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
   }
-  if (pathLen / chordLen > 1.30) return null;
+  if (pathLen / chordLen > 1.3) return null;
 
   return {
     kind: "shape",
@@ -1184,7 +1193,7 @@ function detectArrow(
 
   // The shaft before the tip must be reasonably straight
   const from = Math.floor(bestTipIdx * skipHeadFrac);
-  if (straightnessError(points, from, bestTipIdx, points[from], tip) > 0.20) return null;
+  if (straightnessError(points, from, bestTipIdx, points[from], tip) > 0.2) return null;
 
   // The shaft must not oscillate back and forth like a wave or handwriting
   const shaftPoints = points.slice(from, bestTipIdx + 1);
@@ -1207,7 +1216,7 @@ function detectArrow(
       const bx = (points[i].x - tip.x) / d;
       const by = (points[i].y - tip.y) / d;
       // Dot product with reverse shaft direction (-ux, -uy)
-      const dot = bx * (-ux) + by * (-uy);
+      const dot = bx * -ux + by * -uy;
       const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
       if (angle >= 10 * (Math.PI / 180) && angle <= 65 * (Math.PI / 180)) {
         barbFound = true;

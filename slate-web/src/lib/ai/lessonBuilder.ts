@@ -22,55 +22,67 @@ export const LessonCurriculumSchema = z.object({
   gradeLevel: z.string(),
   objectives: z.array(z.string()).min(2),
   bellRingerQuestions: z.array(z.string()).min(2),
-  corePrinciples: z.array(
-    z.object({
-      heading: z.string(),
-      explanation: z.string(),
-      bulletPoints: z.array(z.string()).min(1),
-    })
-  ).min(2),
+  corePrinciples: z
+    .array(
+      z.object({
+        heading: z.string(),
+        explanation: z.string(),
+        bulletPoints: z.array(z.string()).min(1),
+      }),
+    )
+    .min(2),
   conceptFlowchart: z.object({
     title: z.string(),
-    steps: z.array(
-      z.object({
-        stepNumber: z.number(),
-        label: z.string(),
-        description: z.string(),
-      })
-    ).min(3),
+    steps: z
+      .array(
+        z.object({
+          stepNumber: z.number(),
+          label: z.string(),
+          description: z.string(),
+        }),
+      )
+      .min(3),
   }),
   sortingActivity: z.object({
     title: z.string(),
     instruction: z.string(),
-    categories: z.array(
-      z.object({
-        id: z.string(),
-        name: z.string(),
-        color: z.string().optional(),
-      })
-    ).min(2),
-    items: z.array(
-      z.object({
-        id: z.string(),
-        text: z.string(),
-        correctCategoryId: z.string(),
-      })
-    ).min(4),
+    categories: z
+      .array(
+        z.object({
+          id: z.string(),
+          name: z.string(),
+          color: z.string().optional(),
+        }),
+      )
+      .min(2),
+    items: z
+      .array(
+        z.object({
+          id: z.string(),
+          text: z.string(),
+          correctCategoryId: z.string(),
+        }),
+      )
+      .min(4),
   }),
-  quiz: z.array(
-    z.object({
-      question: z.string(),
-      options: z.array(z.string()).min(3),
-      correctIndex: z.number().min(0),
-      explanation: z.string().optional(),
-    })
-  ).min(2),
-  flashcards: z.array(
-    z.object({
-      front: z.string(),
-      back: z.string(),
-    })
-  ).min(3),
+  quiz: z
+    .array(
+      z.object({
+        question: z.string(),
+        options: z.array(z.string()).min(3),
+        correctIndex: z.number().min(0),
+        explanation: z.string().optional(),
+      }),
+    )
+    .min(2),
+  flashcards: z
+    .array(
+      z.object({
+        front: z.string(),
+        back: z.string(),
+      }),
+    )
+    .min(3),
   exitTicket: z.object({
     prompts: z.array(z.string()).min(2),
   }),
@@ -94,7 +106,7 @@ export interface LessonBuilderOptions {
 export function generateLessonTemplate(
   topic: string,
   subject = "General Science",
-  gradeLevel = "Middle School (Grades 6-8)"
+  gradeLevel = "Middle School (Grades 6-8)",
 ): LessonCurriculum {
   const cleanTopic = topic.trim() || "New Lesson";
   return {
@@ -214,7 +226,8 @@ export function generateLessonTemplate(
           "It applies only to purely hypothetical mathematical constructs",
         ],
         correctIndex: 0,
-        explanation: "Mastery of this concept provides predictive models for complex physical and social systems.",
+        explanation:
+          "Mastery of this concept provides predictive models for complex physical and social systems.",
       },
     ],
     flashcards: [
@@ -250,7 +263,7 @@ export function generateLessonTemplate(
  */
 export function buildLessonPagesFromCurriculum(
   curriculum: LessonCurriculum,
-  targetPageCount = 6
+  targetPageCount = 6,
 ): Page[] {
   const { topic, subject, gradeLevel } = curriculum;
   const pages: Page[] = [];
@@ -476,7 +489,8 @@ export function buildLessonPagesFromCurriculum(
       h: 560,
       activityType: "sort",
       title: act.title || `${topic}: Interactive Classification`,
-      instructions: act.instruction || "Drag each card to its matching category on the smart board.",
+      instructions:
+        act.instruction || "Drag each card to its matching category on the smart board.",
       categories: act.categories.map((c) => c.name),
       items: act.items.map((it) => {
         const cat = act.categories.find((c) => c.id === it.correctCategoryId);

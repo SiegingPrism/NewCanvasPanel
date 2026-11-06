@@ -9,7 +9,10 @@ interface AuthState {
   loading: boolean;
   initialized: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string) => Promise<{ error: Error | null; unconfirmed?: boolean }>;
+  signUp: (
+    email: string,
+    password: string,
+  ) => Promise<{ error: Error | null; unconfirmed?: boolean }>;
   signInWithGoogle: () => Promise<{ error: Error | null }>;
   resetPassword: (email: string) => Promise<{ error: Error | null }>;
   deleteAccount: () => Promise<{ error: Error | null }>;
@@ -154,16 +157,19 @@ export const useAuth = create<AuthState>((set, get) => ({
 if (typeof window !== "undefined") {
   const supabase = getSupabase();
   if (supabase) {
-    supabase.auth.getSession().then(({ data }) => {
-      useAuth.setState({
-        user: data.session?.user ?? null,
-        session: data.session,
-        loading: false,
-        initialized: true,
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        useAuth.setState({
+          user: data.session?.user ?? null,
+          session: data.session,
+          loading: false,
+          initialized: true,
+        });
+      })
+      .catch(() => {
+        useAuth.setState({ user: null, session: null, loading: false, initialized: true });
       });
-    }).catch(() => {
-      useAuth.setState({ user: null, session: null, loading: false, initialized: true });
-    });
 
     supabase.auth.onAuthStateChange(async (event, session) => {
       useAuth.setState({
@@ -176,9 +182,15 @@ if (typeof window !== "undefined") {
       if (event === "SIGNED_IN" && session?.user) {
         try {
           const { useWhiteboard } = await import("../whiteboard/store");
-          useWhiteboard.getState().syncWithCloud().catch(() => {});
+          useWhiteboard
+            .getState()
+            .syncWithCloud()
+            .catch(() => {});
           const { useNotes } = await import("../notesStore");
-          useNotes.getState().syncWithCloud().catch(() => {});
+          useNotes
+            .getState()
+            .syncWithCloud()
+            .catch(() => {});
         } catch {}
       } else if (event === "SIGNED_OUT") {
         try {

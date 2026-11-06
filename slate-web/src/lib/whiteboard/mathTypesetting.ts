@@ -177,7 +177,10 @@ export function formatLatexForDisplay(latex: string): string {
     .replace(/\\;/g, " ")
     .replace(/\\quad/g, "  ")
     .replace(/\\qquad/g, "    ")
-    .replace(/\\(sin|cos|tan|sec|csc|cot|sinh|cosh|tanh|arcsin|arccos|arctan|ln|log|exp|det|dim|ker)\b/g, "$1")
+    .replace(
+      /\\(sin|cos|tan|sec|csc|cot|sinh|cosh|tanh|arcsin|arccos|arctan|ln|log|exp|det|dim|ker)\b/g,
+      "$1",
+    )
     .replace(/\\deg\b/g, "°")
     .replace(/\\in\b/g, "∈")
     .replace(/\\notin\b/g, "∉")
@@ -248,7 +251,11 @@ export function parseStepText(step: string, fallbackIndex = 1): ParsedStep {
     const candidateTitle = remaining.slice(0, colonIdx).trim();
     const candidateEq = remaining.slice(colonIdx + 1).trim();
 
-    if (/[=+\-*/\\^<>~±√(]/.test(candidateEq) || /\b[a-zA-Z]\b/.test(candidateEq) || /\d/.test(candidateEq)) {
+    if (
+      /[=+\-*/\\^<>~±√(]/.test(candidateEq) ||
+      /\b[a-zA-Z]\b/.test(candidateEq) ||
+      /\d/.test(candidateEq)
+    ) {
       title = candidateTitle;
       equation = candidateEq.replace(/\.$/, "").trim();
     }

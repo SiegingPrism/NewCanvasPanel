@@ -40,7 +40,12 @@ const TEMPLATE_SHORTCUTS: {
   desc: string;
 }[] = [
   { key: "cornell", label: "Cornell Notes", icon: BookOpen, desc: "Cues, notes & summary" },
-  { key: "lab-report", label: "Lab Report", icon: FlaskConical, desc: "Hypothesis, method & results" },
+  {
+    key: "lab-report",
+    label: "Lab Report",
+    icon: FlaskConical,
+    desc: "Hypothesis, method & results",
+  },
   { key: "kwl", label: "KWL Chart", icon: ListChecks, desc: "Know · Want · Learned" },
   { key: "drafting-3d", label: "3D Drafting", icon: Box, desc: "3D isometric grid" },
 ];
@@ -51,9 +56,16 @@ export interface NewPagePickerContentProps {
   isDark?: boolean;
 }
 
-export function NewPagePickerContent({ onClose, onOpenDocImport, isDark }: NewPagePickerContentProps) {
+export function NewPagePickerContent({
+  onClose,
+  onOpenDocImport,
+  isDark,
+}: NewPagePickerContentProps) {
   const { addPage, duplicatePage, addPageWithTemplate, pages, activePageId } = useWhiteboard();
-  const activePageIdx = Math.max(0, pages.findIndex((p) => p.id === activePageId));
+  const activePageIdx = Math.max(
+    0,
+    pages.findIndex((p) => p.id === activePageId),
+  );
 
   const handleSelectBackground = (bg: PageBackground, label: string) => {
     addPage(bg);
@@ -90,7 +102,7 @@ export function NewPagePickerContent({ onClose, onOpenDocImport, isDark }: NewPa
                 onClick={() => handleSelectBackground(item.id, item.label)}
                 className={cn(
                   "flex flex-col items-center justify-center gap-1 p-2 rounded-xl border border-border/70 hover:bg-muted active:scale-95 transition text-center",
-                  isDark ? "hover:bg-slate-800 text-slate-100" : "hover:bg-muted text-foreground"
+                  isDark ? "hover:bg-slate-800 text-slate-100" : "hover:bg-muted text-foreground",
                 )}
                 title={item.desc}
               >
@@ -116,7 +128,7 @@ export function NewPagePickerContent({ onClose, onOpenDocImport, isDark }: NewPa
           onClick={handleDuplicate}
           className={cn(
             "flex w-full items-center gap-2.5 p-2 rounded-xl border border-border/70 hover:bg-muted active:scale-[0.98] transition mb-2 text-left",
-            isDark ? "hover:bg-slate-800 text-slate-100" : "hover:bg-muted text-foreground"
+            isDark ? "hover:bg-slate-800 text-slate-100" : "hover:bg-muted text-foreground",
           )}
         >
           <div className="grid h-7 w-7 place-items-center rounded-lg bg-primary/10 text-primary shrink-0">
@@ -124,7 +136,9 @@ export function NewPagePickerContent({ onClose, onOpenDocImport, isDark }: NewPa
           </div>
           <div className="min-w-0 flex-1">
             <div className="text-xs font-bold">Duplicate Page {activePageIdx + 1}</div>
-            <div className="text-[10px] text-muted-foreground truncate">Copy all drawings & notes to a new page</div>
+            <div className="text-[10px] text-muted-foreground truncate">
+              Copy all drawings & notes to a new page
+            </div>
           </div>
         </button>
 
@@ -139,7 +153,7 @@ export function NewPagePickerContent({ onClose, onOpenDocImport, isDark }: NewPa
                 onClick={() => handleSelectTemplate(t.key, t.label)}
                 className={cn(
                   "flex items-center gap-2 p-2 rounded-xl border border-border/70 hover:bg-muted active:scale-95 transition text-left",
-                  isDark ? "hover:bg-slate-800 text-slate-100" : "hover:bg-muted text-foreground"
+                  isDark ? "hover:bg-slate-800 text-slate-100" : "hover:bg-muted text-foreground",
                 )}
                 title={t.desc}
               >
@@ -170,4 +184,3 @@ export function NewPagePickerContent({ onClose, onOpenDocImport, isDark }: NewPa
     </div>
   );
 }
-

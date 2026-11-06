@@ -44,7 +44,10 @@ export const Route = createFileRoute("/profile")({
   head: () => ({
     meta: [
       { title: "Profile & Account — Slate" },
-      { name: "description", content: "Manage your Slate account, Google profile, and cloud sync settings." },
+      {
+        name: "description",
+        content: "Manage your Slate account, Google profile, and cloud sync settings.",
+      },
     ],
   }),
   component: ProfilePage,
@@ -69,10 +72,13 @@ function ProfilePage() {
   const displayName = getUserDisplayName(user);
 
   const totalBoards = boardOrder.filter((id) => boards[id] && !boards[id].archived).length;
-  const starredBoards = boardOrder.filter((id) => boards[id] && !boards[id].archived && boards[id].favorite).length;
+  const starredBoards = boardOrder.filter(
+    (id) => boards[id] && !boards[id].archived && boards[id].favorite,
+  ).length;
   const totalNotes = Object.keys(notes).length;
 
-  const isGoogle = user?.app_metadata?.provider === "google" ||
+  const isGoogle =
+    user?.app_metadata?.provider === "google" ||
     user?.identities?.some((id) => id.provider === "google");
 
   const memberSince = user?.created_at
@@ -222,12 +228,14 @@ function ProfilePage() {
               <div className="mt-3">
                 {user ? (
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    Your whiteboards, drawings, and notes are synced securely with your Google cloud account.
+                    Your whiteboards, drawings, and notes are synced securely with your Google cloud
+                    account.
                   </p>
                 ) : (
                   <div className="space-y-2">
                     <p className="text-xs text-muted-foreground leading-relaxed">
-                      You are using Slate in guest offline mode. Sign in to synchronize your boards across phone, tablet, and web.
+                      You are using Slate in guest offline mode. Sign in to synchronize your boards
+                      across phone, tablet, and web.
                     </p>
                     <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1">
                       <Button
@@ -318,7 +326,9 @@ function ProfilePage() {
                 <div>
                   <h4 className="text-xs font-semibold text-foreground">Slate AI Settings</h4>
                   <p className="text-[11px] text-muted-foreground">
-                    {userApiKey ? "Personal Gemini API Key Configured" : "Default Built-in Gemini Engine"}
+                    {userApiKey
+                      ? "Personal Gemini API Key Configured"
+                      : "Default Built-in Gemini Engine"}
                   </p>
                 </div>
               </div>
@@ -339,7 +349,9 @@ function ProfilePage() {
                 <div>
                   <h4 className="text-xs font-semibold text-foreground">Cloud Sync & Storage</h4>
                   <p className="text-[11px] text-muted-foreground">
-                    {user ? "Automatic synchronization active" : "Sign in to enable cross-device cloud sync"}
+                    {user
+                      ? "Automatic synchronization active"
+                      : "Sign in to enable cross-device cloud sync"}
                   </p>
                 </div>
               </div>
@@ -354,7 +366,9 @@ function ProfilePage() {
                 </div>
                 <div>
                   <h4 className="text-xs font-semibold text-foreground">Slate by SNANS TECH</h4>
-                  <p className="text-[11px] text-muted-foreground">Version 1.0.0 (Android Native & Web)</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Version 1.0.0 (Android Native & Web)
+                  </p>
                 </div>
               </div>
             </div>
@@ -402,7 +416,9 @@ function ProfilePage() {
           <AlertDialogHeader>
             <AlertDialogTitle className="text-base font-bold">Delete Account?</AlertDialogTitle>
             <AlertDialogDescription className="text-xs text-muted-foreground leading-relaxed">
-              This will permanently delete your account and remove all synced whiteboards and notes from the cloud. Local copies on this device will be detached. This action cannot be undone.
+              This will permanently delete your account and remove all synced whiteboards and notes
+              from the cloud. Local copies on this device will be detached. This action cannot be
+              undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2 sm:gap-0">

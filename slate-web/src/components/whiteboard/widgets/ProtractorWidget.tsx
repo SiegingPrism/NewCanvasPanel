@@ -159,7 +159,15 @@ export function ProtractorWidget() {
             const textY = -76 * Math.sin(rad);
             return (
               <g key={deg}>
-                <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="currentColor" strokeWidth="1" className="text-muted-foreground" />
+                <line
+                  x1={x1}
+                  y1={y1}
+                  x2={x2}
+                  y2={y2}
+                  stroke="currentColor"
+                  strokeWidth="1"
+                  className="text-muted-foreground"
+                />
                 <text
                   x={textX}
                   y={textY}

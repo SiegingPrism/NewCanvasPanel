@@ -29,7 +29,14 @@ function rotatePoints(pts: Point[], angleRad: number, cx: number, cy: number): P
 }
 
 // Generate hand-drawn line
-function generateLine(x1: number, y1: number, x2: number, y2: number, steps = 30, wobble = 2): Point[] {
+function generateLine(
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  steps = 30,
+  wobble = 2,
+): Point[] {
   const pts: Point[] = [];
   for (let i = 0; i <= steps; i++) {
     const t = i / steps;
@@ -288,7 +295,14 @@ describe("Shape Recognition Benchmark Suite (500+ Hand-Drawn Strokes)", () => {
     for (let i = 0; i < 50; i++) {
       const r = 60 + (i % 4) * 15;
       const rot = (i * Math.PI) / 8;
-      const pts = generateTriangle(250, 250, r, i % 2 === 0 ? "equilateral" : "isosceles", rot, 2.5);
+      const pts = generateTriangle(
+        250,
+        250,
+        r,
+        i % 2 === 0 ? "equilateral" : "isosceles",
+        rot,
+        2.5,
+      );
       stats.triangle.total++;
       totalTests++;
       const res = recognizeShape(pts, "#000", 2);
@@ -305,7 +319,11 @@ describe("Shape Recognition Benchmark Suite (500+ Hand-Drawn Strokes)", () => {
       stats.rightTriangle.total++;
       totalTests++;
       const res = recognizeShape(pts, "#000", 2);
-      if (res && res.kind === "shape" && (res.shape === "right-triangle" || res.shape === "triangle")) {
+      if (
+        res &&
+        res.kind === "shape" &&
+        (res.shape === "right-triangle" || res.shape === "triangle")
+      ) {
         stats.rightTriangle.correct++;
         passedTests++;
       }
@@ -376,7 +394,9 @@ describe("Shape Recognition Benchmark Suite (500+ Hand-Drawn Strokes)", () => {
       console.log(`  ${name.padEnd(18)}: ${s.correct}/${s.total} (${pct}%)`);
     }
     console.log(`------------------------------------------------------`);
-    console.log(`  Overall Accuracy  : ${overallAccuracy.toFixed(1)}% (${passedTests}/${totalTests})`);
+    console.log(
+      `  Overall Accuracy  : ${overallAccuracy.toFixed(1)}% (${passedTests}/${totalTests})`,
+    );
     console.log(`  Average Latency   : ${avgLatencyMs.toFixed(3)} ms / stroke`);
     console.log(`  Total Elapsed     : ${elapsedMs.toFixed(1)} ms`);
     console.log(`======================================================\n`);

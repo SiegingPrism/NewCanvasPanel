@@ -92,7 +92,12 @@ export function useHandwriting(opts: {
   const inFlightAbortRef = useRef<AbortController | null>(null);
   const penDownRef = useRef(false);
   /** Latest recognition result (state updates land a render later; timers need it now). */
-  const resultRef = useRef<{ groupId: string; text: string; original?: string; translatedTo?: string } | null>(null);
+  const resultRef = useRef<{
+    groupId: string;
+    text: string;
+    original?: string;
+    translatedTo?: string;
+  } | null>(null);
   const lastUpRef = useRef(0);
   const [chip, setChip] = useState<InkChipState>(null);
   const chipRef = useRef<InkChipState>(null);
@@ -137,64 +142,77 @@ export function useHandwriting(opts: {
   }, []);
 
   /** Replace the group's ink with typed text (one undo step). */
-  const convert = useCallback((groupId?: string, overrideText?: string) => {
-    const g = groupRef.current;
-    const result = resultRef.current?.groupId === g?.id ? resultRef.current : null;
-    const text = overrideText || result?.text || chipRef.current?.text;
-    // Translations are written in a handwriting font for the target script
-    const translatedTo = result?.translatedTo;
-    // Otherwise the lettering style picked in the pen menu (Latin-only fonts; other scripts stay plain)
-    const chosen = textFontById(useInk.getState().textFont).font;
-    const font = translatedTo
-      ? scriptFor(translatedTo).font
-      : chosen && text && isLatinText(text)
-        ? chosen
-        : undefined;
-    if (!g || !text || (groupId && g.id !== groupId)) return false;
-    const strokes = groupStrokes(g);
-    if (!strokes.length) {
+  const convert = useCallback(
+    (groupId?: string, overrideText?: string) => {
+      const g = groupRef.current;
+      const result = resultRef.current?.groupId === g?.id ? resultRef.current : null;
+      const text = overrideText || result?.text || chipRef.current?.text;
+      // Translations are written in a handwriting font for the target script
+      const translatedTo = result?.translatedTo;
+      // Otherwise the lettering style picked in the pen menu (Latin-only fonts; other scripts stay plain)
+      const chosen = textFontById(useInk.getState().textFont).font;
+      const font = translatedTo
+        ? scriptFor(translatedTo).font
+        : chosen && text && isLatinText(text)
+          ? chosen
+          : undefined;
+      if (!g || !text || (groupId && g.id !== groupId)) return false;
+      const strokes = groupStrokes(g);
+      if (!strokes.length) {
+        dismiss();
+        return false;
+      }
+      const ink = strokesBounds(strokes);
+      const box = textBoxForInk(
+        ink,
+        text,
+        typicalLetterHeight(strokes) * (font ? handwritingScale(font) : 1),
+      );
+      const ids = new Set(g.ids);
+      const { getObjects, setObjects, pushHistory } = optsRef.current;
+      const typed: CanvasObject = {
+        id: uid(),
+        kind: "text",
+        x: box.x,
+        y: box.y,
+        w: box.w,
+        h: box.h,
+        text,
+        color: g.color,
+        fontSize: box.fontSize,
+        ...(font ? { fontFamily: font } : {}),
+        ...(translatedTo ? { lang: translatedTo, translatedFrom: result?.original } : {}),
+      };
+      // Fit the box to the real width of the lettering (estimate until the font is ready)
+      const fit = (o: CanvasObject): CanvasObject => {
+        if (o.kind !== "text") return o;
+        const w = measureTextWidth(text, box.fontSize, font);
+        return w ? { ...o, w: w + 14 } : o; // wrap width is w-8; keep a little slack
+      };
+      const fontReady = !font || handwritingFontReady(font);
+      setObjects([...getObjects().filter((o) => !ids.has(o.id)), fontReady ? fit(typed) : typed]);
+      pushHistory();
+      if (!fontReady) {
+        void ensureHandwritingFont(font, text.slice(0, 8)).then((ok) => {
+          if (!ok) return;
+          const cur = optsRef.current.getObjects();
+          const o = cur.find((x) => x.id === typed.id);
+          if (
+            o &&
+            o.kind === "text" &&
+            o.w === typed.w &&
+            o.fontSize === typed.fontSize &&
+            o.text === text
+          ) {
+            optsRef.current.setObjects(cur.map((x) => (x.id === typed.id ? fit(x) : x)));
+          }
+        });
+      }
       dismiss();
-      return false;
-    }
-    const ink = strokesBounds(strokes);
-    const box = textBoxForInk(ink, text, typicalLetterHeight(strokes) * (font ? handwritingScale(font) : 1));
-    const ids = new Set(g.ids);
-    const { getObjects, setObjects, pushHistory } = optsRef.current;
-    const typed: CanvasObject = {
-      id: uid(),
-      kind: "text",
-      x: box.x,
-      y: box.y,
-      w: box.w,
-      h: box.h,
-      text,
-      color: g.color,
-      fontSize: box.fontSize,
-      ...(font ? { fontFamily: font } : {}),
-      ...(translatedTo ? { lang: translatedTo, translatedFrom: result?.original } : {}),
-    };
-    // Fit the box to the real width of the lettering (estimate until the font is ready)
-    const fit = (o: CanvasObject): CanvasObject => {
-      if (o.kind !== "text") return o;
-      const w = measureTextWidth(text, box.fontSize, font);
-      return w ? { ...o, w: w + 14 } : o; // wrap width is w-8; keep a little slack
-    };
-    const fontReady = !font || handwritingFontReady(font);
-    setObjects([...getObjects().filter((o) => !ids.has(o.id)), fontReady ? fit(typed) : typed]);
-    pushHistory();
-    if (!fontReady) {
-      void ensureHandwritingFont(font, text.slice(0, 8)).then((ok) => {
-        if (!ok) return;
-        const cur = optsRef.current.getObjects();
-        const o = cur.find((x) => x.id === typed.id);
-        if (o && o.kind === "text" && o.w === typed.w && o.fontSize === typed.fontSize && o.text === text) {
-          optsRef.current.setObjects(cur.map((x) => (x.id === typed.id ? fit(x) : x)));
-        }
-      });
-    }
-    dismiss();
-    return true;
-  }, [dismiss]);
+      return true;
+    },
+    [dismiss],
+  );
 
   /** Auto write-to-type: convert once the pen has been lifted for a moment (never mid-stroke). */
   const scheduleAutoConvert = (g: Group, gen: number) => {
@@ -203,7 +221,8 @@ export function useHandwriting(opts: {
     // Convert quickly (350ms) now that the text is already recognized and ready
     const wait = 350;
     autoTimer.current = setTimeout(() => {
-      if (!penDownRef.current && groupRef.current?.id === g.id && gen === genRef.current) convert(g.id);
+      if (!penDownRef.current && groupRef.current?.id === g.id && gen === genRef.current)
+        convert(g.id);
     }, wait);
   };
 
@@ -238,7 +257,9 @@ export function useHandwriting(opts: {
     const shouldShowPreview = livePreview || translateLive;
     const gen = ++genRef.current;
     if (recogTimer.current) clearTimeout(recogTimer.current);
-    const busyMsg = translateLive ? `Translating to ${findLanguage(translateTo).name}…` : "Reading…";
+    const busyMsg = translateLive
+      ? `Translating to ${findLanguage(translateTo).name}…`
+      : "Reading…";
 
     if (shouldShowPreview) {
       if (chipRef.current?.groupId === g.id && chipRef.current?.text) {
@@ -265,7 +286,13 @@ export function useHandwriting(opts: {
           const s = strokes[0];
           if (s.points.length >= 8) {
             const shape = recognizeShape(s.points, "#000000", 2);
-            if (shape && (shape.shape === "arrow" || shape.shape === "double-arrow" || shape.shape === "star" || shape.shape === "heart")) {
+            if (
+              shape &&
+              (shape.shape === "arrow" ||
+                shape.shape === "double-arrow" ||
+                shape.shape === "star" ||
+                shape.shape === "heart")
+            ) {
               setChip(null);
               return;
             }
@@ -312,16 +339,31 @@ export function useHandwriting(opts: {
           // so the user knows why nothing was converted.
           const { lastError, livePreview, translateLive } = useInk.getState();
           if (lastError && (livePreview || translateLive)) {
-            setChip({ rect: strokesBounds(strokes), text: null, busy: false, error: lastError, groupId: g.id });
+            setChip({
+              rect: strokesBounds(strokes),
+              text: null,
+              busy: false,
+              error: lastError,
+              groupId: g.id,
+            });
           } else {
             setChip(null);
           }
           return;
         }
-        resultRef.current = { groupId: g.id, text: res.text, original: res.original, translatedTo: res.translatedTo };
+        resultRef.current = {
+          groupId: g.id,
+          text: res.text,
+          original: res.original,
+          translatedTo: res.translatedTo,
+        };
         // Search finds the ink by what was written (and by its translation)
-        tagGroup(g, res.original && res.original !== res.text ? `${res.original} · ${res.text}` : res.text);
-        if (res.translatedTo) void ensureHandwritingFont(scriptFor(res.translatedTo).font, res.text.slice(0, 8));
+        tagGroup(
+          g,
+          res.original && res.original !== res.text ? `${res.original} · ${res.text}` : res.text,
+        );
+        if (res.translatedTo)
+          void ensureHandwritingFont(scriptFor(res.translatedTo).font, res.text.slice(0, 8));
         const s = useInk.getState();
         if (s.livePreview || s.translateLive) {
           setChip({
@@ -349,49 +391,63 @@ export function useHandwriting(opts: {
    * scratch-out (nothing should be drawn), "writing" when it continues a word
    * (shape auto-snap should be skipped), or null.
    */
-  const beforeCommit = useCallback((kind: string, points: Point[]): "erased" | "writing" | null => {
-    if (!WRITING_KINDS.has(kind)) return null;
-    const { scratchOut } = useInk.getState();
-    if (scratchOut && points.length >= 12) {
-      const objects = optsRef.current.getObjects();
-      const candidates: InkStroke[] = objects.flatMap((o): InkStroke[] => {
-        if (isStroke(o)) return [{ id: o.id, points: o.points }];
-        if (o.kind === "text") {
-          const t = o as Extract<CanvasObject, { kind: "text" }>;
-          return [{ id: t.id, points: [{ x: t.x, y: t.y + t.h * 0.2 }, { x: t.x + Math.min(t.w, t.text.length * t.fontSize * 0.56), y: t.y + t.h * 0.8 }] }];
+  const beforeCommit = useCallback(
+    (kind: string, points: Point[]): "erased" | "writing" | null => {
+      if (!WRITING_KINDS.has(kind)) return null;
+      const { scratchOut } = useInk.getState();
+      if (scratchOut && points.length >= 12) {
+        const objects = optsRef.current.getObjects();
+        const candidates: InkStroke[] = objects.flatMap((o): InkStroke[] => {
+          if (isStroke(o)) return [{ id: o.id, points: o.points }];
+          if (o.kind === "text") {
+            const t = o as Extract<CanvasObject, { kind: "text" }>;
+            return [
+              {
+                id: t.id,
+                points: [
+                  { x: t.x, y: t.y + t.h * 0.2 },
+                  { x: t.x + Math.min(t.w, t.text.length * t.fontSize * 0.56), y: t.y + t.h * 0.8 },
+                ],
+              },
+            ];
+          }
+          return [];
+        });
+        const hits = scratchOutTargets(points, candidates);
+        if (hits.length) {
+          const ids = new Set(hits);
+          optsRef.current.setObjects(objects.filter((o) => !ids.has(o.id)));
+          optsRef.current.pushHistory();
+          if (groupRef.current) {
+            groupRef.current.ids = groupRef.current.ids.filter((id) => !ids.has(id));
+            if (!groupRef.current.ids.length) dismiss();
+          }
+          toast.success(
+            hits.length === 1 ? "Scratched out" : `Scratched out ${hits.length} strokes`,
+            { duration: 1500 },
+          );
+          return "erased";
         }
-        return [];
-      });
-      const hits = scratchOutTargets(points, candidates);
-      if (hits.length) {
-        const ids = new Set(hits);
-        optsRef.current.setObjects(objects.filter((o) => !ids.has(o.id)));
-        optsRef.current.pushHistory();
-        if (groupRef.current) {
-          groupRef.current.ids = groupRef.current.ids.filter((id) => !ids.has(id));
-          if (!groupRef.current.ids.length) dismiss();
-        }
-        toast.success(hits.length === 1 ? "Scratched out" : `Scratched out ${hits.length} strokes`, { duration: 1500 });
-        return "erased";
       }
-    }
-    const b = boundsOf(points);
-    const g = groupRef.current;
-    if (g && Date.now() - g.lastAt < GROUP_WINDOW_MS) {
-      const lh = typicalLetterHeight(groupStrokes(g));
-      const isContinuation = useInk.getState().translateLive
-        ? continuesLine(g.rect, b, lh) || continuesGroup(g.rect, b, lh)
-        : continuesGroup(g.rect, b, lh);
-      if (isContinuation) return "writing";
-    }
-    const { livePreview, translateLive } = useInk.getState();
-    if (livePreview || translateLive) {
-      if (Math.max(b.w, b.h) * optsRef.current.getZoom() < 900) return "writing";
-    }
-    // Small on screen = a letter, not a diagram
-    if (Math.max(b.w, b.h) * optsRef.current.getZoom() < 180) return "writing";
-    return null;
-  }, [dismiss]);
+      const b = boundsOf(points);
+      const g = groupRef.current;
+      if (g && Date.now() - g.lastAt < GROUP_WINDOW_MS) {
+        const lh = typicalLetterHeight(groupStrokes(g));
+        const isContinuation = useInk.getState().translateLive
+          ? continuesLine(g.rect, b, lh) || continuesGroup(g.rect, b, lh)
+          : continuesGroup(g.rect, b, lh);
+        if (isContinuation) return "writing";
+      }
+      const { livePreview, translateLive } = useInk.getState();
+      if (livePreview || translateLive) {
+        if (Math.max(b.w, b.h) * optsRef.current.getZoom() < 900) return "writing";
+      }
+      // Small on screen = a letter, not a diagram
+      if (Math.max(b.w, b.h) * optsRef.current.getZoom() < 180) return "writing";
+      return null;
+    },
+    [dismiss],
+  );
 
   /** Call after a pen stroke was added to the board. */
   const afterCommit = useCallback((id: string, kind: string, points: Point[], color: string) => {
@@ -408,7 +464,13 @@ export function useHandwriting(opts: {
     // Geometric shape discrimination: if this isolated stroke forms an arrow, star, heart, or diagram shape
     if (!g && points.length >= 8) {
       const shape = recognizeShape(points, color, 2);
-      if (shape && (shape.shape === "arrow" || shape.shape === "double-arrow" || shape.shape === "star" || shape.shape === "heart")) {
+      if (
+        shape &&
+        (shape.shape === "arrow" ||
+          shape.shape === "double-arrow" ||
+          shape.shape === "star" ||
+          shape.shape === "heart")
+      ) {
         return;
       }
     }
@@ -475,16 +537,36 @@ export function useHandwriting(opts: {
     if (!c?.text || c.translatedTo) return;
     const original = c.text;
     const target = findLanguage(useInk.getState().translateTo);
-    setChip((prev) => (prev ? { ...prev, busy: true, busyText: `Translating to ${target.nativeName || target.name}…` } : null));
+    setChip((prev) =>
+      prev
+        ? { ...prev, busy: true, busyText: `Translating to ${target.nativeName || target.name}…` }
+        : null,
+    );
     try {
       const { script, font } = scriptFor(target.code);
-      const res = await AIEngine.translateText(original, `${target.name} (${target.nativeName})`, script);
+      const res = await AIEngine.translateText(
+        original,
+        `${target.name} (${target.nativeName})`,
+        script,
+      );
       void ensureHandwritingFont(font, res.translation.slice(0, 8));
       if (groupRef.current?.id !== c.groupId) return; // the word changed meanwhile
-      resultRef.current = { groupId: c.groupId, text: res.translation, original, translatedTo: target.code };
+      resultRef.current = {
+        groupId: c.groupId,
+        text: res.translation,
+        original,
+        translatedTo: target.code,
+      };
       setChip((prev) =>
         prev && prev.groupId === c.groupId
-          ? { ...prev, text: res.translation, original, translatedTo: target.code, busy: false, alternatives: res.alternatives ?? [] }
+          ? {
+              ...prev,
+              text: res.translation,
+              original,
+              translatedTo: target.code,
+              busy: false,
+              alternatives: res.alternatives ?? [],
+            }
           : prev,
       );
     } catch (err) {
@@ -493,7 +575,17 @@ export function useHandwriting(opts: {
     }
   }, []);
 
-  return { chip, convert, dismiss, retry, translateChip, beforeCommit, afterCommit, penDown, penUp };
+  return {
+    chip,
+    convert,
+    dismiss,
+    retry,
+    translateChip,
+    beforeCommit,
+    afterCommit,
+    penDown,
+    penUp,
+  };
 }
 
 /** The floating "recognised text" pill above the word being written. */
@@ -528,7 +620,8 @@ export function InkChip({
   const openWritingPicker = useInk((s) => s.setLangPickerOpen);
   // In translate mode the language pill shows (and changes) the target language
   const currentLang = translateLive ? targetLang : writingLang;
-  const setLangPickerOpen = (open: boolean) => (translateLive ? openTranslatePicker() : openWritingPicker(open));
+  const setLangPickerOpen = (open: boolean) =>
+    translateLive ? openTranslatePicker() : openWritingPicker(open);
 
   // Watchdog timer: If stuck in busy state without text, auto-dismiss
   useEffect(() => {
@@ -547,9 +640,7 @@ export function InkChip({
   const screenY = chip.rect.y * camera.zoom + camera.y;
   const isNearTop = screenY < 90;
   const left = Math.max(8, screenX);
-  const top = isNearTop
-    ? screenY + chip.rect.h * camera.zoom + 8
-    : Math.max(76, screenY - 8);
+  const top = isNearTop ? screenY + chip.rect.h * camera.zoom + 8 : Math.max(76, screenY - 8);
 
   if (chip.error) {
     return (
@@ -577,7 +668,9 @@ export function InkChip({
           title="Switch handwriting language and retry"
         >
           <Languages className="h-2.5 w-2.5" />
-          <span className="max-w-[50px] truncate">{currentLang.nativeName || currentLang.name}</span>
+          <span className="max-w-[50px] truncate">
+            {currentLang.nativeName || currentLang.name}
+          </span>
           <span className="text-[8px] opacity-70">▼</span>
         </button>
         {onRetry && (
@@ -633,9 +726,13 @@ export function InkChip({
           if (chip.text) onConvert();
         }}
         disabled={!chip.text}
-        aria-label={chip.text ? `Convert to text: ${chip.text}` : (chip.busyText ?? "Reading handwriting")}
+        aria-label={
+          chip.text ? `Convert to text: ${chip.text}` : (chip.busyText ?? "Reading handwriting")
+        }
         className="flex min-w-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-sm font-semibold bg-white/10 hover:bg-white/20 dark:bg-black/10 dark:hover:bg-black/15 disabled:opacity-80 active:scale-95 transition-all cursor-pointer"
-        title={autoType ? "Auto-converting… Tap to convert now" : "Tap to convert handwriting to text"}
+        title={
+          autoType ? "Auto-converting… Tap to convert now" : "Tap to convert handwriting to text"
+        }
       >
         {chip.busy && !chip.text ? (
           <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-orange-400" />
@@ -645,7 +742,9 @@ export function InkChip({
         {chip.text && chip.translatedTo ? (
           <span className="flex min-w-0 items-baseline gap-1">
             {chip.original && (
-              <span className="max-w-[90px] truncate text-[10px] font-medium opacity-70">{chip.original} →</span>
+              <span className="max-w-[90px] truncate text-[10px] font-medium opacity-70">
+                {chip.original} →
+              </span>
             )}
             <span
               className="max-w-[180px] truncate text-sm"

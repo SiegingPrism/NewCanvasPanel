@@ -81,4 +81,3 @@ export function snapPointToActiveGuides(pt: Point, snapDistance = 26): Point {
 
   return closestPt;
 }
-

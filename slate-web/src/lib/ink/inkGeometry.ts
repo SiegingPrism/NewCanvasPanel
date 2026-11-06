@@ -53,7 +53,7 @@ export function continuesGroup(group: Rect, stroke: Rect, lineHeight: number): b
     vOverlap >= Math.min(group.h, stroke.h) * 0.2 ||
     // i-dots, t-crosses, accents: small marks just above or inside the line
     (stroke.y + stroke.h >= group.y - lh * 0.8 && stroke.y <= group.y + group.h + lh * 0.5);
-  
+
   const gapX =
     stroke.x > group.x + group.w
       ? stroke.x - (group.x + group.w)
@@ -181,7 +181,11 @@ export function clusterIntoLines(strokes: InkStroke[]): InkStroke[][] {
 }
 
 /** Where and how big the typed text should be so it sits where the ink was. */
-export function textBoxForInk(ink: Rect, text: string, letterHeight: number): Rect & { fontSize: number } {
+export function textBoxForInk(
+  ink: Rect,
+  text: string,
+  letterHeight: number,
+): Rect & { fontSize: number } {
   const fontSize = Math.round(Math.min(120, Math.max(14, letterHeight * 1.05)));
   const lines = text.split("\n");
   const longest = Math.max(...lines.map((l) => l.length), 1);

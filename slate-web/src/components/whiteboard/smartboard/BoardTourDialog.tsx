@@ -108,7 +108,7 @@ export function BoardTourDialog({ open, onOpenChange }: BoardTourDialogProps) {
               key={idx}
               className={cn(
                 "h-2 rounded-full transition-all duration-300",
-                idx === currentStep ? "w-6 bg-primary" : "w-2 bg-muted"
+                idx === currentStep ? "w-6 bg-primary" : "w-2 bg-muted",
               )}
             />
           ))}
@@ -135,4 +135,3 @@ export function BoardTourDialog({ open, onOpenChange }: BoardTourDialogProps) {
     </Dialog>
   );
 }
-

@@ -30,8 +30,7 @@ describe("mathTypesetting", () => {
   });
 
   it("formats completing the square step with powers and fractions", () => {
-    const raw =
-      "\\left(x + \\frac{b}{2a}\\right)^2 = \\frac{b^2 - 4ac}{4a^2}";
+    const raw = "\\left(x + \\frac{b}{2a}\\right)^2 = \\frac{b^2 - 4ac}{4a^2}";
     const formatted = formatLatexForDisplay(raw);
     expect(formatted).toContain("(x + (b / 2a))² = (b² - 4ac / 4a²)");
   });
@@ -53,13 +52,10 @@ describe("mathTypesetting", () => {
   });
 
   it("parses step strings with inline dollar math", () => {
-    const step =
-      "Add 4 to both sides of the equation to isolate the squared term: $x^2 = 4$.";
+    const step = "Add 4 to both sides of the equation to isolate the squared term: $x^2 = 4$.";
     const parsed = parseStepText(step, 1);
     expect(parsed.stepNum).toBe(1);
-    expect(parsed.title).toBe(
-      "Add 4 to both sides of the equation to isolate the squared term",
-    );
+    expect(parsed.title).toBe("Add 4 to both sides of the equation to isolate the squared term");
     expect(parsed.equation).toBe("x² = 4");
   });
 

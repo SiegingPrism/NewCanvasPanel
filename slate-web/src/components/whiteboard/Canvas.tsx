@@ -89,9 +89,18 @@ import {
   textFontById,
 } from "@/lib/ink/handwritingFonts";
 import { findLanguage, useInk } from "@/lib/ink/recognizer";
-import { boundsOf, clusterIntoLines, textBoxForInk, typicalLetterHeight, unionRect } from "@/lib/ink/inkGeometry";
+import {
+  boundsOf,
+  clusterIntoLines,
+  textBoxForInk,
+  typicalLetterHeight,
+  unionRect,
+} from "@/lib/ink/inkGeometry";
 
-import { registerCanvasSnapshotCapture, registerPageRenderer } from "@/lib/whiteboard/canvasSnapshot";
+import {
+  registerCanvasSnapshotCapture,
+  registerPageRenderer,
+} from "@/lib/whiteboard/canvasSnapshot";
 
 function uid() {
   return Math.random().toString(36).slice(2, 10);
@@ -168,6 +177,11 @@ export function WhiteboardCanvas({
     pageRef.current = page;
   }, [page]);
 
+  const panelSizeRef = useRef(panelSize);
+  useEffect(() => {
+    panelSizeRef.current = panelSize;
+  }, [panelSize]);
+
   const panRafRef = useRef<number | null>(null);
   const pendingCameraRef = useRef<{ x: number; y: number; zoom: number } | null>(null);
 
@@ -185,7 +199,7 @@ export function WhiteboardCanvas({
         });
       }
     },
-    [setCamera]
+    [setCamera],
   );
 
   const flushCameraUpdate = useCallback(() => {
@@ -261,7 +275,13 @@ export function WhiteboardCanvas({
 
   // Find on board (typed text + recognised handwriting)
   const [findOpen, setFindOpen] = useState(false);
-  const [findFlash, setFindFlash] = useState<{ x: number; y: number; w: number; h: number; n: number } | null>(null);
+  const [findFlash, setFindFlash] = useState<{
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    n: number;
+  } | null>(null);
   useEffect(() => {
     const open = () => setFindOpen(true);
     const onKey = (e: KeyboardEvent) => {
@@ -332,6 +352,7 @@ export function WhiteboardCanvas({
   interface DrawingSession {
     pointerId: number;
     points: Point[];
+    predictedPoints?: Point[];
     color: string;
     size: number;
     tool: ToolId;
@@ -452,9 +473,15 @@ export function WhiteboardCanvas({
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
+      document.documentElement
+        .requestFullscreen()
+        .then(() => setIsFullscreen(true))
+        .catch(() => {});
     } else {
-      document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
+      document
+        .exitFullscreen()
+        .then(() => setIsFullscreen(false))
+        .catch(() => {});
     }
   };
 
@@ -466,7 +493,9 @@ export function WhiteboardCanvas({
 
   const hasTape = useMemo(() => page.objects.some((o) => o.kind === "tape"), [page.objects]);
   const allTapeRevealed = useMemo(
-    () => hasTape && page.objects.filter((o) => o.kind === "tape").every((o) => (o as TapeObject).revealed),
+    () =>
+      hasTape &&
+      page.objects.filter((o) => o.kind === "tape").every((o) => (o as TapeObject).revealed),
     [page.objects, hasTape],
   );
 
@@ -726,8 +755,14 @@ export function WhiteboardCanvas({
       const canvas = minimapCanvasRef.current;
       if (!canvas) return;
       const rect = canvas.getBoundingClientRect();
-      const mx = Math.max(0, Math.min(canvas.width, ((clientX - rect.left) / rect.width) * canvas.width));
-      const my = Math.max(0, Math.min(canvas.height, ((clientY - rect.top) / rect.height) * canvas.height));
+      const mx = Math.max(
+        0,
+        Math.min(canvas.width, ((clientX - rect.left) / rect.width) * canvas.width),
+      );
+      const my = Math.max(
+        0,
+        Math.min(canvas.height, ((clientY - rect.top) / rect.height) * canvas.height),
+      );
 
       const boxes = page.objects.map(objectBounds);
       const wrap = wrapRef.current;
@@ -739,8 +774,16 @@ export function WhiteboardCanvas({
 
       const allMinX = Math.min(-camera.x / camera.zoom, ...boxes.map((b) => b.x), 0);
       const allMinY = Math.min(-camera.y / camera.zoom, ...boxes.map((b) => b.y), 0);
-      const allMaxX = Math.max(-camera.x / camera.zoom + viewWorldW, ...boxes.map((b) => b.x + b.w), 1000);
-      const allMaxY = Math.max(-camera.y / camera.zoom + viewWorldH, ...boxes.map((b) => b.y + b.h), 800);
+      const allMaxX = Math.max(
+        -camera.x / camera.zoom + viewWorldW,
+        ...boxes.map((b) => b.x + b.w),
+        1000,
+      );
+      const allMaxY = Math.max(
+        -camera.y / camera.zoom + viewWorldH,
+        ...boxes.map((b) => b.y + b.h),
+        800,
+      );
 
       const worldW = Math.max(200, allMaxX - allMinX);
       const worldH = Math.max(200, allMaxY - allMinY);
@@ -802,8 +845,10 @@ export function WhiteboardCanvas({
     ctx.stroke();
 
     ctx.beginPath();
-    ctx.moveTo(cx, 0); ctx.lineTo(cx, mh);
-    ctx.moveTo(0, cy); ctx.lineTo(mw, cy);
+    ctx.moveTo(cx, 0);
+    ctx.lineTo(cx, mh);
+    ctx.moveTo(0, cy);
+    ctx.lineTo(mw, cy);
     ctx.stroke();
 
     const boxes = page.objects.map(objectBounds);
@@ -886,13 +931,21 @@ export function WhiteboardCanvas({
     ctx.lineWidth = 1.5;
     // top-left
     ctx.beginPath();
-    ctx.moveTo(vx, vy + reticle); ctx.lineTo(vx, vy); ctx.lineTo(vx + reticle, vy);
+    ctx.moveTo(vx, vy + reticle);
+    ctx.lineTo(vx, vy);
+    ctx.lineTo(vx + reticle, vy);
     // top-right
-    ctx.moveTo(vx + vw - reticle, vy); ctx.lineTo(vx + vw, vy); ctx.lineTo(vx + vw, vy + reticle);
+    ctx.moveTo(vx + vw - reticle, vy);
+    ctx.lineTo(vx + vw, vy);
+    ctx.lineTo(vx + vw, vy + reticle);
     // bottom-left
-    ctx.moveTo(vx, vy + vh - reticle); ctx.lineTo(vx, vy + vh); ctx.lineTo(vx + reticle, vy + vh);
+    ctx.moveTo(vx, vy + vh - reticle);
+    ctx.lineTo(vx, vy + vh);
+    ctx.lineTo(vx + reticle, vy + vh);
     // bottom-right
-    ctx.moveTo(vx + vw - reticle, vy + vh); ctx.lineTo(vx + vw, vy + vh); ctx.lineTo(vx + vw, vy + vh - reticle);
+    ctx.moveTo(vx + vw - reticle, vy + vh);
+    ctx.lineTo(vx + vw, vy + vh);
+    ctx.lineTo(vx + vw, vy + vh - reticle);
     ctx.stroke();
   }, [minimapOpen, minimapExpanded, page.objects, camera]);
 
@@ -909,10 +962,10 @@ export function WhiteboardCanvas({
     let isPinching = false;
 
     const getNonPalmTouches = (touches: TouchList) => {
-      const palmThreshold = SMART_BOARD_PROFILES[panelSize]?.contactPalmMinPx || 95;
+      const palmThreshold = SMART_BOARD_PROFILES[panelSizeRef.current]?.contactPalmMinPx || 95;
       return Array.from(touches).filter((t: any) => {
         const r = Math.max(t.radiusX || 0, t.radiusY || 0);
-        return r === 0 || (2 * r) < palmThreshold;
+        return r === 0 || 2 * r < palmThreshold;
       });
     };
 
@@ -1045,7 +1098,8 @@ export function WhiteboardCanvas({
     return () => window.removeEventListener("slate:solve-math", handleSolveEvent);
   }, [page, selectedId, selectedIds, camera]);
 
-  // Resize canvas
+  // Resize canvas & cache layout rect to avoid getBoundingClientRect() thrashing on pointer move
+  const canvasRectRef = useRef<DOMRect | null>(null);
   useEffect(() => {
     const wrap = wrapRef.current;
     const c = canvasRef.current;
@@ -1061,12 +1115,19 @@ export function WhiteboardCanvas({
         cv.style.width = `${w}px`;
         cv.style.height = `${h}px`;
       }
+      canvasRectRef.current = c.getBoundingClientRect();
       redraw();
     };
     updateSize();
     const ro = new ResizeObserver(updateSize);
     ro.observe(wrap);
-    return () => ro.disconnect();
+    window.addEventListener("resize", updateSize);
+    window.addEventListener("scroll", updateSize, true);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", updateSize);
+      window.removeEventListener("scroll", updateSize, true);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dpr]);
 
@@ -1086,7 +1147,9 @@ export function WhiteboardCanvas({
     return { x: x * curCam.zoom + curCam.x, y: y * curCam.zoom + curCam.y };
   }
 
-  const strokeBoundsCache = useRef<WeakMap<object, { minX: number; maxX: number; minY: number; maxY: number }>>(new WeakMap());
+  const strokeBoundsCache = useRef<
+    WeakMap<object, { minX: number; maxX: number; minY: number; maxY: number }>
+  >(new WeakMap());
 
   function isObjectInViewport(
     obj: CanvasObject,
@@ -1191,7 +1254,10 @@ export function WhiteboardCanvas({
     // Mind-map lines go underneath all nodes so they never cover a block's text
     drawMindMapLinks(ctx, objectsToDraw);
     for (const obj of objectsToDraw) {
-      if (selectedSet.has(obj.id) || isObjectInViewport(obj, viewLeft, viewTop, viewRight, viewBottom)) {
+      if (
+        selectedSet.has(obj.id) ||
+        isObjectInViewport(obj, viewLeft, viewTop, viewRight, viewBottom)
+      ) {
         drawObject(ctx, obj, selectedSet.has(obj.id));
       }
     }
@@ -1434,10 +1500,12 @@ export function WhiteboardCanvas({
         ctx.lineWidth = 0.5;
         ctx.beginPath();
         for (let x = camera.x % smallStep; x < w; x += smallStep) {
-          ctx.moveTo(x, 0); ctx.lineTo(x, h);
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, h);
         }
         for (let y = camera.y % smallStep; y < h; y += smallStep) {
-          ctx.moveTo(0, y); ctx.lineTo(w, y);
+          ctx.moveTo(0, y);
+          ctx.lineTo(w, y);
         }
         ctx.stroke();
       }
@@ -1446,10 +1514,12 @@ export function WhiteboardCanvas({
       ctx.lineWidth = 1;
       ctx.beginPath();
       for (let x = camera.x % medStep; x < w; x += medStep) {
-        ctx.moveTo(x, 0); ctx.lineTo(x, h);
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, h);
       }
       for (let y = camera.y % medStep; y < h; y += medStep) {
-        ctx.moveTo(0, y); ctx.lineTo(w, y);
+        ctx.moveTo(0, y);
+        ctx.lineTo(w, y);
       }
       ctx.stroke();
 
@@ -1457,10 +1527,12 @@ export function WhiteboardCanvas({
       ctx.lineWidth = 1.5;
       ctx.beginPath();
       for (let x = camera.x % bigStep; x < w; x += bigStep) {
-        ctx.moveTo(x, 0); ctx.lineTo(x, h);
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, h);
       }
       for (let y = camera.y % bigStep; y < h; y += bigStep) {
-        ctx.moveTo(0, y); ctx.lineTo(w, y);
+        ctx.moveTo(0, y);
+        ctx.lineTo(w, y);
       }
       ctx.stroke();
     }
@@ -1539,19 +1611,22 @@ export function WhiteboardCanvas({
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
 
+    let smoothVelocity = 1.0;
     for (let i = 1; i < pts.length; i++) {
       const p0 = pts[i - 1];
       const p1 = pts[i];
-      let velocityFactor = 1.0;
+      let instantVelocity = smoothVelocity;
       if (p0.t && p1.t && p1.t > p0.t) {
         const dt = Math.max(1, p1.t - p0.t);
         const dist = Math.hypot(p1.x - p0.x, p1.y - p0.y);
         const speed = dist / dt; // px per ms
         // Smooth speed scaling: slow writing -> 1.25, quick flick -> 0.65
-        velocityFactor = Math.max(0.65, Math.min(1.25, 1.25 - speed * 0.3));
+        instantVelocity = Math.max(0.65, Math.min(1.25, 1.25 - speed * 0.3));
       }
+      // Low-pass exponential moving average filter across touch batches to prevent beaded width jumps
+      smoothVelocity = i === 1 ? instantVelocity : 0.65 * smoothVelocity + 0.35 * instantVelocity;
       const pressure = p1.p ?? 0.5;
-      const width = Math.max(1, s.size * (0.35 + 0.85 * pressure) * velocityFactor);
+      const width = Math.max(1, s.size * (0.35 + 0.85 * pressure) * smoothVelocity);
       ctx.lineWidth = width;
       ctx.beginPath();
       ctx.moveTo(p0.x, p0.y);
@@ -1943,7 +2018,7 @@ export function WhiteboardCanvas({
       if (s.vertices && s.vertices.length >= 3) {
         ctx.beginPath();
         const isRel = s.vertices.every(
-          (v) => v.x >= -0.5 && v.x <= 1.5 && v.y >= -0.5 && v.y <= 1.5
+          (v) => v.x >= -0.5 && v.x <= 1.5 && v.y >= -0.5 && v.y <= 1.5,
         );
         const vx = (v: Point) => (isRel ? x + v.x * w : v.x);
         const vy = (v: Point) => (isRel ? y + v.y * h : v.y);
@@ -3794,7 +3869,11 @@ export function WhiteboardCanvas({
 
     ctx.fillStyle = "#94a3b8";
     ctx.font = "9px monospace";
-    ctx.fillText(o.latex.slice(0, 45) + (o.latex.length > 45 ? "..." : ""), o.x + 12, o.y + o.h - 10);
+    ctx.fillText(
+      o.latex.slice(0, 45) + (o.latex.length > 45 ? "..." : ""),
+      o.x + 12,
+      o.y + o.h - 10,
+    );
     ctx.restore();
   }
 
@@ -3840,8 +3919,7 @@ export function WhiteboardCanvas({
     if (o.connectedTo && o.connectedTo.length > 0) {
       for (const targetId of o.connectedTo) {
         const target = page.objects.find((x) => x.id === targetId && "x" in x) as
-          | DiagramNodeObject
-          | undefined;
+          DiagramNodeObject | undefined;
         if (target) {
           ctx.strokeStyle = "#94a3b8";
           ctx.lineWidth = 1.5;
@@ -3871,14 +3949,20 @@ export function WhiteboardCanvas({
     const dx = tx - cx;
     const dy = ty - cy;
     if (!dx && !dy) return { x: cx, y: cy };
-    const t = Math.min(dx ? b.w / 2 / Math.abs(dx) : Infinity, dy ? b.h / 2 / Math.abs(dy) : Infinity);
+    const t = Math.min(
+      dx ? b.w / 2 / Math.abs(dx) : Infinity,
+      dy ? b.h / 2 / Math.abs(dy) : Infinity,
+    );
     return { x: cx + dx * t, y: cy + dy * t };
   }
 
   /**
    * Discovers all nodes in the connected flowchart or mind-map tree containing the given node.
    */
-  function getConnectedFlowchartNodes(target: CanvasObject, objects: CanvasObject[]): CanvasObject[] {
+  function getConnectedFlowchartNodes(
+    target: CanvasObject,
+    objects: CanvasObject[],
+  ): CanvasObject[] {
     if (target.kind === "mindmap-node") {
       const mmNodes = objects.filter((o): o is MindMapNodeObject => o.kind === "mindmap-node");
       const adj = new Map<string, string[]>();
@@ -4041,7 +4125,11 @@ export function WhiteboardCanvas({
       ctx.fillStyle = t.bg;
       ctx.fillRect(t.x, t.y, t.w, t.h);
     }
-    if (t.fontFamily && !handwritingFontReady(t.fontFamily) && !fontRedrawRequested.current.has(t.fontFamily)) {
+    if (
+      t.fontFamily &&
+      !handwritingFontReady(t.fontFamily) &&
+      !fontRedrawRequested.current.has(t.fontFamily)
+    ) {
       // Load the handwriting font once, then draw again (a system font is used meanwhile)
       fontRedrawRequested.current.add(t.fontFamily);
       void ensureHandwritingFont(t.fontFamily, t.text.slice(0, 8)).then((ok) => {
@@ -4068,7 +4156,6 @@ export function WhiteboardCanvas({
     });
     ctx.restore();
   }
-
 
   function drawSticky(ctx: CanvasRenderingContext2D, s: StickyNoteObject) {
     ctx.save();
@@ -4097,6 +4184,12 @@ export function WhiteboardCanvas({
 
   const fontRedrawRequested = useRef<Set<string>>(new Set());
   const imageCache = useRef<Map<string, HTMLImageElement>>(new Map());
+
+  // Clear image cache when switching boards to free memory
+  const activeBoardId = useWhiteboard((s) => s.activeBoardId);
+  useEffect(() => {
+    imageCache.current.clear();
+  }, [activeBoardId]);
   function drawImage(ctx: CanvasRenderingContext2D, o: ImageObject) {
     let img = imageCache.current.get(o.src);
     if (!img) {
@@ -4471,9 +4564,7 @@ export function WhiteboardCanvas({
       const ry = contentStartY + r * rowH;
       const isHeader = r === 0;
 
-      ctx.font = isHeader
-        ? "bold 12px system-ui, sans-serif"
-        : "11px system-ui, sans-serif";
+      ctx.font = isHeader ? "bold 12px system-ui, sans-serif" : "11px system-ui, sans-serif";
       ctx.fillStyle = isHeader ? "#0f172a" : "#334155";
 
       for (let c = 0; c < cols; c++) {
@@ -4494,7 +4585,10 @@ export function WhiteboardCanvas({
     ctx.restore();
   }
 
-  function getPeriodicElementAt(ptObj: PeriodicTableObject, worldPt: Point): ChemicalElement | null {
+  function getPeriodicElementAt(
+    ptObj: PeriodicTableObject,
+    worldPt: Point,
+  ): ChemicalElement | null {
     const x = ptObj.x;
     const y = ptObj.y;
     const w = ptObj.w;
@@ -4534,8 +4628,7 @@ export function WhiteboardCanvas({
     const w = ptObj.w;
     const h = ptObj.h;
     const isDark =
-      typeof document !== "undefined" &&
-      document.documentElement.classList.contains("dark");
+      typeof document !== "undefined" && document.documentElement.classList.contains("dark");
 
     // Card background & soft shadow
     ctx.shadowColor = "rgba(0, 0, 0, 0.12)";
@@ -4684,8 +4777,7 @@ export function WhiteboardCanvas({
   function drawActivity(ctx: CanvasRenderingContext2D, o: ActivityObject) {
     ctx.save();
     const isDark =
-      typeof document !== "undefined" &&
-      document.documentElement.classList.contains("dark");
+      typeof document !== "undefined" && document.documentElement.classList.contains("dark");
 
     // Card background & soft shadow
     ctx.shadowColor = "rgba(0, 0, 0, 0.12)";
@@ -4714,10 +4806,15 @@ export function WhiteboardCanvas({
     // Instructions
     ctx.fillStyle = isDark ? "#94a3b8" : "#64748b";
     ctx.font = "12px system-ui, sans-serif";
-    ctx.fillText(o.instructions || "Drag cards into matching categories on the smart board.", o.x + 16, o.y + 70);
+    ctx.fillText(
+      o.instructions || "Drag cards into matching categories on the smart board.",
+      o.x + 16,
+      o.y + 70,
+    );
 
     // Categories preview boxes
-    const cats = o.categories && o.categories.length > 0 ? o.categories : ["Category 1", "Category 2"];
+    const cats =
+      o.categories && o.categories.length > 0 ? o.categories : ["Category 1", "Category 2"];
     const colW = (o.w - 32 - (cats.length - 1) * 12) / cats.length;
     cats.forEach((cat, idx) => {
       const colX = o.x + 16 + idx * (colW + 12);
@@ -4736,7 +4833,9 @@ export function WhiteboardCanvas({
       ctx.fillText(cat, colX + 12, colY + 22);
 
       // Render items placed in this category
-      const itemsInCat = o.items.filter((it) => it.currentBucket === cat || it.category === cat).slice(0, 3);
+      const itemsInCat = o.items
+        .filter((it) => it.currentBucket === cat || it.category === cat)
+        .slice(0, 3);
       itemsInCat.forEach((it, itIdx) => {
         const itemY = colY + 36 + itIdx * 30;
         ctx.fillStyle = isDark ? "#0f172a" : "#ffffff";
@@ -5060,11 +5159,14 @@ export function WhiteboardCanvas({
       // Pointer capture can fail if pointer is released or unsupported; safely ignore.
     }
 
-    const rect = canvasRef.current!.getBoundingClientRect();
+    const rect = canvasRectRef.current || canvasRef.current!.getBoundingClientRect();
+    canvasRectRef.current = rect;
     const sx = e.clientX - rect.left;
     const sy = e.clientY - rect.top;
     const w = toWorld(sx, sy);
-    const ptWithMeta: Point = { x: w.x, y: w.y, p: e.pressure || 0.5, t: Date.now() };
+    const eventTime =
+      typeof e.timeStamp === "number" && e.timeStamp > 0 ? e.timeStamp : performance.now();
+    const ptWithMeta: Point = { x: w.x, y: w.y, p: e.pressure || 0.5, t: eventTime };
 
     // Smart Board Fist Eraser (Phase 0 Fix)
     if (contact.classification === "fist") {
@@ -5119,7 +5221,7 @@ export function WhiteboardCanvas({
         window.dispatchEvent(
           new CustomEvent("slate:open-radial-menu", {
             detail: { x: e.clientX, y: e.clientY },
-          })
+          }),
         );
       }, 650);
     }
@@ -5206,7 +5308,7 @@ export function WhiteboardCanvas({
           const clickedEl = getPeriodicElementAt(hit, w);
           if (clickedEl) {
             window.dispatchEvent(
-              new CustomEvent("slate:inspect-element", { detail: { number: clickedEl.number } })
+              new CustomEvent("slate:inspect-element", { detail: { number: clickedEl.number } }),
             );
           }
         }
@@ -5227,9 +5329,14 @@ export function WhiteboardCanvas({
           const btnX = hit.x + hit.w - btnW - 16;
           const btnY = hit.y + hit.h - btnH - 12;
           const pad = 24 / camera.zoom;
-          if (w.x >= btnX - pad && w.x <= btnX + btnW + pad && w.y >= btnY - pad && w.y <= btnY + btnH + pad) {
+          if (
+            w.x >= btnX - pad &&
+            w.x <= btnX + btnW + pad &&
+            w.y >= btnY - pad &&
+            w.y <= btnY + btnH + pad
+          ) {
             window.dispatchEvent(
-              new CustomEvent("slate:open-activity", { detail: { activity: hit } })
+              new CustomEvent("slate:open-activity", { detail: { activity: hit } }),
             );
             setSelected(hit.id);
             return;
@@ -5269,7 +5376,9 @@ export function WhiteboardCanvas({
       };
       const hit = hitTest(w);
       if (hit) {
-        eraserSessionRef.current.objects = eraserSessionRef.current.objects.filter((o) => o.id !== hit.id);
+        eraserSessionRef.current.objects = eraserSessionRef.current.objects.filter(
+          (o) => o.id !== hit.id,
+        );
         eraserSessionRef.current.erasedAny = true;
         redraw();
       }
@@ -5356,7 +5465,7 @@ export function WhiteboardCanvas({
     if (splitBoardZones > 1 && typeof window !== "undefined") {
       const zoneIdx = Math.min(
         splitBoardZones - 1,
-        Math.max(0, Math.floor(e.clientX / (window.innerWidth / splitBoardZones)))
+        Math.max(0, Math.floor(e.clientX / (window.innerWidth / splitBoardZones))),
       );
       const zSetting = zoneSettings?.[zoneIdx];
       if (zSetting) {
@@ -5442,7 +5551,10 @@ export function WhiteboardCanvas({
 
     // Cancel radial menu long-press if hand moved
     if (radialTimerRef.current && pointerDownPosRef.current) {
-      const dist = Math.hypot(e.clientX - pointerDownPosRef.current.x, e.clientY - pointerDownPosRef.current.y);
+      const dist = Math.hypot(
+        e.clientX - pointerDownPosRef.current.x,
+        e.clientY - pointerDownPosRef.current.y,
+      );
       if (dist > 12) {
         clearTimeout(radialTimerRef.current);
         radialTimerRef.current = null;
@@ -5451,11 +5563,14 @@ export function WhiteboardCanvas({
 
     touchMapRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
-    const rect = canvasRef.current!.getBoundingClientRect();
+    const rect = canvasRectRef.current || canvasRef.current!.getBoundingClientRect();
+    canvasRectRef.current = rect;
     const sx = e.clientX - rect.left;
     const sy = e.clientY - rect.top;
     const w = toWorld(sx, sy);
-    const ptWithMeta: Point = { x: w.x, y: w.y, p: e.pressure || 0.5, t: Date.now() };
+    const eventTime =
+      typeof e.timeStamp === "number" && e.timeStamp > 0 ? e.timeStamp : performance.now();
+    const ptWithMeta: Point = { x: w.x, y: w.y, p: e.pressure || 0.5, t: eventTime };
 
     // Smart Board Fist Eraser (drag phase)
     if (contact.classification === "fist" && eraserSessionRef.current?.active) {
@@ -5465,7 +5580,12 @@ export function WhiteboardCanvas({
       let touched = false;
       for (const obj of currentObjs) {
         if ("points" in obj && Array.isArray((obj as any).points)) {
-          const segs = splitStrokeAlongSegment((obj as any).points, eraserSessionRef.current.lastWorld, w, eraseR);
+          const segs = splitStrokeAlongSegment(
+            (obj as any).points,
+            eraserSessionRef.current.lastWorld,
+            w,
+            eraseR,
+          );
           if (segs.length === 1 && segs[0].length === (obj as any).points.length) {
             nextObjs.push(obj);
           } else {
@@ -5652,7 +5772,10 @@ export function WhiteboardCanvas({
             points: (orig as any).points.map((p: Point) => ({ ...p, x: p.x + dx, y: p.y + dy })),
           } as Partial<CanvasObject>);
         } else {
-          updateObject(d.id, { x: (orig as any).x + dx, y: (orig as any).y + dy } as Partial<CanvasObject>);
+          updateObject(d.id, {
+            x: (orig as any).x + dx,
+            y: (orig as any).y + dy,
+          } as Partial<CanvasObject>);
         }
       } else {
         const corner = d.handle.corner;
@@ -5692,11 +5815,13 @@ export function WhiteboardCanvas({
         const minW = 20;
         const minH = 20;
         if (nw < minW) {
-          if (corner === "nw" || corner === "w" || corner === "sw") nx = origBounds.x + origBounds.w - minW;
+          if (corner === "nw" || corner === "w" || corner === "sw")
+            nx = origBounds.x + origBounds.w - minW;
           nw = minW;
         }
         if (nh < minH) {
-          if (corner === "nw" || corner === "n" || corner === "ne") ny = origBounds.y + origBounds.h - minH;
+          if (corner === "nw" || corner === "n" || corner === "ne")
+            ny = origBounds.y + origBounds.h - minH;
           nh = minH;
         }
 
@@ -5742,16 +5867,25 @@ export function WhiteboardCanvas({
             // Keep the opposite edge anchored; center horizontally on n/s handle drags
             const left = corner === "nw" || corner === "sw";
             const top = corner === "nw" || corner === "ne" || corner === "n";
-            const x2 = corner === "n" || corner === "s" ? orig.x + (ow - w2) / 2 : left ? orig.x + ow - w2 : orig.x;
+            const x2 =
+              corner === "n" || corner === "s"
+                ? orig.x + (ow - w2) / 2
+                : left
+                  ? orig.x + ow - w2
+                  : orig.x;
             const y2 = top ? orig.y + oh - h2 : orig.y;
-            updateObject(d.id, { x: x2, y: y2, w: w2, h: h2, fontSize: newFontSize } as Partial<CanvasObject>);
+            updateObject(d.id, {
+              x: x2,
+              y: y2,
+              w: w2,
+              h: h2,
+              fontSize: newFontSize,
+            } as Partial<CanvasObject>);
           }
         } else if (orig.kind === "shape") {
           const updates: Partial<ShapeStroke> = { x: nx, y: ny, w: nw, h: nh };
           if (orig.vertices && orig.vertices.length >= 3) {
-            const isRel = orig.vertices.every(
-              (v) => v.x >= 0 && v.x <= 1 && v.y >= 0 && v.y <= 1
-            );
+            const isRel = orig.vertices.every((v) => v.x >= 0 && v.x <= 1 && v.y >= 0 && v.y <= 1);
             if (!isRel && origBounds.w > 0 && origBounds.h > 0) {
               const sx = nw / origBounds.w;
               const sy = nh / origBounds.h;
@@ -5833,24 +5967,52 @@ export function WhiteboardCanvas({
 
     const curDraw = strokeSessionsRef.current.get(e.pointerId);
     if (curDraw) {
-      const coalescedEvents = (e.nativeEvent as any)?.getCoalescedEvents?.() as PointerEvent[] | undefined;
+      const coalescedEvents = (e.nativeEvent as any)?.getCoalescedEvents?.() as
+        PointerEvent[] | undefined;
       if (coalescedEvents && coalescedEvents.length > 0) {
         for (const cev of coalescedEvents) {
           const csx = cev.clientX - rect.left;
           const csy = cev.clientY - rect.top;
           const cw = toWorld(csx, csy);
           const snapped = snapPointToActiveGuides(cw);
+          const cTime =
+            typeof cev.timeStamp === "number" && cev.timeStamp > 0
+              ? cev.timeStamp
+              : performance.now();
           curDraw.points.push({
             x: snapped.x,
             y: snapped.y,
-            p: cev.pressure > 0 ? cev.pressure : (e.pressure || 0.5),
-            t: Date.now(),
+            p: cev.pressure > 0 ? cev.pressure : e.pressure || 0.5,
+            t: cTime,
           });
         }
       } else {
         const snapped = snapPointToActiveGuides(ptWithMeta);
         curDraw.points.push({ ...ptWithMeta, x: snapped.x, y: snapped.y });
       }
+
+      // Pointer prediction (Touch Fix 8): low-latency ink tip ahead of the hardware frame
+      const predictedEvents = (e.nativeEvent as any)?.getPredictedEvents?.() as
+        PointerEvent[] | undefined;
+      if (predictedEvents && predictedEvents.length > 0) {
+        curDraw.predictedPoints = predictedEvents.map((pev) => {
+          const psx = pev.clientX - rect.left;
+          const psy = pev.clientY - rect.top;
+          const pw = toWorld(psx, psy);
+          return {
+            x: pw.x,
+            y: pw.y,
+            p: pev.pressure > 0 ? pev.pressure : e.pressure || 0.5,
+            t:
+              typeof pev.timeStamp === "number" && pev.timeStamp > 0
+                ? pev.timeStamp
+                : performance.now(),
+          };
+        });
+      } else {
+        curDraw.predictedPoints = undefined;
+      }
+
       curDraw.lastMoveAt = Date.now();
 
       // Hold-to-snap detection
@@ -5884,7 +6046,7 @@ export function WhiteboardCanvas({
           laserRef.current.length - Math.min(laserRef.current.length, Math.floor(maxAge / 8));
         if (drop > 0) laserRef.current.splice(0, drop);
       }
-      drawLive();
+      scheduleDrawLive();
     }
   }
 
@@ -5921,15 +6083,16 @@ export function WhiteboardCanvas({
     } else if (hit.kind === "quiz") {
       updateObject(hit.id, { revealed: !hit.revealed } as Partial<CanvasObject>);
     } else if (hit.kind === "activity") {
-      window.dispatchEvent(
-        new CustomEvent("slate:open-activity", { detail: { activity: hit } })
-      );
+      window.dispatchEvent(new CustomEvent("slate:open-activity", { detail: { activity: hit } }));
     } else if (hit.kind === "tape") {
       toggleTapeReveal(hit.id);
     } else if (hit.kind === "graph") {
       const newFn = prompt("Edit mathematical function f(x):", hit.fn);
       if (newFn && newFn.trim()) {
-        updateObject(hit.id, { fn: newFn.trim(), title: `f(x) = ${newFn.trim()}` } as Partial<CanvasObject>);
+        updateObject(hit.id, {
+          fn: newFn.trim(),
+          title: `f(x) = ${newFn.trim()}`,
+        } as Partial<CanvasObject>);
         pushHistory();
       }
     } else if (hit.kind === "formula") {
@@ -5950,7 +6113,9 @@ export function WhiteboardCanvas({
       const nextStatus = statuses[(statuses.indexOf(hit.status) + 1) % statuses.length];
       updateObject(hit.id, { status: nextStatus } as Partial<CanvasObject>);
     } else if (hit.kind === "table") {
-      const cellInput = prompt("Edit Table Cell (Format: 'row, col, text', e.g. '1, 1, Velocity'):");
+      const cellInput = prompt(
+        "Edit Table Cell (Format: 'row, col, text', e.g. '1, 1, Velocity'):",
+      );
       if (cellInput) {
         const parts = cellInput.split(",").map((s) => s.trim());
         if (parts.length >= 3) {
@@ -5975,7 +6140,7 @@ export function WhiteboardCanvas({
       const clickedEl = getPeriodicElementAt(hit, w);
       if (clickedEl) {
         window.dispatchEvent(
-          new CustomEvent("slate:inspect-element", { detail: { number: clickedEl.number } })
+          new CustomEvent("slate:inspect-element", { detail: { number: clickedEl.number } }),
         );
       }
     } else if (hit.kind === "diagram-node" || hit.kind === "mindmap-node") {
@@ -5991,7 +6156,7 @@ export function WhiteboardCanvas({
           setSelected(hit.id);
           setSelectedIds(connected.map((o) => o.id));
           toast.success(
-            `Selected whole ${isMindMap ? "mind map" : "flowchart"} (${connected.length} boxes). Drag anywhere to move together!`
+            `Selected whole ${isMindMap ? "mind map" : "flowchart"} (${connected.length} boxes). Drag anywhere to move together!`,
           );
         }
       }
@@ -5999,7 +6164,8 @@ export function WhiteboardCanvas({
   }
 
   function onCanvasDoubleClick(e: React.MouseEvent<HTMLCanvasElement>) {
-    const rect = canvasRef.current!.getBoundingClientRect();
+    const rect = canvasRectRef.current || canvasRef.current!.getBoundingClientRect();
+    canvasRectRef.current = rect;
     const sx = e.clientX - rect.left;
     const sy = e.clientY - rect.top;
     const w = toWorld(sx, sy);
@@ -6082,7 +6248,10 @@ export function WhiteboardCanvas({
       return;
     }
 
-    if ((tool === "eraser-pixel" || tool === "eraser-object" || eraserSessionRef.current?.active) && eraserSessionRef.current) {
+    if (
+      (tool === "eraser-pixel" || tool === "eraser-object" || eraserSessionRef.current?.active) &&
+      eraserSessionRef.current
+    ) {
       const session = eraserSessionRef.current;
       eraserSessionRef.current = null;
       clearOverlay();
@@ -6117,12 +6286,20 @@ export function WhiteboardCanvas({
       }
 
       // Handwriting: a scribble over ink erases it; letters of a word must not snap into shapes
-      const inkIntent = d.snappedShape || d.tool === "shape" ? null : handwriting.beforeCommit(d.tool, d.points);
+      const inkIntent =
+        d.snappedShape || d.tool === "shape" ? null : handwriting.beforeCommit(d.tool, d.points);
       if (inkIntent === "erased") return;
 
       // Check for snapped or recognized shape (on hold OR on liftoff if autoSnap is enabled)
       let shapeToCommit: Omit<ShapeStroke, "id"> | null = d.snappedShape || null;
-      if (!shapeToCommit && inkIntent !== "writing" && d.tool !== "tape" && d.tool !== "frame" && (autoSnapEnabled || d.tool === "shape") && d.points.length >= 6) {
+      if (
+        !shapeToCommit &&
+        inkIntent !== "writing" &&
+        d.tool !== "tape" &&
+        d.tool !== "frame" &&
+        (autoSnapEnabled || d.tool === "shape") &&
+        d.points.length >= 6
+      ) {
         shapeToCommit = recognizeShape(d.points, d.color, d.size);
       }
 
@@ -6225,10 +6402,23 @@ export function WhiteboardCanvas({
     }
   }
 
+  const liveRafRef = useRef<number | null>(null);
+  function scheduleDrawLive() {
+    if (liveRafRef.current !== null) return;
+    liveRafRef.current = requestAnimationFrame(() => {
+      liveRafRef.current = null;
+      drawLive();
+    });
+  }
+
   function clearOverlay() {
+    if (liveRafRef.current !== null) {
+      cancelAnimationFrame(liveRafRef.current);
+      liveRafRef.current = null;
+    }
     const overlay = overlayRef.current;
     if (!overlay) return;
-    const ctx = overlay.getContext("2d");
+    const ctx = overlay.getContext("2d", { desynchronized: true });
     if (ctx) ctx.clearRect(0, 0, overlay.width, overlay.height);
   }
 
@@ -6237,7 +6427,7 @@ export function WhiteboardCanvas({
     if (!overlay) return;
     const fadeStart = Date.now();
     const fade = () => {
-      const ctx = overlay.getContext("2d");
+      const ctx = overlay.getContext("2d", { desynchronized: true });
       if (!ctx) return;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, overlay.width, overlay.height);
@@ -6268,7 +6458,7 @@ export function WhiteboardCanvas({
   function drawLive() {
     const overlay = overlayRef.current;
     if (!overlay) return;
-    const ctx = overlay.getContext("2d")!;
+    const ctx = overlay.getContext("2d", { desynchronized: true })!;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, overlay.width, overlay.height);
     ctx.scale(dpr, dpr);
@@ -6306,9 +6496,12 @@ export function WhiteboardCanvas({
       return;
     }
 
-    const sessions = strokeSessionsRef.current.size > 0 
-      ? Array.from(strokeSessionsRef.current.values())
-      : (drawingRef.current ? [drawingRef.current] : []);
+    const sessions =
+      strokeSessionsRef.current.size > 0
+        ? Array.from(strokeSessionsRef.current.values())
+        : drawingRef.current
+          ? [drawingRef.current]
+          : [];
 
     if (sessions.length === 0) return ctx.restore();
 
@@ -6321,7 +6514,17 @@ export function WhiteboardCanvas({
       const pts = session.points;
       if (pts.length < 2) continue;
 
-      const dummyStroke: StrokeBase = { id: "", color: session.color, size: session.size, points: pts };
+      const combinedPts =
+        session.predictedPoints && session.predictedPoints.length > 0
+          ? [...pts, ...session.predictedPoints]
+          : pts;
+
+      const dummyStroke: StrokeBase = {
+        id: "",
+        color: session.color,
+        size: session.size,
+        points: combinedPts,
+      };
       const sTool = session.tool;
 
       if (sTool === "fountain") {
@@ -6401,9 +6604,7 @@ export function WhiteboardCanvas({
     const screenW = typeof window !== "undefined" ? window.innerWidth : 400;
     // On mobile devices / narrow viewports, center the floating bar to avoid clipping
     const x =
-      screenW < 540
-        ? screenW / 2
-        : Math.max(220, Math.min(screenW - 220, selectionScreenPos.x));
+      screenW < 540 ? screenW / 2 : Math.max(220, Math.min(screenW - 220, selectionScreenPos.x));
 
     // If selection is near the top of the screen (underneath TopBar ~60px), flip bar below selection
     let y = selectionScreenPos.y;
@@ -6530,7 +6731,8 @@ export function WhiteboardCanvas({
     const drop = new Set(ids);
     setObjects(objs.filter((o) => !drop.has(o.id)));
     const sel = st.selectedIds.filter((id) => !drop.has(id));
-    if (sel.length !== st.selectedIds.length || (st.selectedId && drop.has(st.selectedId))) setSelectedIds(sel);
+    if (sel.length !== st.selectedIds.length || (st.selectedId && drop.has(st.selectedId)))
+      setSelectedIds(sel);
   }
 
   async function handleConvertHandwritingToText() {
@@ -6560,7 +6762,8 @@ export function WhiteboardCanvas({
     }
     const inkW = Math.max(40, maxX - minX);
     const inkH = Math.max(24, maxY - minY);
-    const primaryColor = (selectedObjects.find((o) => "color" in o) as { color?: string })?.color || "#0f172a";
+    const primaryColor =
+      (selectedObjects.find((o) => "color" in o) as { color?: string })?.color || "#0f172a";
 
     // Fast path: reuse live recognition, but only when every selected stroke belongs to a
     // recognised word (otherwise unrecognised ink would be deleted without being converted)
@@ -6638,7 +6841,8 @@ export function WhiteboardCanvas({
 
   async function translateObjects(targetIds: string[], code: string) {
     const current = useWhiteboard.getState();
-    const objects = (current.pages.find((p) => p.id === current.activePageId) || current.pages[0])?.objects ?? [];
+    const objects =
+      (current.pages.find((p) => p.id === current.activePageId) || current.pages[0])?.objects ?? [];
     const selected = objects.filter((o) => targetIds.includes(o.id));
     if (!selected.length) return;
     const target = findLanguage(code);
@@ -6661,8 +6865,15 @@ export function WhiteboardCanvas({
     let result;
     try {
       if (typedOnly) {
-        const text = selected.map((o) => (o as { text?: string }).text || "").filter(Boolean).join("\n");
-        result = await AIEngine.translateText(text, `${target.name} (${target.nativeName})`, script);
+        const text = selected
+          .map((o) => (o as { text?: string }).text || "")
+          .filter(Boolean)
+          .join("\n");
+        result = await AIEngine.translateText(
+          text,
+          `${target.name} (${target.nativeName})`,
+          script,
+        );
       } else {
         const img = exportSelectedRegionAsImage(targetIds);
         result = await AIEngine.translateHandwriting(
@@ -6692,19 +6903,41 @@ export function WhiteboardCanvas({
     const strokes = selected
       .filter((o) => Array.isArray((o as { points?: unknown }).points) && o.kind !== "shape")
       .map((o) => ({ id: o.id, points: (o as { points: { x: number; y: number }[] }).points }));
-    const typedSize = Math.max(0, ...selected.map((o) => (o as { fontSize?: number }).fontSize || 0));
-    const letterHeight = strokes.length ? typicalLetterHeight(strokes) : typedSize ? typedSize / 1.05 : 24;
-    const color = (selected.find((o) => "color" in o && typeof (o as { color?: unknown }).color === "string") as { color?: string } | undefined)?.color;
+    const typedSize = Math.max(
+      0,
+      ...selected.map((o) => (o as { fontSize?: number }).fontSize || 0),
+    );
+    const letterHeight = strokes.length
+      ? typicalLetterHeight(strokes)
+      : typedSize
+        ? typedSize / 1.05
+        : 24;
+    const color = (
+      selected.find((o) => "color" in o && typeof (o as { color?: unknown }).color === "string") as
+        { color?: string } | undefined
+    )?.color;
 
-    await Promise.race([ensureHandwritingFont(font, result.translation.slice(0, 8)), new Promise((r) => setTimeout(r, 2500))]);
+    await Promise.race([
+      ensureHandwritingFont(font, result.translation.slice(0, 8)),
+      new Promise((r) => setTimeout(r, 2500)),
+    ]);
 
     // Check if there are multiple lines in both the stroke clusters and the translated output
-    const strokeClusters = strokes.length > 0 ? clusterIntoLines(strokes).sort((a, b) => boundsOf(a[0].points).y - boundsOf(b[0].points).y) : [];
-    const translatedLines = result.translation.split("\n").map((l) => l.trim()).filter(Boolean);
+    const strokeClusters =
+      strokes.length > 0
+        ? clusterIntoLines(strokes).sort(
+            (a, b) => boundsOf(a[0].points).y - boundsOf(b[0].points).y,
+          )
+        : [];
+    const translatedLines = result.translation
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean);
 
     const ids = new Set(targetIds);
     const latest = useWhiteboard.getState();
-    const latestObjects = (latest.pages.find((p) => p.id === latest.activePageId) || latest.pages[0])?.objects ?? [];
+    const latestObjects =
+      (latest.pages.find((p) => p.id === latest.activePageId) || latest.pages[0])?.objects ?? [];
     const remaining = latestObjects.filter((o) => !ids.has(o.id));
 
     const newObjects: CanvasObject[] = [];
@@ -6757,10 +6990,10 @@ export function WhiteboardCanvas({
     setObjects([...remaining, ...newObjects]);
     setSelectedIds([]);
     pushHistory();
-    toast.success(
-      `${result.sourceLanguage ? `${result.sourceLanguage} → ` : ""}${target.name}`,
-      { id: toastId, description: "Tap undo to bring your writing back." },
-    );
+    toast.success(`${result.sourceLanguage ? `${result.sourceLanguage} → ` : ""}${target.name}`, {
+      id: toastId,
+      description: "Tap undo to bring your writing back.",
+    });
   }
 
   async function handleConvertMath() {
@@ -6836,8 +7069,9 @@ export function WhiteboardCanvas({
       const placeDown = isFinite(b.maxY) ? b.maxY + 20 : 300;
       const rightInScreen = (placeRight - camera.x) * camera.zoom;
 
-      const insertX = rightInScreen > screenW - 200 ? (isFinite(b.minX) ? b.minX : 400) : placeRight;
-      const insertY = rightInScreen > screenW - 200 ? placeDown : (isFinite(b.minY) ? b.minY : 300);
+      const insertX =
+        rightInScreen > screenW - 200 ? (isFinite(b.minX) ? b.minX : 400) : placeRight;
+      const insertY = rightInScreen > screenW - 200 ? placeDown : isFinite(b.minY) ? b.minY : 300;
 
       // Render pedagogical, high-resolution step-by-step solution card image
       const solutionCard = renderMathSolutionCard({
@@ -6913,7 +7147,11 @@ export function WhiteboardCanvas({
 
     const currentPage = pageRef.current || page;
     let targetObjects = currentPage.objects.filter((o) =>
-      selectedIds.length > 0 ? selectedIds.includes(o.id) : selectedId ? o.id === selectedId : false,
+      selectedIds.length > 0
+        ? selectedIds.includes(o.id)
+        : selectedId
+          ? o.id === selectedId
+          : false,
     );
 
     if (targetObjects.length === 0) {
@@ -7049,7 +7287,11 @@ export function WhiteboardCanvas({
     const selectedObjects = page.objects.filter((o) => targetIds.includes(o.id));
     const strokeObjs = selectedObjects.filter(
       (o): o is CanvasObject & StrokeBase =>
-        "points" in o && "color" in o && "size" in o && Array.isArray((o as any).points) && (o as any).points.length >= 4,
+        "points" in o &&
+        "color" in o &&
+        "size" in o &&
+        Array.isArray((o as any).points) &&
+        (o as any).points.length >= 4,
     );
 
     if (strokeObjs.length === 0) {
@@ -7283,7 +7525,9 @@ export function WhiteboardCanvas({
               </span>
               <Compass className="h-3.5 w-3.5 text-sky-500" />
               <span>Live Radar</span>
-              <span className="text-[10px] text-muted-foreground font-normal ml-0.5">({page.objects.length})</span>
+              <span className="text-[10px] text-muted-foreground font-normal ml-0.5">
+                ({page.objects.length})
+              </span>
             </div>
             <div className="flex items-center gap-1">
               <button
@@ -7396,7 +7640,11 @@ export function WhiteboardCanvas({
               title={allTapeRevealed ? "Hide all study tape" : "Reveal all study tape"}
               className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-amber-500/10 text-amber-500 transition active:scale-90"
             >
-              {allTapeRevealed ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+              {allTapeRevealed ? (
+                <EyeOff className="h-3.5 w-3.5" />
+              ) : (
+                <Eye className="h-3.5 w-3.5" />
+              )}
             </button>
           )}
 
@@ -7545,7 +7793,11 @@ export function WhiteboardCanvas({
             className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-white/10 text-slate-300 hover:text-white transition"
             title={isFullscreen ? "Exit Fullscreen (F)" : "Enter Fullscreen (F)"}
           >
-            {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+            {isFullscreen ? (
+              <Minimize2 className="h-3.5 w-3.5" />
+            ) : (
+              <Maximize2 className="h-3.5 w-3.5" />
+            )}
           </button>
 
           {/* Exit Presentation Mode */}
@@ -7560,359 +7812,379 @@ export function WhiteboardCanvas({
       )}
 
       {/* Floating Action Bar for Selection (Single & Multi Selection) */}
-      {clampedSelectionPos && (() => {
-        const tooltipPlacement = clampedSelectionPos.isBelow || clampedSelectionPos.y < 120 ? "bottom" : "top";
-        return (
-          <div
-            className={cn(
-              "pointer-events-auto absolute flex -translate-x-1/2 items-center gap-1 sm:gap-1.5 rounded-2xl sm:rounded-full bg-card/95 p-1.5 sm:px-2.5 sm:py-1.5 shadow-xl ring-1 ring-border backdrop-blur z-20 max-w-[min(460px,calc(100vw-16px))] flex-wrap sm:flex-nowrap justify-center",
-              clampedSelectionPos.isBelow ? "translate-y-0" : "-translate-y-full"
-            )}
-            style={{ left: clampedSelectionPos.x, top: clampedSelectionPos.y }}
-          >
-            <div className="flex items-center gap-1 text-[11px] sm:text-xs font-semibold text-primary px-1 sm:px-1.5 border-r border-border shrink-0 select-none">
-              <span>{targetSelectionIds.length}</span> {targetSelectionIds.length === 1 ? "item" : "items"}
-            </div>
+      {clampedSelectionPos &&
+        (() => {
+          const tooltipPlacement =
+            clampedSelectionPos.isBelow || clampedSelectionPos.y < 120 ? "bottom" : "top";
+          return (
+            <div
+              className={cn(
+                "pointer-events-auto absolute flex -translate-x-1/2 items-center gap-1 sm:gap-1.5 rounded-2xl sm:rounded-full bg-card/95 p-1.5 sm:px-2.5 sm:py-1.5 shadow-xl ring-1 ring-border backdrop-blur z-20 max-w-[min(460px,calc(100vw-16px))] flex-wrap sm:flex-nowrap justify-center",
+                clampedSelectionPos.isBelow ? "translate-y-0" : "-translate-y-full",
+              )}
+              style={{ left: clampedSelectionPos.x, top: clampedSelectionPos.y }}
+            >
+              <div className="flex items-center gap-1 text-[11px] sm:text-xs font-semibold text-primary px-1 sm:px-1.5 border-r border-border shrink-0 select-none">
+                <span>{targetSelectionIds.length}</span>{" "}
+                {targetSelectionIds.length === 1 ? "item" : "items"}
+              </div>
 
-            {/* 1. Recolor */}
-            <div className="relative group/recolor flex items-center justify-center shrink-0">
-              <button
-                type="button"
-                onClick={() => setRecolorPickerOpen(!recolorPickerOpen)}
-                aria-label="Recolor"
-                className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-accent text-foreground transition shrink-0"
-              >
-                <Palette className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-              </button>
-              {!recolorPickerOpen && (
-                <div
-                  className={cn(
-                    "pointer-events-none absolute left-1/2 -translate-x-1/2 hidden group-hover/recolor:flex flex-col items-center z-50 animate-in fade-in-0 zoom-in-95 duration-100",
-                    tooltipPlacement === "bottom" ? "top-full mt-2" : "bottom-full mb-2"
-                  )}
+              {/* 1. Recolor */}
+              <div className="relative group/recolor flex items-center justify-center shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setRecolorPickerOpen(!recolorPickerOpen)}
+                  aria-label="Recolor"
+                  className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-accent text-foreground transition shrink-0"
                 >
-                  {tooltipPlacement === "bottom" && (
-                    <div className="w-2 h-2 rotate-45 bg-slate-900 dark:bg-slate-100 -mb-1 shadow-xs" />
-                  )}
-                  <div className="flex flex-col items-center rounded-lg bg-slate-900/95 dark:bg-slate-100/95 text-white dark:text-slate-900 px-2.5 py-1.5 shadow-xl ring-1 ring-white/10 dark:ring-black/10 backdrop-blur whitespace-nowrap text-center">
-                    <span className="font-semibold text-xs leading-tight tracking-wide">Recolor</span>
-                    <span className="text-[10px] text-slate-300 dark:text-slate-600 font-normal leading-tight mt-0.5">
-                      Change stroke or fill color
-                    </span>
+                  <Palette className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                </button>
+                {!recolorPickerOpen && (
+                  <div
+                    className={cn(
+                      "pointer-events-none absolute left-1/2 -translate-x-1/2 hidden group-hover/recolor:flex flex-col items-center z-50 animate-in fade-in-0 zoom-in-95 duration-100",
+                      tooltipPlacement === "bottom" ? "top-full mt-2" : "bottom-full mb-2",
+                    )}
+                  >
+                    {tooltipPlacement === "bottom" && (
+                      <div className="w-2 h-2 rotate-45 bg-slate-900 dark:bg-slate-100 -mb-1 shadow-xs" />
+                    )}
+                    <div className="flex flex-col items-center rounded-lg bg-slate-900/95 dark:bg-slate-100/95 text-white dark:text-slate-900 px-2.5 py-1.5 shadow-xl ring-1 ring-white/10 dark:ring-black/10 backdrop-blur whitespace-nowrap text-center">
+                      <span className="font-semibold text-xs leading-tight tracking-wide">
+                        Recolor
+                      </span>
+                      <span className="text-[10px] text-slate-300 dark:text-slate-600 font-normal leading-tight mt-0.5">
+                        Change stroke or fill color
+                      </span>
+                    </div>
+                    {tooltipPlacement === "top" && (
+                      <div className="w-2 h-2 rotate-45 bg-slate-900 dark:bg-slate-100 -mt-1 shadow-xs" />
+                    )}
                   </div>
-                  {tooltipPlacement === "top" && (
-                    <div className="w-2 h-2 rotate-45 bg-slate-900 dark:bg-slate-100 -mt-1 shadow-xs" />
-                  )}
-                </div>
-              )}
-              {recolorPickerOpen && (
-                <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 flex gap-1 p-2 rounded-xl bg-card shadow-xl ring-1 ring-border z-50">
-                  {PALETTE.slice(0, 7).map((c) => (
-                    <button
-                      key={c}
-                      type="button"
+                )}
+                {recolorPickerOpen && (
+                  <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 flex gap-1 p-2 rounded-xl bg-card shadow-xl ring-1 ring-border z-50">
+                    {PALETTE.slice(0, 7).map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => {
+                          recolorSelected(c);
+                          pushHistory();
+                          setRecolorPickerOpen(false);
+                        }}
+                        className="h-6 w-6 rounded-full border border-border"
+                        style={{ backgroundColor: c }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* 2. Duplicate */}
+              <SelectionToolBtn
+                onClick={() => {
+                  duplicateSelected();
+                  pushHistory();
+                }}
+                icon={<Copy className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+                label="Duplicate"
+                description="Clone selected objects"
+                className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-accent text-foreground transition shrink-0"
+                placement={tooltipPlacement}
+              />
+
+              {/* 3. Delete */}
+              <SelectionToolBtn
+                onClick={() => {
+                  deleteSelected();
+                  pushHistory();
+                }}
+                icon={<Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+                label="Delete"
+                description="Remove selection from canvas"
+                className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-destructive/10 text-destructive transition shrink-0"
+                placement={tooltipPlacement}
+              />
+
+              <div className="h-3.5 sm:h-4 w-px bg-border mx-0 sm:mx-0.5 shrink-0" />
+
+              {/* Flowchart / Mind Map: Whole vs Single selection toggle */}
+              {(() => {
+                const primaryObj = page.objects.find(
+                  (o) =>
+                    targetSelectionIds.includes(o.id) &&
+                    (o.kind === "diagram-node" || o.kind === "mindmap-node"),
+                );
+                if (!primaryObj) return null;
+                const isMindMap = primaryObj.kind === "mindmap-node";
+                const connected = getConnectedFlowchartNodes(primaryObj, page.objects);
+                if (connected.length <= 1) return null;
+
+                const isAllConnectedSelected = connected.every((c) =>
+                  targetSelectionIds.includes(c.id),
+                );
+
+                if (isAllConnectedSelected) {
+                  return (
+                    <SelectionToolBtn
                       onClick={() => {
-                        recolorSelected(c);
-                        pushHistory();
-                        setRecolorPickerOpen(false);
+                        const singleId = selectedId || targetSelectionIds[0];
+                        setSelected(singleId);
+                        toast.info("Single box mode: drag to move this box alone.");
                       }}
-                      className="h-6 w-6 rounded-full border border-border"
-                      style={{ backgroundColor: c }}
+                      icon={<Square className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+                      label="Move Single Box"
+                      description={`Switch to moving only this ${isMindMap ? "node" : "box"}`}
+                      className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-medium transition shrink-0"
+                      placement={tooltipPlacement}
                     />
-                  ))}
-                </div>
-              )}
-            </div>
+                  );
+                } else {
+                  return (
+                    <SelectionToolBtn
+                      onClick={() => {
+                        const allIds = connected.map((c) => c.id);
+                        setSelectedIds(allIds);
+                        setSelected(primaryObj.id);
+                        toast.success(
+                          `Selected whole ${isMindMap ? "mind map" : "flowchart"} (${connected.length} boxes). Drag anywhere to move together!`,
+                        );
+                      }}
+                      icon={<Workflow className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+                      label={isMindMap ? "Select Whole Mind Map" : "Select Whole Flowchart"}
+                      description={`Select all ${connected.length} connected boxes to move together`}
+                      className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-teal-500/10 text-teal-600 dark:text-teal-400 font-medium transition shrink-0"
+                      placement={tooltipPlacement}
+                    />
+                  );
+                }
+              })()}
 
-            {/* 2. Duplicate */}
-            <SelectionToolBtn
-              onClick={() => {
-                duplicateSelected();
-                pushHistory();
-              }}
-              icon={<Copy className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
-              label="Duplicate"
-              description="Clone selected objects"
-              className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-accent text-foreground transition shrink-0"
-              placement={tooltipPlacement}
-            />
-
-            {/* 3. Delete */}
-            <SelectionToolBtn
-              onClick={() => {
-                deleteSelected();
-                pushHistory();
-              }}
-              icon={<Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
-              label="Delete"
-              description="Remove selection from canvas"
-              className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-destructive/10 text-destructive transition shrink-0"
-              placement={tooltipPlacement}
-            />
-
-            <div className="h-3.5 sm:h-4 w-px bg-border mx-0 sm:mx-0.5 shrink-0" />
-
-            {/* Flowchart / Mind Map: Whole vs Single selection toggle */}
-            {(() => {
-              const primaryObj = page.objects.find(
-                (o) =>
-                  targetSelectionIds.includes(o.id) &&
-                  (o.kind === "diagram-node" || o.kind === "mindmap-node")
-              );
-              if (!primaryObj) return null;
-              const isMindMap = primaryObj.kind === "mindmap-node";
-              const connected = getConnectedFlowchartNodes(primaryObj, page.objects);
-              if (connected.length <= 1) return null;
-
-              const isAllConnectedSelected = connected.every((c) =>
-                targetSelectionIds.includes(c.id)
-              );
-
-              if (isAllConnectedSelected) {
+              {/* Quiz Card: Host Live Classroom Quiz via QR code */}
+              {(() => {
+                const quizObj = page.objects.find(
+                  (o) => targetSelectionIds.includes(o.id) && o.kind === "quiz",
+                ) as QuizObject | undefined;
+                if (!quizObj) return null;
                 return (
                   <SelectionToolBtn
                     onClick={() => {
-                      const singleId = selectedId || targetSelectionIds[0];
-                      setSelected(singleId);
-                      toast.info("Single box mode: drag to move this box alone.");
+                      window.dispatchEvent(
+                        new CustomEvent("slate:open-live-quiz", { detail: quizObj }),
+                      );
                     }}
-                    icon={<Square className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
-                    label="Move Single Box"
-                    description={`Switch to moving only this ${isMindMap ? "node" : "box"}`}
+                    icon={
+                      <Radio className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-indigo-500 animate-pulse" />
+                    }
+                    label="Host Live Quiz (QR)"
+                    description="Students scan QR code with phones to vote live"
                     className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-medium transition shrink-0"
                     placement={tooltipPlacement}
                   />
                 );
-              } else {
+              })()}
+
+              {/* Activity Card: Open Interactive Activity on Board */}
+              {(() => {
+                const actObj = page.objects.find(
+                  (o) => targetSelectionIds.includes(o.id) && o.kind === "activity",
+                ) as ActivityObject | undefined;
+                if (!actObj) return null;
                 return (
                   <SelectionToolBtn
                     onClick={() => {
-                      const allIds = connected.map((c) => c.id);
-                      setSelectedIds(allIds);
-                      setSelected(primaryObj.id);
-                      toast.success(
-                        `Selected whole ${isMindMap ? "mind map" : "flowchart"} (${connected.length} boxes). Drag anywhere to move together!`
+                      window.dispatchEvent(
+                        new CustomEvent("slate:open-activity", { detail: { activity: actObj } }),
                       );
                     }}
-                    icon={<Workflow className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
-                    label={isMindMap ? "Select Whole Mind Map" : "Select Whole Flowchart"}
-                    description={`Select all ${connected.length} connected boxes to move together`}
-                    className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-teal-500/10 text-teal-600 dark:text-teal-400 font-medium transition shrink-0"
+                    icon={
+                      <Play className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-indigo-500 fill-current" />
+                    }
+                    label="Play on Board"
+                    description="Open full-screen interactive sort & match activity"
+                    className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-medium transition shrink-0"
                     placement={tooltipPlacement}
                   />
                 );
-              }
-            })()}
+              })()}
 
-            {/* Quiz Card: Host Live Classroom Quiz via QR code */}
-            {(() => {
-              const quizObj = page.objects.find(
-                (o) => targetSelectionIds.includes(o.id) && o.kind === "quiz"
-              ) as QuizObject | undefined;
-              if (!quizObj) return null;
-              return (
+              {/* 4. Ask Slate AI / Explain Selection */}
+              {onOpenAI && (
                 <SelectionToolBtn
                   onClick={() => {
-                    window.dispatchEvent(new CustomEvent("slate:open-live-quiz", { detail: quizObj }));
+                    const targetIds =
+                      selectedIds.length > 0 ? selectedIds : selectedId ? [selectedId] : [];
+                    const img = exportSelectedRegionAsImage(targetIds);
+                    const selectedObjects = page.objects.filter((o) => targetIds.includes(o.id));
+                    const knownText = selectedObjects
+                      .map((o) => (o as any).text || (o as any).inkText || "")
+                      .filter(Boolean)
+                      .join(" ");
+                    onOpenAI({
+                      snapshot: img || undefined,
+                      prompt: "Explain what's shown here and help me understand it step-by-step.",
+                      contextText: knownText || undefined,
+                    });
                   }}
-                  icon={<Radio className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-indigo-500 animate-pulse" />}
-                  label="Host Live Quiz (QR)"
-                  description="Students scan QR code with phones to vote live"
-                  className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-medium transition shrink-0"
+                  icon={<Wand2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+                  label="Ask Slate AI"
+                  description="Explain, summarize or quiz selection"
+                  className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-sky-500/10 text-sky-500 transition shrink-0"
                   placement={tooltipPlacement}
                 />
-              );
-            })()}
+              )}
 
-            {/* Activity Card: Open Interactive Activity on Board */}
-            {(() => {
-              const actObj = page.objects.find(
-                (o) => targetSelectionIds.includes(o.id) && o.kind === "activity"
-              ) as ActivityObject | undefined;
-              if (!actObj) return null;
-              return (
-                <SelectionToolBtn
-                  onClick={() => {
-                    window.dispatchEvent(new CustomEvent("slate:open-activity", { detail: { activity: actObj } }));
-                  }}
-                  icon={<Play className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-indigo-500 fill-current" />}
-                  label="Play on Board"
-                  description="Open full-screen interactive sort & match activity"
-                  className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-medium transition shrink-0"
-                  placement={tooltipPlacement}
-                />
-              );
-            })()}
-
-            {/* 4. Ask Slate AI / Explain Selection */}
-            {onOpenAI && (
+              {/* 5. Translate */}
               <SelectionToolBtn
-                onClick={() => {
-                  const targetIds = selectedIds.length > 0 ? selectedIds : selectedId ? [selectedId] : [];
-                  const img = exportSelectedRegionAsImage(targetIds);
-                  const selectedObjects = page.objects.filter((o) => targetIds.includes(o.id));
-                  const knownText = selectedObjects
-                    .map((o) => (o as any).text || (o as any).inkText || "")
-                    .filter(Boolean)
-                    .join(" ");
-                  onOpenAI({
-                    snapshot: img || undefined,
-                    prompt: "Explain what's shown here and help me understand it step-by-step.",
-                    contextText: knownText || undefined,
-                  });
-                }}
-                icon={<Wand2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
-                label="Ask Slate AI"
-                description="Explain, summarize or quiz selection"
-                className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-sky-500/10 text-sky-500 transition shrink-0"
+                onClick={handleTranslateSelection}
+                icon={<Languages className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+                label="Translate"
+                description="Rewrite in another language, in handwriting"
+                className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-orange-500/10 text-orange-500 transition shrink-0"
                 placement={tooltipPlacement}
               />
-            )}
 
-            {/* 5. Translate */}
-            <SelectionToolBtn
-              onClick={handleTranslateSelection}
-              icon={<Languages className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
-              label="Translate"
-              description="Rewrite in another language, in handwriting"
-              className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-orange-500/10 text-orange-500 transition shrink-0"
-              placement={tooltipPlacement}
-            />
-
-            {/* 6. Handwriting → Text / Edit Text */}
-            <SelectionToolBtn
-              onClick={handleConvertHandwritingToText}
-              icon={<Type className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
-              label={
-                targetSelectionIds.length === 1 &&
-                page.objects.find((o) => o.id === targetSelectionIds[0])?.kind === "text"
-                  ? "Edit Text"
-                  : "Convert to Text"
-              }
-              description={
-                targetSelectionIds.length === 1 &&
-                page.objects.find((o) => o.id === targetSelectionIds[0])?.kind === "text"
-                  ? "Edit text content and font"
-                  : "Handwriting → editable text box"
-              }
-              className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-primary/10 text-primary transition shrink-0"
-              placement={tooltipPlacement}
-            />
-
-            {/* 7. Math Formula (LaTeX) */}
-            <SelectionToolBtn
-              onClick={handleConvertMath}
-              icon={<Sigma className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
-              label="Math Formula (LaTeX)"
-              description="Handwriting → typed LaTeX equation"
-              className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-violet-500/10 text-violet-500 transition shrink-0"
-              placement={tooltipPlacement}
-            />
-
-            {/* 8. Solve Math & Plot */}
-            <SelectionToolBtn
-              onClick={handleSolveAndPlotMath}
-              icon={<Calculator className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
-              label="Solve Math & Plot"
-              description="Calculate math & plot 2D graph"
-              className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-purple-500/10 text-purple-600 transition shrink-0"
-              placement={tooltipPlacement}
-            />
-
-            {/* 9. Clean Up Sketch / Beautify */}
-            <SelectionToolBtn
-              onClick={handleBeautifySketch}
-              icon={<Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
-              label="Clean Up Shape"
-              description="Rough sketch → clean geometric vector"
-              className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-amber-500/10 text-amber-500 transition shrink-0"
-              placement={tooltipPlacement}
-            />
-
-            {/* 10. Mind-Map from Selection */}
-            <SelectionToolBtn
-              onClick={handleGenerateMindMapFromSelection}
-              icon={<GitBranch className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
-              label="Concept Mind Map"
-              description="Generate branching concept diagram"
-              className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-indigo-500/10 text-indigo-500 transition shrink-0"
-              placement={tooltipPlacement}
-            />
-
-            {/* 11. Create Flashcards */}
-            <SelectionToolBtn
-              onClick={handleCreateFlashcardsFromSelection}
-              icon={<Layers className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
-              label="Create Flashcards"
-              description="Extract study cards for Learning Hub"
-              className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-emerald-500/10 text-emerald-500 transition shrink-0"
-              placement={tooltipPlacement}
-            />
-
-            {/* 12. Diagram → Flowchart */}
-            <SelectionToolBtn
-              onClick={handleConvertDiagram}
-              icon={<Workflow className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
-              label="Diagram → Flowchart"
-              description="Convert sketches to aligned flowchart"
-              className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-teal-500/10 text-teal-500 transition shrink-0"
-              placement={tooltipPlacement}
-            />
-
-            {/* 13. Conceal with Study Tape */}
-            <SelectionToolBtn
-              onClick={() => {
-                const bounds = selectionBounds;
-                if (!bounds) return;
-
-                const isAlreadyTape = targetSelectionIds.some((id) => {
-                  const o = page.objects.find((obj) => obj.id === id);
-                  return o?.kind === "tape";
-                });
-                if (isAlreadyTape) {
-                  toast.info("Study Tape is already applied to this!");
-                  return;
+              {/* 6. Handwriting → Text / Edit Text */}
+              <SelectionToolBtn
+                onClick={handleConvertHandwritingToText}
+                icon={<Type className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+                label={
+                  targetSelectionIds.length === 1 &&
+                  page.objects.find((o) => o.id === targetSelectionIds[0])?.kind === "text"
+                    ? "Edit Text"
+                    : "Convert to Text"
                 }
-
-                const existingTape = page.objects.find((o) => {
-                  if (o.kind !== "tape") return false;
-                  const tb = objectBounds(o);
-                  const xOverlap = Math.max(0, Math.min(bounds.x + bounds.w, tb.x + tb.w) - Math.max(bounds.x, tb.x));
-                  const yOverlap = Math.max(0, Math.min(bounds.y + bounds.h, tb.y + tb.h) - Math.max(bounds.y, tb.y));
-                  const overlapArea = xOverlap * yOverlap;
-                  const minArea = Math.min(bounds.w * bounds.h, tb.w * tb.h);
-                  return minArea > 0 && overlapArea / minArea > 0.5;
-                });
-                if (existingTape) {
-                  toast.info("Study Tape already applied to this box!");
-                  return;
+                description={
+                  targetSelectionIds.length === 1 &&
+                  page.objects.find((o) => o.id === targetSelectionIds[0])?.kind === "text"
+                    ? "Edit text content and font"
+                    : "Handwriting → editable text box"
                 }
+                className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-primary/10 text-primary transition shrink-0"
+                placement={tooltipPlacement}
+              />
 
-                const uid = Math.random().toString(36).slice(2, 10);
-                addObject({
-                  id: uid,
-                  kind: "tape",
-                  x: bounds.x,
-                  y: bounds.y,
-                  w: bounds.w,
-                  h: bounds.h,
-                  color: "#fed7aa",
-                  revealed: false,
-                  pattern: "diagonal",
-                  label: "Tap to reveal",
-                });
-                pushHistory();
-                toast.success("Masked with Study Tape!");
-              }}
-              icon={<EyeOff className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
-              label="Cover tape"
-              description="Conceal answers (tap to reveal)"
-              className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-orange-500/10 text-orange-500 transition shrink-0"
-              placement={tooltipPlacement}
-            />
-          </div>
-        );
-      })()}
+              {/* 7. Math Formula (LaTeX) */}
+              <SelectionToolBtn
+                onClick={handleConvertMath}
+                icon={<Sigma className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+                label="Math Formula (LaTeX)"
+                description="Handwriting → typed LaTeX equation"
+                className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-violet-500/10 text-violet-500 transition shrink-0"
+                placement={tooltipPlacement}
+              />
+
+              {/* 8. Solve Math & Plot */}
+              <SelectionToolBtn
+                onClick={handleSolveAndPlotMath}
+                icon={<Calculator className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+                label="Solve Math & Plot"
+                description="Calculate math & plot 2D graph"
+                className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-purple-500/10 text-purple-600 transition shrink-0"
+                placement={tooltipPlacement}
+              />
+
+              {/* 9. Clean Up Sketch / Beautify */}
+              <SelectionToolBtn
+                onClick={handleBeautifySketch}
+                icon={<Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+                label="Clean Up Shape"
+                description="Rough sketch → clean geometric vector"
+                className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-amber-500/10 text-amber-500 transition shrink-0"
+                placement={tooltipPlacement}
+              />
+
+              {/* 10. Mind-Map from Selection */}
+              <SelectionToolBtn
+                onClick={handleGenerateMindMapFromSelection}
+                icon={<GitBranch className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+                label="Concept Mind Map"
+                description="Generate branching concept diagram"
+                className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-indigo-500/10 text-indigo-500 transition shrink-0"
+                placement={tooltipPlacement}
+              />
+
+              {/* 11. Create Flashcards */}
+              <SelectionToolBtn
+                onClick={handleCreateFlashcardsFromSelection}
+                icon={<Layers className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+                label="Create Flashcards"
+                description="Extract study cards for Learning Hub"
+                className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-emerald-500/10 text-emerald-500 transition shrink-0"
+                placement={tooltipPlacement}
+              />
+
+              {/* 12. Diagram → Flowchart */}
+              <SelectionToolBtn
+                onClick={handleConvertDiagram}
+                icon={<Workflow className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+                label="Diagram → Flowchart"
+                description="Convert sketches to aligned flowchart"
+                className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-teal-500/10 text-teal-500 transition shrink-0"
+                placement={tooltipPlacement}
+              />
+
+              {/* 13. Conceal with Study Tape */}
+              <SelectionToolBtn
+                onClick={() => {
+                  const bounds = selectionBounds;
+                  if (!bounds) return;
+
+                  const isAlreadyTape = targetSelectionIds.some((id) => {
+                    const o = page.objects.find((obj) => obj.id === id);
+                    return o?.kind === "tape";
+                  });
+                  if (isAlreadyTape) {
+                    toast.info("Study Tape is already applied to this!");
+                    return;
+                  }
+
+                  const existingTape = page.objects.find((o) => {
+                    if (o.kind !== "tape") return false;
+                    const tb = objectBounds(o);
+                    const xOverlap = Math.max(
+                      0,
+                      Math.min(bounds.x + bounds.w, tb.x + tb.w) - Math.max(bounds.x, tb.x),
+                    );
+                    const yOverlap = Math.max(
+                      0,
+                      Math.min(bounds.y + bounds.h, tb.y + tb.h) - Math.max(bounds.y, tb.y),
+                    );
+                    const overlapArea = xOverlap * yOverlap;
+                    const minArea = Math.min(bounds.w * bounds.h, tb.w * tb.h);
+                    return minArea > 0 && overlapArea / minArea > 0.5;
+                  });
+                  if (existingTape) {
+                    toast.info("Study Tape already applied to this box!");
+                    return;
+                  }
+
+                  const uid = Math.random().toString(36).slice(2, 10);
+                  addObject({
+                    id: uid,
+                    kind: "tape",
+                    x: bounds.x,
+                    y: bounds.y,
+                    w: bounds.w,
+                    h: bounds.h,
+                    color: "#fed7aa",
+                    revealed: false,
+                    pattern: "diagonal",
+                    label: "Tap to reveal",
+                  });
+                  pushHistory();
+                  toast.success("Masked with Study Tape!");
+                }}
+                icon={<EyeOff className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+                label="Cover tape"
+                description="Conceal answers (tap to reveal)"
+                className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-orange-500/10 text-orange-500 transition shrink-0"
+                placement={tooltipPlacement}
+              />
+            </div>
+          );
+        })()}
 
       {editing && (
         <div
@@ -8000,7 +8272,9 @@ export function WhiteboardCanvas({
               color: editing.color || "inherit",
               lineHeight: 1.3,
               ...(editing.fontFamily ? { fontFamily: fontStack(editing.fontFamily) } : {}),
-              ...(editing.lang && /^(ur|ar|ks|sd)\b/.test(editing.lang) ? { direction: "rtl" as const } : {}),
+              ...(editing.lang && /^(ur|ar|ks|sd)\b/.test(editing.lang)
+                ? { direction: "rtl" as const }
+                : {}),
             }}
             value={editingTextValue}
             onChange={(e) => {
@@ -8062,12 +8336,7 @@ function SelectionToolBtn({
 }) {
   return (
     <div className="relative group/btn flex items-center justify-center shrink-0">
-      <button
-        type="button"
-        onClick={onClick}
-        aria-label={label}
-        className={className}
-      >
+      <button type="button" onClick={onClick} aria-label={label} className={className}>
         {icon}
       </button>
 
@@ -8075,7 +8344,7 @@ function SelectionToolBtn({
       <div
         className={cn(
           "pointer-events-none absolute left-1/2 -translate-x-1/2 hidden group-hover/btn:flex flex-col items-center z-50 animate-in fade-in-0 zoom-in-95 duration-100",
-          placement === "bottom" ? "top-full mt-2" : "bottom-full mb-2"
+          placement === "bottom" ? "top-full mt-2" : "bottom-full mb-2",
         )}
       >
         {placement === "bottom" && (

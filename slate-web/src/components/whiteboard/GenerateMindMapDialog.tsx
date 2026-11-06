@@ -35,7 +35,17 @@ export function GenerateMindMapDialog({
   initialMode?: "screen" | "custom";
   initialTopic?: string;
 }) {
-  const { pages, activePageId, activeBoardId, boards, camera, addObject, pushHistory, selectedId, selectedIds } = useWhiteboard();
+  const {
+    pages,
+    activePageId,
+    activeBoardId,
+    boards,
+    camera,
+    addObject,
+    pushHistory,
+    selectedId,
+    selectedIds,
+  } = useWhiteboard();
   const boardTitle = (activeBoardId && boards?.[activeBoardId]?.title) || "";
   const [mode, setMode] = useState<"screen" | "custom">(initialTopic ? "custom" : initialMode);
   const [customTopic, setCustomTopic] = useState(initialTopic);
@@ -55,9 +65,7 @@ export function GenerateMindMapDialog({
 
   const activePage = pages.find((p) => p.id === activePageId) || pages[0];
   const objectCount = activePage?.objects?.length || 0;
-  const boardStrings = activePage
-    ? extractBoardSearchStrings({ pages: [activePage] })
-    : [];
+  const boardStrings = activePage ? extractBoardSearchStrings({ pages: [activePage] }) : [];
 
   async function handleGenerate() {
     setLoading(true);
@@ -117,19 +125,28 @@ export function GenerateMindMapDialog({
           boardStrings.length > 0
             ? `Text, notes, and formulas on canvas:\n${boardStrings.slice(0, 30).join("\n")}`
             : "",
-        ].filter(Boolean).join("\n\n");
+        ]
+          .filter(Boolean)
+          .join("\n\n");
 
         if (!contextParts && !snapshot && objectCount === 0) {
           toast.dismiss(toastId);
-          toast.error("Your board is currently empty. Please select 'Different Topic' or write on the canvas first.");
+          toast.error(
+            "Your board is currently empty. Please select 'Different Topic' or write on the canvas first.",
+          );
           setLoading(false);
           return;
         }
 
-        tree = await AIEngine.generateMindMap(contextParts || "Current Whiteboard Work", startX, startY, {
-          imageDataUrl: snapshot,
-          isScreenWork: true,
-        });
+        tree = await AIEngine.generateMindMap(
+          contextParts || "Current Whiteboard Work",
+          startX,
+          startY,
+          {
+            imageDataUrl: snapshot,
+            isScreenWork: true,
+          },
+        );
       } else {
         // Option 2: Different custom topic
         const topic = customTopic.trim();
@@ -209,16 +226,22 @@ export function GenerateMindMapDialog({
             )}
           >
             <div className="flex items-center justify-between w-full mb-1.5">
-              <span className={cn(
-                "p-1.5 rounded-lg",
-                mode === "screen" ? "bg-purple-600 text-white" : "bg-muted text-muted-foreground",
-              )}>
+              <span
+                className={cn(
+                  "p-1.5 rounded-lg",
+                  mode === "screen" ? "bg-purple-600 text-white" : "bg-muted text-muted-foreground",
+                )}
+              >
                 <Monitor className="h-4 w-4" />
               </span>
-              <span className={cn(
-                "text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded-full tracking-wider",
-                mode === "screen" ? "bg-purple-600/20 text-purple-600 dark:text-purple-300" : "bg-muted text-muted-foreground",
-              )}>
+              <span
+                className={cn(
+                  "text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded-full tracking-wider",
+                  mode === "screen"
+                    ? "bg-purple-600/20 text-purple-600 dark:text-purple-300"
+                    : "bg-muted text-muted-foreground",
+                )}
+              >
                 On-Screen
               </span>
             </div>
@@ -242,16 +265,22 @@ export function GenerateMindMapDialog({
             )}
           >
             <div className="flex items-center justify-between w-full mb-1.5">
-              <span className={cn(
-                "p-1.5 rounded-lg",
-                mode === "custom" ? "bg-purple-600 text-white" : "bg-muted text-muted-foreground",
-              )}>
+              <span
+                className={cn(
+                  "p-1.5 rounded-lg",
+                  mode === "custom" ? "bg-purple-600 text-white" : "bg-muted text-muted-foreground",
+                )}
+              >
                 <Lightbulb className="h-4 w-4" />
               </span>
-              <span className={cn(
-                "text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded-full tracking-wider",
-                mode === "custom" ? "bg-purple-600/20 text-purple-600 dark:text-purple-300" : "bg-muted text-muted-foreground",
-              )}>
+              <span
+                className={cn(
+                  "text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded-full tracking-wider",
+                  mode === "custom"
+                    ? "bg-purple-600/20 text-purple-600 dark:text-purple-300"
+                    : "bg-muted text-muted-foreground",
+                )}
+              >
                 Different
               </span>
             </div>
@@ -285,9 +314,7 @@ export function GenerateMindMapDialog({
             </div>
           ) : (
             <div className="space-y-2">
-              <label className="text-xs font-semibold text-foreground">
-                Topic or Concept Name
-              </label>
+              <label className="text-xs font-semibold text-foreground">Topic or Concept Name</label>
               <Input
                 placeholder="e.g. Thermodynamics, Indian History, Cell Division..."
                 value={customTopic}

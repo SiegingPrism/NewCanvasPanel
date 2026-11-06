@@ -47,7 +47,7 @@ export async function syncBoardToSupabase(
   meta: BoardMeta,
   pages: Page[] = [],
   thumbnail?: string,
-  isPublicShare = false
+  isPublicShare = false,
 ): Promise<boolean> {
   const supabase = getSupabase();
   if (!supabase) return false;
@@ -60,7 +60,9 @@ export async function syncBoardToSupabase(
 
   // SAFETY: Never overwrite cloud copy with an empty board when data is not in memory
   if (!pages || !Array.isArray(pages) || pages.length === 0) {
-    console.warn(`[dbService] Skipping cloud sync for board "${meta.id}": no pages data in memory.`);
+    console.warn(
+      `[dbService] Skipping cloud sync for board "${meta.id}": no pages data in memory.`,
+    );
     return false;
   }
 
@@ -99,7 +101,9 @@ export async function syncBoardToSupabase(
           const copyTitle = `${meta.title || "Untitled Board"} (copy)`;
           payload.id = copyId;
           payload.title = copyTitle;
-          console.warn(`[Sync] Conflict detected for board "${meta.title}". Saving as copy: "${copyTitle}"`);
+          console.warn(
+            `[Sync] Conflict detected for board "${meta.title}". Saving as copy: "${copyTitle}"`,
+          );
         }
       }
     }
@@ -249,11 +253,7 @@ export async function fetchNoteById(noteId: string): Promise<CloudNoteRecord | n
   const supabase = getSupabase();
   if (!supabase) return null;
   try {
-    const { data, error } = await supabase
-      .from("notes")
-      .select("*")
-      .eq("id", noteId)
-      .maybeSingle();
+    const { data, error } = await supabase.from("notes").select("*").eq("id", noteId).maybeSingle();
     if (error || !data) return null;
     return data as CloudNoteRecord;
   } catch {
@@ -269,11 +269,7 @@ export async function deleteNoteFromSupabase(noteId: string): Promise<boolean> {
   if (!userId) return false;
 
   try {
-    const { error } = await supabase
-      .from("notes")
-      .delete()
-      .eq("id", noteId)
-      .eq("user_id", userId);
+    const { error } = await supabase.from("notes").delete().eq("id", noteId).eq("user_id", userId);
     if (error) {
       console.warn("Supabase deleteNote warning:", error.message);
       return false;
@@ -293,7 +289,7 @@ export async function syncStudyDeckToSupabase(
   deckId: string,
   title: string,
   cards: any[] = [],
-  quizzes: any[] = []
+  quizzes: any[] = [],
 ): Promise<boolean> {
   const supabase = getSupabase();
   if (!supabase) return false;
@@ -374,4 +370,3 @@ export async function deleteAccountAndAllData(): Promise<{ success: boolean; err
     return { success: false, error: err?.message || "Failed to delete account" };
   }
 }
-
