@@ -149,6 +149,7 @@ export function WhiteboardCanvas({
     startX: number;
     startY: number;
     startCam: { x: number; y: number; zoom: number };
+    isDragging?: boolean;
   } | null>(null);
 
   const page = pages.find((p) => p.id === activePageId) ||
@@ -5001,14 +5002,15 @@ export function WhiteboardCanvas({
     // Dual Input: Active pen writing + simultaneous other hand canvas panning
     if (e.pointerType === "pen") {
       isPenActiveRef.current = true;
-      // If the other hand was already placed on the board before the pen, convert it to a pan touch
-      if (!otherHandTouchRef.current && touchMapRef.current.size > 0) {
+      // If the other hand was already placed on the board before the pen, convert it to a pan touch (only if board is not locked)
+      if (!lockBoardRef.current && !otherHandTouchRef.current && touchMapRef.current.size > 0) {
         const [existingTouchId, existingTouchPos] = Array.from(touchMapRef.current.entries())[0];
         otherHandTouchRef.current = {
           id: existingTouchId,
           startX: existingTouchPos.x,
           startY: existingTouchPos.y,
           startCam: { ...cameraRef.current },
+          isDragging: false,
         };
         if (strokeSessionsRef.current.has(existingTouchId)) {
           const sess = strokeSessionsRef.current.get(existingTouchId);
@@ -5018,12 +5020,14 @@ export function WhiteboardCanvas({
         }
       }
     } else if (e.pointerType === "touch" && isPenActiveRef.current) {
+      if (lockBoardRef.current) return;
       if (!otherHandTouchRef.current) {
         otherHandTouchRef.current = {
           id: e.pointerId,
           startX: e.clientX,
           startY: e.clientY,
           startCam: { ...cameraRef.current },
+          isDragging: false,
         };
       }
       return;
@@ -5386,6 +5390,24 @@ export function WhiteboardCanvas({
 
     // Dual Input: Other hand panning canvas while pen writes
     if (otherHandTouchRef.current && otherHandTouchRef.current.id === e.pointerId) {
+      if (lockBoardRef.current) return;
+
+      const rawDx = e.clientX - otherHandTouchRef.current.startX;
+      const rawDy = e.clientY - otherHandTouchRef.current.startY;
+      const dist = Math.hypot(rawDx, rawDy);
+
+      // Dead-zone threshold: 24px slop to ignore small resting hand jitter or wrist twitch
+      if (!otherHandTouchRef.current.isDragging) {
+        if (dist >= 24) {
+          otherHandTouchRef.current.isDragging = true;
+          otherHandTouchRef.current.startX = e.clientX;
+          otherHandTouchRef.current.startY = e.clientY;
+          otherHandTouchRef.current.startCam = { ...cameraRef.current };
+        } else {
+          return;
+        }
+      }
+
       const dx = e.clientX - otherHandTouchRef.current.startX;
       const dy = e.clientY - otherHandTouchRef.current.startY;
       applyCameraThrottled({
