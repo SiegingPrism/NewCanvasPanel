@@ -658,46 +658,6 @@ export function SmartBoardSideDock({ side, onOpenMore, onOpenWidgets }: SmartBoa
         </PopoverContent>
       </Popover>
 
-      {/* 4 Quick-Access Color Dots under Pen: 2x2 grid, each 32px with dedicated 8px gap */}
-      <div
-        className="grid grid-cols-2 gap-2 px-1 py-1.5 rounded-2xl bg-muted/30 border border-border/50 place-items-center w-full max-w-[80px]"
-      >
-        {[
-          { name: isDark ? "White" : "Black", value: isDark ? "#ffffff" : "#111827" },
-          { name: "Blue", value: "#2563eb" },
-          { name: "Red", value: "#dc2626" },
-          { name: "Green", value: "#16a34a" },
-        ].map((c) => {
-          const isSelected = isPenFamily && color.toLowerCase() === c.value.toLowerCase();
-          return (
-            <button
-              key={c.value}
-              type="button"
-              onClick={() => {
-                setColor(c.value);
-                if (!isPenFamily) setTool("pen");
-              }}
-              aria-label={`${c.name} Pen`}
-              title={`${c.name} Pen (one tap)`}
-              className={cn(
-                "h-8 w-8 rounded-full border border-black/20 dark:border-white/30 transition-all active:scale-90 hover:brightness-110 shrink-0 cursor-pointer shadow-xs box-border relative flex items-center justify-center",
-                isSelected && "ring-2 ring-primary ring-offset-2 ring-offset-background scale-105",
-              )}
-              style={{ backgroundColor: c.value }}
-            >
-              {isSelected && (
-                <span
-                  className={cn(
-                    "block h-2 w-2 rounded-full",
-                    c.value === "#ffffff" ? "bg-black" : "bg-white",
-                  )}
-                />
-              )}
-            </button>
-          );
-        })}
-      </div>
-
       {/* 3. HIGHLIGHTER TOOL */}
       <Popover open={highlightPopoverOpen} onOpenChange={setHighlightPopoverOpen}>
         <PopoverTrigger asChild>
