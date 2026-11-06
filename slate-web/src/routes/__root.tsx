@@ -9,12 +9,14 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, Suspense, lazy, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { Toaster } from "../components/ui/sonner";
 import { SplashScreen } from "../components/ui/SplashScreen";
-import { AISheet } from "../components/whiteboard/AISheet";
+const AISheet = lazy(() =>
+  import("../components/whiteboard/AISheet").then((m) => ({ default: m.AISheet })),
+);
 import { useAISheetStore } from "../lib/ai/aiSheetStore";
 
 function NotFoundComponent() {
@@ -223,15 +225,19 @@ function GlobalAISheet() {
   const initialPrompt = useAISheetStore((s) => s.initialPrompt);
   const initialSnapshot = useAISheetStore((s) => s.initialSnapshot);
 
+  if (!isOpen) return null;
+
   return (
-    <AISheet
-      open={isOpen}
-      onOpenChange={setOpen}
-      boardId={boardId}
-      contextText={contextText}
-      initialPrompt={initialPrompt}
-      initialSnapshot={initialSnapshot}
-    />
+    <Suspense fallback={null}>
+      <AISheet
+        open={isOpen}
+        onOpenChange={setOpen}
+        boardId={boardId}
+        contextText={contextText}
+        initialPrompt={initialPrompt}
+        initialSnapshot={initialSnapshot}
+      />
+    </Suspense>
   );
 }
 

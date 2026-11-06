@@ -1427,6 +1427,7 @@ export function WhiteboardCanvas({
   useEffect(() => {
     const handleFontsRetry = () => {
       fontRedrawRequested.current.clear();
+      inkCacheDirtyRef.current = true;
       redraw();
     };
     window.addEventListener("online", handleFontsRetry);
