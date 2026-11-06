@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense, lazy } from "react";
 import { cn } from "@/lib/utils";
 import { useShallow } from "zustand/react/shallow";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -42,9 +42,13 @@ import { GeoMapsDialog } from "./widgets/GeoMapsDialog";
 import { GridTemplatesDialog } from "./widgets/GridTemplatesDialog";
 import { MagicDoodleDialog } from "./widgets/MagicDoodleDialog";
 import { QuickPollDialog } from "./smartboard/QuickPollDialog";
-import { ShareNotesDialog } from "./smartboard/ShareNotesDialog";
 import { PageSorterDialog } from "./smartboard/PageSorterDialog";
-import { DocumentImportDialog } from "./smartboard/DocumentImportDialog";
+const ShareNotesDialog = lazy(() =>
+  import("./smartboard/ShareNotesDialog").then((m) => ({ default: m.ShareNotesDialog })),
+);
+const DocumentImportDialog = lazy(() =>
+  import("./smartboard/DocumentImportDialog").then((m) => ({ default: m.DocumentImportDialog })),
+);
 import { BoardTourDialog } from "./smartboard/BoardTourDialog";
 import { BoardSettingsDialog } from "./smartboard/BoardSettingsDialog";
 import { AuthDialog } from "@/components/auth/AuthDialog";
@@ -1398,9 +1402,13 @@ export function WidgetsSheet({
       )}
       {geoMapsOpen && <GeoMapsDialog open={geoMapsOpen} onOpenChange={setGeoMapsOpen} />}
       <QuickPollDialog open={quickPollOpen} onOpenChange={setQuickPollOpen} />
-      <ShareNotesDialog open={shareNotesOpen} onOpenChange={setShareNotesOpen} />
+      <Suspense fallback={null}>
+        {shareNotesOpen && <ShareNotesDialog open={shareNotesOpen} onOpenChange={setShareNotesOpen} />}
+        {docImportOpen && (
+          <DocumentImportDialog open={docImportOpen} onOpenChange={setDocImportOpen} />
+        )}
+      </Suspense>
       <PageSorterDialog open={pageSorterOpen} onOpenChange={setPageSorterOpen} />
-      <DocumentImportDialog open={docImportOpen} onOpenChange={setDocImportOpen} />
       <BoardTourDialog open={boardTourOpen} onOpenChange={setBoardTourOpen} />
       <BoardSettingsDialog open={boardSettingsOpen} onOpenChange={setBoardSettingsOpen} />
       <AuthDialog open={authOpen} onOpenChange={setAuthOpen} />

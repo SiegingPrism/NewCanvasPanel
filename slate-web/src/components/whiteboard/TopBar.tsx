@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, Suspense, lazy } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
   useWhiteboard,
@@ -64,7 +64,6 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { exportLessonFile, importLessonFile } from "@/lib/whiteboard/lessonFiles";
-import jsPDF from "jspdf";
 import QRCode from "qrcode";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -77,7 +76,9 @@ import { MathFormulaDialog } from "./MathFormulaDialog";
 import { FeatureTourDialog } from "./FeatureTourDialog";
 import { GenerateMindMapDialog } from "./GenerateMindMapDialog";
 import { NewPagePickerContent } from "./smartboard/NewPagePickerContent";
-import { DocumentImportDialog } from "./smartboard/DocumentImportDialog";
+const DocumentImportDialog = lazy(() =>
+  import("./smartboard/DocumentImportDialog").then((m) => ({ default: m.DocumentImportDialog })),
+);
 import { AIEngine, aiErrorMessage } from "@/lib/ai/aiEngine";
 import { extractBoardSearchStrings } from "@/lib/ai/localRAG";
 import type { MindMapNodeObject } from "@/lib/whiteboard/types";
@@ -419,7 +420,7 @@ export function TopBar({
     }
   }
 
-  function exportPDF() {
+  async function exportPDF() {
     const c = document.querySelector<HTMLCanvasElement>("canvas");
     if (!c) return;
     try {
@@ -437,6 +438,7 @@ export function TopBar({
         }
       }
       const img = exportCanvas.toDataURL("image/jpeg", 0.85);
+      const { default: jsPDF } = await import("jspdf");
       const pdf = new jsPDF({
         orientation: exportCanvas.width > exportCanvas.height ? "landscape" : "portrait",
         unit: "px",
@@ -1640,7 +1642,9 @@ export function TopBar({
       <GenerateMindMapDialog open={mindMapDialogOpen} onOpenChange={setMindMapDialogOpen} />
 
       {/* Slide & Document Import Dialog */}
-      <DocumentImportDialog open={docImportOpen} onOpenChange={setDocImportOpen} />
+      <Suspense fallback={null}>
+        <DocumentImportDialog open={docImportOpen} onOpenChange={setDocImportOpen} />
+      </Suspense>
 
       {/* Account & Cloud Sync Dialog */}
       <AuthDialog open={authOpen} onOpenChange={setAuthOpen} />

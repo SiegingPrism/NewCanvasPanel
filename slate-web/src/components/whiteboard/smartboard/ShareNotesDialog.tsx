@@ -12,7 +12,6 @@ import {
   RefreshCw,
 } from "lucide-react";
 import QRCode from "qrcode";
-import { jsPDF } from "jspdf";
 import { useWhiteboard } from "@/lib/whiteboard/store";
 import { renderPageSnapshot, captureCanvasSnapshot } from "@/lib/whiteboard/canvasSnapshot";
 import { toast } from "sonner";
@@ -106,6 +105,7 @@ export function ShareNotesDialog({
     setUploadErrorMsg(null);
 
     try {
+      const { jsPDF } = await import("jspdf");
       const doc = new jsPDF({
         orientation: "landscape",
         unit: "pt",

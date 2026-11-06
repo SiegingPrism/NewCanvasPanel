@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { useWhiteboard } from "@/lib/whiteboard/store";
 import type {
   CanvasObject,
@@ -126,6 +127,7 @@ export function WhiteboardCanvas({
 } = {}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
+  const predictionRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
 
   const {
@@ -166,7 +168,47 @@ export function WhiteboardCanvas({
     boardMode,
     splitBoardZones,
     zoneSettings,
-  } = useWhiteboard();
+  } = useWhiteboard(
+    useShallow((s) => ({
+      pages: s.pages,
+      activePageId: s.activePageId,
+      tool: s.tool,
+      setTool: s.setTool,
+      color: s.color,
+      size: s.size,
+      camera: s.camera,
+      selectedId: s.selectedId,
+      selectedIds: s.selectedIds,
+      autoSnapEnabled: s.autoSnapEnabled,
+      showZoomDock: s.showZoomDock,
+      addObject: s.addObject,
+      setObjects: s.setObjects,
+      updateObject: s.updateObject,
+      deleteObject: s.deleteObject,
+      toggleTapeReveal: s.toggleTapeReveal,
+      setAllTapeReveal: s.setAllTapeReveal,
+      setSelected: s.setSelected,
+      setSelectedIds: s.setSelectedIds,
+      moveSelected: s.moveSelected,
+      duplicateSelected: s.duplicateSelected,
+      deleteSelected: s.deleteSelected,
+      recolorSelected: s.recolorSelected,
+      bringToFront: s.bringToFront,
+      sendToBack: s.sendToBack,
+      toggleLockSelected: s.toggleLockSelected,
+      groupSelected: s.groupSelected,
+      ungroupSelected: s.ungroupSelected,
+      setFillColorSelected: s.setFillColorSelected,
+      cropImageSelected: s.cropImageSelected,
+      setCamera: s.setCamera,
+      pushHistory: s.pushHistory,
+      lockBoard: s.lockBoard,
+      panelSize: s.panelSize,
+      boardMode: s.boardMode,
+      splitBoardZones: s.splitBoardZones,
+      zoneSettings: s.zoneSettings,
+    })),
+  );
 
   const otherHandTouchRef = useRef<{
     id: number;
@@ -178,7 +220,8 @@ export function WhiteboardCanvas({
 
   const page = pages.find((p) => p.id === activePageId) ||
     pages[0] || { id: "default", objects: [], background: "white" as const };
-  const [dpr, setDpr] = useState(1);
+  const [mainDpr, setMainDpr] = useState(1);
+  const [overlayDpr, setOverlayDpr] = useState(1);
   const lastTapRef = useRef<{ time: number; x: number; y: number } | null>(null);
 
   // Keep cameraRef and pageRef synced so event listeners always access latest state without re-binding
@@ -201,6 +244,10 @@ export function WhiteboardCanvas({
   const panRafRef = useRef<number | null>(null);
   const inkCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const inkCacheDirtyRef = useRef(true);
+  const lastCachedObjectsRef = useRef<CanvasObject[] | null>(null);
+  const lastCachedCameraRef = useRef<{ x: number; y: number; zoom: number } | null>(null);
+  const lastCachedDprRef = useRef<number>(1);
+  const lastCachedBgRef = useRef<PageBackground | undefined>(undefined);
   const strokePathCache = useRef(new WeakMap<object, Path2D>());
 
   const applyCameraDirect = useCallback(
@@ -1105,17 +1152,27 @@ export function WhiteboardCanvas({
   }, [setCamera]);
 
   useEffect(() => {
-    const computeDpr = () => {
+    const computeDprs = () => {
       const rawDpr = window.devicePixelRatio || 1;
-      const isLargePanel =
+      const is4K =
         (panelSizeRef.current && Number(panelSizeRef.current) >= 55) ||
-        (typeof window !== "undefined" && window.innerWidth >= 3840);
-      return isLargePanel ? Math.min(rawDpr, 1.5) : rawDpr;
+        (typeof window !== "undefined" &&
+          (window.innerWidth >= 3840 ||
+            window.innerWidth * rawDpr >= 3840 ||
+            (window.screen && window.screen.width * rawDpr >= 3840)));
+      return {
+        mainDpr: is4K ? Math.min(rawDpr, 1.5) : rawDpr,
+        overlayDpr: rawDpr,
+      };
     };
-    setDpr(computeDpr());
-    const onResize = () => setDpr(computeDpr());
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
+    const update = () => {
+      const { mainDpr: m, overlayDpr: o } = computeDprs();
+      setMainDpr(m);
+      setOverlayDpr(o);
+    };
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
   }, []);
 
   // Listen for Solve Written Math event triggered from Toolbar, TopBar or WidgetsSheet
@@ -1133,22 +1190,29 @@ export function WhiteboardCanvas({
     const wrap = wrapRef.current;
     const c = canvasRef.current;
     const o = overlayRef.current;
+    const p = predictionRef.current;
     if (!wrap || !c || !o) return;
     const updateSize = () => {
       const w = wrap.clientWidth;
       const h = wrap.clientHeight;
       if (w === 0 || h === 0) return;
-      for (const cv of [c, o]) {
-        cv.width = w * dpr;
-        cv.height = h * dpr;
+      c.width = w * mainDpr;
+      c.height = h * mainDpr;
+      c.style.width = `${w}px`;
+      c.style.height = `${h}px`;
+
+      for (const cv of [o, p]) {
+        if (!cv) continue;
+        cv.width = w * overlayDpr;
+        cv.height = h * overlayDpr;
         cv.style.width = `${w}px`;
         cv.style.height = `${h}px`;
       }
       if (!inkCanvasRef.current) {
         inkCanvasRef.current = document.createElement("canvas");
       }
-      inkCanvasRef.current.width = w * dpr;
-      inkCanvasRef.current.height = h * dpr;
+      inkCanvasRef.current.width = w * mainDpr;
+      inkCanvasRef.current.height = h * mainDpr;
       inkCacheDirtyRef.current = true;
       canvasRectRef.current = c.getBoundingClientRect();
       redraw();
@@ -1164,13 +1228,13 @@ export function WhiteboardCanvas({
       window.removeEventListener("scroll", updateSize, true);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dpr]);
+  }, [mainDpr, overlayDpr]);
 
   // Redraw when state changes
   useEffect(() => {
     redraw();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, camera, selectedId, selectedIds, dpr]);
+  }, [page, camera, selectedId, selectedIds, mainDpr]);
 
   function toWorld(x: number, y: number): Point {
     const curCam = cameraRef.current || camera;
@@ -1262,11 +1326,27 @@ export function WhiteboardCanvas({
     if (!ctx) return;
 
     const cam = cameraRef.current || camera;
-    const screenW = c.width / dpr;
-    const screenH = c.height / dpr;
+    const screenW = c.width / mainDpr;
+    const screenH = c.height / mainDpr;
+
+    const isEraserActive = Boolean(eraserSessionRef.current?.active);
+    const objectsToDraw = isEraserActive
+      ? eraserSessionRef.current!.objects
+      : page.objects;
+
+    const needsRebuild =
+      inkCacheDirtyRef.current ||
+      isEraserActive ||
+      lastCachedObjectsRef.current !== objectsToDraw ||
+      !lastCachedCameraRef.current ||
+      lastCachedCameraRef.current.x !== cam.x ||
+      lastCachedCameraRef.current.y !== cam.y ||
+      lastCachedCameraRef.current.zoom !== cam.zoom ||
+      lastCachedDprRef.current !== mainDpr ||
+      lastCachedBgRef.current !== page.background;
 
     // 1. Rebuild cached layer if dirty (camera changed, object moved/deleted, undo/redo, page switch)
-    if (inkCacheDirtyRef.current) {
+    if (needsRebuild) {
       let inkCanvas = inkCanvasRef.current;
       if (!inkCanvas) {
         inkCanvas = document.createElement("canvas");
@@ -1280,7 +1360,7 @@ export function WhiteboardCanvas({
       if (inkCtx) {
         inkCtx.setTransform(1, 0, 0, 1, 0, 0);
         inkCtx.clearRect(0, 0, inkCanvas.width, inkCanvas.height);
-        inkCtx.scale(dpr, dpr);
+        inkCtx.scale(mainDpr, mainDpr);
 
         drawBackground(inkCtx, screenW, screenH, page.background);
 
@@ -1294,10 +1374,6 @@ export function WhiteboardCanvas({
         const viewRight = (screenW - cam.x) / cam.zoom + pad;
         const viewBottom = (screenH - cam.y) / cam.zoom + pad;
 
-        const objectsToDraw = eraserSessionRef.current?.active
-          ? eraserSessionRef.current.objects
-          : page.objects;
-
         drawMindMapLinks(inkCtx, objectsToDraw);
         for (const obj of objectsToDraw) {
           if (isObjectInViewport(obj, viewLeft, viewTop, viewRight, viewBottom)) {
@@ -1306,6 +1382,11 @@ export function WhiteboardCanvas({
         }
         inkCtx.restore();
       }
+
+      lastCachedObjectsRef.current = objectsToDraw;
+      lastCachedCameraRef.current = { x: cam.x, y: cam.y, zoom: cam.zoom };
+      lastCachedDprRef.current = mainDpr;
+      lastCachedBgRef.current = page.background;
       inkCacheDirtyRef.current = false;
     }
 
@@ -1320,28 +1401,25 @@ export function WhiteboardCanvas({
     const selectedSet = new Set(
       selectedIds.length > 0 ? selectedIds : selectedId ? [selectedId] : [],
     );
-    const objectsToDraw = eraserSessionRef.current?.active
-      ? eraserSessionRef.current.objects
-      : page.objects;
 
     if (selectedSet.size === 1) {
       const singleObj = objectsToDraw.find((o) => selectedSet.has(o.id));
       if (singleObj) {
         ctx.save();
-        ctx.scale(dpr, dpr);
+        ctx.scale(mainDpr, mainDpr);
         drawSelection(ctx, singleObj);
         ctx.restore();
       }
     } else if (selectedSet.size > 1) {
       ctx.save();
-      ctx.scale(dpr, dpr);
+      ctx.scale(mainDpr, mainDpr);
       drawMultiSelectionBox(
         ctx,
         objectsToDraw.filter((o) => selectedSet.has(o.id)),
       );
       ctx.restore();
     }
-  }, [camera, dpr, page, selectedId, selectedIds]);
+  }, [camera, mainDpr, page, selectedId, selectedIds]);
 
   latestRedrawRef.current = redraw;
 
@@ -4341,6 +4419,7 @@ export function WhiteboardCanvas({
       fontRedrawRequested.current.add(t.fontFamily);
       void ensureHandwritingFont(t.fontFamily, t.text.slice(0, 8)).then((ok) => {
         if (ok) {
+          inkCacheDirtyRef.current = true;
           redraw();
         } else {
           // Font load failed (e.g. offline); allow retrying when online or on next draw cycle
@@ -4405,7 +4484,10 @@ export function WhiteboardCanvas({
         img.crossOrigin = "anonymous";
       }
       img.src = o.src;
-      img.onload = () => redraw();
+      img.onload = () => {
+        inkCacheDirtyRef.current = true;
+        redraw();
+      };
       imageCache.current.set(o.src, img);
     }
     if (img.complete) {
@@ -6749,9 +6831,15 @@ export function WhiteboardCanvas({
       liveRafRef.current = null;
     }
     const overlay = overlayRef.current;
-    if (!overlay) return;
-    const ctx = overlay.getContext("2d");
-    if (ctx) ctx.clearRect(0, 0, overlay.width, overlay.height);
+    if (overlay) {
+      const ctx = overlay.getContext("2d");
+      if (ctx) ctx.clearRect(0, 0, overlay.width, overlay.height);
+    }
+    const predCanvas = predictionRef.current;
+    if (predCanvas) {
+      const pCtx = predCanvas.getContext("2d");
+      if (pCtx) pCtx.clearRect(0, 0, predCanvas.width, predCanvas.height);
+    }
     if (drawingRef.current) {
       drawingRef.current.lastDrawnIdx = undefined;
     }
@@ -6769,7 +6857,7 @@ export function WhiteboardCanvas({
       if (!ctx) return;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, overlay.width, overlay.height);
-      ctx.scale(dpr, dpr);
+      ctx.scale(overlayDpr, overlayDpr);
       ctx.save();
       ctx.translate(camera.x, camera.y);
       ctx.scale(camera.zoom, camera.zoom);
@@ -6825,7 +6913,6 @@ export function WhiteboardCanvas({
       alignmentGuidesRef.current.ys.length === 0 &&
       tool !== "lasso" &&
       !eraserSessionRef.current?.active &&
-      (!sessions[0].predictedPoints || sessions[0].predictedPoints.length === 0) &&
       typeof sessions[0].lastDrawnIdx === "number" &&
       sessions[0].lastDrawnIdx > 0 &&
       sessions[0].lastDrawnIdx < sessions[0].points.length;
@@ -6835,7 +6922,7 @@ export function WhiteboardCanvas({
       const pts = session.points;
       const startIdx = session.lastDrawnIdx!;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.scale(dpr, dpr);
+      ctx.scale(overlayDpr, overlayDpr);
       ctx.save();
       ctx.translate(camera.x, camera.y);
       ctx.scale(camera.zoom, camera.zoom);
@@ -6866,12 +6953,52 @@ export function WhiteboardCanvas({
       }
       session.lastDrawnIdx = pts.length - 1;
       ctx.restore();
+
+      // Render predicted tail on dedicated prediction layer
+      const predCanvas = predictionRef.current;
+      if (predCanvas) {
+        const pCtx = predCanvas.getContext("2d");
+        if (pCtx) {
+          pCtx.setTransform(1, 0, 0, 1, 0, 0);
+          pCtx.clearRect(0, 0, predCanvas.width, predCanvas.height);
+          if (session.predictedPoints && session.predictedPoints.length > 0) {
+            pCtx.scale(overlayDpr, overlayDpr);
+            pCtx.save();
+            pCtx.translate(camera.x, camera.y);
+            pCtx.scale(camera.zoom, camera.zoom);
+            pCtx.strokeStyle = session.color;
+            pCtx.lineCap = "round";
+            pCtx.lineJoin = "round";
+            const lastReal = pts[pts.length - 1];
+            const pTail = [lastReal, ...session.predictedPoints];
+            for (let j = 1; j < pTail.length; j++) {
+              const q0 = pTail[j - 1];
+              const q1 = pTail[j];
+              const pr = q1.p ?? 0.5;
+              pCtx.lineWidth = Math.max(1, session.size * (0.35 + 0.85 * pr));
+              pCtx.beginPath();
+              pCtx.moveTo(q0.x, q0.y);
+              pCtx.lineTo(q1.x, q1.y);
+              pCtx.stroke();
+            }
+            pCtx.restore();
+          }
+        }
+      }
       return;
     }
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, overlay.width, overlay.height);
-    ctx.scale(dpr, dpr);
+    const predCanvas = predictionRef.current;
+    if (predCanvas) {
+      const pCtx = predCanvas.getContext("2d");
+      if (pCtx) {
+        pCtx.setTransform(1, 0, 0, 1, 0, 0);
+        pCtx.clearRect(0, 0, predCanvas.width, predCanvas.height);
+      }
+    }
+    ctx.scale(overlayDpr, overlayDpr);
     ctx.save();
     ctx.translate(camera.x, camera.y);
     ctx.scale(camera.zoom, camera.zoom);
@@ -6997,6 +7124,32 @@ export function WhiteboardCanvas({
       } else {
         drawPenStroke(ctx, dummyStroke);
         session.lastDrawnIdx = pts.length - 1;
+        if (predCanvas && session.predictedPoints && session.predictedPoints.length > 0) {
+          const pCtx = predCanvas.getContext("2d");
+          if (pCtx) {
+            pCtx.setTransform(1, 0, 0, 1, 0, 0);
+            pCtx.scale(overlayDpr, overlayDpr);
+            pCtx.save();
+            pCtx.translate(camera.x, camera.y);
+            pCtx.scale(camera.zoom, camera.zoom);
+            pCtx.strokeStyle = session.color;
+            pCtx.lineCap = "round";
+            pCtx.lineJoin = "round";
+            const lastReal = pts[pts.length - 1];
+            const pTail = [lastReal, ...session.predictedPoints];
+            for (let j = 1; j < pTail.length; j++) {
+              const q0 = pTail[j - 1];
+              const q1 = pTail[j];
+              const pr = q1.p ?? 0.5;
+              pCtx.lineWidth = Math.max(1, session.size * (0.35 + 0.85 * pr));
+              pCtx.beginPath();
+              pCtx.moveTo(q0.x, q0.y);
+              pCtx.lineTo(q1.x, q1.y);
+              pCtx.stroke();
+            }
+            pCtx.restore();
+          }
+        }
       }
     }
     ctx.restore();
@@ -7898,6 +8051,7 @@ export function WhiteboardCanvas({
         }}
       />
       <canvas ref={overlayRef} className="absolute inset-0 pointer-events-none" />
+      <canvas ref={predictionRef} className="absolute inset-0 pointer-events-none" />
 
       {findFlash && (
         <div

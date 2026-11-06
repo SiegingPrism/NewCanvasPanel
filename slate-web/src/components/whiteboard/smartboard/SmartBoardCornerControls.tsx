@@ -2,7 +2,9 @@ import React, { useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { BoardHelpOverlay } from "./BoardHelpOverlay";
 import { BoardTourDialog } from "./BoardTourDialog";
-import { DocumentImportDialog } from "./DocumentImportDialog";
+const DocumentImportDialog = React.lazy(() =>
+  import("./DocumentImportDialog").then((m) => ({ default: m.DocumentImportDialog })),
+);
 import { NewPagePickerContent } from "./NewPagePickerContent";
 import { useWhiteboard } from "@/lib/whiteboard/store";
 import {
@@ -770,7 +772,9 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
 
       <BoardHelpOverlay open={helpOpen} onClose={() => setHelpOpen(false)} />
       <BoardTourDialog open={tourOpen} onOpenChange={handleTourChange} />
-      <DocumentImportDialog open={docImportOpen} onOpenChange={setDocImportOpen} />
+      <React.Suspense fallback={null}>
+        {docImportOpen && <DocumentImportDialog open={docImportOpen} onOpenChange={setDocImportOpen} />}
+      </React.Suspense>
     </>
   );
 }

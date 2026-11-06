@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useMemo, useState, Suspense, lazy } from "react";
 import { useWhiteboard } from "@/lib/whiteboard/store";
 import type { TemplateKey } from "@/lib/whiteboard/templates";
 import { Button } from "@/components/ui/button";
@@ -41,9 +41,21 @@ import { AuthDialog } from "@/components/auth/AuthDialog";
 import { useAuth, getUserAvatarUrl, getUserDisplayName } from "@/lib/supabase/authStore";
 import { useAISheetStore } from "@/lib/ai/aiSheetStore";
 import { BottomNavBar } from "@/components/navigation/BottomNavBar";
-import { DocumentImportDialog } from "@/components/whiteboard/smartboard/DocumentImportDialog";
-import { AILessonBuilderDialog } from "@/components/whiteboard/smartboard/AILessonBuilderDialog";
-import { TeacherAccountDialog } from "@/components/whiteboard/smartboard/TeacherAccountDialog";
+const DocumentImportDialog = lazy(() =>
+  import("@/components/whiteboard/smartboard/DocumentImportDialog").then((m) => ({
+    default: m.DocumentImportDialog,
+  })),
+);
+const AILessonBuilderDialog = lazy(() =>
+  import("@/components/whiteboard/smartboard/AILessonBuilderDialog").then((m) => ({
+    default: m.AILessonBuilderDialog,
+  })),
+);
+const TeacherAccountDialog = lazy(() =>
+  import("@/components/whiteboard/smartboard/TeacherAccountDialog").then((m) => ({
+    default: m.TeacherAccountDialog,
+  })),
+);
 import { importLessonFile } from "@/lib/whiteboard/lessonFiles";
 import type { Page } from "@/lib/whiteboard/types";
 
@@ -1164,19 +1176,27 @@ function Dashboard() {
 
       <FeatureTourDialog open={tourOpen} onOpenChange={setTourOpen} />
       <AuthDialog open={authOpen} onOpenChange={setAuthOpen} />
-      <DocumentImportDialog open={docImportOpen} onOpenChange={setDocImportOpen} />
-      <AILessonBuilderDialog
-        open={aiLessonBuilderOpen}
-        onOpenChange={setAiLessonBuilderOpen}
-        onLessonGenerated={(pages, topic) => openNewLessonWithPages(pages, topic)}
-      />
-      <TeacherAccountDialog
-        open={teacherAccountOpen}
-        onOpenChange={setTeacherAccountOpen}
-        onOpenCloudBoard={(targetBoardId) =>
-          navigate({ to: "/board/$boardId", params: { boardId: targetBoardId } })
-        }
-      />
+      <Suspense fallback={null}>
+        {docImportOpen && (
+          <DocumentImportDialog open={docImportOpen} onOpenChange={setDocImportOpen} />
+        )}
+        {aiLessonBuilderOpen && (
+          <AILessonBuilderDialog
+            open={aiLessonBuilderOpen}
+            onOpenChange={setAiLessonBuilderOpen}
+            onLessonGenerated={(pages, topic) => openNewLessonWithPages(pages, topic)}
+          />
+        )}
+        {teacherAccountOpen && (
+          <TeacherAccountDialog
+            open={teacherAccountOpen}
+            onOpenChange={setTeacherAccountOpen}
+            onOpenCloudBoard={(targetBoardId) =>
+              navigate({ to: "/board/$boardId", params: { boardId: targetBoardId } })
+            }
+          />
+        )}
+      </Suspense>
     </div>
   );
 }
