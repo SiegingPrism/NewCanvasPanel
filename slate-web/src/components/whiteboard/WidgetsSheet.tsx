@@ -29,6 +29,7 @@ import {
   MonitorPlay,
   Bot,
   Plus,
+  BookOpen,
 } from "lucide-react";
 import { useWhiteboard } from "@/lib/whiteboard/store";
 import type { StickyNoteObject } from "@/lib/whiteboard/types";
@@ -820,6 +821,26 @@ export function WidgetsSheet({
                       </div>
                       <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
                         CBSE & Maps
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      onOpenChange(false);
+                      window.dispatchEvent(new CustomEvent("slate:open-textbook-library"));
+                    }}
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-indigo-500/5 p-2.5 text-center transition hover:bg-indigo-500/10 active:scale-95 group"
+                  >
+                    <span className="grid h-10 w-10 place-items-center rounded-lg bg-indigo-500/10 text-indigo-600 transition-transform group-hover:scale-105">
+                      <BookOpen className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <div className="text-xs font-semibold leading-tight text-indigo-700 dark:text-indigo-400">
+                        NCERT Books
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        1-12 Auto-Sync
                       </div>
                     </div>
                   </button>

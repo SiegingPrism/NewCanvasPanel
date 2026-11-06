@@ -926,6 +926,18 @@ export function TopBar({
         {boardMode && <span className="text-[11px] font-bold mt-0.5 leading-none">{t("map")}</span>}
       </button>
 
+      {/* NCERT & State Board Digital Textbooks (Class 1-12) */}
+      <button
+        type="button"
+        className={cn(iconBtn, "text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10")}
+        aria-label="Open NCERT and State Board Textbooks"
+        title="NCERT & State Textbooks (Class 1-12)"
+        onClick={() => window.dispatchEvent(new CustomEvent("slate:open-textbook-library"))}
+      >
+        <BookOpen className={iconSize} />
+        {boardMode && <span className="text-[11px] font-bold mt-0.5 leading-none">Books</span>}
+      </button>
+
       {/* Direct AI Assistant Button (hidden in Simple Mode) */}
       {!simpleMode && (
         <button
@@ -1170,6 +1182,22 @@ export function TopBar({
           >
             <Map className="h-3.5 w-3.5 text-orange-500" />
             <span>Indian Lesson Packs (CBSE)</span>
+          </button>
+          <button
+            type="button"
+            aria-label="NCERT & State Textbooks"
+            title="Class 1-12 NCERT & State Board Textbooks with Auto-Sync"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground",
+            )}
+            onClick={() => {
+              setMenuOpen(false);
+              window.dispatchEvent(new CustomEvent("slate:open-textbook-library"));
+            }}
+          >
+            <BookOpen className="h-3.5 w-3.5 text-indigo-500" />
+            <span>NCERT & State Textbooks (1-12)</span>
           </button>
           <button
             type="button"

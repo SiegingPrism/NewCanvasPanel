@@ -58,6 +58,7 @@ import { DocCameraWidget } from "@/components/whiteboard/widgets/DocCameraWidget
 import { LiveCaptionsWidget } from "@/components/whiteboard/widgets/LiveCaptionsWidget";
 import { LessonReplayDialog } from "@/components/whiteboard/smartboard/LessonReplayDialog";
 import { IndianLessonPacksDialog } from "@/components/whiteboard/smartboard/IndianLessonPacksDialog";
+import { NCERTTextbookLibraryDialog } from "@/components/whiteboard/smartboard/NCERTTextbookLibraryDialog";
 import { ActivitySuggestionsDialog } from "@/components/whiteboard/smartboard/ActivitySuggestionsDialog";
 import { TeamQuizDialog } from "@/components/whiteboard/smartboard/TeamQuizDialog";
 import { DotVotingDialog } from "@/components/whiteboard/smartboard/DotVotingDialog";
@@ -109,6 +110,7 @@ function BoardPage() {
   const [lessonReplayOpen, setLessonReplayOpen] = useState(false);
   const [liveCaptionsOpen, setLiveCaptionsOpen] = useState(false);
   const [indianPacksOpen, setIndianPacksOpen] = useState(false);
+  const [textbookLibraryOpen, setTextbookLibraryOpen] = useState(false);
   const [activitySuggestionsOpen, setActivitySuggestionsOpen] = useState(false);
   const [teamQuizOpen, setTeamQuizOpen] = useState(false);
   const [dotVotingOpen, setDotVotingOpen] = useState(false);
@@ -487,6 +489,7 @@ function BoardPage() {
     const handleOpenCaptions = () => setLiveCaptionsOpen((p) => !p);
     const handleOpenDocCamera = () => launch("doc-camera");
     const handleOpenIndianPacks = () => setIndianPacksOpen(true);
+    const handleOpenTextbooks = () => setTextbookLibraryOpen(true);
     const handleOpenActivitySuggestions = () => setActivitySuggestionsOpen(true);
     const handleOpenTeamQuiz = () => setTeamQuizOpen(true);
     const handleOpenDotVoting = () => setDotVotingOpen(true);
@@ -505,6 +508,7 @@ function BoardPage() {
     window.addEventListener("slate:open-live-captions", handleOpenCaptions);
     window.addEventListener("slate:open-doc-camera", handleOpenDocCamera);
     window.addEventListener("slate:open-indian-packs", handleOpenIndianPacks);
+    window.addEventListener("slate:open-textbook-library", handleOpenTextbooks);
     window.addEventListener("slate:open-activity-suggestions", handleOpenActivitySuggestions);
     window.addEventListener("slate:open-team-quiz", handleOpenTeamQuiz);
     window.addEventListener("slate:open-dot-voting", handleOpenDotVoting);
@@ -524,6 +528,7 @@ function BoardPage() {
       window.removeEventListener("slate:open-live-captions", handleOpenCaptions);
       window.removeEventListener("slate:open-doc-camera", handleOpenDocCamera);
       window.removeEventListener("slate:open-indian-packs", handleOpenIndianPacks);
+      window.removeEventListener("slate:open-textbook-library", handleOpenTextbooks);
       window.removeEventListener("slate:open-activity-suggestions", handleOpenActivitySuggestions);
       window.removeEventListener("slate:open-team-quiz", handleOpenTeamQuiz);
       window.removeEventListener("slate:open-dot-voting", handleOpenDotVoting);
@@ -814,6 +819,9 @@ function BoardPage() {
 
       {/* Indian School Lesson Packs (CBSE & State Boards) */}
       <IndianLessonPacksDialog open={indianPacksOpen} onOpenChange={setIndianPacksOpen} />
+
+      {/* NCERT & State Board Digital Textbooks (Class 1-12) */}
+      <NCERTTextbookLibraryDialog open={textbookLibraryOpen} onOpenChange={setTextbookLibraryOpen} />
 
       {/* Activity Suggestions from Board Content */}
       <ActivitySuggestionsDialog open={activitySuggestionsOpen} onOpenChange={setActivitySuggestionsOpen} />
