@@ -926,8 +926,8 @@ export function TopBar({
         {boardMode && <span className="text-[11px] font-bold mt-0.5 leading-none">{t("map")}</span>}
       </button>
 
-      {/* NCERT & State Board Digital Textbooks (Class 1-12) */}
-      <button
+      {/* NCERT & State Board Digital Textbooks (Class 1-12) - Hidden for now, ready to re-activate later */}
+      {/* <button
         type="button"
         className={cn(iconBtn, "text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10")}
         aria-label="Open NCERT and State Board Textbooks"
@@ -936,7 +936,7 @@ export function TopBar({
       >
         <BookOpen className={iconSize} />
         {boardMode && <span className="text-[11px] font-bold mt-0.5 leading-none">Books</span>}
-      </button>
+      </button> */}
 
       {/* Direct AI Assistant Button (hidden in Simple Mode) */}
       {!simpleMode && (
@@ -1183,7 +1183,7 @@ export function TopBar({
             <Map className="h-3.5 w-3.5 text-orange-500" />
             <span>Indian Lesson Packs (CBSE)</span>
           </button>
-          <button
+          {/* <button
             type="button"
             aria-label="NCERT & State Textbooks"
             title="Class 1-12 NCERT & State Board Textbooks with Auto-Sync"
@@ -1198,7 +1198,7 @@ export function TopBar({
           >
             <BookOpen className="h-3.5 w-3.5 text-indigo-500" />
             <span>NCERT & State Textbooks (1-12)</span>
-          </button>
+          </button> */}
           <button
             type="button"
             aria-label="Activity Suggestions"

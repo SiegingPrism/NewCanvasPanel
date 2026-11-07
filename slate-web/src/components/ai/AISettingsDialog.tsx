@@ -174,8 +174,8 @@ export function AISettingsDialog({
               </div>
             </div>
 
-            {/* Curriculum Textbooks Institutional Switch */}
-            <div className="rounded-xl border bg-card/60 p-3 space-y-2">
+            {/* Curriculum Textbooks Institutional Switch - hidden for now, ready to re-activate later */}
+            {/* <div className="rounded-xl border bg-card/60 p-3 space-y-2">
               <div className="flex items-center justify-between gap-3">
                 <div className="space-y-0.5 min-w-0 flex-1">
                   <div className="text-xs font-semibold text-foreground flex items-center gap-1.5">
@@ -199,7 +199,7 @@ export function AISettingsDialog({
                   }}
                 />
               </div>
-            </div>
+            </div> */}
             <div className="rounded-xl border bg-card/60 p-3 space-y-2">
               <div className="flex items-center justify-between gap-3">
                 <div className="space-y-0.5 min-w-0 flex-1">

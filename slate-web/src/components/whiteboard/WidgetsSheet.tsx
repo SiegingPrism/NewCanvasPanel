@@ -825,7 +825,7 @@ export function WidgetsSheet({
                     </div>
                   </button>
 
-                  <button
+                  {/* <button
                     onClick={() => {
                       onOpenChange(false);
                       window.dispatchEvent(new CustomEvent("slate:open-textbook-library"));
@@ -843,7 +843,7 @@ export function WidgetsSheet({
                         1-12 Auto-Sync
                       </div>
                     </div>
-                  </button>
+                  </button> */}
 
                   <button
                     onClick={() => {
