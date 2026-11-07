@@ -58,6 +58,13 @@ import {
   Volume2,
   Map,
   Zap,
+  Smartphone,
+  Radio,
+  FlaskConical,
+  CalendarDays,
+  BarChart3,
+  Palette,
+  Trophy,
   Lightbulb,
 } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/useTranslation";
@@ -73,6 +80,7 @@ import {
 import { exportLessonFile, importLessonFile } from "@/lib/whiteboard/lessonFiles";
 import QRCode from "qrcode";
 import { toast } from "sonner";
+import { shareNotesToWhatsApp } from "@/lib/whiteboard/whatsAppShare";
 import { cn } from "@/lib/utils";
 import { syncBoardToSupabase } from "@/lib/supabase/dbService";
 import { useAuth } from "@/lib/supabase/authStore";
@@ -1278,6 +1286,159 @@ export function TopBar({
           >
             <ShieldCheck className="h-3.5 w-3.5 text-indigo-500" />
             <span>School Fleet Admin</span>
+          </button>
+
+          <button
+            type="button"
+            aria-label="Phones as Mini Whiteboards"
+            title="Every student draws on phone, teacher reviews thumbnails"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground",
+            )}
+            onClick={() => {
+              setMenuOpen(false);
+              window.dispatchEvent(new CustomEvent("slate:open-mini-whiteboards"));
+            }}
+          >
+            <Smartphone className="h-3.5 w-3.5 text-purple-500" />
+            <span>Mini Whiteboards (Phones)</span>
+          </button>
+
+          <button
+            type="button"
+            aria-label="Teacher Phone Remote"
+            title="Walk around classroom while controlling board"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground",
+            )}
+            onClick={() => {
+              setMenuOpen(false);
+              window.dispatchEvent(new CustomEvent("slate:open-teacher-remote"));
+            }}
+          >
+            <Smartphone className="h-3.5 w-3.5 text-sky-500" />
+            <span>Teacher Phone Remote</span>
+          </button>
+
+          <button
+            type="button"
+            aria-label="Classroom Timetable"
+            title="School Timetable & 1-Tap Period Lesson Setup"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground",
+            )}
+            onClick={() => {
+              setMenuOpen(false);
+              window.dispatchEvent(new CustomEvent("slate:open-timetable"));
+            }}
+          >
+            <CalendarDays className="h-3.5 w-3.5 text-amber-500" />
+            <span>Timetable Mode (वेळापत्रक)</span>
+          </button>
+
+          <button
+            type="button"
+            aria-label="Science Simulations"
+            title="Interactive PhET Science Simulations (CC-BY 4.0)"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground",
+            )}
+            onClick={() => {
+              setMenuOpen(false);
+              window.dispatchEvent(new CustomEvent("slate:open-science-sims"));
+            }}
+          >
+            <FlaskConical className="h-3.5 w-3.5 text-teal-500" />
+            <span>Science Simulations (PhET)</span>
+          </button>
+
+          <button
+            type="button"
+            aria-label="Attendance & House Points"
+            title="Quick Roll Call and House Points"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground",
+            )}
+            onClick={() => {
+              setMenuOpen(false);
+              window.dispatchEvent(new CustomEvent("slate:open-attendance-points"));
+            }}
+          >
+            <Trophy className="h-3.5 w-3.5 text-amber-500" />
+            <span>Attendance & House Points</span>
+          </button>
+
+          <button
+            type="button"
+            aria-label="Classroom Accessibility"
+            title="High-Contrast, Dyslexia Font & Colorblind Palette"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground",
+            )}
+            onClick={() => {
+              setMenuOpen(false);
+              window.dispatchEvent(new CustomEvent("slate:open-accessibility"));
+            }}
+          >
+            <Palette className="h-3.5 w-3.5 text-slate-400" />
+            <span>Accessibility Options</span>
+          </button>
+
+          <button
+            type="button"
+            aria-label="Class Insights"
+            title="Quiz & Poll Analytics over time"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground",
+            )}
+            onClick={() => {
+              setMenuOpen(false);
+              window.dispatchEvent(new CustomEvent("slate:open-class-insights"));
+            }}
+          >
+            <BarChart3 className="h-3.5 w-3.5 text-blue-500" />
+            <span>Class Insights & Analytics</span>
+          </button>
+
+          <button
+            type="button"
+            aria-label="Broadcast to Other Rooms"
+            title="Stream Live Board to Other Classrooms"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+              isDark ? "hover:bg-slate-800 text-slate-200" : "hover:bg-accent text-foreground",
+            )}
+            onClick={() => {
+              setMenuOpen(false);
+              window.dispatchEvent(new CustomEvent("slate:open-broadcast"));
+            }}
+          >
+            <Radio className="h-3.5 w-3.5 text-rose-500" />
+            <span>Broadcast to Other Rooms</span>
+          </button>
+
+          <button
+            type="button"
+            aria-label="Share with Parents on WhatsApp"
+            title="1-Tap Daily Notes Link to WhatsApp"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 transition",
+              isDark ? "hover:bg-slate-800" : "hover:bg-emerald-50",
+            )}
+            onClick={() => {
+              setMenuOpen(false);
+              shareNotesToWhatsApp();
+            }}
+          >
+            <Share2 className="h-3.5 w-3.5 text-emerald-500" />
+            <span>Share Notes on WhatsApp</span>
           </button>
 
           {/* Smart Board Layout & Setup */}

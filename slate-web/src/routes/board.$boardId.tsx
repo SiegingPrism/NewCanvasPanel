@@ -65,6 +65,14 @@ import { DotVotingDialog } from "@/components/whiteboard/smartboard/DotVotingDia
 import { StudentWorkWallDialog } from "@/components/whiteboard/smartboard/StudentWorkWallDialog";
 import { TeacherPinSwitchDialog } from "@/components/whiteboard/smartboard/TeacherPinSwitchDialog";
 import { SchoolAdminDialog } from "@/components/whiteboard/smartboard/SchoolAdminDialog";
+import { MiniWhiteboardsDialog } from "@/components/whiteboard/smartboard/MiniWhiteboardsDialog";
+import { TeacherRemoteDialog } from "@/components/whiteboard/smartboard/TeacherRemoteDialog";
+import { TimetableDialog } from "@/components/whiteboard/smartboard/TimetableDialog";
+import { ScienceSimulationsDialog } from "@/components/whiteboard/smartboard/ScienceSimulationsDialog";
+import { AttendanceHousePointsDialog } from "@/components/whiteboard/smartboard/AttendanceHousePointsDialog";
+import { AccessibilityDialog } from "@/components/whiteboard/smartboard/AccessibilityDialog";
+import { ClassInsightsDialog } from "@/components/whiteboard/smartboard/ClassInsightsDialog";
+import { BroadcastDialog } from "@/components/whiteboard/smartboard/BroadcastDialog";
 import { useTranslation } from "@/lib/i18n/useTranslation";
 import type { QuizObject, ActivityObject, Page } from "@/lib/whiteboard/types";
 import { useWhiteboard } from "@/lib/whiteboard/store";
@@ -117,6 +125,14 @@ function BoardPage() {
   const [studentWorkWallOpen, setStudentWorkWallOpen] = useState(false);
   const [teacherPinOpen, setTeacherPinOpen] = useState(false);
   const [schoolAdminOpen, setSchoolAdminOpen] = useState(false);
+  const [miniWhiteboardsOpen, setMiniWhiteboardsOpen] = useState(false);
+  const [teacherRemoteOpen, setTeacherRemoteOpen] = useState(false);
+  const [timetableOpen, setTimetableOpen] = useState(false);
+  const [scienceSimsOpen, setScienceSimsOpen] = useState(false);
+  const [attendancePointsOpen, setAttendancePointsOpen] = useState(false);
+  const [accessibilityOpen, setAccessibilityOpen] = useState(false);
+  const [classInsightsOpen, setClassInsightsOpen] = useState(false);
+  const [broadcastOpen, setBroadcastOpen] = useState(false);
   const { t } = useTranslation();
   const [minimizedTimer, setMinimizedTimer] = useState<{
     remaining: number;
@@ -496,6 +512,14 @@ function BoardPage() {
     const handleOpenStudentWorkWall = () => setStudentWorkWallOpen(true);
     const handleOpenTeacherPin = () => setTeacherPinOpen(true);
     const handleOpenSchoolAdmin = () => setSchoolAdminOpen(true);
+    const handleOpenMiniWhiteboards = () => setMiniWhiteboardsOpen(true);
+    const handleOpenTeacherRemote = () => setTeacherRemoteOpen(true);
+    const handleOpenTimetable = () => setTimetableOpen(true);
+    const handleOpenScienceSims = () => setScienceSimsOpen(true);
+    const handleOpenAttendancePoints = () => setAttendancePointsOpen(true);
+    const handleOpenAccessibility = () => setAccessibilityOpen(true);
+    const handleOpenClassInsights = () => setClassInsightsOpen(true);
+    const handleOpenBroadcast = () => setBroadcastOpen(true);
 
     window.addEventListener("slate:open-widgets", handleOpenWidgets);
     window.addEventListener("slate:open-ai", handleOpenAIEvt);
@@ -515,6 +539,14 @@ function BoardPage() {
     window.addEventListener("slate:open-student-work-wall", handleOpenStudentWorkWall);
     window.addEventListener("slate:open-teacher-pin", handleOpenTeacherPin);
     window.addEventListener("slate:open-school-admin", handleOpenSchoolAdmin);
+    window.addEventListener("slate:open-mini-whiteboards", handleOpenMiniWhiteboards);
+    window.addEventListener("slate:open-teacher-remote", handleOpenTeacherRemote);
+    window.addEventListener("slate:open-timetable", handleOpenTimetable);
+    window.addEventListener("slate:open-science-sims", handleOpenScienceSims);
+    window.addEventListener("slate:open-attendance-points", handleOpenAttendancePoints);
+    window.addEventListener("slate:open-accessibility", handleOpenAccessibility);
+    window.addEventListener("slate:open-class-insights", handleOpenClassInsights);
+    window.addEventListener("slate:open-broadcast", handleOpenBroadcast);
 
     return () => {
       window.removeEventListener("slate:open-widgets", handleOpenWidgets);
@@ -535,6 +567,14 @@ function BoardPage() {
       window.removeEventListener("slate:open-student-work-wall", handleOpenStudentWorkWall);
       window.removeEventListener("slate:open-teacher-pin", handleOpenTeacherPin);
       window.removeEventListener("slate:open-school-admin", handleOpenSchoolAdmin);
+      window.removeEventListener("slate:open-mini-whiteboards", handleOpenMiniWhiteboards);
+      window.removeEventListener("slate:open-teacher-remote", handleOpenTeacherRemote);
+      window.removeEventListener("slate:open-timetable", handleOpenTimetable);
+      window.removeEventListener("slate:open-science-sims", handleOpenScienceSims);
+      window.removeEventListener("slate:open-attendance-points", handleOpenAttendancePoints);
+      window.removeEventListener("slate:open-accessibility", handleOpenAccessibility);
+      window.removeEventListener("slate:open-class-insights", handleOpenClassInsights);
+      window.removeEventListener("slate:open-broadcast", handleOpenBroadcast);
     };
   }, [boardId, openAI]);
 
@@ -840,6 +880,57 @@ function BoardPage() {
 
       {/* School Board Fleet Admin */}
       <SchoolAdminDialog open={schoolAdminOpen} onOpenChange={setSchoolAdminOpen} />
+
+      {/* Phones as Mini Whiteboards */}
+      <MiniWhiteboardsDialog
+        open={miniWhiteboardsOpen}
+        onOpenChange={setMiniWhiteboardsOpen}
+        boardId={boardId}
+      />
+
+      {/* Teacher's Phone as Remote Control */}
+      <TeacherRemoteDialog
+        open={teacherRemoteOpen}
+        onOpenChange={setTeacherRemoteOpen}
+        boardId={boardId}
+      />
+
+      {/* Timetable Mode */}
+      <TimetableDialog
+        open={timetableOpen}
+        onOpenChange={setTimetableOpen}
+      />
+
+      {/* Science Simulations (PhET) */}
+      <ScienceSimulationsDialog
+        open={scienceSimsOpen}
+        onOpenChange={setScienceSimsOpen}
+      />
+
+      {/* Quick Attendance & House Points */}
+      <AttendanceHousePointsDialog
+        open={attendancePointsOpen}
+        onOpenChange={setAttendancePointsOpen}
+      />
+
+      {/* Accessibility Options */}
+      <AccessibilityDialog
+        open={accessibilityOpen}
+        onOpenChange={setAccessibilityOpen}
+      />
+
+      {/* Class Insights & Analytics */}
+      <ClassInsightsDialog
+        open={classInsightsOpen}
+        onOpenChange={setClassInsightsOpen}
+      />
+
+      {/* Broadcast to Other Rooms */}
+      <BroadcastDialog
+        open={broadcastOpen}
+        onOpenChange={setBroadcastOpen}
+        boardId={boardId}
+      />
     </div>
   );
 }

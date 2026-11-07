@@ -10,7 +10,9 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TeacherLoginRouteImport } from './routes/teacher-login'
+import { Route as StudentBoardRouteImport } from './routes/student-board'
 import { Route as ShareRouteImport } from './routes/share'
+import { Route as RemoteRouteImport } from './routes/remote'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as PollRouteImport } from './routes/poll'
 import { Route as NotesRouteImport } from './routes/notes'
@@ -28,9 +30,19 @@ const TeacherLoginRoute = TeacherLoginRouteImport.update({
   path: '/teacher-login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const StudentBoardRoute = StudentBoardRouteImport.update({
+  id: '/student-board',
+  path: '/student-board',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ShareRoute = ShareRouteImport.update({
   id: '/share',
   path: '/share',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RemoteRoute = RemoteRouteImport.update({
+  id: '/remote',
+  path: '/remote',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProfileRoute = ProfileRouteImport.update({
@@ -96,7 +108,9 @@ export interface FileRoutesByFullPath {
   '/notes': typeof NotesRoute
   '/poll': typeof PollRoute
   '/profile': typeof ProfileRoute
+  '/remote': typeof RemoteRoute
   '/share': typeof ShareRoute
+  '/student-board': typeof StudentBoardRoute
   '/teacher-login': typeof TeacherLoginRoute
   '/api/ai': typeof ApiAiRoute
   '/api/chat': typeof ApiChatRoute
@@ -111,7 +125,9 @@ export interface FileRoutesByTo {
   '/notes': typeof NotesRoute
   '/poll': typeof PollRoute
   '/profile': typeof ProfileRoute
+  '/remote': typeof RemoteRoute
   '/share': typeof ShareRoute
+  '/student-board': typeof StudentBoardRoute
   '/teacher-login': typeof TeacherLoginRoute
   '/api/ai': typeof ApiAiRoute
   '/api/chat': typeof ApiChatRoute
@@ -127,7 +143,9 @@ export interface FileRoutesById {
   '/notes': typeof NotesRoute
   '/poll': typeof PollRoute
   '/profile': typeof ProfileRoute
+  '/remote': typeof RemoteRoute
   '/share': typeof ShareRoute
+  '/student-board': typeof StudentBoardRoute
   '/teacher-login': typeof TeacherLoginRoute
   '/api/ai': typeof ApiAiRoute
   '/api/chat': typeof ApiChatRoute
@@ -144,7 +162,9 @@ export interface FileRouteTypes {
     | '/notes'
     | '/poll'
     | '/profile'
+    | '/remote'
     | '/share'
+    | '/student-board'
     | '/teacher-login'
     | '/api/ai'
     | '/api/chat'
@@ -159,7 +179,9 @@ export interface FileRouteTypes {
     | '/notes'
     | '/poll'
     | '/profile'
+    | '/remote'
     | '/share'
+    | '/student-board'
     | '/teacher-login'
     | '/api/ai'
     | '/api/chat'
@@ -174,7 +196,9 @@ export interface FileRouteTypes {
     | '/notes'
     | '/poll'
     | '/profile'
+    | '/remote'
     | '/share'
+    | '/student-board'
     | '/teacher-login'
     | '/api/ai'
     | '/api/chat'
@@ -190,7 +214,9 @@ export interface RootRouteChildren {
   NotesRoute: typeof NotesRoute
   PollRoute: typeof PollRoute
   ProfileRoute: typeof ProfileRoute
+  RemoteRoute: typeof RemoteRoute
   ShareRoute: typeof ShareRoute
+  StudentBoardRoute: typeof StudentBoardRoute
   TeacherLoginRoute: typeof TeacherLoginRoute
   ApiAiRoute: typeof ApiAiRoute
   ApiChatRoute: typeof ApiChatRoute
@@ -208,11 +234,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TeacherLoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/student-board': {
+      id: '/student-board'
+      path: '/student-board'
+      fullPath: '/student-board'
+      preLoaderRoute: typeof StudentBoardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/share': {
       id: '/share'
       path: '/share'
       fullPath: '/share'
       preLoaderRoute: typeof ShareRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/remote': {
+      id: '/remote'
+      path: '/remote'
+      fullPath: '/remote'
+      preLoaderRoute: typeof RemoteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/profile': {
@@ -302,7 +342,9 @@ const rootRouteChildren: RootRouteChildren = {
   NotesRoute: NotesRoute,
   PollRoute: PollRoute,
   ProfileRoute: ProfileRoute,
+  RemoteRoute: RemoteRoute,
   ShareRoute: ShareRoute,
+  StudentBoardRoute: StudentBoardRoute,
   TeacherLoginRoute: TeacherLoginRoute,
   ApiAiRoute: ApiAiRoute,
   ApiChatRoute: ApiChatRoute,

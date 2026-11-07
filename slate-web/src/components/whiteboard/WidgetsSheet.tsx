@@ -56,6 +56,7 @@ import { AuthDialog } from "@/components/auth/AuthDialog";
 import { exportLessonFile, importLessonFile } from "@/lib/whiteboard/lessonFiles";
 import { useTranslation } from "@/lib/i18n/useTranslation";
 import { toast } from "sonner";
+import { shareNotesToWhatsApp } from "@/lib/whiteboard/whatsAppShare";
 import {
   Sun,
   Search,
@@ -78,6 +79,12 @@ import {
   Zap,
   ShieldCheck,
   Map,
+  Smartphone,
+  Radio,
+  FlaskConical,
+  CalendarDays,
+  BarChart3,
+  Palette,
   Lightbulb,
 } from "lucide-react";
 
@@ -1196,6 +1203,195 @@ export function WidgetsSheet({
                       </div>
                       <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
                         Admin & EOD clear
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* Phones as Mini Whiteboards */}
+                  <button
+                    onClick={() => {
+                      onOpenChange(false);
+                      window.dispatchEvent(new CustomEvent("slate:open-mini-whiteboards"));
+                    }}
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-purple-500/30 bg-purple-500/5 p-2.5 text-center transition hover:bg-purple-500/10 active:scale-95 group"
+                  >
+                    <span className="grid h-10 w-10 place-items-center rounded-lg bg-purple-500/10 text-purple-600 transition-transform group-hover:scale-105">
+                      <Smartphone className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <div className="text-xs font-bold leading-tight text-purple-700 dark:text-purple-400">
+                        Mini Boards
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        Student answers
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* Teacher Phone Remote */}
+                  <button
+                    onClick={() => {
+                      onOpenChange(false);
+                      window.dispatchEvent(new CustomEvent("slate:open-teacher-remote"));
+                    }}
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-sky-500/30 bg-sky-500/5 p-2.5 text-center transition hover:bg-sky-500/10 active:scale-95 group"
+                  >
+                    <span className="grid h-10 w-10 place-items-center rounded-lg bg-sky-500/10 text-sky-600 transition-transform group-hover:scale-105">
+                      <Smartphone className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <div className="text-xs font-bold leading-tight text-sky-700 dark:text-sky-400">
+                        Phone Remote
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        Walk-around control
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* Classroom Timetable Mode */}
+                  <button
+                    onClick={() => {
+                      onOpenChange(false);
+                      window.dispatchEvent(new CustomEvent("slate:open-timetable"));
+                    }}
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/5 p-2.5 text-center transition hover:bg-amber-500/10 active:scale-95 group"
+                  >
+                    <span className="grid h-10 w-10 place-items-center rounded-lg bg-amber-500/10 text-amber-600 transition-transform group-hover:scale-105">
+                      <CalendarDays className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <div className="text-xs font-bold leading-tight text-amber-700 dark:text-amber-400">
+                        Timetable
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        Period setup
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* Science Simulations (PhET) */}
+                  <button
+                    onClick={() => {
+                      onOpenChange(false);
+                      window.dispatchEvent(new CustomEvent("slate:open-science-sims"));
+                    }}
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-teal-500/30 bg-teal-500/5 p-2.5 text-center transition hover:bg-teal-500/10 active:scale-95 group"
+                  >
+                    <span className="grid h-10 w-10 place-items-center rounded-lg bg-teal-500/10 text-teal-600 transition-transform group-hover:scale-105">
+                      <FlaskConical className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <div className="text-xs font-bold leading-tight text-teal-700 dark:text-teal-400">
+                        Science Sims
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        PhET labs
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* Quick Attendance & House Points */}
+                  <button
+                    onClick={() => {
+                      onOpenChange(false);
+                      window.dispatchEvent(new CustomEvent("slate:open-attendance-points"));
+                    }}
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-2.5 text-center transition hover:bg-emerald-500/10 active:scale-95 group"
+                  >
+                    <span className="grid h-10 w-10 place-items-center rounded-lg bg-emerald-500/10 text-emerald-600 transition-transform group-hover:scale-105">
+                      <Trophy className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <div className="text-xs font-bold leading-tight text-emerald-700 dark:text-emerald-400">
+                        Attendance
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        & House Points
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* Accessibility Options */}
+                  <button
+                    onClick={() => {
+                      onOpenChange(false);
+                      window.dispatchEvent(new CustomEvent("slate:open-accessibility"));
+                    }}
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-500/30 bg-slate-500/5 p-2.5 text-center transition hover:bg-slate-500/10 active:scale-95 group"
+                  >
+                    <span className="grid h-10 w-10 place-items-center rounded-lg bg-slate-500/10 text-slate-600 dark:text-slate-300 transition-transform group-hover:scale-105">
+                      <Palette className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <div className="text-xs font-bold leading-tight text-slate-700 dark:text-slate-300">
+                        Accessibility
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        Contrast & Dyslexia
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* Class Insights & Analytics */}
+                  <button
+                    onClick={() => {
+                      onOpenChange(false);
+                      window.dispatchEvent(new CustomEvent("slate:open-class-insights"));
+                    }}
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-blue-500/30 bg-blue-500/5 p-2.5 text-center transition hover:bg-blue-500/10 active:scale-95 group"
+                  >
+                    <span className="grid h-10 w-10 place-items-center rounded-lg bg-blue-500/10 text-blue-600 transition-transform group-hover:scale-105">
+                      <BarChart3 className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <div className="text-xs font-bold leading-tight text-blue-700 dark:text-blue-400">
+                        Class Insights
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        Topic analytics
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* Multi-Room Broadcast */}
+                  <button
+                    onClick={() => {
+                      onOpenChange(false);
+                      window.dispatchEvent(new CustomEvent("slate:open-broadcast"));
+                    }}
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/5 p-2.5 text-center transition hover:bg-rose-500/10 active:scale-95 group"
+                  >
+                    <span className="grid h-10 w-10 place-items-center rounded-lg bg-rose-500/10 text-rose-600 transition-transform group-hover:scale-105">
+                      <Radio className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <div className="text-xs font-bold leading-tight text-rose-700 dark:text-rose-400">
+                        Broadcast
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        To other rooms
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* Share Notes with Parents on WhatsApp */}
+                  <button
+                    onClick={() => {
+                      onOpenChange(false);
+                      shareNotesToWhatsApp();
+                    }}
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-2.5 text-center transition hover:bg-emerald-500/20 active:scale-95 group"
+                  >
+                    <span className="grid h-10 w-10 place-items-center rounded-lg bg-emerald-500 text-white transition-transform group-hover:scale-105 shadow-sm">
+                      <Share2 className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <div className="text-xs font-bold leading-tight text-emerald-700 dark:text-emerald-400">
+                        WhatsApp
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-none">
+                        Share to parents
                       </div>
                     </div>
                   </button>
