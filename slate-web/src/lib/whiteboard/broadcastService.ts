@@ -74,6 +74,13 @@ export async function uploadPictureToStorageOnce(
     if (!match) return null;
 
     const mime = match[1] || "image/png";
+
+    // Strictly disallow SVG images to prevent XSS / script execution vulnerabilities
+    if (mime.includes("svg") || dataUrl.startsWith("data:image/svg")) {
+      console.warn("[Broadcast] SVG images are rejected for security reasons.");
+      return null;
+    }
+
     const base64Data = match[2];
     const binary = atob(base64Data);
     const bytes = new Uint8Array(binary.length);
@@ -85,13 +92,27 @@ export async function uploadPictureToStorageOnce(
     const ext = mime.includes("jpeg") ? "jpg" : mime.includes("webp") ? "webp" : "png";
     const fileName = `broadcast_${idHint || "img"}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
-    // Try dedicated broadcast-images bucket first
+    // 1. Try Edge Function upload (handles board validation and server-side service key)
+    try {
+      const { data: edgeData, error: edgeErr } = await supabase.functions.invoke("upload-broadcast-image", {
+        body: { dataUrl, idHint },
+      });
+      if (!edgeErr && edgeData?.publicUrl) {
+        storageUrlCache.set(cacheKey, edgeData.publicUrl);
+        if (idHint) storageUrlCache.set(idHint, edgeData.publicUrl);
+        return edgeData.publicUrl;
+      }
+    } catch {
+      // Edge Function not deployed or unavailable; fall through to authenticated direct upload
+    }
+
+    // 2. Direct upload to dedicated broadcast-images bucket (requires authenticated session)
     let targetBucket = BROADCAST_STORAGE_BUCKET;
     let { error: uploadErr } = await supabase.storage
       .from(BROADCAST_STORAGE_BUCKET)
       .upload(fileName, blob, {
         contentType: mime,
-        upsert: true,
+        upsert: false,
       });
 
     // Gracefully fallback to shared-notes if broadcast-images is not yet provisioned
@@ -101,7 +122,7 @@ export async function uploadPictureToStorageOnce(
         .from(FALLBACK_STORAGE_BUCKET)
         .upload(fileName, blob, {
           contentType: mime,
-          upsert: true,
+          upsert: false,
         });
       uploadErr = resFallback.error;
     }
@@ -131,44 +152,12 @@ export async function uploadPictureToStorageOnce(
 }
 
 /**
- * Prune temporary broadcast pictures older than maxAgeHours (default 24h).
- * Calls PostgreSQL clear_old_broadcast_images RPC if available, or direct list & delete.
+ * Temporary broadcast pictures are pruned server-side by the scheduled Edge Function
+ * (`cleanup-broadcast-images`) using the Storage API (.remove()) with the service role key.
+ * Direct SQL deletion and client-side cleanup triggers are disabled to prevent orphaned S3 files.
  */
-export async function cleanupOldBroadcastImages(maxAgeHours = 24): Promise<number> {
-  try {
-    const supabase = getSupabase();
-    if (!supabase) return 0;
-
-    // 1. Try invoking PostgreSQL cleanup function if available
-    const { data: rpcCount, error: rpcErr } = await supabase.rpc("clear_old_broadcast_images", {
-      hours_old: maxAgeHours,
-    });
-    if (!rpcErr && typeof rpcCount === "number") {
-      return rpcCount;
-    }
-
-    // 2. Client-side storage list & prune fallback
-    const { data: files } = await supabase.storage
-      .from(BROADCAST_STORAGE_BUCKET)
-      .list("", {
-        limit: 100,
-        sortBy: { column: "created_at", order: "asc" },
-      });
-
-    if (files && files.length > 0) {
-      const cutoff = Date.now() - maxAgeHours * 60 * 60 * 1000;
-      const oldFiles = files
-        .filter((f) => f.created_at && new Date(f.created_at).getTime() < cutoff)
-        .map((f) => f.name);
-
-      if (oldFiles.length > 0) {
-        await supabase.storage.from(BROADCAST_STORAGE_BUCKET).remove(oldFiles);
-        return oldFiles.length;
-      }
-    }
-  } catch (err) {
-    console.warn("[Broadcast] Image cleanup error (non-fatal):", err);
-  }
+export async function cleanupOldBroadcastImages(_maxAgeHours = 24): Promise<number> {
+  // Handled on server by scheduled Edge Function using Storage API
   return 0;
 }
 
@@ -343,9 +332,6 @@ class BroadcastService {
     if (this.stateGetter) {
       this.send({ type: "snapshot", ...this.stateGetter() });
     }
-
-    // Prune temporary broadcast pictures older than 24 hours in the background
-    cleanupOldBroadcastImages(24).catch(() => {});
   }
 
   private handleHostSignal(

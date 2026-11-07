@@ -211,15 +211,22 @@ describe("Broadcast Service & Storage Optimization", () => {
     });
   });
 
-  describe("Broadcast Images Bucket & Cleanup", () => {
+  describe("Broadcast Images Bucket & Security Restrictions", () => {
     it("targets dedicated broadcast-images bucket to keep student notes separate", () => {
       expect(BROADCAST_STORAGE_BUCKET).toBe("broadcast-images");
       expect(FALLBACK_STORAGE_BUCKET).toBe("shared-notes");
     });
 
+    it("rejects SVG images to prevent XSS vulnerabilities", async () => {
+      const svgDataUrl = "data:image/svg+xml;base64,PHN2Zz48c2NyaXB0PmFsZXJ0KDEpPC9zY3JpcHQ+PC9zdmc+";
+      const result = await uploadPictureToStorageOnce(svgDataUrl, "xss-test");
+      expect(result).toBeNull();
+    });
+
     it("runs cleanupOldBroadcastImages safely without uncaught exceptions", async () => {
       const deletedCount = await cleanupOldBroadcastImages(24);
       expect(typeof deletedCount).toBe("number");
+      expect(deletedCount).toBe(0);
     });
   });
 });
