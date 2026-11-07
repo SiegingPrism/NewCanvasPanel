@@ -34,9 +34,9 @@ export interface BroadcastDialogProps {
 export function BroadcastDialog({ open, onOpenChange, boardId = "default" }: BroadcastDialogProps) {
   const { pages, activePageId, camera, tool } = useWhiteboard();
   const [mode, setMode] = useState<"host" | "join">("host");
-  const [isBroadcasting, setIsBroadcasting] = useState<boolean>(false);
+  const [isBroadcasting, setIsBroadcasting] = useState<boolean>(() => broadcastService.isCurrentlyHost());
   const [broadcastCode, setBroadcastCode] = useState<string>(() => {
-    return Math.floor(100000 + Math.random() * 900000).toString();
+    return broadcastService.getActiveCode() || Math.floor(100000 + Math.random() * 900000).toString();
   });
   const [joinCodeInput, setJoinCodeInput] = useState<string>("");
   const [connectedRooms, setConnectedRooms] = useState<string[]>([
@@ -45,6 +45,15 @@ export function BroadcastDialog({ open, onOpenChange, boardId = "default" }: Bro
   ]);
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
   const [copied, setCopied] = useState<boolean>(false);
+
+  // Sync with active broadcast status when dialog opens
+  useEffect(() => {
+    if (open) {
+      setIsBroadcasting(broadcastService.isCurrentlyHost());
+      const active = broadcastService.getActiveCode();
+      if (active) setBroadcastCode(active);
+    }
+  }, [open]);
 
   const broadcastUrl = typeof window !== "undefined"
     ? `${window.location.origin}/board/${boardId}?broadcast=${broadcastCode}`
@@ -61,35 +70,19 @@ export function BroadcastDialog({ open, onOpenChange, boardId = "default" }: Bro
       .catch((err) => console.error("QR Code error:", err));
   }, [open, broadcastUrl]);
 
-  // Manage single stable broadcast session
-  useEffect(() => {
+  const handleToggleBroadcast = () => {
     if (isBroadcasting) {
+      broadcastService.stop();
+      setIsBroadcasting(false);
+      toast("Broadcast stopped");
+    } else {
       broadcastService.startHost(
         broadcastCode,
-        () => ({ pages, activePageId, camera }),
         (roomName) => {
           setConnectedRooms((prev) => Array.from(new Set([...prev, roomName])));
           toast.info(`Room connected to broadcast: ${roomName}`);
         }
       );
-    } else {
-      broadcastService.stop();
-    }
-  }, [isBroadcasting, broadcastCode]);
-
-  // Clean up on unmount
-  useEffect(() => {
-    return () => {
-      broadcastService.stop();
-    };
-  }, []);
-
-  const handleToggleBroadcast = () => {
-    if (isBroadcasting) {
-      setIsBroadcasting(false);
-      broadcastService.stop();
-      toast("Broadcast stopped");
-    } else {
       setIsBroadcasting(true);
       toast.success(`Live room broadcast started! Code: ${broadcastCode}`);
     }

@@ -26,7 +26,7 @@ import {
   type FullPersistShape,
   type BoardData,
 } from "./slateStorage";
-import { broadcastService } from "./broadcastService";
+import { broadcastService, sanitizePageForBroadcast } from "./broadcastService";
 
 export function uid() {
   return Math.random().toString(36).slice(2, 10);
@@ -1061,6 +1061,9 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
       pages.splice(idx + 1, 0, newPage);
       set(syncActive({ ...s, pages, activePageId: newId, selectedId: null, selectedIds: [] }));
       get().pushHistory();
+      if (typeof window !== "undefined" && broadcastService.isCurrentlyHost()) {
+        broadcastService.send({ type: "page_switched", page: sanitizePageForBroadcast(newPage) });
+      }
     },
     addPageWithTemplate: (key: TemplateKey) => {
       const s = get();
@@ -1081,6 +1084,9 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
         }),
       );
       get().pushHistory();
+      if (typeof window !== "undefined" && broadcastService.isCurrentlyHost()) {
+        broadcastService.send({ type: "page_switched", page: sanitizePageForBroadcast(newPage) });
+      }
     },
     removePage: (id) => {
       const s = get();
@@ -1088,12 +1094,21 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
       const pages = s.pages.filter((p) => p.id !== id);
       const activePageId = s.activePageId === id ? pages[0].id : s.activePageId;
       set(syncActive({ ...s, pages, activePageId }));
+      if (typeof window !== "undefined" && broadcastService.isCurrentlyHost()) {
+        const currentP = pages.find((p) => p.id === activePageId) || pages[0];
+        if (currentP) {
+          broadcastService.send({ type: "page_switched", page: sanitizePageForBroadcast(currentP) });
+        }
+      }
     },
     setActivePage: (id) => {
       const s = get();
       set(syncActive({ ...s, activePageId: id, selectedId: null }));
       if (typeof window !== "undefined" && broadcastService.isCurrentlyHost()) {
-        broadcastService.send({ type: "page_switched", pageId: id });
+        const targetPage = s.pages.find((p) => p.id === id);
+        if (targetPage) {
+          broadcastService.send({ type: "page_switched", page: sanitizePageForBroadcast(targetPage) });
+        }
       }
     },
     nextPage: () => {
@@ -1101,12 +1116,18 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
       const i = s.pages.findIndex((p) => p.id === s.activePageId);
       const n = s.pages[Math.min(i + 1, s.pages.length - 1)];
       set(syncActive({ ...s, activePageId: n.id, selectedId: null }));
+      if (typeof window !== "undefined" && broadcastService.isCurrentlyHost()) {
+        broadcastService.send({ type: "page_switched", page: sanitizePageForBroadcast(n) });
+      }
     },
     prevPage: () => {
       const s = get();
       const i = s.pages.findIndex((p) => p.id === s.activePageId);
       const n = s.pages[Math.max(i - 1, 0)];
       set(syncActive({ ...s, activePageId: n.id, selectedId: null }));
+      if (typeof window !== "undefined" && broadcastService.isCurrentlyHost()) {
+        broadcastService.send({ type: "page_switched", page: sanitizePageForBroadcast(n) });
+      }
     },
     setBackground: (bg) => {
       const s = get();
@@ -1582,6 +1603,16 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
 });
 
 if (typeof window !== "undefined") {
+  // Register dynamic state getter for Multi-Room Live Broadcast
+  broadcastService.registerStateGetter(() => {
+    const s = useWhiteboard.getState();
+    const page = s.pages.find((p) => p.id === s.activePageId) || s.pages[0];
+    return {
+      activePage: sanitizePageForBroadcast(page),
+      camera: s.camera,
+    };
+  });
+
   // 1. Initial fast load from synchronous store for instant rendering (keeps hydrated: false until full data is ready)
   const initial = loadInitialSync();
   if (Object.keys(initial.boards).length > 0) {

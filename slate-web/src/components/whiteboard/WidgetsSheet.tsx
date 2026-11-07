@@ -1375,11 +1375,11 @@ export function WidgetsSheet({
                     </div>
                   </button>
 
-                  {/* Share Notes with Parents on WhatsApp */}
+                  {/* Share Notes with Parents on WhatsApp (Opens Share Notes flow to upload PDF first) */}
                   <button
                     onClick={() => {
                       onOpenChange(false);
-                      shareNotesToWhatsApp();
+                      window.dispatchEvent(new CustomEvent("slate:share-notes"));
                     }}
                     className="flex flex-col items-center gap-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-2.5 text-center transition hover:bg-emerald-500/20 active:scale-95 group"
                   >

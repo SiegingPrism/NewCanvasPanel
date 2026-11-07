@@ -19,7 +19,9 @@ import {
   Plus,
   Radio,
   Zap,
+  Trophy,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useWhiteboard } from "@/lib/whiteboard/store";
 import type { CanvasObject } from "@/lib/whiteboard/types";
@@ -64,16 +66,23 @@ export function ClassInsightsDialog({ open, onOpenChange }: ClassInsightsDialogP
   }, []);
 
   // Filter records by class
+  const classOptions = Array.from(new Set(records.map((r) => r.className).filter(Boolean)));
+
   const filteredRecords = selectedClass === "All Classes"
     ? records
     : records.filter((r) => r.className === selectedClass);
 
-  // Group by topic
+  // Only scored quizzes count towards topic comprehension scores (opinion polls & buzzer games are excluded)
+  const scoredRecords = filteredRecords.filter(
+    (r) => typeof r.accuracy === "number" && typeof r.correctCount === "number"
+  );
+
+  // Group scored records by topic
   const topicMap = new Map<string, { total: number; correct: number }>();
-  filteredRecords.forEach((r) => {
+  scoredRecords.forEach((r) => {
     const existing = topicMap.get(r.topic) || { total: 0, correct: 0 };
     existing.total += r.totalStudents;
-    existing.correct += r.correctCount;
+    existing.correct += (r.correctCount || 0);
     topicMap.set(r.topic, existing);
   });
 
@@ -93,11 +102,17 @@ export function ClassInsightsDialog({ open, onOpenChange }: ClassInsightsDialogP
   const revisionTopics = topics.filter((t) => t.status === "needs_revision");
   const masteredTopics = topics.filter((t) => t.status === "mastered");
 
-  const totalStudentsAttempted = filteredRecords.reduce((acc, r) => acc + r.totalStudents, 0);
-  const totalCorrect = filteredRecords.reduce((acc, r) => acc + r.correctCount, 0);
-  const overallAccuracy = totalStudentsAttempted > 0
-    ? Math.round((totalCorrect / totalStudentsAttempted) * 100)
+  const totalStudentsScored = scoredRecords.reduce((acc, r) => acc + r.totalStudents, 0);
+  const totalCorrectScored = scoredRecords.reduce((acc, r) => acc + (r.correctCount || 0), 0);
+  const overallAccuracy = totalStudentsScored > 0
+    ? Math.round((totalCorrectScored / totalStudentsScored) * 100)
     : 0;
+
+  const totalResponsesAll = filteredRecords.reduce((acc, r) => acc + r.totalStudents, 0);
+
+  // Specific record slices
+  const teamQuizRecords = filteredRecords.filter((r) => r.type === "team-quiz");
+  const opinionPollRecords = filteredRecords.filter((r) => r.type === "poll" && r.accuracy === undefined);
 
   const handleGenerateRevisionQuiz = (topic: TopicInsight) => {
     const cx = (window.innerWidth / 2 - camera.x) / camera.zoom;
@@ -207,7 +222,30 @@ export function ClassInsightsDialog({ open, onOpenChange }: ClassInsightsDialogP
             </div>
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto space-y-6 pt-3 pr-1">
+          <div className="flex-1 overflow-y-auto space-y-5 pt-3 pr-1">
+            {/* Class Filter Tabs */}
+            {classOptions.length > 0 && (
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-2 border-b border-border">
+                <span className="text-[11px] font-bold text-muted-foreground mr-1 uppercase tracking-wider">
+                  Class:
+                </span>
+                {["All Classes", ...classOptions].map((cls) => (
+                  <button
+                    key={cls}
+                    onClick={() => setSelectedClass(cls)}
+                    className={cn(
+                      "text-xs px-3 py-1 rounded-xl font-bold transition-all",
+                      selectedClass === cls
+                        ? "bg-primary text-primary-foreground shadow-xs"
+                        : "bg-muted/60 text-muted-foreground hover:bg-muted"
+                    )}
+                  >
+                    {cls}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {/* Class Stats Summary */}
             <div className="grid grid-cols-3 gap-3">
               <div className="p-4 rounded-2xl bg-card border border-border shadow-xs">
@@ -216,17 +254,17 @@ export function ClassInsightsDialog({ open, onOpenChange }: ClassInsightsDialogP
                 </span>
                 <div className="flex items-baseline gap-2 mt-1">
                   <span className="text-2xl font-black text-foreground">
-                    {overallAccuracy}%
+                    {scoredRecords.length > 0 ? `${overallAccuracy}%` : "—"}
                   </span>
                   <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center">
-                    <TrendingUp className="h-3 w-3 mr-0.5" /> Real Data
+                    <TrendingUp className="h-3 w-3 mr-0.5" /> {scoredRecords.length} Quizzes
                   </span>
                 </div>
               </div>
 
               <div className="p-4 rounded-2xl bg-card border border-border shadow-xs">
                 <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                  Quizzes & Polls
+                  Quizzes &amp; Polls
                 </span>
                 <div className="flex items-baseline gap-2 mt-1">
                   <span className="text-2xl font-black text-foreground">
@@ -242,7 +280,7 @@ export function ClassInsightsDialog({ open, onOpenChange }: ClassInsightsDialogP
                 </span>
                 <div className="flex items-baseline gap-2 mt-1">
                   <span className="text-2xl font-black text-foreground">
-                    {totalStudentsAttempted}
+                    {totalResponsesAll}
                   </span>
                   <span className="text-xs text-muted-foreground">total</span>
                 </div>
@@ -322,6 +360,90 @@ export function ClassInsightsDialog({ open, onOpenChange }: ClassInsightsDialogP
                       </div>
                       <span className="text-xs font-black text-emerald-600 dark:text-emerald-400">
                         {topic.accuracy}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Team Quiz Competitions History */}
+            {teamQuizRecords.length > 0 && (
+              <div className="space-y-3 pt-1">
+                <div className="flex items-center gap-2">
+                  <Trophy className="h-4 w-4 text-amber-500" />
+                  <h4 className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">
+                    Team Quiz Buzzer Matches &amp; Scores
+                  </h4>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {teamQuizRecords.map((match) => {
+                    const sortedScores = match.teamScores
+                      ? [...match.teamScores].sort((a, b) => b.score - a.score)
+                      : [];
+                    return (
+                      <div
+                        key={match.id}
+                        className="p-3.5 rounded-2xl border border-amber-500/20 bg-amber-500/5 space-y-2.5"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600">
+                              {match.className}
+                            </span>
+                            <span className="text-xs font-bold text-foreground ml-2">
+                              {match.questionCount ? `${match.questionCount} Questions` : "Buzzer Round"}
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-muted-foreground font-mono">
+                            {new Date(match.timestamp).toLocaleDateString()}
+                          </span>
+                        </div>
+
+                        {sortedScores.length > 0 && (
+                          <div className="grid grid-cols-2 gap-1.5 pt-1">
+                            {sortedScores.map((ts, sIdx) => (
+                              <div
+                                key={ts.id || sIdx}
+                                className="flex items-center justify-between text-xs px-2 py-1 rounded-lg bg-card/60 border border-border"
+                              >
+                                <span className="font-semibold truncate max-w-[100px]" style={{ color: ts.color }}>
+                                  {sIdx === 0 ? "👑 " : ""}{ts.name.split(" ")[1] || ts.name}
+                                </span>
+                                <span className="font-mono font-black">{ts.score} pts</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Class Opinion Polls */}
+            {opinionPollRecords.length > 0 && (
+              <div className="space-y-2.5 pt-1">
+                <div className="flex items-center gap-2">
+                  <Radio className="h-4 w-4 text-sky-500" />
+                  <h4 className="text-xs font-bold text-sky-600 dark:text-sky-400 uppercase tracking-wider">
+                    Class Opinion Polls ({opinionPollRecords.length})
+                  </h4>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {opinionPollRecords.map((poll) => (
+                    <div
+                      key={poll.id}
+                      className="p-3 rounded-2xl border border-sky-500/20 bg-sky-500/5 flex items-center justify-between"
+                    >
+                      <div>
+                        <span className="text-[10px] font-bold text-sky-600 uppercase mr-1.5">{poll.className}</span>
+                        <span className="text-xs font-semibold text-foreground line-clamp-1">{poll.topic}</span>
+                      </div>
+                      <span className="text-xs font-bold text-muted-foreground ml-2 shrink-0">
+                        {poll.totalStudents} votes
                       </span>
                     </div>
                   ))}

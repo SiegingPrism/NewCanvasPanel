@@ -6,6 +6,31 @@
 @import "@fontsource/lexend/600.css";
 @import "@fontsource/lexend/700.css";
 
+/* Bundled Open Font License Lexend for offline smart boards & WebView */
+@font-face {
+  font-family: 'Lexend';
+  src: url('/fonts/lexend-400.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Lexend';
+  src: url('/fonts/lexend-600.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Lexend';
+  src: url('/fonts/lexend-700.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 /*

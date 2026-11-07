@@ -55,16 +55,27 @@ export function TeacherRemoteDialog({
   } = useWhiteboard();
 
   // 4-digit pairing PIN to prevent students from taking over the board
-  const [pairPin] = useState<string>(() => Math.floor(1000 + Math.random() * 9000).toString());
+  const [pairPin, setPairPin] = useState<string>(() => Math.floor(1000 + Math.random() * 9000).toString());
   const [pairedDeviceId, setPairedDeviceId] = useState<string | null>(null);
+  const pairPinRef = useRef<string>(pairPin);
+  const pairedDeviceRef = useRef<string | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
   const [copied, setCopied] = useState<boolean>(false);
   const [lastCommand, setLastCommand] = useState<string | null>(null);
   const channelRef = useRef<any>(null);
 
+  useEffect(() => {
+    pairPinRef.current = pairPin;
+  }, [pairPin]);
+
+  useEffect(() => {
+    pairedDeviceRef.current = pairedDeviceId;
+  }, [pairedDeviceId]);
+
+  // URL for QR code - deliberately DOES NOT include PIN so students scanning the screen cannot get it
   const remoteUrl = typeof window !== "undefined"
-    ? `${window.location.origin}/remote?session=${boardId}&pin=${pairPin}`
-    : `https://slate.local/remote?session=${boardId}&pin=${pairPin}`;
+    ? `${window.location.origin}/remote?session=${boardId}`
+    : `https://slate.local/remote?session=${boardId}`;
 
   // Generate QR Code for Phone Pairing (only while unpaired)
   useEffect(() => {
@@ -85,28 +96,54 @@ export function TeacherRemoteDialog({
 
       // 1. Pairing Handshake
       if (payload.command === "pair") {
-        if (payload.pin === pairPin) {
+        if (pairedDeviceRef.current) {
+          // Already paired to a remote! Reject further pair attempts
+          if (channelRef.current) {
+            channelRef.current.send({
+              type: "broadcast",
+              event: "ack",
+              payload: { type: "pair_rejected", reason: "Board is already paired to another remote." },
+            }).catch(() => {});
+          }
+          return;
+        }
+
+        if (payload.pin === pairPinRef.current) {
           const devId = payload.deviceId || "teacher_phone";
           setPairedDeviceId(devId);
-          toast.success("Teacher phone paired securely! QR code hidden.");
+          pairedDeviceRef.current = devId;
+
+          // Change PIN immediately upon pairing so old PIN is never valid again
+          const newPin = Math.floor(1000 + Math.random() * 9000).toString();
+          setPairPin(newPin);
+          pairPinRef.current = newPin;
+
+          toast.success("Teacher phone paired securely! All commands locked to your device.");
 
           // Send confirmation ack
           if (channelRef.current) {
             channelRef.current.send({
               type: "broadcast",
               event: "ack",
-              payload: { type: "pair_confirmed", pin: pairPin },
+              payload: { type: "pair_confirmed", deviceId: devId },
             }).catch(() => {});
           }
         } else {
-          console.warn("Blocked pairing attempt with invalid PIN:", payload.pin);
+          toast.error("Blocked remote connection: invalid PIN entered.");
+          if (channelRef.current) {
+            channelRef.current.send({
+              type: "broadcast",
+              event: "ack",
+              payload: { type: "pair_rejected", reason: "Invalid 4-digit PIN." },
+            }).catch(() => {});
+          }
         }
         return;
       }
 
-      // 2. Reject commands from unpaired or unauthorized phones
-      if (payload.pin !== pairPin) {
-        console.warn("Rejected unauthorized command from unpaired phone:", payload);
+      // 2. Reject commands from any device that is NOT the paired device
+      if (!pairedDeviceRef.current || payload.deviceId !== pairedDeviceRef.current) {
+        console.warn("Blocked unauthorized command from unpaired/unknown deviceId:", payload.deviceId);
         return;
       }
 
@@ -230,6 +267,10 @@ export function TeacherRemoteDialog({
 
   const handleDisconnect = () => {
     setPairedDeviceId(null);
+    pairedDeviceRef.current = null;
+    const newPin = Math.floor(1000 + Math.random() * 9000).toString();
+    setPairPin(newPin);
+    pairPinRef.current = newPin;
     toast.info("Teacher remote unpaired. Ready to pair a new device.");
   };
 

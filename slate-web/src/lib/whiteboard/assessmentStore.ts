@@ -4,15 +4,24 @@
  * to drive authentic Class Insights without hardcoded/fake numbers.
  */
 
+export interface TeamScoreEntry {
+  id: string;
+  name: string;
+  score: number;
+  color: string;
+}
+
 export interface AssessmentRecord {
   id: string;
   type: "quiz" | "poll" | "team-quiz";
-  className: string;      // e.g. "Class 9A", "Class 10B"
-  topic: string;          // e.g. "Ohm's Law", "Fractions", or Question title
-  totalStudents: number;  // Number of student respondents
-  correctCount: number;   // Number of correct submissions
-  accuracy: number;       // Percentage (0 - 100)
-  date: string;           // ISO date string
+  className: string;         // e.g. "Class 9A", "Class 10B"
+  topic: string;             // e.g. "Ohm's Law", "Fractions", or Question title
+  totalStudents: number;     // Number of student respondents
+  correctCount?: number;      // Number of correct submissions (undefined if no correct answer)
+  accuracy?: number;          // Percentage 0-100 (undefined if no correct answer)
+  questionCount?: number;    // Number of questions played in a match
+  teamScores?: TeamScoreEntry[]; // Real team scores
+  date: string;              // ISO date string
   timestamp: number;
 }
 
@@ -72,3 +81,4 @@ export function clearAssessmentRecords(): void {
     }
   } catch {}
 }
+

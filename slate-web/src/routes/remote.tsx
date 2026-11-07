@@ -15,6 +15,8 @@ import {
   CheckCircle2,
   Play,
   Pause,
+  Lock,
+  ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -27,6 +29,7 @@ export const Route = createFileRoute("/remote")({
 export function TeacherRemotePage() {
   const [sessionId, setSessionId] = useState<string>("default");
   const [pin, setPin] = useState<string>("");
+  const [pinInput, setPinInput] = useState<string>("");
   const [deviceId] = useState(() => {
     try {
       const stored = sessionStorage.getItem("slate_remote_device_id");
@@ -42,7 +45,7 @@ export function TeacherRemotePage() {
   const [laserActive, setLaserActive] = useState<boolean>(false);
   const [timerRunning, setTimerRunning] = useState<boolean>(false);
   const [photoUploading, setPhotoUploading] = useState<boolean>(false);
-  const [lastAction, setLastAction] = useState<string>("Connected");
+  const [lastAction, setLastAction] = useState<string>("Connecting");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const channelRef = useRef<any>(null);
 
@@ -52,7 +55,10 @@ export function TeacherRemotePage() {
     const sid = url.searchParams.get("session") || "default";
     const p = url.searchParams.get("pin") || "";
     setSessionId(sid);
-    setPin(p);
+    if (p) {
+      setPin(p);
+      setPinInput(p);
+    }
 
     const supabase = getSupabase();
     if (supabase && sid !== "default") {
@@ -63,7 +69,11 @@ export function TeacherRemotePage() {
       ch.on("broadcast", { event: "ack" }, (msg: any) => {
         if (msg.payload?.type === "pair_confirmed") {
           setIsPaired(true);
+          setLastAction("Paired & Ready");
           toast.success("Paired securely with Smart Board!");
+        } else if (msg.payload?.type === "pair_rejected") {
+          setIsPaired(false);
+          toast.error(msg.payload?.reason || "Pairing rejected by smart board.");
         } else if (msg.payload?.type === "photo_confirmed") {
           setPhotoUploading(false);
           toast.success("Photo confirmed & projected on board!");
@@ -72,18 +82,20 @@ export function TeacherRemotePage() {
 
       ch.subscribe((status: string) => {
         if (status === "SUBSCRIBED") {
-          // Send pair request
-          ch.send({
-            type: "broadcast",
-            event: "command",
-            payload: {
-              type: "teacher_remote_command",
-              command: "pair",
-              pin: p,
-              deviceId,
-              timestamp: Date.now(),
-            },
-          }).catch(() => {});
+          if (p) {
+            // If PIN was in params, auto-try pair
+            ch.send({
+              type: "broadcast",
+              event: "command",
+              payload: {
+                type: "teacher_remote_command",
+                command: "pair",
+                pin: p,
+                deviceId,
+                timestamp: Date.now(),
+              },
+            }).catch(() => {});
+          }
         }
       });
 
@@ -95,7 +107,37 @@ export function TeacherRemotePage() {
     };
   }, [deviceId]);
 
+  const handlePairSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const cleanPin = pinInput.trim();
+    if (cleanPin.length !== 4) {
+      toast.error("Please enter the 4-digit PIN shown on the board.");
+      return;
+    }
+    setPin(cleanPin);
+    if (channelRef.current) {
+      channelRef.current.send({
+        type: "broadcast",
+        event: "command",
+        payload: {
+          type: "teacher_remote_command",
+          command: "pair",
+          pin: cleanPin,
+          deviceId,
+          timestamp: Date.now(),
+        },
+      }).catch(() => {});
+      toast.info("Sending pairing request to smart board...");
+    } else {
+      toast.error("Connecting to smart board... please try again.");
+    }
+  };
+
   const sendCommand = (cmd: string, data?: any) => {
+    if (!isPaired) {
+      toast.error("Please pair with the smart board first.");
+      return;
+    }
     setLastAction(cmd);
     const payload = {
       type: "teacher_remote_command",
@@ -211,15 +253,60 @@ export function TeacherRemotePage() {
         </div>
 
         <div className="text-right">
-          <span className="text-[11px] font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-800/80 px-2 py-0.5 rounded-full">
-            ● Active
+          <span
+            className={`text-[11px] font-mono px-2 py-0.5 rounded-full ${
+              isPaired
+                ? "text-emerald-400 bg-emerald-950/60 border border-emerald-800/80"
+                : "text-amber-400 bg-amber-950/60 border border-amber-800/80"
+            }`}
+          >
+            {isPaired ? "● Paired" : "○ Unpaired"}
           </span>
           <p className="text-[10px] text-slate-500 mt-0.5 capitalize">{lastAction}</p>
         </div>
       </header>
 
-      {/* Main Slide Navigation Controls (Thumb Friendly) */}
-      <div className="space-y-2">
+      {!isPaired ? (
+        <div className="flex-1 flex flex-col justify-center items-center text-center space-y-6 py-8 animate-in fade-in-50">
+          <div className="h-20 w-20 rounded-3xl bg-indigo-500/10 border border-indigo-500/30 grid place-items-center text-indigo-400 shadow-inner">
+            <Lock className="h-10 w-10 text-indigo-400" />
+          </div>
+
+          <div className="space-y-2 max-w-xs">
+            <h2 className="text-xl font-black text-slate-100">
+              Enter Smart Board PIN
+            </h2>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Enter the 4-digit PIN displayed on your smart board screen to pair and control the presentation.
+            </p>
+          </div>
+
+          <form onSubmit={handlePairSubmit} className="w-full max-w-xs space-y-4">
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={4}
+              value={pinInput}
+              onChange={(e) => setPinInput(e.target.value.replace(/\D/g, "").slice(0, 4))}
+              placeholder="••••"
+              className="w-full text-center text-4xl font-mono font-bold tracking-widest py-3.5 rounded-2xl bg-slate-900 border border-slate-700 text-indigo-300 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner"
+              autoFocus
+            />
+
+            <Button
+              type="submit"
+              disabled={pinInput.trim().length !== 4}
+              className="w-full h-12 rounded-2xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-bold text-base shadow-lg shadow-indigo-600/30"
+            >
+              Pair Remote &amp; Control Board
+            </Button>
+          </form>
+        </div>
+      ) : (
+        <>
+          {/* Main Slide Navigation Controls (Thumb Friendly) */}
+          <div className="space-y-2">
         <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
           Slide & Page Navigation
         </label>
@@ -342,6 +429,8 @@ export function TeacherRemotePage() {
           </Button>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 }

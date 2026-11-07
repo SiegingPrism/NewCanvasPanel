@@ -127,3 +127,4 @@ export function getCurrentActivePeriod(customSchedule?: DaySchedule[]): { day: s
 
   return null;
 }
+

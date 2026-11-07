@@ -401,16 +401,22 @@ function BoardPage() {
       if (!code) return;
       setViewerBroadcastCode(code);
       broadcastService.joinViewer(code, {
-        onSnapshot: (receivedPages, activeId, receivedCamera) => {
-          setPages(receivedPages, activeId);
+        onSnapshot: (activePage, receivedCamera) => {
+          setPages([activePage], activePage.id);
           setCamera(receivedCamera);
           toast.success(`Connected to Room Broadcast #${code}!`);
         },
         onObjectAdded: (_pageId, object) => {
           addObject(object);
         },
-        onPageSwitched: (pageId) => {
-          setActivePage(pageId);
+        onPageSwitched: (page) => {
+          setPages((prevPages) => {
+            const exists = prevPages.some((p) => p.id === page.id);
+            if (exists) {
+              return prevPages.map((p) => (p.id === page.id ? page : p));
+            }
+            return [...prevPages, page];
+          }, page.id);
         },
         onPageCleared: () => {
           clearPage();

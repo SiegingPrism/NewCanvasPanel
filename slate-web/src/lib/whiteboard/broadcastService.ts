@@ -2,8 +2,9 @@
  * Broadcast Service for Multi-Room Classroom Mirroring
  * Provides full-fidelity lesson streaming:
  * - Single persistent Supabase Realtime & BroadcastChannel channel
- * - Initial full-board snapshot on join
+ * - Initial current-page snapshot on join (< 256 KB safe payload)
  * - Real-time incremental stroke & object streaming
+ * - Dynamic store querying via useWhiteboard.getState()
  * - Viewer read-only mode banner
  */
 
@@ -14,23 +15,55 @@ export type Camera = { x: number; y: number; zoom: number };
 
 export type BroadcastMessage =
   | { type: "request_snapshot"; fromRoom?: string }
-  | { type: "snapshot"; pages: Page[]; activePageId: string; camera: Camera }
+  | { type: "snapshot"; activePage: Page; camera: Camera }
   | { type: "object_added"; pageId: string; object: CanvasObject }
-  | { type: "page_switched"; pageId: string }
+  | { type: "page_switched"; page: Page }
   | { type: "page_cleared"; pageId: string };
+
+/**
+ * Sanitize a page for broadcast transmission to guarantee message payloads
+ * remain well below the Supabase Realtime 256 KB limit on the free tier.
+ * Heavy inline base64 images are stripped or sent as links.
+ */
+export function sanitizePageForBroadcast(page: Page): Page {
+  if (!page) return page;
+  return {
+    ...page,
+    objects: (page.objects || []).map((obj) => {
+      if (obj.kind === "image") {
+        const imgObj = obj as any;
+        // If image has a massive data: URL (> 15 KB), replace with link or placeholder
+        if (typeof imgObj.src === "string" && imgObj.src.startsWith("data:") && imgObj.src.length > 15360) {
+          return {
+            ...imgObj,
+            src: imgObj.previewUrl || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><rect width='100%' height='100%' fill='%23e2e8f0'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-size='10' fill='%2364748b'>[Image Link]</text></svg>",
+          };
+        }
+      }
+      return obj;
+    }),
+  };
+}
 
 class BroadcastService {
   private activeCode: string | null = null;
   private channel: any = null;
   private bc: BroadcastChannel | null = null;
   private isHost: boolean = false;
+  private stateGetter: (() => { activePage: Page; camera: Camera }) | null = null;
+
+  /**
+   * Register dynamic state getter (connected to useWhiteboard.getState())
+   */
+  registerStateGetter(getter: () => { activePage: Page; camera: Camera }) {
+    this.stateGetter = getter;
+  }
 
   /**
    * Start host broadcast session
    */
   startHost(
     roomCode: string,
-    getSnapshot: () => { pages: Page[]; activePageId: string; camera: Camera },
     onReceiverJoined?: (roomName: string) => void
   ) {
     this.stop();
@@ -44,7 +77,7 @@ class BroadcastService {
       this.channel = supabase.channel(channelName);
       this.channel
         .on("broadcast", { event: "signal" }, (payload: any) => {
-          this.handleHostSignal(payload.payload, getSnapshot, onReceiverJoined);
+          this.handleHostSignal(payload.payload, onReceiverJoined);
         })
         .subscribe();
     }
@@ -52,28 +85,31 @@ class BroadcastService {
     try {
       this.bc = new BroadcastChannel(channelName);
       this.bc.onmessage = (evt) => {
-        this.handleHostSignal(evt.data, getSnapshot, onReceiverJoined);
+        this.handleHostSignal(evt.data, onReceiverJoined);
       };
     } catch {}
 
-    // Announce host availability
-    this.send({ type: "snapshot", ...getSnapshot() });
+    // Send initial snapshot of the current active page
+    if (this.stateGetter) {
+      this.send({ type: "snapshot", ...this.stateGetter() });
+    }
   }
 
   private handleHostSignal(
     msg: BroadcastMessage,
-    getSnapshot: () => { pages: Page[]; activePageId: string; camera: Camera },
     onReceiverJoined?: (roomName: string) => void
   ) {
     if (msg.type === "request_snapshot") {
       if (onReceiverJoined && msg.fromRoom) {
         onReceiverJoined(msg.fromRoom);
       }
-      // Send full state immediately to the newly joined receiver
-      this.send({
-        type: "snapshot",
-        ...getSnapshot(),
-      });
+      // Read fresh, up-to-the-millisecond whiteboard state from the store
+      if (this.stateGetter) {
+        this.send({
+          type: "snapshot",
+          ...this.stateGetter(),
+        });
+      }
     }
   }
 
@@ -104,9 +140,9 @@ class BroadcastService {
   joinViewer(
     roomCode: string,
     callbacks: {
-      onSnapshot: (pages: Page[], activePageId: string, camera: Camera) => void;
+      onSnapshot: (activePage: Page, camera: Camera) => void;
       onObjectAdded: (pageId: string, object: CanvasObject) => void;
-      onPageSwitched: (pageId: string) => void;
+      onPageSwitched: (page: Page) => void;
       onPageCleared: (pageId: string) => void;
     }
   ) {
@@ -120,11 +156,11 @@ class BroadcastService {
     const handleMessage = (msg: BroadcastMessage) => {
       if (!msg) return;
       if (msg.type === "snapshot") {
-        callbacks.onSnapshot(msg.pages, msg.activePageId, msg.camera);
+        callbacks.onSnapshot(msg.activePage, msg.camera);
       } else if (msg.type === "object_added") {
         callbacks.onObjectAdded(msg.pageId, msg.object);
       } else if (msg.type === "page_switched") {
-        callbacks.onPageSwitched(msg.pageId);
+        callbacks.onPageSwitched(msg.page);
       } else if (msg.type === "page_cleared") {
         callbacks.onPageCleared(msg.pageId);
       }

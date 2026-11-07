@@ -8,6 +8,7 @@ import { cn, getPublicAppOrigin } from "@/lib/utils";
 import { toast } from "sonner";
 import { getSupabase } from "@/lib/supabase/client";
 import { recordAssessmentResult } from "@/lib/whiteboard/assessmentStore";
+import { getCurrentActivePeriod } from "@/lib/whiteboard/timetableStore";
 
 interface QuickPollDialogProps {
   open: boolean;
@@ -34,6 +35,10 @@ export function QuickPollDialog({ open, onOpenChange, initialQuiz }: QuickPollDi
   const [votes, setVotes] = useState<number[]>([0, 0, 0, 0]);
   const [revealed, setRevealed] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
+  const [targetClass, setTargetClass] = useState<string>(() => {
+    const currentPeriod = getCurrentActivePeriod();
+    return currentPeriod?.slot.className || "Class 9A";
+  });
 
   // Sync options count with votes array
   useEffect(() => {
@@ -132,18 +137,37 @@ export function QuickPollDialog({ open, onOpenChange, initialQuiz }: QuickPollDi
 
   const saveResultsIfAny = () => {
     if (totalVotes > 0 && !hasRecorded) {
-      const correctVotes = correctIndex !== null ? (votes[correctIndex] || 0) : totalVotes;
-      const accuracy = totalVotes > 0 ? Math.round((correctVotes / totalVotes) * 100) : 0;
-      recordAssessmentResult({
-        type: correctIndex !== null ? "quiz" : "poll",
-        className: "Class 9A",
-        topic: question,
-        totalStudents: totalVotes,
-        correctCount: correctVotes,
-        accuracy,
-      });
+      const cls = targetClass.trim() || "Class 9A";
+      if (correctIndex !== null && typeof correctIndex === "number") {
+        // Scored quiz with a verified right answer
+        const correctVotes = votes[correctIndex] || 0;
+        const accuracy = Math.round((correctVotes / totalVotes) * 100);
+        recordAssessmentResult({
+          type: "quiz",
+          className: cls,
+          topic: question,
+          totalStudents: totalVotes,
+          correctCount: correctVotes,
+          accuracy,
+        });
+      } else {
+        // Plain opinion poll with no correct answer: do NOT save accuracy or correctCount
+        recordAssessmentResult({
+          type: "poll",
+          className: cls,
+          topic: question,
+          totalStudents: totalVotes,
+        });
+      }
       setHasRecorded(true);
     }
+  };
+
+  const handleDialogChange = (isOpen: boolean) => {
+    if (!isOpen) {
+      saveResultsIfAny();
+    }
+    onOpenChange(isOpen);
   };
 
   const resetPoll = () => {
@@ -158,15 +182,32 @@ export function QuickPollDialog({ open, onOpenChange, initialQuiz }: QuickPollDi
   const optionColors = ["bg-blue-500", "bg-emerald-500", "bg-amber-500", "bg-purple-500"];
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleDialogChange}>
       <DialogContent className="max-w-2xl rounded-3xl bg-card p-6 shadow-2xl border border-border">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-primary font-bold">
               <Vote className="h-6 w-6" />
-              <DialogTitle className="text-xl font-extrabold text-foreground">
-                Classroom Live Poll & Quiz
-              </DialogTitle>
+              <div>
+                <DialogTitle className="text-xl font-extrabold text-foreground">
+                  Classroom Live Poll & Quiz
+                </DialogTitle>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-xs font-semibold text-muted-foreground">Class:</span>
+                  <input
+                    type="text"
+                    value={targetClass}
+                    onChange={(e) => setTargetClass(e.target.value)}
+                    className="text-xs font-bold text-foreground bg-muted/60 border border-border px-2 py-0.5 rounded-lg w-28 focus:outline-none focus:ring-1 focus:ring-primary"
+                    placeholder="e.g. Class 9A"
+                  />
+                  {getCurrentActivePeriod()?.slot.className === targetClass && (
+                    <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-full">
+                      Current Period
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
             <div className="flex items-center gap-2 rounded-full bg-muted/60 px-3 py-1 text-xs font-bold text-muted-foreground">
               <Users className="h-4 w-4" />

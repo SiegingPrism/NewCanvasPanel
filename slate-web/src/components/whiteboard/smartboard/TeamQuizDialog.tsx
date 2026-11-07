@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { getSupabase } from "@/lib/supabase/client";
 import { recordAssessmentResult } from "@/lib/whiteboard/assessmentStore";
+import { getCurrentActivePeriod } from "@/lib/whiteboard/timetableStore";
 
 interface TeamQuizDialogProps {
   open: boolean;
@@ -32,6 +33,12 @@ export function TeamQuizDialog({ open, onOpenChange }: TeamQuizDialogProps) {
   const [activeBuzzerTeam, setActiveBuzzerTeam] = useState<Team | null>(null);
   const [isBuzzerLocked, setIsBuzzerLocked] = useState(false);
   const [countdown, setCountdown] = useState<number>(10);
+  const [questionCount, setQuestionCount] = useState<number>(0);
+  const [hasSaved, setHasSaved] = useState<boolean>(false);
+  const [targetClass, setTargetClass] = useState<string>(() => {
+    const currentPeriod = getCurrentActivePeriod();
+    return currentPeriod?.slot.className || "Class 9A";
+  });
   const timerRef = useRef<any>(null);
 
   // Play audio tone on buzzer
@@ -93,14 +100,8 @@ export function TeamQuizDialog({ open, onOpenChange }: TeamQuizDialogProps) {
     );
     handleResetBuzzer();
     if (delta > 0) {
-      recordAssessmentResult({
-        type: "team-quiz",
-        className: "Class 9A",
-        topic: "Class Team Buzzer Competition",
-        totalStudents: 32,
-        correctCount: 24,
-        accuracy: 75,
-      });
+      setQuestionCount((q) => q + 1);
+      setHasSaved(false);
     }
   };
 
@@ -111,37 +112,95 @@ export function TeamQuizDialog({ open, onOpenChange }: TeamQuizDialogProps) {
     setCountdown(10);
   };
 
+  const saveGameResults = () => {
+    const totalPoints = teams.reduce((acc, t) => acc + t.score, 0);
+    if ((questionCount > 0 || totalPoints > 0) && !hasSaved) {
+      const cls = targetClass.trim() || "Class 9A";
+      recordAssessmentResult({
+        type: "team-quiz",
+        className: cls,
+        topic: "Team Buzzer Challenge",
+        totalStudents: teams.length,
+        questionCount: Math.max(1, questionCount),
+        teamScores: teams.map((t) => ({ id: t.id, name: t.name, score: t.score, color: t.color })),
+      });
+      setHasSaved(true);
+      toast.success(`Saved team game results (${Math.max(1, questionCount)} questions) for ${cls} to Class Insights!`);
+    }
+  };
+
   const handleResetAllScores = () => {
+    saveGameResults();
     setTeams((prev) => prev.map((t) => ({ ...t, score: 0, lastBuzzedAt: null })));
+    setQuestionCount(0);
+    setHasSaved(false);
     handleResetBuzzer();
     toast.info("Leaderboard reset for a new game.");
+  };
+
+  const handleDialogChange = (isOpen: boolean) => {
+    if (!isOpen) {
+      saveGameResults();
+    }
+    onOpenChange(isOpen);
   };
 
   // Sort teams for live leaderboard
   const sortedTeams = [...teams].sort((a, b) => b.score - a.score);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleDialogChange}>
       <DialogContent className="max-w-3xl rounded-3xl p-6 bg-card border shadow-2xl flex flex-col max-h-[88vh]">
         <DialogHeader>
           <div className="flex items-center justify-between">
-            <DialogTitle className="flex items-center gap-2.5 text-xl font-extrabold text-foreground">
-              <span className="p-2 rounded-xl bg-amber-500/10 text-amber-500">
-                <Trophy className="h-6 w-6" />
-              </span>
-              <span>Team Quiz Game & Live Buzzers (टीम क्विज़ व बज़र)</span>
-            </DialogTitle>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleResetAllScores}
-              className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-              Reset Game
-            </Button>
+            <div>
+              <DialogTitle className="flex items-center gap-2.5 text-xl font-extrabold text-foreground">
+                <span className="p-2 rounded-xl bg-amber-500/10 text-amber-500">
+                  <Trophy className="h-6 w-6" />
+                </span>
+                <span>Team Quiz Game &amp; Live Buzzers (टीम क्विज़ व बज़र)</span>
+              </DialogTitle>
+              <div className="flex items-center gap-2 mt-1.5">
+                <span className="text-xs font-semibold text-muted-foreground">Class:</span>
+                <input
+                  type="text"
+                  value={targetClass}
+                  onChange={(e) => setTargetClass(e.target.value)}
+                  className="text-xs font-bold text-foreground bg-muted/60 border border-border px-2 py-0.5 rounded-lg w-28 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                  placeholder="e.g. Class 9A"
+                />
+                {getCurrentActivePeriod()?.slot.className === targetClass && (
+                  <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full">
+                    Current Period
+                  </span>
+                )}
+                <span className="text-xs font-mono font-bold text-muted-foreground ml-2">
+                  • {questionCount} questions answered
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={saveGameResults}
+                disabled={questionCount === 0 || hasSaved}
+                className="gap-1.5 text-xs text-amber-600 border-amber-500/30 hover:bg-amber-500/10"
+              >
+                Save to Insights
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleResetAllScores}
+                className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                Reset Game
+              </Button>
+            </div>
           </div>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground mt-1">
             Teams tap their on-screen or phone buzzers. Fastest finger first wins the floor!
           </p>
         </DialogHeader>
