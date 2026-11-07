@@ -265,16 +265,16 @@ export function IndianLessonPacksDialog({ open, onOpenChange }: IndianLessonPack
         >
           <TabsList className="grid grid-cols-4 w-full bg-muted/60 p-1 rounded-xl">
             <TabsTrigger value="geography" className="flex items-center gap-2 rounded-lg text-xs font-semibold">
-              <Map className="h-4 w-4" /> Geography (भूगोल)
+              <Map className="h-4 w-4" /> Geography
             </TabsTrigger>
             <TabsTrigger value="science" className="flex items-center gap-2 rounded-lg text-xs font-semibold">
-              <Dna className="h-4 w-4" /> Science (विज्ञान)
+              <Dna className="h-4 w-4" /> Science
             </TabsTrigger>
             <TabsTrigger value="math" className="flex items-center gap-2 rounded-lg text-xs font-semibold">
-              <Hash className="h-4 w-4" /> Math (गणित)
+              <Hash className="h-4 w-4" /> Mathematics
             </TabsTrigger>
             <TabsTrigger value="devanagari" className="flex items-center gap-2 rounded-lg text-xs font-semibold">
-              <BookOpen className="h-4 w-4" /> Devanagari (भाषा)
+              <BookOpen className="h-4 w-4" /> Languages
             </TabsTrigger>
           </TabsList>
 
@@ -327,10 +327,10 @@ export function IndianLessonPacksDialog({ open, onOpenChange }: IndianLessonPack
               <div className="p-4 rounded-xl border bg-card hover:border-primary/40 transition flex items-center justify-between">
                 <div>
                   <h4 className="font-semibold text-base flex items-center gap-2">
-                    🌿 पादप कोशिका / Plant Cell Structure
+                    🌿 Plant Cell Structure
                   </h4>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Cell wall, vacuole, chloroplast, nucleus, and mitochondria with bilingual labels.
+                    Cell wall, vacuole, chloroplast, nucleus, and mitochondria with diagram labels.
                   </p>
                   <span className="inline-block mt-2 text-[11px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600">
                     NCERT Class 8 & 9 Biology
@@ -347,7 +347,7 @@ export function IndianLessonPacksDialog({ open, onOpenChange }: IndianLessonPack
               <div className="p-4 rounded-xl border bg-card hover:border-primary/40 transition flex items-center justify-between">
                 <div>
                   <h4 className="font-semibold text-base flex items-center gap-2">
-                    ⚡ विद्युत परिपथ / Electric Circuit
+                    ⚡ Simple Electric Circuit
                   </h4>
                   <p className="text-xs text-muted-foreground mt-1">
                     Battery, switch, bulb, and ammeter with circuit diagram conventions and Ohm's Law.
@@ -393,10 +393,10 @@ export function IndianLessonPacksDialog({ open, onOpenChange }: IndianLessonPack
               <div className="p-4 rounded-xl border bg-card hover:border-primary/40 transition flex items-center justify-between">
                 <div>
                   <h4 className="font-semibold text-base flex items-center gap-2">
-                    ✍️ देवनागरी वर्णमाला व अंक लेखन (Hindi & Marathi)
+                    ✍️ Devanagari Script & Numerals (Hindi & Marathi)
                   </h4>
                   <p className="text-xs text-muted-foreground mt-1">
-                    स्वर, क-वर्ग ते प-वर्ग व्यंजने, आणि देवनागरी अंक (१ ते ०) अक्षर लेखन सराव.
+                    Vowels, consonants, and Devanagari numerals (1 to 0) handwriting practice.
                   </p>
                   <span className="inline-block mt-2 text-[11px] font-medium px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-600">
                     CBSE & State Board Primary

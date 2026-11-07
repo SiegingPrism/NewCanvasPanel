@@ -113,7 +113,7 @@ export function DotVotingDialog({ open, onOpenChange }: DotVotingDialogProps) {
               <span className="p-2 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
                 <Vote className="h-6 w-6" />
               </span>
-              <span>Sticky-Note Brainstorm & Dot Voting (वोटिंग)</span>
+              <span>Sticky-Note Brainstorm & Dot Voting</span>
             </DialogTitle>
             <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary font-bold text-xs">
               <span>Dots Remaining:</span>

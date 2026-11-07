@@ -24,10 +24,10 @@ type Team = {
 
 export function TeamQuizDialog({ open, onOpenChange }: TeamQuizDialogProps) {
   const [teams, setTeams] = useState<Team[]>([
-    { id: "red", name: "Team Red (लाल)", color: "#ef4444", bgLight: "bg-red-500/10 text-red-600 border-red-500/30", score: 0, lastBuzzedAt: null },
-    { id: "blue", name: "Team Blue (नीला)", color: "#3b82f6", bgLight: "bg-blue-500/10 text-blue-600 border-blue-500/30", score: 0, lastBuzzedAt: null },
-    { id: "green", name: "Team Green (हरा)", color: "#10b981", bgLight: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30", score: 0, lastBuzzedAt: null },
-    { id: "yellow", name: "Team Yellow (पीला)", color: "#f59e0b", bgLight: "bg-amber-500/10 text-amber-600 border-amber-500/30", score: 0, lastBuzzedAt: null },
+    { id: "red", name: "Team Red", color: "#ef4444", bgLight: "bg-red-500/10 text-red-600 border-red-500/30", score: 0, lastBuzzedAt: null },
+    { id: "blue", name: "Team Blue", color: "#3b82f6", bgLight: "bg-blue-500/10 text-blue-600 border-blue-500/30", score: 0, lastBuzzedAt: null },
+    { id: "green", name: "Team Green", color: "#10b981", bgLight: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30", score: 0, lastBuzzedAt: null },
+    { id: "yellow", name: "Team Yellow", color: "#f59e0b", bgLight: "bg-amber-500/10 text-amber-600 border-amber-500/30", score: 0, lastBuzzedAt: null },
   ]);
 
   const [activeBuzzerTeam, setActiveBuzzerTeam] = useState<Team | null>(null);
@@ -158,7 +158,7 @@ export function TeamQuizDialog({ open, onOpenChange }: TeamQuizDialogProps) {
                 <span className="p-2 rounded-xl bg-amber-500/10 text-amber-500">
                   <Trophy className="h-6 w-6" />
                 </span>
-                <span>Team Quiz Game &amp; Live Buzzers (टीम क्विज़ व बज़र)</span>
+                <span>Team Quiz Game &amp; Live Buzzers</span>
               </DialogTitle>
               <div className="flex items-center gap-2 mt-1.5">
                 <span className="text-xs font-semibold text-muted-foreground">Class:</span>

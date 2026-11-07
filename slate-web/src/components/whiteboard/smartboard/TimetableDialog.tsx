@@ -144,7 +144,7 @@ export function TimetableDialog({ open, onOpenChange }: TimetableDialogProps) {
             </span>
             <div>
               <DialogTitle className="text-xl font-extrabold text-foreground">
-                Classroom Timetable Mode (वेळापत्रक)
+                Classroom Timetable Mode
               </DialogTitle>
               <p className="text-xs text-muted-foreground mt-0.5">
                 Automatic period detection: prompts lesson launch with recommended paper when period begins.

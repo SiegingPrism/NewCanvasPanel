@@ -1237,7 +1237,7 @@ export function TopBar({
             }}
           >
             <Zap className="h-3.5 w-3.5 text-amber-500" />
-            <span>Team Quiz & Buzzers</span>
+            <span>{t("teamQuiz")}</span>
           </button>
           <button
             type="button"
@@ -1253,7 +1253,7 @@ export function TopBar({
             }}
           >
             <Camera className="h-3.5 w-3.5 text-blue-500" />
-            <span>Student Work Wall</span>
+            <span>{t("studentWorkWall")}</span>
           </button>
           <button
             type="button"
@@ -1285,7 +1285,7 @@ export function TopBar({
             }}
           >
             <ShieldCheck className="h-3.5 w-3.5 text-indigo-500" />
-            <span>School Fleet Admin</span>
+            <span>{t("schoolAdmin")}</span>
           </button>
 
           <button
@@ -1302,7 +1302,7 @@ export function TopBar({
             }}
           >
             <Smartphone className="h-3.5 w-3.5 text-purple-500" />
-            <span>Mini Whiteboards (Phones)</span>
+            <span>{t("miniWhiteboards")}</span>
           </button>
 
           <button
@@ -1319,7 +1319,7 @@ export function TopBar({
             }}
           >
             <Smartphone className="h-3.5 w-3.5 text-sky-500" />
-            <span>Teacher Phone Remote</span>
+            <span>{t("teacherRemote")}</span>
           </button>
 
           <button
@@ -1336,7 +1336,7 @@ export function TopBar({
             }}
           >
             <CalendarDays className="h-3.5 w-3.5 text-amber-500" />
-            <span>Timetable Mode (वेळापत्रक)</span>
+            <span>{t("timetable")}</span>
           </button>
 
           <button
@@ -1353,7 +1353,7 @@ export function TopBar({
             }}
           >
             <FlaskConical className="h-3.5 w-3.5 text-teal-500" />
-            <span>Science Simulations (PhET)</span>
+            <span>{t("scienceSims")}</span>
           </button>
 
           <button
@@ -1370,7 +1370,7 @@ export function TopBar({
             }}
           >
             <Trophy className="h-3.5 w-3.5 text-amber-500" />
-            <span>Attendance & House Points</span>
+            <span>{t("attendancePoints")}</span>
           </button>
 
           <button
@@ -1387,7 +1387,7 @@ export function TopBar({
             }}
           >
             <Palette className="h-3.5 w-3.5 text-slate-400" />
-            <span>Accessibility Options</span>
+            <span>{t("accessibility")}</span>
           </button>
 
           <button
@@ -1404,7 +1404,7 @@ export function TopBar({
             }}
           >
             <BarChart3 className="h-3.5 w-3.5 text-blue-500" />
-            <span>Class Insights & Analytics</span>
+            <span>{t("classInsights")}</span>
           </button>
 
           <button
@@ -1421,7 +1421,7 @@ export function TopBar({
             }}
           >
             <Radio className="h-3.5 w-3.5 text-rose-500" />
-            <span>Broadcast to Other Rooms</span>
+            <span>{t("broadcast")}</span>
           </button>
 
           <button
@@ -1438,7 +1438,7 @@ export function TopBar({
             }}
           >
             <Share2 className="h-3.5 w-3.5 text-emerald-500" />
-            <span>Share Notes on WhatsApp</span>
+            <span>{t("shareWhatsApp")}</span>
           </button>
 
           {/* Smart Board Layout & Setup */}

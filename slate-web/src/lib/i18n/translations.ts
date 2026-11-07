@@ -70,6 +70,21 @@ export interface TranslationDictionary {
   tabClassroom: string;
   tabStem: string;
   tabAi: string;
+
+  // Smart Board Tools
+  timetable: string;
+  scienceSims: string;
+  attendancePoints: string;
+  accessibility: string;
+  classInsights: string;
+  broadcast: string;
+  miniWhiteboards: string;
+  teacherRemote: string;
+  teamQuiz: string;
+  dotVoting: string;
+  studentWorkWall: string;
+  schoolAdmin: string;
+  shareWhatsApp: string;
 }
 
 export const translations: Record<AppLanguage, TranslationDictionary> = {
@@ -137,6 +152,20 @@ export const translations: Record<AppLanguage, TranslationDictionary> = {
     tabClassroom: "Classroom",
     tabStem: "Maths & STEM",
     tabAi: "AI & Files",
+
+    timetable: "Timetable Mode",
+    scienceSims: "Science Simulations (PhET)",
+    attendancePoints: "Attendance & House Points",
+    accessibility: "Accessibility Options",
+    classInsights: "Class Insights & Analytics",
+    broadcast: "Broadcast to Other Rooms",
+    miniWhiteboards: "Mini Whiteboards (Phones)",
+    teacherRemote: "Teacher Phone Remote",
+    teamQuiz: "Team Quiz & Live Buzzers",
+    dotVoting: "Sticky-Note Brainstorm & Dot Voting",
+    studentWorkWall: "Student Work Wall",
+    schoolAdmin: "School Board Fleet Admin",
+    shareWhatsApp: "Share with Parents on WhatsApp",
   },
 
   hi: {
@@ -203,6 +232,20 @@ export const translations: Record<AppLanguage, TranslationDictionary> = {
     tabClassroom: "कक्षा",
     tabStem: "गणित व विज्ञान",
     tabAi: "एआई व फ़ाइलें",
+
+    timetable: "समय सारणी मोड",
+    scienceSims: "विज्ञान सिमुलेशन (PhET)",
+    attendancePoints: "उपस्थिति व हाउस पॉइंट्स",
+    accessibility: "सुलभता विकल्प",
+    classInsights: "कक्षा विश्लेषण",
+    broadcast: "अन्य कमरों में प्रसारण",
+    miniWhiteboards: "मिनी व्हाइटबोर्ड (फ़ोन)",
+    teacherRemote: "शिक्षक फ़ोन रिमोट",
+    teamQuiz: "टीम क्विज़ व लाइव बज़र",
+    dotVoting: "स्टीकी-नोट ब्रेनस्टॉर्म व वोटिंग",
+    studentWorkWall: "विद्यार्थी कार्य वॉल",
+    schoolAdmin: "स्कूल बोर्ड बेड़ा एडमिन",
+    shareWhatsApp: "व्हाट्सएप पर साझा करें",
   },
 
   mr: {
@@ -269,6 +312,20 @@ export const translations: Record<AppLanguage, TranslationDictionary> = {
     tabClassroom: "वर्ग",
     tabStem: "गणित व विज्ञान",
     tabAi: "एआय आणि फायली",
+
+    timetable: "वेळापत्रक मोड",
+    scienceSims: "विज्ञान सिम्युलेशन (PhET)",
+    attendancePoints: "हजेरी आणि हाऊस पॉईंट्स",
+    accessibility: "सुलभता पर्याय",
+    classInsights: "वर्ग विश्लेषण",
+    broadcast: "इतर खोल्यांमध्ये प्रसारण",
+    miniWhiteboards: "मिनी व्हाईटबोर्ड (फोन)",
+    teacherRemote: "शिक्षक फोन रिमोट",
+    teamQuiz: "टीम क्विझ आणि थेट बझर",
+    dotVoting: "स्टीकी-नोट ब्रेनस्टॉर्म आणि मतदान",
+    studentWorkWall: "विद्यार्थी कार्य वॉल",
+    schoolAdmin: "शाळा प्रशासन",
+    shareWhatsApp: "व्हॉट्सॲपवर पालकांशी शेअर करा",
   },
 };
 

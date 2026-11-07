@@ -385,7 +385,7 @@ export function AISettingsDialog({
               <div>
                 <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
                   <Globe className="h-4 w-4 text-primary" />
-                  <span>App Interface Language / ऐप की भाषा</span>
+                  <span>App Interface Language</span>
                 </span>
                 <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
                   Select the display language for all menus, toolbars, dialogs, and smart board controls.

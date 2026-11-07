@@ -548,7 +548,7 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
                     <Globe className="h-3.5 w-3.5 text-primary" />
-                    <span>{t("language")} (भाषा)</span>
+                    <span>{t("language")}</span>
                   </span>
                   <span className="text-[10px] font-bold text-primary px-1.5 py-0.5 rounded-md bg-primary/10">
                     {language === "en" ? "English" : language === "hi" ? "हिन्दी" : "मराठी"}

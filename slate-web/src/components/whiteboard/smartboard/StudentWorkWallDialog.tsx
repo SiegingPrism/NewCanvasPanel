@@ -97,7 +97,7 @@ export function StudentWorkWallDialog({ open, onOpenChange }: StudentWorkWallDia
               <span className="p-2 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
                 <Camera className="h-6 w-6" />
               </span>
-              <span>Student Work Wall (विद्यार्थी कार्य वॉल)</span>
+              <span>Student Work Wall</span>
             </DialogTitle>
             <Button
               size="sm"

@@ -342,7 +342,7 @@ export function BoardSettingsDialog({ open, onOpenChange }: BoardSettingsDialogP
           <div className="space-y-4 py-2">
             <div>
               <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1 block">
-                {t("language")} (App Interface) / भाषा निवडा
+                {t("language")} (App Interface)
               </span>
               <p className="text-[11px] text-muted-foreground mb-3">
                 Switch whiteboard menus, toolbar labels, and dialogs between English, Hindi, and Marathi.

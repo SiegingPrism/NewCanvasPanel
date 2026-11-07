@@ -55,7 +55,7 @@ export function SchoolAdminDialog({ open, onOpenChange }: SchoolAdminDialogProps
               <span className="p-2 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
                 <ShieldCheck className="h-6 w-6" />
               </span>
-              <span>School Board Fleet Admin (शाळा प्रशासन)</span>
+              <span>School Board Fleet Admin</span>
             </DialogTitle>
             <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600">
               5 Boards Connected

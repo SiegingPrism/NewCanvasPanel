@@ -249,7 +249,7 @@ export function StudentMiniBoardPage() {
           <Input
             value={studentName}
             onChange={(e) => setStudentName(e.target.value)}
-            placeholder="Your Name (विद्यार्थ्याचे नाव)"
+            placeholder="Your Name"
             className="pl-8 h-9 text-xs bg-slate-900 border-slate-800 rounded-xl"
           />
         </div>
