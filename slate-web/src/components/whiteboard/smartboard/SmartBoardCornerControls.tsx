@@ -106,6 +106,7 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
     setBoardDockSide,
     tool,
     setTool,
+    camera,
   } = useWhiteboard(
     useShallow((s) => ({
       undo: s.undo,
@@ -134,12 +135,14 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
       setBoardDockSide: s.setBoardDockSide,
       tool: s.tool,
       setTool: s.setTool,
+      camera: s.camera,
     })),
   );
 
   const { t, language, setLanguage } = useTranslation();
   const profile = getSmartBoardProfile(panelSize);
   const targetPx = Math.max(64, profile.minTouchTargetPx);
+  const cameraZoomPct = Math.round((camera?.zoom ?? 1) * 100);
   const rawPageIndex = pages.findIndex((p) => p.id === activePageId);
   const activePageIndex = rawPageIndex >= 0 ? rawPageIndex : 0;
   const activePage = pages[activePageIndex] || pages[0];
@@ -710,7 +713,7 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
           </button>
           <button
             onClick={() => window.dispatchEvent(new CustomEvent("slate:zoom-reset"))}
-            aria-label="Reset zoom to 100%"
+            aria-label={`Reset zoom to 100% (currently ${cameraZoomPct}%)`}
             style={{
               height: `${Math.round(targetPx * 0.78)}px`,
               minWidth: `${Math.round(targetPx * 0.78)}px`,
@@ -718,7 +721,7 @@ export function SmartBoardCornerControls({ onOpenSorter }: SmartBoardCornerContr
             className="flex px-1.5 items-center justify-center rounded-lg hover:bg-muted text-foreground text-xs font-bold transition active:scale-90"
             title="Reset to 100% (0)"
           >
-            100%
+            {cameraZoomPct}%
           </button>
         </div>
 
