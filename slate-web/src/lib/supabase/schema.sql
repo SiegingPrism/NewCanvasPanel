@@ -155,12 +155,12 @@ VALUES (
     'shared-notes',
     true,
     52428800, -- 50 MB maximum per PDF file
-    ARRAY['application/pdf']
+    ARRAY['application/pdf', 'image/png', 'image/jpeg', 'image/webp']
 )
 ON CONFLICT (id) DO UPDATE SET
     public = true,
     file_size_limit = 52428800,
-    allowed_mime_types = ARRAY['application/pdf'];
+    allowed_mime_types = ARRAY['application/pdf', 'image/png', 'image/jpeg', 'image/webp'];
 
 -- 2. Rule allowing signed-in users to upload shared notes
 DROP POLICY IF EXISTS "Signed-in users can upload shared notes" ON storage.objects;
@@ -168,7 +168,7 @@ DROP POLICY IF EXISTS "Allow authenticated users to upload shared notes" ON stor
 DROP POLICY IF EXISTS "Allow Board Uploads to Shared Notes" ON storage.objects;
 CREATE POLICY "Signed-in users can upload shared notes"
 ON storage.objects FOR INSERT
-TO authenticated
+TO authenticated, anon
 WITH CHECK (bucket_id = 'shared-notes');
 
 -- 3. Rule allowing anyone to read shared notes
@@ -183,7 +183,70 @@ DROP POLICY IF EXISTS "Signed-in users can update shared notes" ON storage.objec
 DROP POLICY IF EXISTS "Allow Board Updates to Shared Notes" ON storage.objects;
 CREATE POLICY "Signed-in users can update shared notes"
 ON storage.objects FOR UPDATE
-TO authenticated
+TO authenticated, anon
 USING (bucket_id = 'shared-notes');
+
+-- ==============================================================================
+-- 11. BROADCAST IMAGES STORAGE BUCKET (Multi-Room Mirroring & Slide Streaming)
+-- ==============================================================================
+
+-- 1. Create the dedicated broadcast-images storage bucket (10 MB max per image)
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+    'broadcast-images',
+    'broadcast-images',
+    true,
+    10485760, -- 10 MB maximum per slide/photo
+    ARRAY['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/svg+xml']
+)
+ON CONFLICT (id) DO UPDATE SET
+    public = true,
+    file_size_limit = 10485760,
+    allowed_mime_types = ARRAY['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/svg+xml'];
+
+-- 2. Rule allowing board devices to upload broadcast images
+DROP POLICY IF EXISTS "Anyone can upload broadcast images" ON storage.objects;
+DROP POLICY IF EXISTS "Signed-in users can upload broadcast images" ON storage.objects;
+DROP POLICY IF EXISTS "Allow Board Uploads to Broadcast Images" ON storage.objects;
+CREATE POLICY "Allow Board Uploads to Broadcast Images"
+ON storage.objects FOR INSERT
+TO authenticated, anon
+WITH CHECK (bucket_id = 'broadcast-images');
+
+-- 3. Rule allowing public read access for viewing boards across rooms
+DROP POLICY IF EXISTS "Anyone can read broadcast images" ON storage.objects;
+DROP POLICY IF EXISTS "Public Read Access for Broadcast Images" ON storage.objects;
+CREATE POLICY "Public Read Access for Broadcast Images"
+ON storage.objects FOR SELECT
+USING (bucket_id = 'broadcast-images');
+
+-- 4. Rule allowing update/overwrite of broadcast images
+DROP POLICY IF EXISTS "Allow Board Updates to Broadcast Images" ON storage.objects;
+CREATE POLICY "Allow Board Updates to Broadcast Images"
+ON storage.objects FOR UPDATE
+TO authenticated, anon
+USING (bucket_id = 'broadcast-images');
+
+-- 5. Rule allowing cleanup/deletion of old broadcast images
+DROP POLICY IF EXISTS "Allow Cleanup of Broadcast Images" ON storage.objects;
+CREATE POLICY "Allow Cleanup of Broadcast Images"
+ON storage.objects FOR DELETE
+TO authenticated, anon
+USING (bucket_id = 'broadcast-images');
+
+-- 6. Automatic cleanup function to prune temporary broadcast pictures older than X hours (default 24h)
+CREATE OR REPLACE FUNCTION public.clear_old_broadcast_images(hours_old INT DEFAULT 24)
+RETURNS INT AS $$
+DECLARE
+    deleted_count INT;
+BEGIN
+    DELETE FROM storage.objects
+    WHERE bucket_id = 'broadcast-images'
+      AND created_at < NOW() - (hours_old || ' hours')::INTERVAL;
+    GET DIAGNOSTICS deleted_count = ROW_COUNT;
+    RETURN deleted_count;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 
 

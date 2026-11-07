@@ -40,8 +40,13 @@ export function clearStorageUrlCache(): void {
   inFlightUploads.clear();
 }
 
+export const BROADCAST_STORAGE_BUCKET = "broadcast-images";
+export const FALLBACK_STORAGE_BUCKET = "shared-notes";
+
 /**
  * Upload an image base64 data URL to Supabase Storage once and return its public CDN URL.
+ * Uploads to the dedicated 'broadcast-images' bucket, keeping pictures separate from student notes.
+ * Falls back to 'shared-notes' if the primary bucket is unavailable.
  */
 export async function uploadPictureToStorageOnce(
   dataUrl: string,
@@ -80,12 +85,26 @@ export async function uploadPictureToStorageOnce(
     const ext = mime.includes("jpeg") ? "jpg" : mime.includes("webp") ? "webp" : "png";
     const fileName = `broadcast_${idHint || "img"}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
-    const { error: uploadErr } = await supabase.storage
-      .from("shared-notes")
+    // Try dedicated broadcast-images bucket first
+    let targetBucket = BROADCAST_STORAGE_BUCKET;
+    let { error: uploadErr } = await supabase.storage
+      .from(BROADCAST_STORAGE_BUCKET)
       .upload(fileName, blob, {
         contentType: mime,
         upsert: true,
       });
+
+    // Gracefully fallback to shared-notes if broadcast-images is not yet provisioned
+    if (uploadErr) {
+      targetBucket = FALLBACK_STORAGE_BUCKET;
+      const resFallback = await supabase.storage
+        .from(FALLBACK_STORAGE_BUCKET)
+        .upload(fileName, blob, {
+          contentType: mime,
+          upsert: true,
+        });
+      uploadErr = resFallback.error;
+    }
 
     if (uploadErr) {
       console.warn("[Broadcast] Storage upload error:", uploadErr.message);
@@ -93,7 +112,7 @@ export async function uploadPictureToStorageOnce(
     }
 
     const { data: publicUrlData } = supabase.storage
-      .from("shared-notes")
+      .from(targetBucket)
       .getPublicUrl(fileName);
 
     const publicUrl = publicUrlData?.publicUrl;
@@ -109,6 +128,48 @@ export async function uploadPictureToStorageOnce(
   }
 
   return null;
+}
+
+/**
+ * Prune temporary broadcast pictures older than maxAgeHours (default 24h).
+ * Calls PostgreSQL clear_old_broadcast_images RPC if available, or direct list & delete.
+ */
+export async function cleanupOldBroadcastImages(maxAgeHours = 24): Promise<number> {
+  try {
+    const supabase = getSupabase();
+    if (!supabase) return 0;
+
+    // 1. Try invoking PostgreSQL cleanup function if available
+    const { data: rpcCount, error: rpcErr } = await supabase.rpc("clear_old_broadcast_images", {
+      hours_old: maxAgeHours,
+    });
+    if (!rpcErr && typeof rpcCount === "number") {
+      return rpcCount;
+    }
+
+    // 2. Client-side storage list & prune fallback
+    const { data: files } = await supabase.storage
+      .from(BROADCAST_STORAGE_BUCKET)
+      .list("", {
+        limit: 100,
+        sortBy: { column: "created_at", order: "asc" },
+      });
+
+    if (files && files.length > 0) {
+      const cutoff = Date.now() - maxAgeHours * 60 * 60 * 1000;
+      const oldFiles = files
+        .filter((f) => f.created_at && new Date(f.created_at).getTime() < cutoff)
+        .map((f) => f.name);
+
+      if (oldFiles.length > 0) {
+        await supabase.storage.from(BROADCAST_STORAGE_BUCKET).remove(oldFiles);
+        return oldFiles.length;
+      }
+    }
+  } catch (err) {
+    console.warn("[Broadcast] Image cleanup error (non-fatal):", err);
+  }
+  return 0;
 }
 
 /**
@@ -282,6 +343,9 @@ class BroadcastService {
     if (this.stateGetter) {
       this.send({ type: "snapshot", ...this.stateGetter() });
     }
+
+    // Prune temporary broadcast pictures older than 24 hours in the background
+    cleanupOldBroadcastImages(24).catch(() => {});
   }
 
   private handleHostSignal(

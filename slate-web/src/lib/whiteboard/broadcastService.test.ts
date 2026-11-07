@@ -4,6 +4,9 @@ import {
   sanitizeObjectForBroadcast,
   sanitizePageForBroadcast,
   uploadPictureToStorageOnce,
+  cleanupOldBroadcastImages,
+  BROADCAST_STORAGE_BUCKET,
+  FALLBACK_STORAGE_BUCKET,
   setCachedStorageUrl,
   getCachedStorageUrl,
   clearStorageUrlCache,
@@ -205,6 +208,18 @@ describe("Broadcast Service & Storage Optimization", () => {
       );
 
       vi.useRealTimers();
+    });
+  });
+
+  describe("Broadcast Images Bucket & Cleanup", () => {
+    it("targets dedicated broadcast-images bucket to keep student notes separate", () => {
+      expect(BROADCAST_STORAGE_BUCKET).toBe("broadcast-images");
+      expect(FALLBACK_STORAGE_BUCKET).toBe("shared-notes");
+    });
+
+    it("runs cleanupOldBroadcastImages safely without uncaught exceptions", async () => {
+      const deletedCount = await cleanupOldBroadcastImages(24);
+      expect(typeof deletedCount).toBe("number");
     });
   });
 });
