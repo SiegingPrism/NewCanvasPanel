@@ -251,6 +251,7 @@ export function WhiteboardCanvas({
   const panRafRef = useRef<number | null>(null);
   const inkCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const inkCacheDirtyRef = useRef(true);
+  const lastCachedPageIdRef = useRef<string | null>(null);
   const lastCachedObjectsRef = useRef<CanvasObject[] | null>(null);
   const lastCachedCameraRef = useRef<{ x: number; y: number; zoom: number } | null>(null);
   const lastCachedDprRef = useRef<number>(1);
@@ -1344,6 +1345,7 @@ export function WhiteboardCanvas({
     const needsRebuild =
       inkCacheDirtyRef.current ||
       isEraserActive ||
+      lastCachedPageIdRef.current !== page.id ||
       lastCachedObjectsRef.current !== objectsToDraw ||
       !lastCachedCameraRef.current ||
       lastCachedCameraRef.current.x !== cam.x ||
@@ -1390,6 +1392,7 @@ export function WhiteboardCanvas({
         inkCtx.restore();
       }
 
+      lastCachedPageIdRef.current = page.id;
       lastCachedObjectsRef.current = objectsToDraw;
       lastCachedCameraRef.current = { x: cam.x, y: cam.y, zoom: cam.zoom };
       lastCachedDprRef.current = mainDpr;

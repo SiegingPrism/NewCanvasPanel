@@ -39,7 +39,8 @@ describe("NCERT & State Board Textbook Catalog & Auto-Sync", () => {
   it("supports state board textbooks (e.g. Maharashtra Balbharti)", () => {
     const msbBooks = NCERT_CATALOG.filter((b) => b.board === "maharashtra");
     expect(msbBooks.length).toBeGreaterThan(0);
-    expect(msbBooks[0].medium).toBe("marathi");
+    expect(msbBooks.some((b) => b.medium === "marathi")).toBe(true);
+    expect(msbBooks.some((b) => b.medium === "english")).toBe(true);
   });
 
   it("resolves chapters by 6-character DIKSHA DIAL codes", () => {
@@ -65,3 +66,4 @@ describe("NCERT & State Board Textbook Catalog & Auto-Sync", () => {
     expect(res.status.sourcePortal).toContain("ncert.nic.in");
   });
 });
+

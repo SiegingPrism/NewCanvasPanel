@@ -27,6 +27,11 @@ import { toast } from "sonner";
 import { useWhiteboard } from "@/lib/whiteboard/store";
 import { useTranslation } from "@/lib/i18n/useTranslation";
 import { cn } from "@/lib/utils";
+import { NCERTBookReaderModal } from "./NCERTBookReaderModal";
+import {
+  getChapterPages,
+  type TextbookPageContent,
+} from "@/lib/curriculum/ncertBookContent";
 import {
   NCERT_CATALOG,
   queryBooks,
@@ -39,7 +44,7 @@ import {
   type StreamBranch,
   type SyncStatus,
 } from "@/lib/curriculum/ncertCatalog";
-import type { Page, TextObject, FrameObject } from "@/lib/whiteboard/types";
+import type { Page, TextObject, FrameObject, StickyNoteObject } from "@/lib/whiteboard/types";
 
 interface NCERTTextbookLibraryDialogProps {
   open: boolean;
@@ -66,6 +71,18 @@ export function NCERTTextbookLibraryDialog({
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(getStoredSyncStatus());
   const [isCheckingSync, setIsCheckingSync] = useState(false);
   const [loadingChapterId, setLoadingChapterId] = useState<string | null>(null);
+
+  // 3D Flipbook Reader state
+  const [isReaderOpen, setIsReaderOpen] = useState(false);
+  const [readerBook, setReaderBook] = useState<TextbookBook | null>(null);
+  const [readerChapter, setReaderChapter] = useState<TextbookChapter | null>(null);
+
+  const handleOpenReader = (book: TextbookBook, chapter?: TextbookChapter) => {
+    setReaderBook(book);
+    setReaderChapter(chapter || (book.chapters.length > 0 ? book.chapters[0] : null));
+    setIsReaderOpen(true);
+    onOpenChange(false);
+  };
 
   // Available books matching active filters
   const filteredBooks = queryBooks({
@@ -102,64 +119,106 @@ export function NCERTTextbookLibraryDialog({
   const handleOpenOnBoard = async (book: TextbookBook, chapter: TextbookChapter) => {
     setLoadingChapterId(chapter.pdfCode);
     try {
-      // Create dedicated whiteboard lesson pages for this chapter
-      const chapterFrame: FrameObject = {
-        id: uid(),
-        kind: "frame",
-        x: 40,
-        y: 40,
-        w: 1200,
-        h: 780,
-        title: `${book.subject} (Class ${book.grade}): Chapter ${chapter.chapterNumber} - ${chapter.title}`,
-        order: 1,
-        color: "#2563eb",
-      };
+      const generatedPages = getChapterPages(
+        book.id,
+        book.subject,
+        book.grade,
+        chapter.chapterNumber,
+        chapter.title,
+        book.editionYear,
+        book.officialPublisher
+      );
 
-      const headerText: TextObject = {
-        id: uid(),
-        kind: "text",
-        x: 80,
-        y: 80,
-        w: 1100,
-        h: 50,
-        text: `NCERT Class ${book.grade} ${book.subject} · Chapter ${chapter.chapterNumber}`,
-        fontSize: 26,
-        color: "#1e3a8a",
-      };
+      // Create rich, illustrated whiteboard slides
+      const newWhiteboardPages: Page[] = generatedPages.slice(0, 3).map((pageContent, idx) => {
+        const pageId = uid();
+        const frameId = uid();
 
-      const titleText: TextObject = {
-        id: uid(),
-        kind: "text",
-        x: 80,
-        y: 140,
-        w: 1100,
-        h: 60,
-        text: `${chapter.title}${chapter.hindiTitle ? ` (${chapter.hindiTitle})` : ""}`,
-        fontSize: 32,
-        color: "#0f172a",
-      };
+        const chapterFrame: FrameObject = {
+          id: frameId,
+          kind: "frame",
+          x: 40,
+          y: 40,
+          w: 1240,
+          h: 820,
+          title: `${book.subject} (Class ${book.grade}): ${chapter.title} · Slide ${idx + 1}`,
+          order: pages.length + idx + 1,
+          color: "#2563eb",
+        };
 
-      const notesGuideText: TextObject = {
-        id: uid(),
-        kind: "text",
-        x: 80,
-        y: 220,
-        w: 1100,
-        h: 120,
-        text: `Official Textbook Source: ${chapter.officialUrl}\nDIKSHA DIAL Code: ${chapter.dikshaDialCode || "Standard Curriculum"}\nEdition: ${book.editionYear} (${book.officialPublisher})\n\n✍️ Write notes, solve examples, or underline key concepts below using your smart pen.`,
-        fontSize: 16,
-        color: "#475569",
-      };
+        const headerText: TextObject = {
+          id: uid(),
+          kind: "text",
+          x: 80,
+          y: 80,
+          w: 1160,
+          h: 40,
+          text: `${book.officialPublisher} · Class ${book.grade} ${book.subject} · ${pageContent.header}`,
+          fontSize: 20,
+          color: "#1e40af",
+        };
 
-      const newPage: Page = {
-        id: uid(),
-        background: "lined",
-        objects: [chapterFrame, headerText, titleText, notesGuideText],
-      };
+        const titleText: TextObject = {
+          id: uid(),
+          kind: "text",
+          x: 80,
+          y: 130,
+          w: 1160,
+          h: 50,
+          text: `${pageContent.chapterTitle}${chapter.hindiTitle ? ` (${chapter.hindiTitle})` : ""}`,
+          fontSize: 28,
+          color: "#0f172a",
+        };
 
-      setPages([...pages, newPage]);
-      setActivePage(newPage.id);
-      toast.success(`Loaded "${chapter.title}" onto whiteboard`);
+        // Combine section content
+        const lines: string[] = [];
+        pageContent.sections.forEach((sec) => {
+          if (sec.heading) lines.push(`📌 ${sec.heading}`);
+          sec.paragraphs.forEach((p) => lines.push(p));
+          if (sec.callout) lines.push(`\n💡 ${sec.callout.title.toUpperCase()}: ${sec.callout.text}`);
+          if (sec.mathLatex && sec.mathLatex.length > 0) {
+            lines.push(`\n📐 Key Formula / Derivation:\n${sec.mathLatex.join("\n")}`);
+          }
+          if (sec.questions && sec.questions.length > 0) {
+            lines.push("\n📝 Practice Questions:");
+            sec.questions.forEach((q) => lines.push(`${q.qNumber}. ${q.question}`));
+          }
+        });
+
+        const bodyText: TextObject = {
+          id: uid(),
+          kind: "text",
+          x: 80,
+          y: 190,
+          w: 780,
+          h: 630,
+          text: lines.join("\n\n"),
+          fontSize: 16,
+          color: "#1e293b",
+        };
+
+        const notesCard: StickyNoteObject = {
+          id: uid(),
+          kind: "sticky",
+          x: 900,
+          y: 190,
+          w: 340,
+          h: 600,
+          color: "#fef08a",
+          text: `✍️ TEACHER NOTES & DISCUSSION\n\n• Source: ${chapter.officialUrl}\n• DIAL Code: ${chapter.dikshaDialCode || "Standard"}\n• Edition: ${book.editionYear}\n\n1. Explain key definitions to class.\n2. Work through examples with students.\n3. Solve practice questions together.\n\nUse your smart pen to annotate anywhere!`,
+        };
+
+        return {
+          id: pageId,
+          title: `${book.subject} Ch${chapter.chapterNumber} P${pageContent.pageNumber}`,
+          objects: [chapterFrame, headerText, titleText, bodyText, notesCard],
+          background: "lined" as const,
+        };
+      });
+
+      setPages([...pages, ...newWhiteboardPages]);
+      setActivePage(newWhiteboardPages[0].id);
+      toast.success(`Loaded ${newWhiteboardPages.length} curriculum slides for "${chapter.title}" onto whiteboard!`);
       onOpenChange(false);
     } catch (err) {
       console.error("Failed to load chapter:", err);
@@ -176,8 +235,9 @@ export function NCERTTextbookLibraryDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[92vh] overflow-hidden flex flex-col p-6 rounded-3xl bg-card border border-border shadow-2xl">
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-5xl max-h-[92vh] overflow-hidden flex flex-col p-6 rounded-3xl bg-background border border-border shadow-2xl">
         <DialogHeader className="pb-3 border-b border-border/70 shrink-0">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex items-center gap-2.5">
@@ -365,27 +425,38 @@ export function NCERTTextbookLibraryDialog({
           </div>
 
           {/* Chapters List (8 cols) */}
-          <div className="md:col-span-8 overflow-y-auto pl-1 pr-2 space-y-3">
+          <div className="md:col-span-8 flex flex-col h-full min-h-0 pl-1 pr-2 overflow-hidden">
             {selectedBook ? (
               <>
-                <div className="flex items-center justify-between pb-2 border-b border-border/50">
+                <div className="flex items-center justify-between pb-3 border-b border-border/70 gap-2 shrink-0">
                   <div>
-                    <h3 className="text-sm font-black text-foreground">{selectedBook.title}</h3>
-                    <p className="text-xs text-muted-foreground">
+                    <h3 className="text-base font-extrabold text-foreground">{selectedBook.title}</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">
                       {selectedBook.officialPublisher} · {selectedBook.editionYear} Edition ·{" "}
                       {selectedBook.chapters.length} Chapters Available
                     </p>
                   </div>
-                  <div className="text-[11px] font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-full">
-                    Class {selectedBook.grade} {selectedBook.branch?.toUpperCase()}
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => handleOpenReader(selectedBook)}
+                      className="h-8 text-xs font-bold gap-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-md rounded-xl cursor-pointer"
+                      title="Open interactive 3D flipbook reader with realistic page turning and smart stylus annotations"
+                    >
+                      <BookOpen className="h-3.5 w-3.5" />
+                      <span>📖 Read Book (3D Flipbook)</span>
+                    </Button>
+                    <div className="text-[11px] font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-full shrink-0">
+                      Class {selectedBook.grade} {selectedBook.branch?.toUpperCase()}
+                    </div>
                   </div>
                 </div>
 
-                <div className="space-y-2">
+                <div className="flex-1 overflow-y-auto pt-2 space-y-2 pr-1">
                   {selectedBook.chapters.map((ch) => (
                     <div
                       key={ch.pdfCode}
-                      className="p-3.5 rounded-2xl border border-border/80 hover:border-primary/50 transition-all bg-card/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+                      className="p-3.5 rounded-2xl border border-border/80 hover:border-primary/50 transition-all bg-card shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
                     >
                       <div className="space-y-1 min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -423,7 +494,7 @@ export function NCERTTextbookLibraryDialog({
                           variant="outline"
                           onClick={() => handleDownloadOffline(ch)}
                           title="Save chapter to smart board memory for offline access"
-                          className="h-8 text-xs font-semibold gap-1"
+                          className="h-8 text-xs font-semibold gap-1 rounded-xl"
                         >
                           <DownloadCloud className="h-3.5 w-3.5" />
                           <span className="hidden sm:inline">Offline</span>
@@ -431,12 +502,23 @@ export function NCERTTextbookLibraryDialog({
 
                         <Button
                           size="sm"
-                          disabled={loadingChapterId === ch.pdfCode}
-                          onClick={() => handleOpenOnBoard(selectedBook, ch)}
-                          className="h-8 text-xs font-bold gap-1.5 shadow-xs"
+                          onClick={() => handleOpenReader(selectedBook, ch)}
+                          className="h-8 text-xs font-bold gap-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-xs"
+                          title="Open interactive 3D flipbook reader with annotations"
                         >
                           <BookOpen className="h-3.5 w-3.5" />
-                          <span>Open on Board</span>
+                          <span>Read Book</span>
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={loadingChapterId === ch.pdfCode}
+                          onClick={() => handleOpenOnBoard(selectedBook, ch)}
+                          className="h-8 text-xs font-bold gap-1 rounded-xl border-border hover:bg-muted"
+                          title="Generate lesson slides on whiteboard"
+                        >
+                          <span>Send to Board</span>
                           <ArrowRight className="h-3.5 w-3.5" />
                         </Button>
                       </div>
@@ -454,5 +536,17 @@ export function NCERTTextbookLibraryDialog({
         </div>
       </DialogContent>
     </Dialog>
+
+    {/* Interactive 3D Flipbook Reader Modal */}
+    {isReaderOpen && readerBook && (
+      <NCERTBookReaderModal
+        open={isReaderOpen}
+        onOpenChange={setIsReaderOpen}
+        book={readerBook}
+        initialChapter={readerChapter}
+      />
+    )}
+  </>
   );
 }
+
