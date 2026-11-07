@@ -421,6 +421,15 @@ function BoardPage() {
         onPageCleared: () => {
           clearPage();
         },
+        onPageSync: (page) => {
+          setPages((prevPages) => {
+            const exists = prevPages.some((p) => p.id === page.id);
+            if (exists) {
+              return prevPages.map((p) => (p.id === page.id ? page : p));
+            }
+            return [...prevPages, page];
+          }, page.id);
+        },
       });
     };
 

@@ -4,6 +4,7 @@ import { Upload, FileText, CheckCircle2, Presentation, Loader2, FileCheck } from
 import { useWhiteboard } from "@/lib/whiteboard/store";
 import type { Page, ImageObject, FrameObject } from "@/lib/whiteboard/types";
 import { parsePptxFile } from "@/lib/whiteboard/pptxImport";
+import { uploadPictureToStorageOnce } from "@/lib/whiteboard/broadcastService";
 import { toast } from "sonner";
 
 // Use official pdfjs worker URL
@@ -100,6 +101,9 @@ export function DocumentImportDialog({ open, onOpenChange }: DocumentImportDialo
           h: Math.round(viewport.height * 0.8),
           src: dataUrl,
         };
+
+        // Pre-upload to Supabase Storage once for instant high-res broadcast mirroring
+        uploadPictureToStorageOnce(dataUrl, slideImage.id);
 
         const frame: FrameObject = {
           id: Math.random().toString(36).slice(2, 10),

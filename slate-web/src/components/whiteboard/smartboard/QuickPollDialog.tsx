@@ -37,7 +37,7 @@ export function QuickPollDialog({ open, onOpenChange, initialQuiz }: QuickPollDi
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
   const [targetClass, setTargetClass] = useState<string>(() => {
     const currentPeriod = getCurrentActivePeriod();
-    return currentPeriod?.slot.className || "Class 9A";
+    return currentPeriod?.slot.className || "Unassigned";
   });
 
   // Sync options count with votes array
@@ -137,7 +137,7 @@ export function QuickPollDialog({ open, onOpenChange, initialQuiz }: QuickPollDi
 
   const saveResultsIfAny = () => {
     if (totalVotes > 0 && !hasRecorded) {
-      const cls = targetClass.trim() || "Class 9A";
+      const cls = targetClass.trim() || "Unassigned";
       if (correctIndex !== null && typeof correctIndex === "number") {
         // Scored quiz with a verified right answer
         const correctVotes = votes[correctIndex] || 0;
@@ -199,7 +199,7 @@ export function QuickPollDialog({ open, onOpenChange, initialQuiz }: QuickPollDi
                     value={targetClass}
                     onChange={(e) => setTargetClass(e.target.value)}
                     className="text-xs font-bold text-foreground bg-muted/60 border border-border px-2 py-0.5 rounded-lg w-28 focus:outline-none focus:ring-1 focus:ring-primary"
-                    placeholder="e.g. Class 9A"
+                    placeholder="e.g. Class 9A or Unassigned"
                   />
                   {getCurrentActivePeriod()?.slot.className === targetClass && (
                     <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-full">

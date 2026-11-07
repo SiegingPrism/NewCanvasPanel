@@ -3,7 +3,9 @@
  * Provides full-fidelity lesson streaming:
  * - Single persistent Supabase Realtime & BroadcastChannel channel
  * - Initial current-page snapshot on join (< 256 KB safe payload)
- * - Real-time incremental stroke & object streaming
+ * - Real-time incremental stroke & object streaming (shortened to prevent silent drops)
+ * - Background upload of images to Supabase Storage once with permanent public CDN links
+ * - Auto-sync throttled (~1s) from syncActive() covering Undo, Redo, Erase, Move, Edit, Zone Clear/Undo
  * - Dynamic store querying via useWhiteboard.getState()
  * - Viewer read-only mode banner
  */
@@ -18,30 +20,167 @@ export type BroadcastMessage =
   | { type: "snapshot"; activePage: Page; camera: Camera }
   | { type: "object_added"; pageId: string; object: CanvasObject }
   | { type: "page_switched"; page: Page }
-  | { type: "page_cleared"; pageId: string };
+  | { type: "page_cleared"; pageId: string }
+  | { type: "page_sync"; page: Page };
+
+// In-memory cache for Supabase Storage public CDN URLs to prevent repeated uploads
+const storageUrlCache = new Map<string, string>();
+const inFlightUploads = new Set<string>();
+
+export function getCachedStorageUrl(key: string): string | undefined {
+  return storageUrlCache.get(key);
+}
+
+export function setCachedStorageUrl(key: string, url: string): void {
+  storageUrlCache.set(key, url);
+}
+
+export function clearStorageUrlCache(): void {
+  storageUrlCache.clear();
+  inFlightUploads.clear();
+}
+
+/**
+ * Upload an image base64 data URL to Supabase Storage once and return its public CDN URL.
+ */
+export async function uploadPictureToStorageOnce(
+  dataUrl: string,
+  idHint?: string
+): Promise<string | null> {
+  if (!dataUrl || typeof dataUrl !== "string" || !dataUrl.startsWith("data:")) {
+    return dataUrl || null;
+  }
+
+  const cacheKey = idHint || `${dataUrl.slice(0, 80)}_${dataUrl.length}`;
+  if (storageUrlCache.has(cacheKey)) {
+    return storageUrlCache.get(cacheKey)!;
+  }
+  if (inFlightUploads.has(cacheKey)) {
+    return null;
+  }
+
+  inFlightUploads.add(cacheKey);
+
+  try {
+    const supabase = getSupabase();
+    if (!supabase) return null;
+
+    const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/s);
+    if (!match) return null;
+
+    const mime = match[1] || "image/png";
+    const base64Data = match[2];
+    const binary = atob(base64Data);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    const blob = new Blob([bytes], { type: mime });
+
+    const ext = mime.includes("jpeg") ? "jpg" : mime.includes("webp") ? "webp" : "png";
+    const fileName = `broadcast_${idHint || "img"}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+    const { error: uploadErr } = await supabase.storage
+      .from("shared-notes")
+      .upload(fileName, blob, {
+        contentType: mime,
+        upsert: true,
+      });
+
+    if (uploadErr) {
+      console.warn("[Broadcast] Storage upload error:", uploadErr.message);
+      return null;
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from("shared-notes")
+      .getPublicUrl(fileName);
+
+    const publicUrl = publicUrlData?.publicUrl;
+    if (publicUrl) {
+      storageUrlCache.set(cacheKey, publicUrl);
+      if (idHint) storageUrlCache.set(idHint, publicUrl);
+      return publicUrl;
+    }
+  } catch (err) {
+    console.warn("[Broadcast] Storage upload exception:", err);
+  } finally {
+    inFlightUploads.delete(cacheKey);
+  }
+
+  return null;
+}
+
+/**
+ * Sanitize a single CanvasObject for broadcast transmission.
+ * Ensures single objects (e.g. photos from the remote or image search)
+ * do not exceed the 256 KB Supabase Realtime limit and trigger storage upload once.
+ */
+export function sanitizeObjectForBroadcast(
+  obj: CanvasObject,
+  onStorageUrlReady?: (id: string, url: string) => void
+): CanvasObject {
+  if (!obj || obj.kind !== "image") return obj;
+  const imgObj = obj as any;
+
+  if (typeof imgObj.src === "string") {
+    // 1. If already an HTTP/HTTPS CDN link, send as is (lightweight and safe)
+    if (imgObj.src.startsWith("http://") || imgObj.src.startsWith("https://")) {
+      return obj;
+    }
+
+    // 2. If already uploaded and cached, substitute the Storage link
+    const cachedUrl =
+      getCachedStorageUrl(imgObj.id) ||
+      getCachedStorageUrl(`${imgObj.src.slice(0, 80)}_${imgObj.src.length}`);
+    if (cachedUrl) {
+      return { ...imgObj, src: cachedUrl };
+    }
+
+    // 3. If it is a base64 data URL, upload to Storage once in background
+    if (imgObj.src.startsWith("data:")) {
+      uploadPictureToStorageOnce(imgObj.src, imgObj.id).then((publicUrl) => {
+        if (publicUrl) {
+          if (onStorageUrlReady) {
+            onStorageUrlReady(imgObj.id, publicUrl);
+          }
+          if (broadcastService.getObjectUpdater()) {
+            broadcastService.getObjectUpdater()!(imgObj.id, { src: publicUrl });
+          }
+        }
+      });
+
+      // 4. If image data URL is within safe Realtime message payload (< 120 KB), send directly
+      if (imgObj.src.length <= 150000) {
+        return obj;
+      }
+
+      // 5. If massive (> 120 KB), shorten it to prevent silent message drops (> 256 KB)
+      if (imgObj.previewUrl && typeof imgObj.previewUrl === "string") {
+        return { ...imgObj, src: imgObj.previewUrl };
+      }
+
+      // Use a clean placeholder while the permanent Storage URL is uploading
+      return {
+        ...imgObj,
+        src: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='400'><rect width='100%' height='100%' fill='%23f8fafc'/><text x='50%' y='48%' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='16' font-weight='600' fill='%236366f1'>Loading Presentation Slide...</text><text x='50%' y='56%' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='12' fill='%2394a3b8'>Uploading high-res slide link</text></svg>",
+      };
+    }
+  }
+
+  return obj;
+}
 
 /**
  * Sanitize a page for broadcast transmission to guarantee message payloads
  * remain well below the Supabase Realtime 256 KB limit on the free tier.
- * Heavy inline base64 images are stripped or sent as links.
+ * Shortens all objects on the page and uploads pictures to Storage once.
  */
 export function sanitizePageForBroadcast(page: Page): Page {
   if (!page) return page;
   return {
     ...page,
-    objects: (page.objects || []).map((obj) => {
-      if (obj.kind === "image") {
-        const imgObj = obj as any;
-        // If image has a massive data: URL (> 15 KB), replace with link or placeholder
-        if (typeof imgObj.src === "string" && imgObj.src.startsWith("data:") && imgObj.src.length > 15360) {
-          return {
-            ...imgObj,
-            src: imgObj.previewUrl || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><rect width='100%' height='100%' fill='%23e2e8f0'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-size='10' fill='%2364748b'>[Image Link]</text></svg>",
-          };
-        }
-      }
-      return obj;
-    }),
+    objects: (page.objects || []).map((obj) => sanitizeObjectForBroadcast(obj)),
   };
 }
 
@@ -51,12 +190,62 @@ class BroadcastService {
   private bc: BroadcastChannel | null = null;
   private isHost: boolean = false;
   private stateGetter: (() => { activePage: Page; camera: Camera }) | null = null;
+  private objectUpdater: ((id: string, patch: any) => void) | null = null;
+  private syncTimer: any = null;
+  private lastSyncTime: number = 0;
+  private pendingPage: Page | null = null;
 
-  /**
-   * Register dynamic state getter (connected to useWhiteboard.getState())
-   */
   registerStateGetter(getter: () => { activePage: Page; camera: Camera }) {
     this.stateGetter = getter;
+  }
+
+  registerObjectUpdater(updater: (id: string, patch: any) => void) {
+    this.objectUpdater = updater;
+  }
+
+  getObjectUpdater() {
+    return this.objectUpdater;
+  }
+
+  /**
+   * Schedule throttled page sync (~once per second) whenever something changed.
+   * Catches Undo, Redo, Erasing, Moving, Deleting, Zone Undo/Clear, etc.
+   */
+  schedulePageSync(page: Page) {
+    if (!this.activeCode || !this.isHost || !page) return;
+
+    this.pendingPage = page;
+    const now = Date.now();
+    const elapsed = now - this.lastSyncTime;
+
+    if (elapsed >= 1000) {
+      if (this.syncTimer) {
+        clearTimeout(this.syncTimer);
+        this.syncTimer = null;
+      }
+      this.lastSyncTime = now;
+      this.sendCurrentPageSync();
+    } else if (!this.syncTimer) {
+      this.syncTimer = setTimeout(() => {
+        this.syncTimer = null;
+        this.lastSyncTime = Date.now();
+        this.sendCurrentPageSync();
+      }, 1000 - elapsed);
+    }
+  }
+
+  private sendCurrentPageSync() {
+    if (!this.activeCode || !this.isHost) return;
+    const pageToSend =
+      this.pendingPage ||
+      (this.stateGetter ? this.stateGetter().activePage : null);
+    if (!pageToSend) return;
+
+    const sanitized = sanitizePageForBroadcast(pageToSend);
+    this.send({
+      type: "page_sync",
+      page: sanitized,
+    });
   }
 
   /**
@@ -144,6 +333,7 @@ class BroadcastService {
       onObjectAdded: (pageId: string, object: CanvasObject) => void;
       onPageSwitched: (page: Page) => void;
       onPageCleared: (pageId: string) => void;
+      onPageSync?: (page: Page) => void;
     }
   ) {
     this.stop();
@@ -163,6 +353,12 @@ class BroadcastService {
         callbacks.onPageSwitched(msg.page);
       } else if (msg.type === "page_cleared") {
         callbacks.onPageCleared(msg.pageId);
+      } else if (msg.type === "page_sync") {
+        if (callbacks.onPageSync) {
+          callbacks.onPageSync(msg.page);
+        } else {
+          callbacks.onPageSwitched(msg.page);
+        }
       }
     };
 
@@ -195,6 +391,12 @@ class BroadcastService {
    * Stop active broadcast or viewer session and clean up channels
    */
   stop() {
+    if (this.syncTimer) {
+      clearTimeout(this.syncTimer);
+      this.syncTimer = null;
+    }
+    this.pendingPage = null;
+
     if (this.channel) {
       const supabase = getSupabase();
       if (supabase) {

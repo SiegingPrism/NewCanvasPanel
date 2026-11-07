@@ -37,7 +37,7 @@ export function TeamQuizDialog({ open, onOpenChange }: TeamQuizDialogProps) {
   const [hasSaved, setHasSaved] = useState<boolean>(false);
   const [targetClass, setTargetClass] = useState<string>(() => {
     const currentPeriod = getCurrentActivePeriod();
-    return currentPeriod?.slot.className || "Class 9A";
+    return currentPeriod?.slot.className || "Unassigned";
   });
   const timerRef = useRef<any>(null);
 
@@ -115,7 +115,7 @@ export function TeamQuizDialog({ open, onOpenChange }: TeamQuizDialogProps) {
   const saveGameResults = () => {
     const totalPoints = teams.reduce((acc, t) => acc + t.score, 0);
     if ((questionCount > 0 || totalPoints > 0) && !hasSaved) {
-      const cls = targetClass.trim() || "Class 9A";
+      const cls = targetClass.trim() || "Unassigned";
       recordAssessmentResult({
         type: "team-quiz",
         className: cls,
@@ -167,7 +167,7 @@ export function TeamQuizDialog({ open, onOpenChange }: TeamQuizDialogProps) {
                   value={targetClass}
                   onChange={(e) => setTargetClass(e.target.value)}
                   className="text-xs font-bold text-foreground bg-muted/60 border border-border px-2 py-0.5 rounded-lg w-28 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                  placeholder="e.g. Class 9A"
+                  placeholder="e.g. Class 9A or Unassigned"
                 />
                 {getCurrentActivePeriod()?.slot.className === targetClass && (
                   <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full">

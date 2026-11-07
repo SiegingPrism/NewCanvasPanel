@@ -26,7 +26,11 @@ import {
   type FullPersistShape,
   type BoardData,
 } from "./slateStorage";
-import { broadcastService, sanitizePageForBroadcast } from "./broadcastService";
+import {
+  broadcastService,
+  sanitizePageForBroadcast,
+  sanitizeObjectForBroadcast,
+} from "./broadcastService";
 
 export function uid() {
   return Math.random().toString(36).slice(2, 10);
@@ -359,6 +363,15 @@ function syncActive(state: State): State {
   if (boards[state.activeBoardId]) {
     triggerCloudSync(boards[state.activeBoardId], state.pages);
   }
+
+  // Multi-room broadcast auto-sync: send the current page (shortened) about once a second
+  if (typeof window !== "undefined" && broadcastService.isCurrentlyHost()) {
+    const activePage = next.pages.find((p) => p.id === next.activePageId);
+    if (activePage) {
+      broadcastService.schedulePageSync(activePage);
+    }
+  }
+
   return next;
 }
 
@@ -814,7 +827,11 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
       );
       set(syncActive({ ...s, pages }));
       if (typeof window !== "undefined" && broadcastService.isCurrentlyHost()) {
-        broadcastService.send({ type: "object_added", pageId: s.activePageId, object: obj });
+        broadcastService.send({
+          type: "object_added",
+          pageId: s.activePageId,
+          object: sanitizeObjectForBroadcast(obj),
+        });
       }
     },
     addObjectsToBoard: (boardId, objects) => {
@@ -1611,6 +1628,11 @@ if (typeof window !== "undefined") {
       activePage: sanitizePageForBroadcast(page),
       camera: s.camera,
     };
+  });
+
+  // Register object updater for background Storage image links
+  broadcastService.registerObjectUpdater((id, patch) => {
+    useWhiteboard.getState().updateObject(id, patch);
   });
 
   // 1. Initial fast load from synchronous store for instant rendering (keeps hydrated: false until full data is ready)
