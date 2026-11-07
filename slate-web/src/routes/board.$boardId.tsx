@@ -73,6 +73,8 @@ import { AttendanceHousePointsDialog } from "@/components/whiteboard/smartboard/
 import { AccessibilityDialog } from "@/components/whiteboard/smartboard/AccessibilityDialog";
 import { ClassInsightsDialog } from "@/components/whiteboard/smartboard/ClassInsightsDialog";
 import { BroadcastDialog } from "@/components/whiteboard/smartboard/BroadcastDialog";
+import { broadcastService } from "@/lib/whiteboard/broadcastService";
+import { getCurrentActivePeriod } from "@/lib/whiteboard/timetableStore";
 import { useTranslation } from "@/lib/i18n/useTranslation";
 import type { QuizObject, ActivityObject, Page } from "@/lib/whiteboard/types";
 import { useWhiteboard } from "@/lib/whiteboard/store";
@@ -168,6 +170,10 @@ function BoardPage() {
     paste,
     setSelected,
     pushHistory,
+    setPages,
+    setActivePage,
+    clearPage,
+    addObject,
   } = useWhiteboard();
 
   // Global Keyboard and Presenter Clicker Shortcuts
@@ -379,8 +385,44 @@ function BoardPage() {
       if (params.get("ai") === "1" || params.get("ai") === "true") {
         openAI({ boardId });
       }
+      const broadcastCode = params.get("broadcast");
+      if (broadcastCode) {
+        window.dispatchEvent(new CustomEvent("slate:join-broadcast", { detail: { code: broadcastCode } }));
+      }
     }
   }, [boardId, openAI]);
+
+  // Viewer Screen for Multi-Room Live Broadcast
+  const [viewerBroadcastCode, setViewerBroadcastCode] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleJoinBroadcast = (e: Event) => {
+      const code = (e as CustomEvent<{ code: string }>).detail?.code;
+      if (!code) return;
+      setViewerBroadcastCode(code);
+      broadcastService.joinViewer(code, {
+        onSnapshot: (receivedPages, activeId, receivedCamera) => {
+          setPages(receivedPages, activeId);
+          setCamera(receivedCamera);
+          toast.success(`Connected to Room Broadcast #${code}!`);
+        },
+        onObjectAdded: (_pageId, object) => {
+          addObject(object);
+        },
+        onPageSwitched: (pageId) => {
+          setActivePage(pageId);
+        },
+        onPageCleared: () => {
+          clearPage();
+        },
+      });
+    };
+
+    window.addEventListener("slate:join-broadcast", handleJoinBroadcast);
+    return () => {
+      window.removeEventListener("slate:join-broadcast", handleJoinBroadcast);
+    };
+  }, [setPages, setActivePage, setCamera, addObject, clearPage]);
 
   function handleOpenAI(opts?: { prompt?: string; snapshot?: string; contextText?: string }) {
     openAI({
@@ -390,6 +432,40 @@ function BoardPage() {
       snapshot: opts?.snapshot,
     });
   }
+
+  // Background Timetable Monitor: checks every 60 seconds for active school periods
+  useEffect(() => {
+    const checkActivePeriod = () => {
+      const activeInfo = getCurrentActivePeriod();
+      if (!activeInfo) return;
+      const { slot } = activeInfo;
+      const promptKey = `slate_prompted_period_${slot.id}_${new Date().toDateString()}`;
+      if (sessionStorage.getItem(promptKey)) return;
+
+      toast(`🔔 Period ${slot.periodNum} Active: ${slot.className} · ${slot.subject}`, {
+        description: `Scheduled: ${slot.startTime} - ${slot.endTime}. Open ready lesson?`,
+        duration: 12000,
+        action: {
+          label: "Open Lesson",
+          onClick: () => {
+            sessionStorage.setItem(promptKey, "true");
+            const bg = slot.recommendedPaper === "blank" ? "white" : (slot.recommendedPaper || "white");
+            addPage(bg as any);
+            toast.success(`Loaded ${slot.className} ${slot.subject} lesson!`);
+          },
+        },
+      });
+      sessionStorage.setItem(promptKey, "true");
+    };
+
+    const initialTimer = setTimeout(checkActivePeriod, 2500);
+    const intervalTimer = setInterval(checkActivePeriod, 60000);
+
+    return () => {
+      clearTimeout(initialTimer);
+      clearInterval(intervalTimer);
+    };
+  }, [addPage]);
 
   // Watchdog timer: If loading takes longer than 3.5s, offer manual recovery
   useEffect(() => {
@@ -641,6 +717,29 @@ function BoardPage() {
         }}
       >
         <WhiteboardCanvas onOpenAI={handleOpenAI} onPresentationChange={setIsPresenting} />
+
+        {/* Live Broadcast Mirror Floating Status Banner */}
+        {viewerBroadcastCode && (
+          <div className="absolute top-16 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 bg-indigo-950/95 border border-indigo-500/50 text-indigo-100 px-4 py-2 rounded-2xl shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-top-2">
+            <div className="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-xs font-bold font-mono">
+              Room Broadcast #{viewerBroadcastCode}
+            </span>
+            <span className="text-[11px] text-indigo-300 bg-indigo-900/60 px-2 py-0.5 rounded-lg">
+              Live Mirroring
+            </span>
+            <button
+              onClick={() => {
+                broadcastService.stop();
+                setViewerBroadcastCode(null);
+                toast("Exited room broadcast mirror");
+              }}
+              className="text-xs font-bold text-white bg-rose-600/90 hover:bg-rose-600 px-2.5 py-1 rounded-xl transition active:scale-95 cursor-pointer"
+            >
+              Exit
+            </button>
+          </div>
+        )}
         {/* Faint First-Time Teacher Guide: vanishes on first stroke */}
         {page && page.objects.length === 0 && !isPresenting && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center select-none z-10 transition-opacity duration-300">

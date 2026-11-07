@@ -7,6 +7,7 @@ import type { QuizObject } from "@/lib/whiteboard/types";
 import { cn, getPublicAppOrigin } from "@/lib/utils";
 import { toast } from "sonner";
 import { getSupabase } from "@/lib/supabase/client";
+import { recordAssessmentResult } from "@/lib/whiteboard/assessmentStore";
 
 interface QuickPollDialogProps {
   open: boolean;
@@ -127,9 +128,29 @@ export function QuickPollDialog({ open, onOpenChange, initialQuiz }: QuickPollDi
 
   const totalVotes = votes.reduce((a, b) => a + b, 0);
 
+  const [hasRecorded, setHasRecorded] = useState(false);
+
+  const saveResultsIfAny = () => {
+    if (totalVotes > 0 && !hasRecorded) {
+      const correctVotes = correctIndex !== null ? (votes[correctIndex] || 0) : totalVotes;
+      const accuracy = totalVotes > 0 ? Math.round((correctVotes / totalVotes) * 100) : 0;
+      recordAssessmentResult({
+        type: correctIndex !== null ? "quiz" : "poll",
+        className: "Class 9A",
+        topic: question,
+        totalStudents: totalVotes,
+        correctCount: correctVotes,
+        accuracy,
+      });
+      setHasRecorded(true);
+    }
+  };
+
   const resetPoll = () => {
+    saveResultsIfAny();
     setVotes(new Array(options.length).fill(0));
     setRevealed(false);
+    setHasRecorded(false);
     toast.info("Poll responses reset.");
   };
 
@@ -240,7 +261,13 @@ export function QuickPollDialog({ open, onOpenChange, initialQuiz }: QuickPollDi
 
               <button
                 type="button"
-                onClick={() => setRevealed(!revealed)}
+                onClick={() => {
+                  const nextRevealed = !revealed;
+                  setRevealed(nextRevealed);
+                  if (nextRevealed) {
+                    saveResultsIfAny();
+                  }
+                }}
                 className={cn(
                   "flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-extrabold transition-all shadow-sm",
                   revealed

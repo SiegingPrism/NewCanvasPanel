@@ -26,6 +26,19 @@ export const Route = createFileRoute("/remote")({
 
 export function TeacherRemotePage() {
   const [sessionId, setSessionId] = useState<string>("default");
+  const [pin, setPin] = useState<string>("");
+  const [deviceId] = useState(() => {
+    try {
+      const stored = sessionStorage.getItem("slate_remote_device_id");
+      if (stored) return stored;
+      const id = `phone_${Math.random().toString(36).slice(2, 8)}`;
+      sessionStorage.setItem("slate_remote_device_id", id);
+      return id;
+    } catch {
+      return `phone_${Math.random().toString(36).slice(2, 8)}`;
+    }
+  });
+  const [isPaired, setIsPaired] = useState<boolean>(false);
   const [laserActive, setLaserActive] = useState<boolean>(false);
   const [timerRunning, setTimerRunning] = useState<boolean>(false);
   const [photoUploading, setPhotoUploading] = useState<boolean>(false);
@@ -37,27 +50,58 @@ export function TeacherRemotePage() {
     if (typeof window === "undefined") return;
     const url = new URL(window.location.href);
     const sid = url.searchParams.get("session") || "default";
+    const p = url.searchParams.get("pin") || "";
     setSessionId(sid);
+    setPin(p);
 
     const supabase = getSupabase();
     if (supabase && sid !== "default") {
       const ch = supabase.channel(`slate_remote_${sid}`, {
         config: { broadcast: { ack: false, self: false } },
       });
-      ch.subscribe();
+
+      ch.on("broadcast", { event: "ack" }, (msg: any) => {
+        if (msg.payload?.type === "pair_confirmed") {
+          setIsPaired(true);
+          toast.success("Paired securely with Smart Board!");
+        } else if (msg.payload?.type === "photo_confirmed") {
+          setPhotoUploading(false);
+          toast.success("Photo confirmed & projected on board!");
+        }
+      });
+
+      ch.subscribe((status: string) => {
+        if (status === "SUBSCRIBED") {
+          // Send pair request
+          ch.send({
+            type: "broadcast",
+            event: "command",
+            payload: {
+              type: "teacher_remote_command",
+              command: "pair",
+              pin: p,
+              deviceId,
+              timestamp: Date.now(),
+            },
+          }).catch(() => {});
+        }
+      });
+
       channelRef.current = ch;
     }
 
     return () => {
       if (channelRef.current) channelRef.current.unsubscribe();
     };
-  }, []);
+  }, [deviceId]);
 
   const sendCommand = (cmd: string, data?: any) => {
     setLastAction(cmd);
     const payload = {
       type: "teacher_remote_command",
       command: cmd,
+      pin,
+      deviceId,
       data,
       timestamp: Date.now(),
     };
@@ -108,14 +152,46 @@ export function TeacherRemotePage() {
     setPhotoUploading(true);
     const reader = new FileReader();
     reader.onload = () => {
-      const dataUrl = reader.result as string;
-      sendCommand("insert_photo", {
-        dataUrl,
-        fileName: file.name,
-      });
-      setPhotoUploading(false);
-      toast.success("Photo sent to smart board!");
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      const rawDataUrl = reader.result as string;
+
+      // Downscale photo to max 1280px JPEG (< 150 KB) to fit within Supabase Realtime limits
+      const img = new Image();
+      img.onload = () => {
+        const maxDim = 1280;
+        let w = img.width;
+        let h = img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) {
+            h = Math.round((h * maxDim) / w);
+            w = maxDim;
+          } else {
+            w = Math.round((w * maxDim) / h);
+            h = maxDim;
+          }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+        ctx.drawImage(img, 0, 0, w, h);
+        const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.72);
+        const photoId = `photo_${Date.now()}`;
+
+        sendCommand("insert_photo", {
+          photoId,
+          dataUrl: compressedDataUrl,
+          fileName: file.name,
+        });
+
+        // 5s fallback confirmation if board offline
+        setTimeout(() => {
+          setPhotoUploading(false);
+        }, 5000);
+
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      };
+      img.src = rawDataUrl;
     };
     reader.readAsDataURL(file);
   };
@@ -269,3 +345,4 @@ export function TeacherRemotePage() {
     </div>
   );
 }
+

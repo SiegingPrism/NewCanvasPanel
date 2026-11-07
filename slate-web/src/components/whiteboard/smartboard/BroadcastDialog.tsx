@@ -23,6 +23,7 @@ import QRCode from "qrcode";
 import { toast } from "sonner";
 import { useWhiteboard } from "@/lib/whiteboard/store";
 import { getSupabase } from "@/lib/supabase/client";
+import { broadcastService } from "@/lib/whiteboard/broadcastService";
 
 export interface BroadcastDialogProps {
   open: boolean;
@@ -60,42 +61,33 @@ export function BroadcastDialog({ open, onOpenChange, boardId = "default" }: Bro
       .catch((err) => console.error("QR Code error:", err));
   }, [open, broadcastUrl]);
 
-  // Handle active broadcast synchronization
+  // Manage single stable broadcast session
   useEffect(() => {
-    if (!isBroadcasting) return;
-
-    const payload = {
-      type: "room_broadcast_sync",
-      broadcastCode,
-      activePageId,
-      pagesCount: pages.length,
-      tool,
-      camera,
-      timestamp: Date.now(),
-    };
-
-    // Broadcast over Realtime channel
-    const supabase = getSupabase();
-    if (supabase && broadcastCode) {
-      const channel = supabase.channel(`slate_broadcast_${broadcastCode}`);
-      channel.send({
-        type: "broadcast",
-        event: "sync",
-        payload,
-      }).catch(() => {});
+    if (isBroadcasting) {
+      broadcastService.startHost(
+        broadcastCode,
+        () => ({ pages, activePageId, camera }),
+        (roomName) => {
+          setConnectedRooms((prev) => Array.from(new Set([...prev, roomName])));
+          toast.info(`Room connected to broadcast: ${roomName}`);
+        }
+      );
+    } else {
+      broadcastService.stop();
     }
+  }, [isBroadcasting, broadcastCode]);
 
-    // Local BroadcastChannel
-    try {
-      const bc = new BroadcastChannel(`slate_broadcast_${broadcastCode}`);
-      bc.postMessage(payload);
-      bc.close();
-    } catch {}
-  }, [isBroadcasting, broadcastCode, activePageId, pages.length, tool, camera]);
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+      broadcastService.stop();
+    };
+  }, []);
 
   const handleToggleBroadcast = () => {
     if (isBroadcasting) {
       setIsBroadcasting(false);
+      broadcastService.stop();
       toast("Broadcast stopped");
     } else {
       setIsBroadcasting(true);
@@ -104,11 +96,13 @@ export function BroadcastDialog({ open, onOpenChange, boardId = "default" }: Bro
   };
 
   const handleJoinBroadcast = () => {
-    if (!joinCodeInput.trim() || joinCodeInput.trim().length < 6) {
+    const code = joinCodeInput.trim();
+    if (!code || code.length < 6) {
       toast.error("Please enter a valid 6-digit broadcast code");
       return;
     }
-    toast.success(`Connecting to Room Broadcast #${joinCodeInput.trim()}...`);
+    window.dispatchEvent(new CustomEvent("slate:join-broadcast", { detail: { code } }));
+    toast.success(`Connecting to Room Broadcast #${code}...`);
     onOpenChange(false);
   };
 
@@ -279,3 +273,4 @@ export function BroadcastDialog({ open, onOpenChange, boardId = "default" }: Bro
     </Dialog>
   );
 }
+

@@ -323,3 +323,4 @@ export function AttendanceHousePointsDialog({ open, onOpenChange }: AttendanceHo
     </Dialog>
   );
 }
+

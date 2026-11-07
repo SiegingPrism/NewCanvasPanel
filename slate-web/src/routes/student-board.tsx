@@ -154,7 +154,22 @@ export function StudentMiniBoardPage() {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const dataUrl = canvas.toDataURL("image/png");
+    // Scale drawing to max 800x600 JPEG (< 50 KB) to ensure safe transmission under Realtime 256 KB limits
+    const maxDim = 800;
+    const ratio = Math.min(1, maxDim / Math.max(canvas.width, canvas.height));
+    const targetW = Math.round(canvas.width * ratio);
+    const targetH = Math.round(canvas.height * ratio);
+
+    const offscreen = document.createElement("canvas");
+    offscreen.width = targetW;
+    offscreen.height = targetH;
+    const offCtx = offscreen.getContext("2d");
+    if (!offCtx) return;
+    offCtx.fillStyle = "#ffffff";
+    offCtx.fillRect(0, 0, targetW, targetH);
+    offCtx.drawImage(canvas, 0, 0, targetW, targetH);
+
+    const dataUrl = offscreen.toDataURL("image/jpeg", 0.78);
     const payload = {
       type: "mini_board_submit",
       sessionId,
@@ -322,3 +337,4 @@ export function StudentMiniBoardPage() {
     </div>
   );
 }
+

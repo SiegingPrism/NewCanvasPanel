@@ -26,6 +26,7 @@ import {
   type FullPersistShape,
   type BoardData,
 } from "./slateStorage";
+import { broadcastService } from "./broadcastService";
 
 export function uid() {
   return Math.random().toString(36).slice(2, 10);
@@ -812,6 +813,9 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
         p.id === s.activePageId ? { ...p, objects: [...p.objects, obj] } : p,
       );
       set(syncActive({ ...s, pages }));
+      if (typeof window !== "undefined" && broadcastService.isCurrentlyHost()) {
+        broadcastService.send({ type: "object_added", pageId: s.activePageId, object: obj });
+      }
     },
     addObjectsToBoard: (boardId, objects) => {
       if (!objects || !objects.length) return;
@@ -892,6 +896,9 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
       const s = get();
       const pages = s.pages.map((p) => (p.id === s.activePageId ? { ...p, objects: [] } : p));
       set(syncActive({ ...s, pages, selectedId: null, selectedIds: [] }));
+      if (typeof window !== "undefined" && broadcastService.isCurrentlyHost()) {
+        broadcastService.send({ type: "page_cleared", pageId: s.activePageId });
+      }
     },
     eraseStrokes: () => {
       const s = get();
@@ -1085,6 +1092,9 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
     setActivePage: (id) => {
       const s = get();
       set(syncActive({ ...s, activePageId: id, selectedId: null }));
+      if (typeof window !== "undefined" && broadcastService.isCurrentlyHost()) {
+        broadcastService.send({ type: "page_switched", pageId: id });
+      }
     },
     nextPage: () => {
       const s = get();

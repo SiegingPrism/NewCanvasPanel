@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -6,22 +6,28 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Smartphone,
+  QrCode,
+  Sliders,
+  Camera,
+  Play,
+  RotateCcw,
+  Zap,
+  Check,
   Copy,
   ExternalLink,
-  Wifi,
-  Flame,
-  Camera,
-  Check,
-  ChevronRight,
-  Sparkles,
+  ShieldCheck,
+  Lock,
+  Radio,
+  Info,
 } from "lucide-react";
 import QRCode from "qrcode";
 import { toast } from "sonner";
 import { useWhiteboard } from "@/lib/whiteboard/store";
-import type { CanvasObject } from "@/lib/whiteboard/types";
 import { getSupabase } from "@/lib/supabase/client";
+import type { CanvasObject } from "@/lib/whiteboard/types";
 
 export interface TeacherRemoteDialogProps {
   open: boolean;
@@ -48,18 +54,21 @@ export function TeacherRemoteDialog({
     setReachabilityOffset,
   } = useWhiteboard();
 
+  // 4-digit pairing PIN to prevent students from taking over the board
+  const [pairPin] = useState<string>(() => Math.floor(1000 + Math.random() * 9000).toString());
+  const [pairedDeviceId, setPairedDeviceId] = useState<string | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
   const [copied, setCopied] = useState<boolean>(false);
-  const [connected, setConnected] = useState<boolean>(false);
   const [lastCommand, setLastCommand] = useState<string | null>(null);
+  const channelRef = useRef<any>(null);
 
   const remoteUrl = typeof window !== "undefined"
-    ? `${window.location.origin}/remote?session=${boardId}`
-    : `https://slate.local/remote?session=${boardId}`;
+    ? `${window.location.origin}/remote?session=${boardId}&pin=${pairPin}`
+    : `https://slate.local/remote?session=${boardId}&pin=${pairPin}`;
 
-  // Generate QR Code for Phone Pairing
+  // Generate QR Code for Phone Pairing (only while unpaired)
   useEffect(() => {
-    if (!open) return;
+    if (!open || pairedDeviceId) return;
     QRCode.toDataURL(remoteUrl, {
       width: 220,
       margin: 1,
@@ -67,13 +76,40 @@ export function TeacherRemoteDialog({
     })
       .then(setQrDataUrl)
       .catch((err) => console.error("QR Code generation error:", err));
-  }, [open, remoteUrl]);
+  }, [open, remoteUrl, pairedDeviceId]);
 
-  // Execute Remote Commands
+  // Execute and Validate Remote Commands
   useEffect(() => {
     const handleRemoteCommand = (payload: any) => {
       if (!payload || !payload.command) return;
-      setConnected(true);
+
+      // 1. Pairing Handshake
+      if (payload.command === "pair") {
+        if (payload.pin === pairPin) {
+          const devId = payload.deviceId || "teacher_phone";
+          setPairedDeviceId(devId);
+          toast.success("Teacher phone paired securely! QR code hidden.");
+
+          // Send confirmation ack
+          if (channelRef.current) {
+            channelRef.current.send({
+              type: "broadcast",
+              event: "ack",
+              payload: { type: "pair_confirmed", pin: pairPin },
+            }).catch(() => {});
+          }
+        } else {
+          console.warn("Blocked pairing attempt with invalid PIN:", payload.pin);
+        }
+        return;
+      }
+
+      // 2. Reject commands from unpaired or unauthorized phones
+      if (payload.pin !== pairPin) {
+        console.warn("Rejected unauthorized command from unpaired phone:", payload);
+        return;
+      }
+
       setLastCommand(payload.command);
 
       switch (payload.command) {
@@ -130,6 +166,15 @@ export function TeacherRemoteDialog({
             addObject(photoObj);
             pushHistory();
             toast.success("Remote: Inserted photo from teacher's phone onto board!");
+
+            // Send photo confirmed ack
+            if (channelRef.current) {
+              channelRef.current.send({
+                type: "broadcast",
+                event: "ack",
+                payload: { type: "photo_confirmed", photoId: payload.data.photoId },
+              }).catch(() => {});
+            }
           }
           break;
       }
@@ -145,6 +190,7 @@ export function TeacherRemoteDialog({
           if (msg.payload) handleRemoteCommand(msg.payload);
         })
         .subscribe();
+      channelRef.current = channel;
     }
 
     // 2. BroadcastChannel
@@ -167,17 +213,24 @@ export function TeacherRemoteDialog({
     window.addEventListener("storage", onStorage);
 
     return () => {
-      if (channel) channel.unsubscribe();
+      if (channel) {
+        if (supabase) supabase.removeChannel(channel);
+      }
       if (bc) bc.close();
       window.removeEventListener("storage", onStorage);
     };
-  }, [boardId, nextPage, prevPage, addPage, undo, clearPage, setTool, addObject, pushHistory, camera, reachabilityOffset, setReachabilityOffset]);
+  }, [boardId, pairPin, nextPage, prevPage, addPage, undo, clearPage, setTool, addObject, pushHistory, camera, reachabilityOffset, setReachabilityOffset]);
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(remoteUrl);
     setCopied(true);
     toast.success("Remote URL copied to clipboard!");
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleDisconnect = () => {
+    setPairedDeviceId(null);
+    toast.info("Teacher remote unpaired. Ready to pair a new device.");
   };
 
   return (
@@ -192,10 +245,15 @@ export function TeacherRemoteDialog({
               <div>
                 <DialogTitle className="text-xl font-extrabold text-foreground flex items-center gap-2">
                   Teacher’s Phone as a Remote
-                  {connected && (
+                  {pairedDeviceId ? (
                     <span className="text-xs bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1">
-                      <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                      Connected
+                      <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
+                      Securely Paired
+                    </span>
+                  ) : (
+                    <span className="text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1">
+                      <Lock className="h-3.5 w-3.5 text-amber-500" />
+                      PIN Protected
                     </span>
                   )}
                 </DialogTitle>
@@ -207,75 +265,92 @@ export function TeacherRemoteDialog({
           </div>
         </DialogHeader>
 
-        {/* Pairing Display */}
-        <div className="py-4 space-y-4">
-          <div className="flex flex-col sm:flex-row items-center gap-4 p-4 rounded-2xl bg-muted/40 border border-border">
-            {qrDataUrl && (
-              <div className="bg-white p-2.5 rounded-2xl shadow-sm border border-slate-200 shrink-0">
-                <img src={qrDataUrl} alt="Pair Remote QR" className="w-32 h-32" />
+        {pairedDeviceId ? (
+          <div className="py-6 flex flex-col items-center justify-center text-center space-y-4">
+            <div className="h-16 w-16 rounded-3xl bg-emerald-500/10 border border-emerald-500/30 grid place-items-center text-emerald-500">
+              <ShieldCheck className="h-8 w-8 text-emerald-600" />
+            </div>
+            <div className="space-y-1">
+              <h4 className="text-base font-bold text-foreground">
+                1 Teacher Phone Paired &amp; Active
+              </h4>
+              <p className="text-xs text-muted-foreground max-w-sm">
+                Pairing QR code and PIN are hidden from the big screen. All student phones are blocked from controlling the board.
+              </p>
+            </div>
+
+            {lastCommand && (
+              <div className="text-xs font-mono bg-muted/60 px-3 py-1.5 rounded-xl border border-border">
+                Last Command: <strong className="text-foreground">{lastCommand}</strong>
               </div>
             )}
-            <div className="space-y-2 flex-1 text-center sm:text-left">
-              <p className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
-                Scan with Teacher Phone Camera
-              </p>
-              <p className="text-sm font-semibold text-foreground">
-                No app installation required. Opens instantly in your phone's browser.
-              </p>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDisconnect}
+              className="text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-500/10 border-rose-500/30 rounded-xl"
+            >
+              Disconnect / Pair New Phone
+            </Button>
+          </div>
+        ) : (
+          <div className="flex flex-col sm:flex-row items-center gap-6 py-4">
+            <div className="p-3 bg-white rounded-2xl shadow-md border border-border flex flex-col items-center">
+              {qrDataUrl ? (
+                <img
+                  src={qrDataUrl}
+                  alt="Teacher Remote QR"
+                  className="h-44 w-44 rounded-xl"
+                />
+              ) : (
+                <div className="h-44 w-44 rounded-xl bg-muted animate-pulse" />
+              )}
+              <div className="mt-2 text-center">
+                <span className="text-[10px] font-bold text-slate-500 uppercase">Pairing PIN</span>
+                <div className="text-lg font-mono font-black text-slate-900 tracking-widest">{pairPin}</div>
+              </div>
+            </div>
+
+            <div className="flex-1 space-y-3 text-center sm:text-left">
+              <div>
+                <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
+                  Scan with Teacher Phone Camera
+                </span>
+                <h4 className="text-sm font-semibold text-foreground mt-0.5">
+                  No app installation required. Opens instantly in your phone's browser.
+                </h4>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Once scanned, the QR code automatically locks to your device and disappears from the screen so students cannot access it.
+                </p>
+              </div>
+
               <div className="flex items-center gap-2">
-                <input
-                  readOnly
+                <Input
                   value={remoteUrl}
-                  className="flex-1 bg-background px-3 py-1.5 text-xs font-mono rounded-lg border text-muted-foreground truncate"
+                  readOnly
+                  className="text-xs font-mono bg-muted/60 h-9 rounded-xl selection:bg-indigo-500/20"
                 />
                 <Button
                   size="sm"
-                  variant="secondary"
+                  variant="outline"
                   onClick={handleCopyLink}
-                  className="h-8 gap-1 text-xs shrink-0 rounded-lg"
+                  className="rounded-xl h-9 px-3 gap-1.5 shrink-0"
                 >
-                  {copied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
-                  {copied ? "Copied" : "Copy"}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => window.open(remoteUrl, "_blank")}
-                  className="h-8 w-8 p-0 shrink-0"
-                  title="Open remote in new tab"
-                >
-                  <ExternalLink className="h-3.5 w-3.5" />
+                  {copied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
+                  <span>{copied ? "Copied" : "Copy"}</span>
                 </Button>
               </div>
             </div>
           </div>
+        )}
 
-          {/* Feature Highlights */}
-          <div className="grid grid-cols-3 gap-2.5 pt-1">
-            <div className="p-3 rounded-2xl border bg-card/60 text-center space-y-1">
-              <ChevronRight className="h-5 w-5 mx-auto text-indigo-500" />
-              <p className="text-xs font-bold text-foreground">Slide Flipper</p>
-              <p className="text-[10px] text-muted-foreground">Previous / Next slide</p>
-            </div>
-            <div className="p-3 rounded-2xl border bg-card/60 text-center space-y-1">
-              <Flame className="h-5 w-5 mx-auto text-rose-500" />
-              <p className="text-xs font-bold text-foreground">Laser Pointer</p>
-              <p className="text-[10px] text-muted-foreground">Guide student focus</p>
-            </div>
-            <div className="p-3 rounded-2xl border bg-card/60 text-center space-y-1">
-              <Camera className="h-5 w-5 mx-auto text-teal-500" />
-              <p className="text-xs font-bold text-foreground">Snap & Project</p>
-              <p className="text-[10px] text-muted-foreground">Photo to board</p>
-            </div>
-          </div>
-
-          {lastCommand && (
-            <div className="text-center py-1">
-              <span className="text-xs text-muted-foreground font-mono">
-                Last remote command received: <b className="text-foreground">{lastCommand}</b>
-              </span>
-            </div>
-          )}
+        {/* Realtime Connection Advisory Notice */}
+        <div className="pt-2 border-t flex items-center gap-2 text-[11px] text-muted-foreground">
+          <Info className="h-4 w-4 shrink-0 text-indigo-500" />
+          <span>
+            <strong>Connection Capacity:</strong> Free Supabase Realtime tier supports up to 200 concurrent student/phone connections (~4-5 simultaneous classrooms). Pro tier provides 500+ connections.
+          </span>
         </div>
       </DialogContent>
     </Dialog>

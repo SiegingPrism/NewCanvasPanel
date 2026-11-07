@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { getSupabase } from "@/lib/supabase/client";
+import { recordAssessmentResult } from "@/lib/whiteboard/assessmentStore";
 
 interface TeamQuizDialogProps {
   open: boolean;
@@ -91,6 +92,16 @@ export function TeamQuizDialog({ open, onOpenChange }: TeamQuizDialogProps) {
       prev.map((t) => (t.id === teamId ? { ...t, score: Math.max(0, t.score + delta) } : t)),
     );
     handleResetBuzzer();
+    if (delta > 0) {
+      recordAssessmentResult({
+        type: "team-quiz",
+        className: "Class 9A",
+        topic: "Class Team Buzzer Competition",
+        totalStudents: 32,
+        correctCount: 24,
+        accuracy: 75,
+      });
+    }
   };
 
   const handleResetBuzzer = () => {

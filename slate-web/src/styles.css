@@ -2,6 +2,9 @@
 @source "../src";
 @import "tw-animate-css";
 @import "katex/dist/katex.min.css";
+@import "@fontsource/lexend/400.css";
+@import "@fontsource/lexend/600.css";
+@import "@fontsource/lexend/700.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -460,4 +463,75 @@ body,
   background-color: var(--color-muted);
   font-weight: 600;
 }
+
+/* ==========================================================================
+   Classroom Accessibility Styles
+   ========================================================================== */
+
+/* 1. Dyslexia-Friendly Typography (Lexend with anti-crowding spacing) */
+html.dyslexia-font-active,
+html.dyslexia-font-active body,
+html.dyslexia-font-active input,
+html.dyslexia-font-active textarea,
+html.dyslexia-font-active button,
+html.dyslexia-font-active [role="dialog"],
+html.dyslexia-font-active [role="button"],
+html.dyslexia-font-active h1,
+html.dyslexia-font-active h2,
+html.dyslexia-font-active h3,
+html.dyslexia-font-active h4,
+html.dyslexia-font-active h5,
+html.dyslexia-font-active p,
+html.dyslexia-font-active span {
+  font-family: "Lexend", system-ui, -apple-system, sans-serif !important;
+  letter-spacing: 0.04em !important;
+  word-spacing: 0.08em !important;
+  line-height: 1.65 !important;
+}
+
+/* 2. High-Contrast Mode for Low-Vision Students (Vibrant Yellow on Pure Black) */
+html.high-contrast-mode {
+  color-scheme: dark;
+}
+
+html.high-contrast-mode body,
+html.high-contrast-mode .bg-background,
+html.high-contrast-mode .bg-card,
+html.high-contrast-mode [role="dialog"] {
+  background-color: #000000 !important;
+  color: #facc15 !important; /* Pure high-contrast yellow */
+}
+
+html.high-contrast-mode .border,
+html.high-contrast-mode .border-border,
+html.high-contrast-mode [role="dialog"] {
+  border-color: #facc15 !important;
+  border-width: 2px !important;
+}
+
+html.high-contrast-mode button,
+html.high-contrast-mode [role="button"],
+html.high-contrast-mode a {
+  border-color: #facc15 !important;
+  outline-color: #facc15 !important;
+  color: #facc15 !important;
+}
+
+html.high-contrast-mode .text-muted-foreground {
+  color: #fef08a !important; /* Light yellow */
+}
+
+html.high-contrast-mode .bg-primary,
+html.high-contrast-mode .bg-indigo-600 {
+  background-color: #facc15 !important;
+  color: #000000 !important;
+  font-weight: 800 !important;
+}
+
+html.high-contrast-mode .bg-muted,
+html.high-contrast-mode .bg-muted\/60,
+html.high-contrast-mode .bg-muted\/30 {
+  background-color: #171717 !important;
+}
+
 

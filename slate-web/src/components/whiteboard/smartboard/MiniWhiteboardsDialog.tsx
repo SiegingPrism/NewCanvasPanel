@@ -305,6 +305,14 @@ export function MiniWhiteboardsDialog({
                 </div>
               )}
             </div>
+
+            {/* Capacity Advisory Notice */}
+            <div className="pt-2 border-t flex items-center gap-2 text-[11px] text-muted-foreground">
+              <span className="text-indigo-500 font-bold">💡 Realtime Capacity:</span>
+              <span>
+                Free Supabase tier supports up to 200 concurrent student connections (~4-5 simultaneous classrooms). Pro tier supports 500+ connections.
+              </span>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

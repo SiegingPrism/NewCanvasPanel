@@ -23,6 +23,7 @@ import { useAuth } from "@/lib/supabase/authStore";
 import { getPublicAppOrigin } from "@/lib/utils";
 import { AIEngine } from "@/lib/ai/aiEngine";
 import type { QuizObject, Page } from "@/lib/whiteboard/types";
+import { shareNotesToWhatsApp } from "@/lib/whiteboard/whatsAppShare";
 
 interface ShareNotesDialogProps {
   open: boolean;
@@ -409,6 +410,15 @@ export function ShareNotesDialog({
     toast.success("Opening Google Classroom share dialog...");
   };
 
+  const handleShareToWhatsApp = () => {
+    shareNotesToWhatsApp({
+      boardTitle,
+      shareUrl: publicUrl || undefined,
+      summary: aiSummaryData?.summary,
+    });
+    toast.success("Opening WhatsApp with lesson notes...");
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg rounded-3xl bg-card p-6 shadow-2xl border border-border text-center">
@@ -519,11 +529,20 @@ export function ShareNotesDialog({
           </div>
         </div>
 
-        {/* Action Buttons: Google Classroom & Download PDF */}
+        {/* Action Buttons: WhatsApp, Google Classroom & Download PDF */}
         <div className="space-y-2">
           <button
-            onClick={handleShareToGoogleClassroom}
+            onClick={handleShareToWhatsApp}
             className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-bold text-xs bg-emerald-600 hover:bg-emerald-700 text-white transition-all shadow-sm"
+          >
+            <Share2 className="h-4 w-4" />
+            <span>Share Notes to Parent WhatsApp Group</span>
+            <ExternalLink className="h-3 w-3 opacity-80" />
+          </button>
+
+          <button
+            onClick={handleShareToGoogleClassroom}
+            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-bold text-xs bg-muted hover:bg-muted/80 text-foreground transition-all border border-border"
           >
             <GraduationCap className="h-4 w-4" />
             <span>Share to Google Classroom</span>

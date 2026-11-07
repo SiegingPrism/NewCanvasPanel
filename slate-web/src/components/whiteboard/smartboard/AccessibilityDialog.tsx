@@ -58,6 +58,20 @@ export function AccessibilityDialog({ open, onOpenChange }: AccessibilityDialogP
     return false;
   });
 
+  // Ensure DOM classes reflect persisted state
+  useEffect(() => {
+    if (highContrast) {
+      document.documentElement.classList.add("high-contrast-mode");
+    } else {
+      document.documentElement.classList.remove("high-contrast-mode");
+    }
+    if (dyslexicFont) {
+      document.documentElement.classList.add("dyslexia-font-active");
+    } else {
+      document.documentElement.classList.remove("dyslexia-font-active");
+    }
+  }, [highContrast, dyslexicFont]);
+
   const handleToggleHighContrast = (checked: boolean) => {
     setHighContrast(checked);
     try {

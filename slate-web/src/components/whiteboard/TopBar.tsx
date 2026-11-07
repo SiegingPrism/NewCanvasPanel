@@ -1434,7 +1434,7 @@ export function TopBar({
             )}
             onClick={() => {
               setMenuOpen(false);
-              shareNotesToWhatsApp();
+              window.dispatchEvent(new CustomEvent("slate:share-notes"));
             }}
           >
             <Share2 className="h-3.5 w-3.5 text-emerald-500" />
