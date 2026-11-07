@@ -544,7 +544,7 @@ export function WidgetsSheet({
           <div
             ref={scrollContainerRef}
             key={activeTab}
-            className="mt-3 flex-1 min-h-0 overflow-y-auto overscroll-contain pr-1 pb-6 touch-auto bg-white dark:bg-slate-900 transform-gpu"
+            className="mt-3 flex-1 min-h-0 overflow-y-auto overscroll-contain pr-1 pb-6 touch-auto bg-white dark:bg-slate-900 isolate"
           >
             {/* 1. INSERT SECTION */}
             {activeTab === "insert" && (
@@ -664,7 +664,7 @@ export function WidgetsSheet({
                         description: "Draw tape over answers to hide them. Tap tape to reveal.",
                       });
                     }}
-                    className="flex flex-col items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/5 p-2.5 text-center transition hover:bg-amber-500/10 active:scale-95 group"
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-amber-500/30 bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
                   >
                     <span className="grid h-10 w-10 place-items-center rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400 transition-transform group-hover:scale-105">
                       <EyeOff className="h-5 w-5" />
@@ -687,7 +687,7 @@ export function WidgetsSheet({
                         description: "Drag a box around content to create a presentation slide.",
                       });
                     }}
-                    className="flex flex-col items-center gap-1.5 rounded-xl border border-blue-500/30 bg-blue-500/5 p-2.5 text-center transition hover:bg-blue-500/10 active:scale-95 group"
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-blue-500/30 bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
                   >
                     <span className="grid h-10 w-10 place-items-center rounded-lg bg-blue-500/15 text-blue-600 dark:text-blue-400 transition-transform group-hover:scale-105">
                       <MonitorPlay className="h-5 w-5" />
@@ -797,7 +797,7 @@ export function WidgetsSheet({
                       onOpenChange(false);
                       window.dispatchEvent(new CustomEvent("slate:open-live-captions"));
                     }}
-                    className="flex flex-col items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-2.5 text-center transition hover:bg-emerald-500/10 active:scale-95 group"
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
                   >
                     <span className="grid h-10 w-10 place-items-center rounded-lg bg-emerald-500/10 text-emerald-500 transition-transform group-hover:scale-105">
                       <Volume2 className="h-5 w-5" />
@@ -817,7 +817,7 @@ export function WidgetsSheet({
                       onOpenChange(false);
                       window.dispatchEvent(new CustomEvent("slate:open-indian-packs"));
                     }}
-                    className="flex flex-col items-center gap-1.5 rounded-xl border border-orange-500/30 bg-orange-500/5 p-2.5 text-center transition hover:bg-orange-500/10 active:scale-95 group"
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-orange-500/30 bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
                   >
                     <span className="grid h-10 w-10 place-items-center rounded-lg bg-orange-500/10 text-orange-600 transition-transform group-hover:scale-105">
                       <Map className="h-5 w-5" />
@@ -857,7 +857,7 @@ export function WidgetsSheet({
                       onOpenChange(false);
                       window.dispatchEvent(new CustomEvent("slate:open-activity-suggestions"));
                     }}
-                    className="flex flex-col items-center gap-1.5 rounded-xl border border-sky-500/30 bg-sky-500/5 p-2.5 text-center transition hover:bg-sky-500/10 active:scale-95 group"
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-sky-500/30 bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group"
                   >
                     <span className="grid h-10 w-10 place-items-center rounded-lg bg-sky-500/10 text-sky-600 transition-transform group-hover:scale-105">
                       <Lightbulb className="h-5 w-5" />
@@ -1054,7 +1054,7 @@ export function WidgetsSheet({
                       onOpenChange(false);
                       setQuickPollOpen(true);
                     }}
-                    className="flex flex-col items-center gap-1.5 rounded-xl border border-primary/30 bg-primary/5 p-2.5 text-center transition hover:bg-primary/10 active:scale-95 group"
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-primary/30 bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group shadow-sm"
                   >
                     <span className="grid h-10 w-10 place-items-center rounded-lg bg-primary/10 text-primary transition-transform group-hover:scale-105">
                       <Vote className="h-5 w-5" />
@@ -1072,7 +1072,7 @@ export function WidgetsSheet({
                       onOpenChange(false);
                       window.dispatchEvent(new CustomEvent("slate:open-live-quiz"));
                     }}
-                    className="flex flex-col items-center gap-1.5 rounded-xl border border-purple-500/30 bg-purple-500/5 p-2.5 text-center transition hover:bg-purple-500/10 active:scale-95 group"
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-purple-500/30 bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group shadow-sm"
                   >
                     <span className="grid h-10 w-10 place-items-center rounded-lg bg-purple-500/10 text-purple-600 transition-transform group-hover:scale-105">
                       <Vote className="h-5 w-5" />
@@ -1092,7 +1092,7 @@ export function WidgetsSheet({
                       onOpenChange(false);
                       setShareNotesOpen(true);
                     }}
-                    className="flex flex-col items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-2.5 text-center transition hover:bg-emerald-500/10 active:scale-95 group"
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group shadow-sm"
                   >
                     <span className="grid h-10 w-10 place-items-center rounded-lg bg-emerald-500/10 text-emerald-600 transition-transform group-hover:scale-105">
                       <Share2 className="h-5 w-5" />
@@ -1112,7 +1112,7 @@ export function WidgetsSheet({
                       onOpenChange(false);
                       window.dispatchEvent(new CustomEvent("slate:open-team-quiz"));
                     }}
-                    className="flex flex-col items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/5 p-2.5 text-center transition hover:bg-amber-500/10 active:scale-95 group"
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-amber-500/30 bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group shadow-sm"
                   >
                     <span className="grid h-10 w-10 place-items-center rounded-lg bg-amber-500/10 text-amber-600 transition-transform group-hover:scale-105">
                       <Zap className="h-5 w-5" />
@@ -1132,7 +1132,7 @@ export function WidgetsSheet({
                       onOpenChange(false);
                       window.dispatchEvent(new CustomEvent("slate:open-dot-voting"));
                     }}
-                    className="flex flex-col items-center gap-1.5 rounded-xl border border-purple-500/30 bg-purple-500/5 p-2.5 text-center transition hover:bg-purple-500/10 active:scale-95 group"
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-purple-500/30 bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group shadow-sm"
                   >
                     <span className="grid h-10 w-10 place-items-center rounded-lg bg-purple-500/10 text-purple-600 transition-transform group-hover:scale-105">
                       <Vote className="h-5 w-5" />
@@ -1152,7 +1152,7 @@ export function WidgetsSheet({
                       onOpenChange(false);
                       window.dispatchEvent(new CustomEvent("slate:open-student-work-wall"));
                     }}
-                    className="flex flex-col items-center gap-1.5 rounded-xl border border-blue-500/30 bg-blue-500/5 p-2.5 text-center transition hover:bg-blue-500/10 active:scale-95 group"
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-blue-500/30 bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group shadow-sm"
                   >
                     <span className="grid h-10 w-10 place-items-center rounded-lg bg-blue-500/10 text-blue-600 transition-transform group-hover:scale-105">
                       <Camera className="h-5 w-5" />
@@ -1172,7 +1172,7 @@ export function WidgetsSheet({
                       onOpenChange(false);
                       window.dispatchEvent(new CustomEvent("slate:open-teacher-pin"));
                     }}
-                    className="flex flex-col items-center gap-1.5 rounded-xl border border-teal-500/30 bg-teal-500/5 p-2.5 text-center transition hover:bg-teal-500/10 active:scale-95 group"
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-teal-500/30 bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group shadow-sm"
                   >
                     <span className="grid h-10 w-10 place-items-center rounded-lg bg-teal-500/10 text-teal-600 transition-transform group-hover:scale-105">
                       <KeyRound className="h-5 w-5" />
@@ -1192,7 +1192,7 @@ export function WidgetsSheet({
                       onOpenChange(false);
                       window.dispatchEvent(new CustomEvent("slate:open-school-admin"));
                     }}
-                    className="flex flex-col items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-indigo-500/5 p-2.5 text-center transition hover:bg-indigo-500/10 active:scale-95 group"
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group shadow-sm"
                   >
                     <span className="grid h-10 w-10 place-items-center rounded-lg bg-indigo-500/10 text-indigo-600 transition-transform group-hover:scale-105">
                       <ShieldCheck className="h-5 w-5" />
@@ -1213,7 +1213,7 @@ export function WidgetsSheet({
                       onOpenChange(false);
                       window.dispatchEvent(new CustomEvent("slate:open-mini-whiteboards"));
                     }}
-                    className="flex flex-col items-center gap-1.5 rounded-xl border border-purple-500/30 bg-purple-500/5 p-2.5 text-center transition hover:bg-purple-500/10 active:scale-95 group"
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-purple-500/30 bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group shadow-sm"
                   >
                     <span className="grid h-10 w-10 place-items-center rounded-lg bg-purple-500/10 text-purple-600 transition-transform group-hover:scale-105">
                       <Smartphone className="h-5 w-5" />
@@ -1234,7 +1234,7 @@ export function WidgetsSheet({
                       onOpenChange(false);
                       window.dispatchEvent(new CustomEvent("slate:open-teacher-remote"));
                     }}
-                    className="flex flex-col items-center gap-1.5 rounded-xl border border-sky-500/30 bg-sky-500/5 p-2.5 text-center transition hover:bg-sky-500/10 active:scale-95 group"
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-sky-500/30 bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group shadow-sm"
                   >
                     <span className="grid h-10 w-10 place-items-center rounded-lg bg-sky-500/10 text-sky-600 transition-transform group-hover:scale-105">
                       <Smartphone className="h-5 w-5" />
@@ -1255,7 +1255,7 @@ export function WidgetsSheet({
                       onOpenChange(false);
                       window.dispatchEvent(new CustomEvent("slate:open-timetable"));
                     }}
-                    className="flex flex-col items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/5 p-2.5 text-center transition hover:bg-amber-500/10 active:scale-95 group"
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-amber-500/30 bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group shadow-sm"
                   >
                     <span className="grid h-10 w-10 place-items-center rounded-lg bg-amber-500/10 text-amber-600 transition-transform group-hover:scale-105">
                       <CalendarDays className="h-5 w-5" />
@@ -1276,7 +1276,7 @@ export function WidgetsSheet({
                       onOpenChange(false);
                       window.dispatchEvent(new CustomEvent("slate:open-science-sims"));
                     }}
-                    className="flex flex-col items-center gap-1.5 rounded-xl border border-teal-500/30 bg-teal-500/5 p-2.5 text-center transition hover:bg-teal-500/10 active:scale-95 group"
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-teal-500/30 bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group shadow-sm"
                   >
                     <span className="grid h-10 w-10 place-items-center rounded-lg bg-teal-500/10 text-teal-600 transition-transform group-hover:scale-105">
                       <FlaskConical className="h-5 w-5" />
@@ -1297,7 +1297,7 @@ export function WidgetsSheet({
                       onOpenChange(false);
                       window.dispatchEvent(new CustomEvent("slate:open-attendance-points"));
                     }}
-                    className="flex flex-col items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-2.5 text-center transition hover:bg-emerald-500/10 active:scale-95 group"
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group shadow-sm"
                   >
                     <span className="grid h-10 w-10 place-items-center rounded-lg bg-emerald-500/10 text-emerald-600 transition-transform group-hover:scale-105">
                       <Trophy className="h-5 w-5" />
@@ -1318,7 +1318,7 @@ export function WidgetsSheet({
                       onOpenChange(false);
                       window.dispatchEvent(new CustomEvent("slate:open-accessibility"));
                     }}
-                    className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-500/30 bg-slate-500/5 p-2.5 text-center transition hover:bg-slate-500/10 active:scale-95 group"
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-500/30 bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group shadow-sm"
                   >
                     <span className="grid h-10 w-10 place-items-center rounded-lg bg-slate-500/10 text-slate-600 dark:text-slate-300 transition-transform group-hover:scale-105">
                       <Palette className="h-5 w-5" />
@@ -1339,7 +1339,7 @@ export function WidgetsSheet({
                       onOpenChange(false);
                       window.dispatchEvent(new CustomEvent("slate:open-class-insights"));
                     }}
-                    className="flex flex-col items-center gap-1.5 rounded-xl border border-blue-500/30 bg-blue-500/5 p-2.5 text-center transition hover:bg-blue-500/10 active:scale-95 group"
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-blue-500/30 bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group shadow-sm"
                   >
                     <span className="grid h-10 w-10 place-items-center rounded-lg bg-blue-500/10 text-blue-600 transition-transform group-hover:scale-105">
                       <BarChart3 className="h-5 w-5" />
@@ -1360,7 +1360,7 @@ export function WidgetsSheet({
                       onOpenChange(false);
                       window.dispatchEvent(new CustomEvent("slate:open-broadcast"));
                     }}
-                    className="flex flex-col items-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/5 p-2.5 text-center transition hover:bg-rose-500/10 active:scale-95 group"
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-rose-500/30 bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group shadow-sm"
                   >
                     <span className="grid h-10 w-10 place-items-center rounded-lg bg-rose-500/10 text-rose-600 transition-transform group-hover:scale-105">
                       <Radio className="h-5 w-5" />
@@ -1381,7 +1381,7 @@ export function WidgetsSheet({
                       onOpenChange(false);
                       window.dispatchEvent(new CustomEvent("slate:share-notes"));
                     }}
-                    className="flex flex-col items-center gap-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-2.5 text-center transition hover:bg-emerald-500/20 active:scale-95 group"
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-emerald-500/40 bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group shadow-sm"
                   >
                     <span className="grid h-10 w-10 place-items-center rounded-lg bg-emerald-500 text-white transition-transform group-hover:scale-105 shadow-sm">
                       <Share2 className="h-5 w-5" />
@@ -1665,7 +1665,7 @@ export function WidgetsSheet({
                           onOpenChange(false);
                           window.dispatchEvent(new CustomEvent("slate:solve-math"));
                         }}
-                        className="flex flex-col items-center gap-1.5 rounded-xl border border-violet-500/30 bg-violet-500/5 p-2.5 text-center transition hover:bg-violet-500/10 active:scale-95 group"
+                        className="flex flex-col items-center gap-1.5 rounded-xl border border-violet-500/30 bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group shadow-sm"
                       >
                         <span className="grid h-10 w-10 place-items-center rounded-lg bg-violet-600/15 text-violet-600 dark:text-violet-400 transition-transform group-hover:scale-105">
                           <Sparkles className="h-5 w-5" />
@@ -1687,7 +1687,7 @@ export function WidgetsSheet({
                           onOpenChange(false);
                           setMagicDoodleOpen(true);
                         }}
-                        className="flex flex-col items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/5 p-2.5 text-center transition hover:bg-amber-500/10 active:scale-95 group"
+                        className="flex flex-col items-center gap-1.5 rounded-xl border border-amber-500/30 bg-card p-2.5 text-center transition hover:bg-accent active:scale-95 group shadow-sm"
                       >
                         <span className="grid h-10 w-10 place-items-center rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400 transition-transform group-hover:scale-105">
                           <Sparkles className="h-5 w-5" />
