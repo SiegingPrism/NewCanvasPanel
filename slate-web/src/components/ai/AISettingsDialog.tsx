@@ -35,12 +35,17 @@ import {
   Zap,
   Globe,
   Check,
+  BookOpen,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useStrokeRecorderStore } from "@/lib/whiteboard/strokeRecorderStore";
 import { useTranslationMetrics } from "@/lib/ink/translationMetrics";
 import { useTranslation } from "@/lib/i18n/useTranslation";
 import { cn } from "@/lib/utils";
+import {
+  isTextbookLibraryPermitted,
+  setTextbookLibraryPermitted,
+} from "@/lib/curriculum/ncertCatalog";
 
 export function AISettingsDialog({
   open,
@@ -68,11 +73,13 @@ export function AISettingsDialog({
   const [tempKey, setTempKey] = useState(geminiKey);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<ConnectionTestResult | null>(null);
+  const [textbookPermitted, setTextbookPermitted] = useState<boolean>(isTextbookLibraryPermitted());
 
   useEffect(() => {
     if (open) {
       setTempKey(geminiKey);
       setTestResult(null);
+      setTextbookPermitted(isTextbookLibraryPermitted());
     }
   }, [open, geminiKey]);
 
@@ -164,6 +171,33 @@ export function AISettingsDialog({
                     </button>
                   ))}
                 </div>
+              </div>
+            </div>
+
+            {/* Curriculum Textbooks Institutional Switch */}
+            <div className="rounded-xl border bg-card/60 p-3 space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <div className="space-y-0.5 min-w-0 flex-1">
+                  <div className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <BookOpen className="h-3.5 w-3.5 text-primary shrink-0" />
+                    <span>Curriculum Textbooks (NCERT)</span>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground leading-snug">
+                    Institutional access toggle. Keep disabled unless school holds publisher agreement.
+                  </div>
+                </div>
+                <Switch
+                  checked={textbookPermitted}
+                  onCheckedChange={(val) => {
+                    setTextbookLibraryPermitted(val);
+                    setTextbookPermitted(val);
+                    toast.success(
+                      val
+                        ? "Institutional textbook preview enabled"
+                        : "Curriculum textbooks disabled (notice mode)"
+                    );
+                  }}
+                />
               </div>
             </div>
             <div className="rounded-xl border bg-card/60 p-3 space-y-2">

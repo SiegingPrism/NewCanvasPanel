@@ -1,3685 +1,2432 @@
 /**
- * NCERT & State Board Digital Textbook Catalog & Auto-Sync Engine
+ * NCERT & CBSE Official Curriculum Textbook Catalog
  *
- * Provides a structured catalog of textbooks for Classes 1 to 12 across:
- * - CBSE / NCERT (National Curriculum)
- * - All Class 11 & 12 Branches: Science, Commerce, Arts/Humanities, Languages
- * - State Boards (e.g. Maharashtra State Board Balbharti, SCERTs)
- * - DIKSHA Open Digital Curriculum Integration & DIAL Code Lookup
- * - Automatic update validator (ETag, Last-Modified, DIKSHA manifest hashes)
- * - Offline Cache for Indian classrooms with intermittent Wi-Fi
+ * All entries map strictly to official NCERT portal URLs on ncert.nic.in.
+ * In accordance with NCERT's digital publication guidelines, all content
+ * points directly to official government portal links.
+ * State board books (e.g. Maharashtra Balbharati) are omitted until verified official portal feeds are integrated.
  */
 
-export type EducationBoard = "cbse" | "maharashtra" | "diksha_all";
+export type BoardType = "cbse";
+export type GradeLevel = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
 export type StreamBranch = "science" | "commerce" | "arts" | "general";
+export type MediumLanguage = "english" | "hindi";
 
 export interface TextbookChapter {
   chapterNumber: number;
   title: string;
   hindiTitle?: string;
-  marathiTitle?: string;
-  pdfCode: string; // e.g. "leph101.pdf"
-  officialUrl: string;
-  dikshaDialCode?: string;
-  pageCount?: number;
-  lastUpdated?: string;
-  isRevisedEdition?: boolean;
+  pdfCode: string;
+  officialUrl: string; // Official NCERT URL (https://ncert.nic.in/textbook/pdf/{pdfCode})
 }
 
 export interface TextbookBook {
   id: string;
   title: string;
   hindiTitle?: string;
-  marathiTitle?: string;
-  board: EducationBoard;
-  grade: number; // 1 to 12
-  branch?: StreamBranch;
+  board: BoardType;
+  grade: GradeLevel;
   subject: string;
-  medium: "english" | "hindi" | "marathi";
-  coverThumbnail?: string;
+  branch?: StreamBranch;
+  medium: MediumLanguage;
   editionYear: string;
   officialPublisher: string;
+  coverColor: string;
   chapters: TextbookChapter[];
 }
 
-// Master NCERT Base URLs
-const NCERT_PDF_BASE = "https://ncert.nic.in/textbook/pdf";
-const MSB_PDF_BASE = "https://ebalbharati.in/main/pdf";
-const DIKSHA_CONTENT_BASE = "https://diksha.gov.in/api/content/v1";
+/**
+ * Institutional & Teacher Permission Switch
+ * Digital textbook integration requires institutional licensing / publisher agreement.
+ * Disabled by default to comply with publisher copyright terms.
+ */
+export function isTextbookLibraryPermitted(): boolean {
+  if (typeof localStorage === "undefined") return false;
+  return localStorage.getItem("slate_curriculum_textbooks_enabled") === "true";
+}
+
+export function setTextbookLibraryPermitted(permitted: boolean): void {
+  if (typeof localStorage === "undefined") return;
+  localStorage.setItem("slate_curriculum_textbooks_enabled", permitted ? "true" : "false");
+}
 
 /**
- * Complete Catalog of Core NCERT & State Board Textbooks (Classes 1 - 12)
+ * Server Catalog & 24-hour Daily Check Architecture
  */
-export const NCERT_CATALOG: TextbookBook[] = [
+const CATALOG_STORAGE_KEY = "slate_curriculum_catalog_cache";
+const LAST_CHECK_KEY = "slate_curriculum_catalog_last_check";
+const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
-  {
-    "id": "ncert-12-phy-1",
-    "title": "Physics - Part 1",
-    "hindiTitle": "भौतिक विज्ञान - भाग 1",
-    "marathiTitle": "भौतिकशास्त्र - भाग 1",
-    "board": "cbse",
-    "grade": 12,
-    "branch": "science",
-    "subject": "Physics",
-    "medium": "english",
-    "editionYear": "2024-25 Rationalised",
-    "officialPublisher": "NCERT",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Electric Charges and Fields",
-        "hindiTitle": "विद्युत आवेश तथा क्षेत्र",
-        "pdfCode": "leph101.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/leph101.pdf",
-        "dikshaDialCode": "U1R9C1"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Electrostatic Potential and Capacitance",
-        "hindiTitle": "स्थिरवैद्युत विभव तथा धारिता",
-        "pdfCode": "leph102.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/leph102.pdf",
-        "dikshaDialCode": "U1R9C2"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "Current Electricity",
-        "hindiTitle": "विद्युत धारा",
-        "pdfCode": "leph103.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/leph103.pdf",
-        "dikshaDialCode": "U1R9C3"
-      },
-      {
-        "chapterNumber": 4,
-        "title": "Moving Charges and Magnetism",
-        "hindiTitle": "गतिमान आवेश और चुंबकत्व",
-        "pdfCode": "leph104.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/leph104.pdf",
-        "dikshaDialCode": "U1R9C4"
-      },
-      {
-        "chapterNumber": 5,
-        "title": "Magnetism and Matter",
-        "hindiTitle": "चुंबकत्व एवं द्रव्य",
-        "pdfCode": "leph105.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/leph105.pdf",
-        "dikshaDialCode": "U1R9C5"
-      },
-      {
-        "chapterNumber": 6,
-        "title": "Electromagnetic Induction",
-        "hindiTitle": "वैद्युतचुंबकीय प्रेरण",
-        "pdfCode": "leph106.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/leph106.pdf",
-        "dikshaDialCode": "U1R9C6"
-      },
-      {
-        "chapterNumber": 7,
-        "title": "Alternating Current",
-        "hindiTitle": "प्रत्यावर्ती धारा",
-        "pdfCode": "leph107.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/leph107.pdf",
-        "dikshaDialCode": "U1R9C7"
-      },
-      {
-        "chapterNumber": 8,
-        "title": "Electromagnetic Waves",
-        "hindiTitle": "वैद्युतचुंबकीय तरंगें",
-        "pdfCode": "leph108.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/leph108.pdf",
-        "dikshaDialCode": "U1R9C8"
-      }
-    ]
-  },
-  {
-    "id": "ncert-12-phy-2",
-    "title": "Physics - Part 2",
-    "hindiTitle": "भौतिक विज्ञान - भाग 2",
-    "marathiTitle": "भौतिकशास्त्र - भाग 2",
-    "board": "cbse",
-    "grade": 12,
-    "branch": "science",
-    "subject": "Physics",
-    "medium": "english",
-    "editionYear": "2024-25 Rationalised",
-    "officialPublisher": "NCERT",
-    "chapters": [
-      {
-        "chapterNumber": 9,
-        "title": "Ray Optics and Optical Instruments",
-        "hindiTitle": "किरण प्रकाशिकी एवं प्रकाशिक यंत्र",
-        "pdfCode": "leph201.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/leph201.pdf",
-        "dikshaDialCode": "U1R9C9"
-      },
-      {
-        "chapterNumber": 10,
-        "title": "Wave Optics",
-        "hindiTitle": "तरंग-प्रकाशिकी",
-        "pdfCode": "leph202.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/leph202.pdf",
-        "dikshaDialCode": "U1R9CA"
-      },
-      {
-        "chapterNumber": 11,
-        "title": "Dual Nature of Radiation and Matter",
-        "hindiTitle": "विकिरण तथा द्रव्य की द्वैत प्रकृति",
-        "pdfCode": "leph203.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/leph203.pdf",
-        "dikshaDialCode": "U1R9CB"
-      },
-      {
-        "chapterNumber": 12,
-        "title": "Atoms",
-        "hindiTitle": "परमाणु",
-        "pdfCode": "leph204.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/leph204.pdf",
-        "dikshaDialCode": "U1R9CC"
-      },
-      {
-        "chapterNumber": 13,
-        "title": "Nuclei",
-        "hindiTitle": "नाभिक",
-        "pdfCode": "leph205.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/leph205.pdf",
-        "dikshaDialCode": "U1R9CD"
-      },
-      {
-        "chapterNumber": 14,
-        "title": "Semiconductor Electronics: Materials, Devices and Simple Circuits",
-        "hindiTitle": "अर्धचालक इलेक्ट्रॉनिकी",
-        "pdfCode": "leph206.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/leph206.pdf",
-        "dikshaDialCode": "U1R9CE"
-      }
-    ]
-  },
-  {
-    "id": "ncert-12-chem-1",
-    "title": "Chemistry - Part 1",
-    "hindiTitle": "रसायन विज्ञान - भाग 1",
-    "marathiTitle": "रसायनशास्त्र - भाग 1",
-    "board": "cbse",
-    "grade": 12,
-    "branch": "science",
-    "subject": "Chemistry",
-    "medium": "english",
-    "editionYear": "2024-25 Rationalised",
-    "officialPublisher": "NCERT",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Solutions",
-        "hindiTitle": "विलयन",
-        "pdfCode": "lech101.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/lech101.pdf",
-        "dikshaDialCode": "C2R8C1"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Electrochemistry",
-        "hindiTitle": "वैद्युतरसायन",
-        "pdfCode": "lech102.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/lech102.pdf",
-        "dikshaDialCode": "C2R8C2"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "Chemical Kinetics",
-        "hindiTitle": "रासायनिक बलगतिकी",
-        "pdfCode": "lech103.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/lech103.pdf",
-        "dikshaDialCode": "C2R8C3"
-      },
-      {
-        "chapterNumber": 4,
-        "title": "The d- and f-Block Elements",
-        "hindiTitle": "d- एवं f-ब्लॉक के तत्व",
-        "pdfCode": "lech104.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/lech104.pdf",
-        "dikshaDialCode": "C2R8C4"
-      },
-      {
-        "chapterNumber": 5,
-        "title": "Coordination Compounds",
-        "hindiTitle": "उपसहसंयोजन यौगिक",
-        "pdfCode": "lech105.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/lech105.pdf",
-        "dikshaDialCode": "C2R8C5"
-      }
-    ]
-  },
-  {
-    "id": "ncert-12-chem-2",
-    "title": "Chemistry - Part 2",
-    "hindiTitle": "रसायन विज्ञान - भाग 2",
-    "marathiTitle": "रसायनशास्त्र - भाग 2",
-    "board": "cbse",
-    "grade": 12,
-    "branch": "science",
-    "subject": "Chemistry",
-    "medium": "english",
-    "editionYear": "2024-25 Rationalised",
-    "officialPublisher": "NCERT",
-    "chapters": [
-      {
-        "chapterNumber": 6,
-        "title": "Haloalkanes and Haloarenes",
-        "hindiTitle": "हैलोऐल्केन तथा हैलोऐरीन",
-        "pdfCode": "lech201.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/lech201.pdf",
-        "dikshaDialCode": "C2R8C6"
-      },
-      {
-        "chapterNumber": 7,
-        "title": "Alcohols, Phenols and Ethers",
-        "hindiTitle": "ऐल्कोहॉल, फ़ीनॉल एवं ईथर",
-        "pdfCode": "lech202.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/lech202.pdf",
-        "dikshaDialCode": "C2R8C7"
-      },
-      {
-        "chapterNumber": 8,
-        "title": "Aldehydes, Ketones and Carboxylic Acids",
-        "hindiTitle": "ऐल्डिहाइड, कीटोन एवं कार्बोक्सिलिक अम्ल",
-        "pdfCode": "lech203.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/lech203.pdf",
-        "dikshaDialCode": "C2R8C8"
-      },
-      {
-        "chapterNumber": 9,
-        "title": "Amines",
-        "hindiTitle": "ऐमीन",
-        "pdfCode": "lech204.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/lech204.pdf",
-        "dikshaDialCode": "C2R8C9"
-      },
-      {
-        "chapterNumber": 10,
-        "title": "Biomolecules",
-        "hindiTitle": "जैव-अणु",
-        "pdfCode": "lech205.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/lech205.pdf",
-        "dikshaDialCode": "C2R8CA"
-      }
-    ]
-  },
-  {
-    "id": "ncert-12-math-1",
-    "title": "Mathematics - Part 1",
-    "hindiTitle": "गणित - भाग 1",
-    "marathiTitle": "गणित - भाग 1",
-    "board": "cbse",
-    "grade": 12,
-    "branch": "science",
-    "subject": "Mathematics",
-    "medium": "english",
-    "editionYear": "2024-25 Rationalised",
-    "officialPublisher": "NCERT",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Relations and Functions",
-        "hindiTitle": "संबंध एवं फलन",
-        "pdfCode": "lemh101.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/lemh101.pdf",
-        "dikshaDialCode": "M3R7C1"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Inverse Trigonometric Functions",
-        "hindiTitle": "प्रतिलोम त्रिकोणमितीय फलन",
-        "pdfCode": "lemh102.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/lemh102.pdf",
-        "dikshaDialCode": "M3R7C2"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "Matrices",
-        "hindiTitle": "आव्यूह",
-        "pdfCode": "lemh103.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/lemh103.pdf",
-        "dikshaDialCode": "M3R7C3"
-      },
-      {
-        "chapterNumber": 4,
-        "title": "Determinants",
-        "hindiTitle": "सारणिक",
-        "pdfCode": "lemh104.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/lemh104.pdf",
-        "dikshaDialCode": "M3R7C4"
-      },
-      {
-        "chapterNumber": 5,
-        "title": "Continuity and Differentiability",
-        "hindiTitle": "सांतत्य तथा अवकलनीयता",
-        "pdfCode": "lemh105.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/lemh105.pdf",
-        "dikshaDialCode": "M3R7C5"
-      },
-      {
-        "chapterNumber": 6,
-        "title": "Application of Derivatives",
-        "hindiTitle": "अवकलज के अनुप्रयोग",
-        "pdfCode": "lemh106.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/lemh106.pdf",
-        "dikshaDialCode": "M3R7C6"
-      }
-    ]
-  },
-  {
-    "id": "ncert-12-math-2",
-    "title": "Mathematics - Part 2",
-    "hindiTitle": "गणित - भाग 2",
-    "marathiTitle": "गणित - भाग 2",
-    "board": "cbse",
-    "grade": 12,
-    "branch": "science",
-    "subject": "Mathematics",
-    "medium": "english",
-    "editionYear": "2024-25 Rationalised",
-    "officialPublisher": "NCERT",
-    "chapters": [
-      {
-        "chapterNumber": 7,
-        "title": "Integrals",
-        "hindiTitle": "समाकलन",
-        "pdfCode": "lemh201.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/lemh201.pdf",
-        "dikshaDialCode": "M3R7C7"
-      },
-      {
-        "chapterNumber": 8,
-        "title": "Application of Integrals",
-        "hindiTitle": "समाकलनों के अनुप्रयोग",
-        "pdfCode": "lemh202.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/lemh202.pdf",
-        "dikshaDialCode": "M3R7C8"
-      },
-      {
-        "chapterNumber": 9,
-        "title": "Differential Equations",
-        "hindiTitle": "अवकल समीकरण",
-        "pdfCode": "lemh203.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/lemh203.pdf",
-        "dikshaDialCode": "M3R7C9"
-      },
-      {
-        "chapterNumber": 10,
-        "title": "Vector Algebra",
-        "hindiTitle": "सदिश बीजगणित",
-        "pdfCode": "lemh204.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/lemh204.pdf",
-        "dikshaDialCode": "M3R7CA"
-      },
-      {
-        "chapterNumber": 11,
-        "title": "Three Dimensional Geometry",
-        "hindiTitle": "त्रि-विमीय ज्यामिति",
-        "pdfCode": "lemh205.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/lemh205.pdf",
-        "dikshaDialCode": "M3R7CB"
-      },
-      {
-        "chapterNumber": 12,
-        "title": "Linear Programming",
-        "hindiTitle": "रैखिक प्रोग्रामन",
-        "pdfCode": "lemh206.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/lemh206.pdf",
-        "dikshaDialCode": "M3R7CC"
-      },
-      {
-        "chapterNumber": 13,
-        "title": "Probability",
-        "hindiTitle": "प्रायिकता",
-        "pdfCode": "lemh207.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/lemh207.pdf",
-        "dikshaDialCode": "M3R7CD"
-      }
-    ]
-  },
-  {
-    "id": "ncert-12-bio",
-    "title": "Biology",
-    "hindiTitle": "जीव विज्ञान",
-    "marathiTitle": "जीवशास्त्र",
-    "board": "cbse",
-    "grade": 12,
-    "branch": "science",
-    "subject": "Biology",
-    "medium": "english",
-    "editionYear": "2024-25 Rationalised",
-    "officialPublisher": "NCERT",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Sexual Reproduction in Flowering Plants",
-        "hindiTitle": "पुष्पी पादपों में लैंगिक जनन",
-        "pdfCode": "lebo101.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/lebo101.pdf",
-        "dikshaDialCode": "B4R6C1"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Human Reproduction",
-        "hindiTitle": "मानव जनन",
-        "pdfCode": "lebo102.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/lebo102.pdf",
-        "dikshaDialCode": "B4R6C2"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "Reproductive Health",
-        "hindiTitle": "जनन स्वास्थ्य",
-        "pdfCode": "lebo103.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/lebo103.pdf",
-        "dikshaDialCode": "B4R6C3"
-      },
-      {
-        "chapterNumber": 4,
-        "title": "Principles of Inheritance and Variation",
-        "hindiTitle": "वंशागति तथा विविधता के सिद्धांत",
-        "pdfCode": "lebo104.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/lebo104.pdf",
-        "dikshaDialCode": "B4R6C4"
-      },
-      {
-        "chapterNumber": 5,
-        "title": "Molecular Basis of Inheritance",
-        "hindiTitle": "वंशागति के आणविक आधार",
-        "pdfCode": "lebo105.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/lebo105.pdf",
-        "dikshaDialCode": "B4R6C5"
-      },
-      {
-        "chapterNumber": 6,
-        "title": "Evolution",
-        "hindiTitle": "विकास",
-        "pdfCode": "lebo106.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/lebo106.pdf",
-        "dikshaDialCode": "B4R6C6"
-      }
-    ]
-  },
-  {
-    "id": "ncert-12-cs",
-    "title": "Computer Science (Python)",
-    "hindiTitle": "कंप्यूटर साइंस (पायथन)",
-    "marathiTitle": "संगणक शास्त्र",
-    "board": "cbse",
-    "grade": 12,
-    "branch": "science",
-    "subject": "Computer Science",
-    "medium": "english",
-    "editionYear": "2024-25 Standard",
-    "officialPublisher": "NCERT",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Python Revision Tour",
-        "hindiTitle": "पायथन पुनरावृत्ति",
-        "pdfCode": "lecs101.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/lecs101.pdf",
-        "dikshaDialCode": "CS8R1"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Functions in Python",
-        "hindiTitle": "पायथन में फंक्शन्स",
-        "pdfCode": "lecs102.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/lecs102.pdf",
-        "dikshaDialCode": "CS8R2"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "File Handling",
-        "hindiTitle": "फ़ाइल हैंडलिंग",
-        "pdfCode": "lecs103.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/lecs103.pdf",
-        "dikshaDialCode": "CS8R3"
-      },
-      {
-        "chapterNumber": 4,
-        "title": "Data Structures: Stack",
-        "hindiTitle": "डेटा संरचना: स्टैक",
-        "pdfCode": "lecs104.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/lecs104.pdf",
-        "dikshaDialCode": "CS8R4"
-      },
-      {
-        "chapterNumber": 5,
-        "title": "Computer Networks",
-        "hindiTitle": "कंप्यूटर नेटवर्क",
-        "pdfCode": "lecs105.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/lecs105.pdf",
-        "dikshaDialCode": "CS8R5"
-      },
-      {
-        "chapterNumber": 6,
-        "title": "Database Management & SQL",
-        "hindiTitle": "डेटाबेस प्रबंधन और एसक्यूएल",
-        "pdfCode": "lecs106.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/lecs106.pdf",
-        "dikshaDialCode": "CS8R6"
-      }
-    ]
-  },
-  {
-    "id": "ncert-12-acc-1",
-    "title": "Accountancy - Part 1 (Partnership Accounts)",
-    "hindiTitle": "लेखाशास्त्र - भाग 1",
-    "marathiTitle": "लेखाकर्म - भाग 1",
-    "board": "cbse",
-    "grade": 12,
-    "branch": "commerce",
-    "subject": "Accountancy",
-    "medium": "english",
-    "editionYear": "2024-25 Rationalised",
-    "officialPublisher": "NCERT",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Accounting for Partnership: Basic Concepts",
-        "hindiTitle": "साझेदारी लेखांकन: आधारभूत संकल्पनाएँ",
-        "pdfCode": "leac101.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/leac101.pdf",
-        "dikshaDialCode": "A5R5C1"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Admission of a Partner",
-        "hindiTitle": "साझेदार का प्रवेश",
-        "pdfCode": "leac102.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/leac102.pdf",
-        "dikshaDialCode": "A5R5C2"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "Retirement and Death of a Partner",
-        "hindiTitle": "साझेदार की सेवानिवृत्ति एवं मृत्यु",
-        "pdfCode": "leac103.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/leac103.pdf",
-        "dikshaDialCode": "A5R5C3"
-      },
-      {
-        "chapterNumber": 4,
-        "title": "Dissolution of Partnership Firm",
-        "hindiTitle": "साझेदारी फर्म का विघटन",
-        "pdfCode": "leac104.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/leac104.pdf",
-        "dikshaDialCode": "A5R5C4"
-      }
-    ]
-  },
-  {
-    "id": "ncert-12-acc-2",
-    "title": "Accountancy - Part 2 (Company Accounts & Analysis)",
-    "hindiTitle": "लेखाशास्त्र - भाग 2",
-    "marathiTitle": "लेखाकर्म - भाग 2",
-    "board": "cbse",
-    "grade": 12,
-    "branch": "commerce",
-    "subject": "Accountancy",
-    "medium": "english",
-    "editionYear": "2024-25 Rationalised",
-    "officialPublisher": "NCERT",
-    "chapters": [
-      {
-        "chapterNumber": 5,
-        "title": "Accounting for Share Capital",
-        "hindiTitle": "अंश पूंजी के लिए लेखांकन",
-        "pdfCode": "leac201.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/leac201.pdf",
-        "dikshaDialCode": "A5R5C5"
-      },
-      {
-        "chapterNumber": 6,
-        "title": "Issue and Redemption of Debentures",
-        "hindiTitle": "ऋणपत्रों का निर्गमन एवं मोचन",
-        "pdfCode": "leac202.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/leac202.pdf",
-        "dikshaDialCode": "A5R5C6"
-      },
-      {
-        "chapterNumber": 7,
-        "title": "Financial Statements of a Company",
-        "hindiTitle": "कंपनी के वित्तीय विवरण",
-        "pdfCode": "leac203.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/leac203.pdf",
-        "dikshaDialCode": "A5R5C7"
-      },
-      {
-        "chapterNumber": 8,
-        "title": "Cash Flow Statement",
-        "hindiTitle": "रोकड़ प्रवाह विवरण",
-        "pdfCode": "leac204.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/leac204.pdf",
-        "dikshaDialCode": "A5R5C8"
-      }
-    ]
-  },
-  {
-    "id": "ncert-12-bst",
-    "title": "Business Studies: Principles and Functions of Management",
-    "hindiTitle": "व्यवसाय अध्ययन: प्रबंध के सिद्धांत एवं कार्य",
-    "marathiTitle": "वाणिज्य आणि व्यवस्थापन",
-    "board": "cbse",
-    "grade": 12,
-    "branch": "commerce",
-    "subject": "Business Studies",
-    "medium": "english",
-    "editionYear": "2024-25 Rationalised",
-    "officialPublisher": "NCERT",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Nature and Significance of Management",
-        "hindiTitle": "प्रबंध की प्रकृति एवं महत्त्व",
-        "pdfCode": "lebs101.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/lebs101.pdf",
-        "dikshaDialCode": "B6R4C1"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Principles of Management",
-        "hindiTitle": "प्रबंध के सिद्धांत",
-        "pdfCode": "lebs102.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/lebs102.pdf",
-        "dikshaDialCode": "B6R4C2"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "Business Environment",
-        "hindiTitle": "व्यावसायिक पर्यावरण",
-        "pdfCode": "lebs103.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/lebs103.pdf",
-        "dikshaDialCode": "B6R4C3"
-      },
-      {
-        "chapterNumber": 4,
-        "title": "Planning",
-        "hindiTitle": "नियोजन",
-        "pdfCode": "lebs104.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/lebs104.pdf",
-        "dikshaDialCode": "B6R4C4"
-      },
-      {
-        "chapterNumber": 5,
-        "title": "Organising",
-        "hindiTitle": "संगठन",
-        "pdfCode": "lebs105.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/lebs105.pdf",
-        "dikshaDialCode": "B6R4C5"
-      }
-    ]
-  },
-  {
-    "id": "ncert-12-eco-macro",
-    "title": "Introductory Macroeconomics",
-    "hindiTitle": "व्यष्टि एवं समष्टि अर्थशास्त्र",
-    "marathiTitle": "स्थूल अर्थशास्त्र",
-    "board": "cbse",
-    "grade": 12,
-    "branch": "commerce",
-    "subject": "Economics",
-    "medium": "english",
-    "editionYear": "2024-25 Rationalised",
-    "officialPublisher": "NCERT",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Introduction to Macroeconomics",
-        "hindiTitle": "समष्टि अर्थशास्त्र परिचय",
-        "pdfCode": "leec101.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/leec101.pdf",
-        "dikshaDialCode": "E7R3C1"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "National Income Accounting",
-        "hindiTitle": "राष्ट्रीय आय का लेखांकन",
-        "pdfCode": "leec102.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/leec102.pdf",
-        "dikshaDialCode": "E7R3C2"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "Money and Banking",
-        "hindiTitle": "मुद्रा और बैंकिंग",
-        "pdfCode": "leec103.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/leec103.pdf",
-        "dikshaDialCode": "E7R3C3"
-      },
-      {
-        "chapterNumber": 4,
-        "title": "Determination of Income and Employment",
-        "hindiTitle": "आय और रोज़गार का निर्धारण",
-        "pdfCode": "leec104.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/leec104.pdf",
-        "dikshaDialCode": "E7R3C4"
-      },
-      {
-        "chapterNumber": 5,
-        "title": "Government Budget and the Economy",
-        "hindiTitle": "सरकारी बजट एवं अर्थव्यवस्था",
-        "pdfCode": "leec105.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/leec105.pdf",
-        "dikshaDialCode": "E7R3C5"
-      }
-    ]
-  },
-  {
-    "id": "ncert-12-history",
-    "title": "Themes in Indian History - Part 1",
-    "hindiTitle": "भारतीय इतिहास के कुछ विषय - भाग 1",
-    "marathiTitle": "भारतीय इतिहासातील विषय",
-    "board": "cbse",
-    "grade": 12,
-    "branch": "arts",
-    "subject": "History",
-    "medium": "english",
-    "editionYear": "2024-25 Rationalised",
-    "officialPublisher": "NCERT",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Bricks, Beads and Bones: The Harappan Civilisation",
-        "hindiTitle": "ईंटें, मनके तथा अस्थियाँ: हड़प्पा सभ्यता",
-        "pdfCode": "lehs101.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/lehs101.pdf",
-        "dikshaDialCode": "H8R2C1"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Kings, Farmers and Towns: Early States and Economies",
-        "hindiTitle": "राजा, किसान और नगर",
-        "pdfCode": "lehs102.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/lehs102.pdf",
-        "dikshaDialCode": "H8R2C2"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "Kinship, Caste and Class: Early Societies",
-        "hindiTitle": "बंधुत्व, जाति तथा वर्ग",
-        "pdfCode": "lehs103.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/lehs103.pdf",
-        "dikshaDialCode": "H8R2C3"
-      },
-      {
-        "chapterNumber": 4,
-        "title": "Thinkers, Beliefs and Buildings: Cultural Developments",
-        "hindiTitle": "विचारक, विश्वास और इमारतें",
-        "pdfCode": "lehs104.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/lehs104.pdf",
-        "dikshaDialCode": "H8R2C4"
-      }
-    ]
-  },
-  {
-    "id": "ncert-12-polsci",
-    "title": "Contemporary World Politics",
-    "hindiTitle": "समकालीन विश्व राजनीति",
-    "marathiTitle": "समकालीन जागतिक राजकारण",
-    "board": "cbse",
-    "grade": 12,
-    "branch": "arts",
-    "subject": "Political Science",
-    "medium": "english",
-    "editionYear": "2024-25 Rationalised",
-    "officialPublisher": "NCERT",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "The End of Bipolarity",
-        "hindiTitle": "दो ध्रुवीयता का अंत",
-        "pdfCode": "leps101.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/leps101.pdf",
-        "dikshaDialCode": "P9R1C1"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Contemporary Centres of Power",
-        "hindiTitle": "सत्ता के समकालीन केंद्र",
-        "pdfCode": "leps102.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/leps102.pdf",
-        "dikshaDialCode": "P9R1C2"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "Contemporary South Asia",
-        "hindiTitle": "समकालीन दक्षिण एशिया",
-        "pdfCode": "leps103.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/leps103.pdf",
-        "dikshaDialCode": "P9R1C3"
-      },
-      {
-        "chapterNumber": 4,
-        "title": "International Organisations",
-        "hindiTitle": "अंतरराष्ट्रीय संगठन",
-        "pdfCode": "leps104.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/leps104.pdf",
-        "dikshaDialCode": "P9R1C4"
-      },
-      {
-        "chapterNumber": 5,
-        "title": "Security in the Contemporary World",
-        "hindiTitle": "समकालीन विश्व में सुरक्षा",
-        "pdfCode": "leps105.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/leps105.pdf",
-        "dikshaDialCode": "P9R1C5"
-      }
-    ]
-  },
-  {
-    "id": "msb-12-phy",
-    "title": "Class 12 Physics (HSC Balbharti)",
-    "hindiTitle": "इयत्ता 12वी भौतिकशास्त्र",
-    "marathiTitle": "इयत्ता 12वी भौतिकशास्त्र (महाराष्ट्र राज्य मंडळ)",
-    "board": "maharashtra",
-    "grade": 12,
-    "branch": "science",
-    "subject": "Physics",
-    "medium": "english",
-    "editionYear": "2024-25 HSC Edition",
-    "officialPublisher": "Maharashtra State Bureau of Textbook Production (Balbharti)",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Rotational Dynamics",
-        "marathiTitle": "परिवलन गतिकी",
-        "pdfCode": "msb12ph01.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/1201010001.pdf",
-        "dikshaDialCode": "MH12P1"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Mechanical Properties of Fluids",
-        "marathiTitle": "द्रायूंचे यांत्रिक गुणधर्म",
-        "pdfCode": "msb12ph02.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/1201010002.pdf",
-        "dikshaDialCode": "MH12P2"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "Kinetic Theory of Gases and Radiation",
-        "marathiTitle": "वायूंचा गतिमान सिद्धांत आणि प्रारण",
-        "pdfCode": "msb12ph03.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/1201010003.pdf",
-        "dikshaDialCode": "MH12P3"
-      },
-      {
-        "chapterNumber": 4,
-        "title": "Thermodynamics",
-        "marathiTitle": "उष्मागतिकी",
-        "pdfCode": "msb12ph04.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/1201010004.pdf",
-        "dikshaDialCode": "MH12P4"
-      }
-    ]
-  },
-  {
-    "id": "msb-12-chem",
-    "title": "Class 12 Chemistry (HSC Balbharti)",
-    "hindiTitle": "इयत्ता 12वी रसायनशास्त्र",
-    "marathiTitle": "इयत्ता 12वी रसायनशास्त्र (महाराष्ट्र राज्य मंडळ)",
-    "board": "maharashtra",
-    "grade": 12,
-    "branch": "science",
-    "subject": "Chemistry",
-    "medium": "english",
-    "editionYear": "2024-25 HSC Edition",
-    "officialPublisher": "Maharashtra State Bureau of Textbook Production (Balbharti)",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Solid State",
-        "marathiTitle": "स्थायुरूप अवस्था",
-        "pdfCode": "msb12ch01.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/1201020001.pdf",
-        "dikshaDialCode": "MH12C1"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Solutions",
-        "marathiTitle": "द्रावणे",
-        "pdfCode": "msb12ch02.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/1201020002.pdf",
-        "dikshaDialCode": "MH12C2"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "Ionic Equilibria",
-        "marathiTitle": "आयनिक संतुलन",
-        "pdfCode": "msb12ch03.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/1201020003.pdf",
-        "dikshaDialCode": "MH12C3"
-      }
-    ]
-  },
-  {
-    "id": "msb-12-bk",
-    "title": "Book-Keeping and Accountancy (HSC Balbharti)",
-    "hindiTitle": "पुस्तपालन आणि लेखाकर्म",
-    "marathiTitle": "पुस्तपालन आणि लेखाकर्म (इयत्ता 12वी)",
-    "board": "maharashtra",
-    "grade": 12,
-    "branch": "commerce",
-    "subject": "Accountancy",
-    "medium": "marathi",
-    "editionYear": "2024-25 HSC Edition",
-    "officialPublisher": "Maharashtra State Bureau of Textbook Production (Balbharti)",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Introduction to Partnership and Partnership Final Accounts",
-        "marathiTitle": "भागीदारीची ओळख आणि अंतिम खाती",
-        "pdfCode": "msb12bk01.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/1202010001.pdf",
-        "dikshaDialCode": "MH12B1"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Accounts of Not for Profit Concerns",
-        "marathiTitle": "नफा न मिळविणाऱ्या संस्थांची खाती",
-        "pdfCode": "msb12bk02.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/1202010002.pdf",
-        "dikshaDialCode": "MH12B2"
-      }
-    ]
-  },
-  {
-    "id": "msb-12-hist",
-    "title": "History of India (HSC Balbharti)",
-    "hindiTitle": "इतिहास (इयत्ता 12वी)",
-    "marathiTitle": "इतिहास (इयत्ता 12वी कला शाखा)",
-    "board": "maharashtra",
-    "grade": 12,
-    "branch": "arts",
-    "subject": "History",
-    "medium": "marathi",
-    "editionYear": "2024-25 HSC Edition",
-    "officialPublisher": "Maharashtra State Bureau of Textbook Production (Balbharti)",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Renaissance in Europe and Development of Science",
-        "marathiTitle": "युरोपातील प्रबोधन आणि विज्ञानाचा विकास",
-        "pdfCode": "msb12hi01.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/1203010001.pdf",
-        "dikshaDialCode": "MH12H1"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "European Colonialism",
-        "marathiTitle": "युरोपीय वसाहतवाद",
-        "pdfCode": "msb12hi02.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/1203010002.pdf",
-        "dikshaDialCode": "MH12H2"
-      }
-    ]
-  },
-  {
-    "id": "ncert-11-phy-1",
-    "title": "Physics - Part 1",
-    "hindiTitle": "भौतिक विज्ञान - भाग 1",
-    "marathiTitle": "भौतिकशास्त्र - भाग 1",
-    "board": "cbse",
-    "grade": 11,
-    "branch": "science",
-    "subject": "Physics",
-    "medium": "english",
-    "editionYear": "2024-25 Rationalised",
-    "officialPublisher": "NCERT",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Units and Measurements",
-        "hindiTitle": "मात्रक और मापन",
-        "pdfCode": "keph101.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/keph101.pdf",
-        "dikshaDialCode": "P11R01"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Motion in a Straight Line",
-        "hindiTitle": "सरल रेखा में गति",
-        "pdfCode": "keph102.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/keph102.pdf",
-        "dikshaDialCode": "P11R02"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "Motion in a Plane",
-        "hindiTitle": "समतल में गति",
-        "pdfCode": "keph103.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/keph103.pdf",
-        "dikshaDialCode": "P11R03"
-      },
-      {
-        "chapterNumber": 4,
-        "title": "Laws of Motion",
-        "hindiTitle": "गति के नियम",
-        "pdfCode": "keph104.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/keph104.pdf",
-        "dikshaDialCode": "P11R04"
-      },
-      {
-        "chapterNumber": 5,
-        "title": "Work, Energy and Power",
-        "hindiTitle": "कार्य, ऊर्जा और शक्ति",
-        "pdfCode": "keph105.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/keph105.pdf",
-        "dikshaDialCode": "P11R05"
-      }
-    ]
-  },
-  {
-    "id": "ncert-11-chem-1",
-    "title": "Chemistry - Part 1",
-    "hindiTitle": "रसायन विज्ञान - भाग 1",
-    "marathiTitle": "रसायनशास्त्र - भाग 1",
-    "board": "cbse",
-    "grade": 11,
-    "branch": "science",
-    "subject": "Chemistry",
-    "medium": "english",
-    "editionYear": "2024-25 Rationalised",
-    "officialPublisher": "NCERT",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Some Basic Concepts of Chemistry",
-        "hindiTitle": "रसायन विज्ञान की कुछ मूल अवधारणाएँ",
-        "pdfCode": "kech101.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/kech101.pdf",
-        "dikshaDialCode": "C11R01"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Structure of Atom",
-        "hindiTitle": "परमाणु की संरचना",
-        "pdfCode": "kech102.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/kech102.pdf",
-        "dikshaDialCode": "C11R02"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "Classification of Elements and Periodicity in Properties",
-        "hindiTitle": "तत्वों का वर्गीकरण एवं गुणधर्मों में आवर्तिता",
-        "pdfCode": "kech103.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/kech103.pdf",
-        "dikshaDialCode": "C11R03"
-      },
-      {
-        "chapterNumber": 4,
-        "title": "Chemical Bonding and Molecular Structure",
-        "hindiTitle": "रासायनिक आबंधन तथा आण्विक संरचना",
-        "pdfCode": "kech104.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/kech104.pdf",
-        "dikshaDialCode": "C11R04"
-      }
-    ]
-  },
-  {
-    "id": "ncert-11-math",
-    "title": "Mathematics",
-    "hindiTitle": "गणित",
-    "marathiTitle": "गणित",
-    "board": "cbse",
-    "grade": 11,
-    "branch": "science",
-    "subject": "Mathematics",
-    "medium": "english",
-    "editionYear": "2024-25 Rationalised",
-    "officialPublisher": "NCERT",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Sets",
-        "hindiTitle": "समुच्चय",
-        "pdfCode": "kemh101.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/kemh101.pdf",
-        "dikshaDialCode": "M11R01"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Relations and Functions",
-        "hindiTitle": "संबंध एवं फलन",
-        "pdfCode": "kemh102.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/kemh102.pdf",
-        "dikshaDialCode": "M11R02"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "Trigonometric Functions",
-        "hindiTitle": "त्रिकोणमितीय फलन",
-        "pdfCode": "kemh103.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/kemh103.pdf",
-        "dikshaDialCode": "M11R03"
-      },
-      {
-        "chapterNumber": 4,
-        "title": "Complex Numbers and Quadratic Equations",
-        "hindiTitle": "सम्मिश्र संख्याएँ और द्विघातीय समीकरण",
-        "pdfCode": "kemh104.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/kemh104.pdf",
-        "dikshaDialCode": "M11R04"
-      }
-    ]
-  },
-  {
-    "id": "ncert-11-acc",
-    "title": "Financial Accounting - Part 1",
-    "hindiTitle": "वित्तीय लेखांकन - भाग 1",
-    "marathiTitle": "वित्तीय लेखाकर्म",
-    "board": "cbse",
-    "grade": 11,
-    "branch": "commerce",
-    "subject": "Accountancy",
-    "medium": "english",
-    "editionYear": "2024-25 Rationalised",
-    "officialPublisher": "NCERT",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Introduction to Accounting",
-        "hindiTitle": "लेखांकन: एक परिचय",
-        "pdfCode": "keac101.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/keac101.pdf",
-        "dikshaDialCode": "A11R01"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Theory Base of Accounting",
-        "hindiTitle": "लेखांकन के सैद्धांतिक आधार",
-        "pdfCode": "keac102.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/keac102.pdf",
-        "dikshaDialCode": "A11R02"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "Recording of Transactions - I",
-        "hindiTitle": "लेन-देनों का अभिलेखन - I",
-        "pdfCode": "keac103.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/keac103.pdf",
-        "dikshaDialCode": "A11R03"
-      }
-    ]
-  },
-  {
-    "id": "ncert-11-history",
-    "title": "Themes in World History",
-    "hindiTitle": "विश्व इतिहास के कुछ विषय",
-    "marathiTitle": "जागतिक इतिहासातील विषय",
-    "board": "cbse",
-    "grade": 11,
-    "branch": "arts",
-    "subject": "History",
-    "medium": "english",
-    "editionYear": "2024-25 Rationalised",
-    "officialPublisher": "NCERT",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Writing and City Life (Mesopotamia)",
-        "hindiTitle": "लेखन कला और शहरी जीवन",
-        "pdfCode": "kehs101.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/kehs101.pdf",
-        "dikshaDialCode": "H11R01"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "An Empire Across Three Continents (Roman Empire)",
-        "hindiTitle": "तीन महाद्वीपों में फैला हुआ साम्राज्य",
-        "pdfCode": "kehs102.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/kehs102.pdf",
-        "dikshaDialCode": "H11R02"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "Nomadic Empires (Mongols)",
-        "hindiTitle": "यायावर साम्राज्य",
-        "pdfCode": "kehs103.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/kehs103.pdf",
-        "dikshaDialCode": "H11R03"
-      }
-    ]
-  },
-  {
-    "id": "msb-11-phy",
-    "title": "Class 11 Physics (FYJC Balbharti)",
-    "hindiTitle": "इयत्ता 11वी भौतिकशास्त्र",
-    "marathiTitle": "इयत्ता 11वी भौतिकशास्त्र (महाराष्ट्र राज्य मंडळ)",
-    "board": "maharashtra",
-    "grade": 11,
-    "branch": "science",
-    "subject": "Physics",
-    "medium": "english",
-    "editionYear": "2024-25 FYJC Edition",
-    "officialPublisher": "Maharashtra State Bureau of Textbook Production (Balbharti)",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Units and Measurements",
-        "marathiTitle": "एकके आणि मापन",
-        "pdfCode": "msb11ph01.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/1101010001.pdf",
-        "dikshaDialCode": "MH11P1"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Mathematical Methods",
-        "marathiTitle": "गणितीय पद्धती",
-        "pdfCode": "msb11ph02.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/1101010002.pdf",
-        "dikshaDialCode": "MH11P2"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "Motion in a Plane",
-        "marathiTitle": "प्रतलातील गती",
-        "pdfCode": "msb11ph03.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/1101010003.pdf",
-        "dikshaDialCode": "MH11P3"
-      }
-    ]
-  },
-  {
-    "id": "msb-11-bk",
-    "title": "Book-Keeping and Accountancy (FYJC Balbharti)",
-    "hindiTitle": "पुस्तपालन आणि लेखाकर्म (इयत्ता 11वी)",
-    "marathiTitle": "पुस्तपालन आणि लेखाकर्म (इयत्ता 11वी वाणिज्य)",
-    "board": "maharashtra",
-    "grade": 11,
-    "branch": "commerce",
-    "subject": "Accountancy",
-    "medium": "marathi",
-    "editionYear": "2024-25 FYJC Edition",
-    "officialPublisher": "Maharashtra State Bureau of Textbook Production (Balbharti)",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Introduction to Book-Keeping and Accountancy",
-        "marathiTitle": "पुस्तपालन व लेखाकर्माची ओळख",
-        "pdfCode": "msb11bk01.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/1102010001.pdf",
-        "dikshaDialCode": "MH11B1"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Meaning and Fundamentals of Double Entry Book-Keeping",
-        "marathiTitle": "द्विनोंद पद्धतीचा अर्थ आणि मूलभूत संकल्पना",
-        "pdfCode": "msb11bk02.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/1102010002.pdf",
-        "dikshaDialCode": "MH11B2"
-      }
-    ]
-  },
-  {
-    "id": "msb-11-soc",
-    "title": "Sociology (FYJC Balbharti)",
-    "hindiTitle": "समाजशास्त्र (इयत्ता 11वी)",
-    "marathiTitle": "समाजशास्त्र (इयत्ता 11वी कला শাখা)",
-    "board": "maharashtra",
-    "grade": 11,
-    "branch": "arts",
-    "subject": "Sociology",
-    "medium": "marathi",
-    "editionYear": "2024-25 FYJC Edition",
-    "officialPublisher": "Maharashtra State Bureau of Textbook Production (Balbharti)",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Introduction to Sociology",
-        "marathiTitle": "समाजशास्त्राचा परिचय",
-        "pdfCode": "msb11so01.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/1103010001.pdf",
-        "dikshaDialCode": "MH11S1"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Social Institutions",
-        "marathiTitle": "सामाजिक संस्था",
-        "pdfCode": "msb11so02.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/1103010002.pdf",
-        "dikshaDialCode": "MH11S2"
-      }
-    ]
-  },
-  {
-    "id": "ncert-10-sci",
-    "title": "Class 10 Science",
-    "hindiTitle": "कक्षा 10 विज्ञान",
-    "marathiTitle": "इयत्ता 10वी विज्ञान आणि तंत्रज्ञान",
-    "board": "cbse",
-    "grade": 10,
-    "branch": "general",
-    "subject": "Science",
-    "medium": "english",
-    "editionYear": "2024-25 Rationalised",
-    "officialPublisher": "NCERT",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Chemical Reactions and Equations",
-        "hindiTitle": "रासायनिक अभिक्रियाएँ एवं समीकरण",
-        "pdfCode": "jesc101.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/jesc101.pdf",
-        "dikshaDialCode": "S10R01"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Acids, Bases and Salts",
-        "hindiTitle": "अम्ल, क्षारक एवं लवण",
-        "pdfCode": "jesc102.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/jesc102.pdf",
-        "dikshaDialCode": "S10R02"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "Metals and Non-metals",
-        "hindiTitle": "धातु एवं अधातु",
-        "pdfCode": "jesc103.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/jesc103.pdf",
-        "dikshaDialCode": "S10R03"
-      },
-      {
-        "chapterNumber": 4,
-        "title": "Carbon and its Compounds",
-        "hindiTitle": "कार्बन एवं उसके यौगिक",
-        "pdfCode": "jesc104.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/jesc104.pdf",
-        "dikshaDialCode": "S10R04"
-      },
-      {
-        "chapterNumber": 5,
-        "title": "Life Processes",
-        "hindiTitle": "जैव प्रक्रम",
-        "pdfCode": "jesc105.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/jesc105.pdf",
-        "dikshaDialCode": "S10R05"
-      },
-      {
-        "chapterNumber": 6,
-        "title": "Control and Coordination",
-        "hindiTitle": "नियंत्रण एवं समन्वय",
-        "pdfCode": "jesc106.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/jesc106.pdf",
-        "dikshaDialCode": "S10R06"
-      },
-      {
-        "chapterNumber": 7,
-        "title": "How do Organisms Reproduce?",
-        "hindiTitle": "जीव जनन कैसे करते हैं?",
-        "pdfCode": "jesc107.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/jesc107.pdf",
-        "dikshaDialCode": "S10R07"
-      },
-      {
-        "chapterNumber": 8,
-        "title": "Heredity",
-        "hindiTitle": "आनुवंशिकता",
-        "pdfCode": "jesc108.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/jesc108.pdf",
-        "dikshaDialCode": "S10R08"
-      },
-      {
-        "chapterNumber": 9,
-        "title": "Light - Reflection and Refraction",
-        "hindiTitle": "प्रकाश - परावर्तन तथा अपवर्तन",
-        "pdfCode": "jesc109.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/jesc109.pdf",
-        "dikshaDialCode": "S10R09"
-      },
-      {
-        "chapterNumber": 10,
-        "title": "The Human Eye and the Colourful World",
-        "hindiTitle": "मानव नेत्र तथा रंगबिरंगा संसार",
-        "pdfCode": "jesc110.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/jesc110.pdf",
-        "dikshaDialCode": "S10R10"
-      },
-      {
-        "chapterNumber": 11,
-        "title": "Electricity",
-        "hindiTitle": "विद्युत",
-        "pdfCode": "jesc111.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/jesc111.pdf",
-        "dikshaDialCode": "S10R11"
-      },
-      {
-        "chapterNumber": 12,
-        "title": "Magnetic Effects of Electric Current",
-        "hindiTitle": "विद्युत धारा के चुंबकीय प्रभाव",
-        "pdfCode": "jesc112.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/jesc112.pdf",
-        "dikshaDialCode": "S10R12"
-      },
-      {
-        "chapterNumber": 13,
-        "title": "Our Environment",
-        "hindiTitle": "हमारा पर्यावरण",
-        "pdfCode": "jesc113.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/jesc113.pdf",
-        "dikshaDialCode": "S10R13"
-      }
-    ]
-  },
-  {
-    "id": "ncert-10-math",
-    "title": "Class 10 Mathematics",
-    "hindiTitle": "कक्षा 10 गणित",
-    "marathiTitle": "इयत्ता 10वी गणित",
-    "board": "cbse",
-    "grade": 10,
-    "branch": "general",
-    "subject": "Mathematics",
-    "medium": "english",
-    "editionYear": "2024-25 Rationalised",
-    "officialPublisher": "NCERT",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Real Numbers",
-        "hindiTitle": "वास्तविक संख्याएँ",
-        "pdfCode": "jemh101.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/jemh101.pdf",
-        "dikshaDialCode": "M10R01"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Polynomials",
-        "hindiTitle": "बहुपद",
-        "pdfCode": "jemh102.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/jemh102.pdf",
-        "dikshaDialCode": "M10R02"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "Pair of Linear Equations in Two Variables",
-        "hindiTitle": "दो चर वाले रैखिक समीकरण युग्म",
-        "pdfCode": "jemh103.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/jemh103.pdf",
-        "dikshaDialCode": "M10R03"
-      },
-      {
-        "chapterNumber": 4,
-        "title": "Quadratic Equations",
-        "hindiTitle": "द्विघात समीकरण",
-        "pdfCode": "jemh104.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/jemh104.pdf",
-        "dikshaDialCode": "M10R04"
-      },
-      {
-        "chapterNumber": 5,
-        "title": "Arithmetic Progressions",
-        "hindiTitle": "समांतर श्रेढियाँ",
-        "pdfCode": "jemh105.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/jemh105.pdf",
-        "dikshaDialCode": "M10R05"
-      },
-      {
-        "chapterNumber": 6,
-        "title": "Triangles",
-        "hindiTitle": "त्रिभुज",
-        "pdfCode": "jemh106.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/jemh106.pdf",
-        "dikshaDialCode": "M10R06"
-      },
-      {
-        "chapterNumber": 7,
-        "title": "Coordinate Geometry",
-        "hindiTitle": "निर्देशांक ज्यामिति",
-        "pdfCode": "jemh107.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/jemh107.pdf",
-        "dikshaDialCode": "M10R07"
-      },
-      {
-        "chapterNumber": 8,
-        "title": "Introduction to Trigonometry",
-        "hindiTitle": "त्रिकोणमिति का परिचय",
-        "pdfCode": "jemh108.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/jemh108.pdf",
-        "dikshaDialCode": "M10R08"
-      },
-      {
-        "chapterNumber": 9,
-        "title": "Some Applications of Trigonometry",
-        "hindiTitle": "त्रिकोणमिति के कुछ अनुप्रयोग",
-        "pdfCode": "jemh109.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/jemh109.pdf",
-        "dikshaDialCode": "M10R09"
-      },
-      {
-        "chapterNumber": 10,
-        "title": "Circles",
-        "hindiTitle": "वृत्त",
-        "pdfCode": "jemh110.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/jemh110.pdf",
-        "dikshaDialCode": "M10R10"
-      },
-      {
-        "chapterNumber": 11,
-        "title": "Areas Related to Circles",
-        "hindiTitle": "वृत्तों से संबंधित क्षेत्रफल",
-        "pdfCode": "jemh111.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/jemh111.pdf",
-        "dikshaDialCode": "M10R11"
-      },
-      {
-        "chapterNumber": 12,
-        "title": "Surface Areas and Volumes",
-        "hindiTitle": "पृष्ठीय क्षेत्रफल और आयतन",
-        "pdfCode": "jemh112.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/jemh112.pdf",
-        "dikshaDialCode": "M10R12"
-      },
-      {
-        "chapterNumber": 13,
-        "title": "Statistics",
-        "hindiTitle": "सांख्यिकी",
-        "pdfCode": "jemh113.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/jemh113.pdf",
-        "dikshaDialCode": "M10R13"
-      },
-      {
-        "chapterNumber": 14,
-        "title": "Probability",
-        "hindiTitle": "प्रायिकता",
-        "pdfCode": "jemh114.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/jemh114.pdf",
-        "dikshaDialCode": "M10R14"
-      }
-    ]
-  },
-  {
-    "id": "ncert-10-eng",
-    "title": "First Flight (Class 10 English)",
-    "hindiTitle": "फर्स्ट फ्लाइट (अंग्रेज़ी)",
-    "marathiTitle": "इंग्रजी (फर्स्ट फ्लाइट)",
-    "board": "cbse",
-    "grade": 10,
-    "branch": "general",
-    "subject": "English",
-    "medium": "english",
-    "editionYear": "2024-25 Rationalised",
-    "officialPublisher": "NCERT",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "A Letter to God",
-        "hindiTitle": "ईश्वर के नाम पत्र",
-        "pdfCode": "jeff101.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/jeff101.pdf",
-        "dikshaDialCode": "E10R01"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Nelson Mandela: Long Walk to Freedom",
-        "hindiTitle": "नेल्सन मंडेला: आज़ादी की लंबी राह",
-        "pdfCode": "jeff102.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/jeff102.pdf",
-        "dikshaDialCode": "E10R02"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "Two Stories about Flying",
-        "hindiTitle": "उड़ान की दो कहानियाँ",
-        "pdfCode": "jeff103.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/jeff103.pdf",
-        "dikshaDialCode": "E10R03"
-      },
-      {
-        "chapterNumber": 4,
-        "title": "From the Diary of Anne Frank",
-        "hindiTitle": "ऐन फ्रैंक की डायरी से",
-        "pdfCode": "jeff104.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/jeff104.pdf",
-        "dikshaDialCode": "E10R04"
-      },
-      {
-        "chapterNumber": 5,
-        "title": "Glimpses of India",
-        "hindiTitle": "भारत की एक झलक",
-        "pdfCode": "jeff105.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/jeff105.pdf",
-        "dikshaDialCode": "E10R05"
-      }
-    ]
-  },
-  {
-    "id": "msb-10-sci-marathi",
-    "title": "इयत्ता 10वी विज्ञान आणि तंत्रज्ञान भाग 1 (Balbharti)",
-    "hindiTitle": "कक्षा 10 विज्ञान एवं प्रौद्योगिकी भाग 1",
-    "marathiTitle": "इयत्ता 10वी विज्ञान आणि तंत्रज्ञान भाग 1",
-    "board": "maharashtra",
-    "grade": 10,
-    "branch": "general",
-    "subject": "Science",
-    "medium": "marathi",
-    "editionYear": "2024-25 SSC Edition",
-    "officialPublisher": "Maharashtra State Bureau of Textbook Production (Balbharti)",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Gravitation (गुरुत्वाकर्षण)",
-        "marathiTitle": "गुरुत्वाकर्षण",
-        "pdfCode": "msb10sc01.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/1001010001.pdf",
-        "dikshaDialCode": "MH10S1"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Periodic Classification of Elements (मूलद्रव्यांचे आवर्ती वर्गीकरण)",
-        "marathiTitle": "मूलद्रव्यांचे आवर्ती वर्गीकरण",
-        "pdfCode": "msb10sc02.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/1001010002.pdf",
-        "dikshaDialCode": "MH10S2"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "Chemical Reactions and Equations (रासायनिक अभिक्रिया व समीकरणे)",
-        "marathiTitle": "रासायनिक अभिक्रिया व समीकरणे",
-        "pdfCode": "msb10sc03.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/1001010003.pdf",
-        "dikshaDialCode": "MH10S3"
-      },
-      {
-        "chapterNumber": 4,
-        "title": "Effects of Electric Current (विद्युतधारेचे परिणाम)",
-        "marathiTitle": "विद्युतधारेचे परिणाम",
-        "pdfCode": "msb10sc04.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/1001010004.pdf",
-        "dikshaDialCode": "MH10S4"
-      }
-    ]
-  },
-  {
-    "id": "msb-10-math-alg",
-    "title": "Class 10 Mathematics Part 1 (Algebra)",
-    "hindiTitle": "इयत्ता 10वी बीजगणित",
-    "marathiTitle": "इयत्ता 10वी गणित भाग 1 (बीजगणित)",
-    "board": "maharashtra",
-    "grade": 10,
-    "branch": "general",
-    "subject": "Mathematics",
-    "medium": "english",
-    "editionYear": "2024-25 SSC Edition",
-    "officialPublisher": "Maharashtra State Bureau of Textbook Production (Balbharti)",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Linear Equations in Two Variables",
-        "marathiTitle": "दोन चलांमधील रेषीय समीकरणे",
-        "pdfCode": "msb10alg01.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/1002010001.pdf",
-        "dikshaDialCode": "MH10M1"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Quadratic Equations",
-        "marathiTitle": "वर्गसमीकरणे",
-        "pdfCode": "msb10alg02.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/1002010002.pdf",
-        "dikshaDialCode": "MH10M2"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "Arithmetic Progression",
-        "marathiTitle": "अंकगणिती श्रेढी",
-        "pdfCode": "msb10alg03.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/1002010003.pdf",
-        "dikshaDialCode": "MH10M3"
-      }
-    ]
-  },
-  {
-    "id": "msb-10-kumarbharti",
-    "title": "इयत्ता 10वी मराठी कुमारभारती (Balbharti)",
-    "hindiTitle": "कक्षा 10 मराठी कुमारभारती",
-    "marathiTitle": "मराठी कुमारभारती (इयत्ता दहावी)",
-    "board": "maharashtra",
-    "grade": 10,
-    "branch": "general",
-    "subject": "Marathi",
-    "medium": "marathi",
-    "editionYear": "2024-25 SSC Edition",
-    "officialPublisher": "Maharashtra State Bureau of Textbook Production (Balbharti)",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "जय जय हे भारत देशा (गीत)",
-        "marathiTitle": "जय जय हे भारत देशा",
-        "pdfCode": "msb10kb01.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/1003010001.pdf",
-        "dikshaDialCode": "MH10K1"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "बोलतो मराठी",
-        "marathiTitle": "बोलतो मराठी",
-        "pdfCode": "msb10kb02.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/1003010002.pdf",
-        "dikshaDialCode": "MH10K2"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "आजी : कुटुंबाचं आगळ",
-        "marathiTitle": "आजी : कुटुंबाचं आगळ",
-        "pdfCode": "msb10kb03.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/1003010003.pdf",
-        "dikshaDialCode": "MH10K3"
-      }
-    ]
-  },
-  {
-    "id": "ncert-9-sci",
-    "title": "Class 9 Science",
-    "hindiTitle": "कक्षा 9 विज्ञान",
-    "marathiTitle": "इयत्ता 9वी विज्ञान",
-    "board": "cbse",
-    "grade": 9,
-    "branch": "general",
-    "subject": "Science",
-    "medium": "english",
-    "editionYear": "2024-25 Rationalised",
-    "officialPublisher": "NCERT",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Matter in Our Surroundings",
-        "hindiTitle": "हमारे आस-पास के पदार्थ",
-        "pdfCode": "iesc101.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/iesc101.pdf",
-        "dikshaDialCode": "S9R01"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Is Matter Around Us Pure?",
-        "hindiTitle": "क्या हमारे आस-पास के पदार्थ शुद्ध हैं?",
-        "pdfCode": "iesc102.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/iesc102.pdf",
-        "dikshaDialCode": "S9R02"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "Atoms and Molecules",
-        "hindiTitle": "परमाणु एवं अणु",
-        "pdfCode": "iesc103.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/iesc103.pdf",
-        "dikshaDialCode": "S9R03"
-      },
-      {
-        "chapterNumber": 4,
-        "title": "Structure of the Atom",
-        "hindiTitle": "परमाणु की संरचना",
-        "pdfCode": "iesc104.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/iesc104.pdf",
-        "dikshaDialCode": "S9R04"
-      },
-      {
-        "chapterNumber": 5,
-        "title": "The Fundamental Unit of Life",
-        "hindiTitle": "जीवन की मौलिक इकाई",
-        "pdfCode": "iesc105.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/iesc105.pdf",
-        "dikshaDialCode": "S9R05"
-      },
-      {
-        "chapterNumber": 6,
-        "title": "Tissues",
-        "hindiTitle": "ऊतक",
-        "pdfCode": "iesc106.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/iesc106.pdf",
-        "dikshaDialCode": "S9R06"
-      },
-      {
-        "chapterNumber": 7,
-        "title": "Motion",
-        "hindiTitle": "गति",
-        "pdfCode": "iesc107.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/iesc107.pdf",
-        "dikshaDialCode": "S9R07"
-      },
-      {
-        "chapterNumber": 8,
-        "title": "Force and Laws of Motion",
-        "hindiTitle": "बल तथा गति के नियम",
-        "pdfCode": "iesc108.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/iesc108.pdf",
-        "dikshaDialCode": "S9R08"
-      },
-      {
-        "chapterNumber": 9,
-        "title": "Gravitation",
-        "hindiTitle": "गुरुत्वाकर्षण",
-        "pdfCode": "iesc109.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/iesc109.pdf",
-        "dikshaDialCode": "S9R09"
-      }
-    ]
-  },
-  {
-    "id": "ncert-9-math",
-    "title": "Class 9 Mathematics",
-    "hindiTitle": "कक्षा 9 गणित",
-    "marathiTitle": "इयत्ता 9वी गणित",
-    "board": "cbse",
-    "grade": 9,
-    "branch": "general",
-    "subject": "Mathematics",
-    "medium": "english",
-    "editionYear": "2024-25 Rationalised",
-    "officialPublisher": "NCERT",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Number Systems",
-        "hindiTitle": "संख्या पद्धति",
-        "pdfCode": "iemh101.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/iemh101.pdf",
-        "dikshaDialCode": "M9R01"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Polynomials",
-        "hindiTitle": "बहुपद",
-        "pdfCode": "iemh102.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/iemh102.pdf",
-        "dikshaDialCode": "M9R02"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "Coordinate Geometry",
-        "hindiTitle": "निर्देशांक ज्यामिति",
-        "pdfCode": "iemh103.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/iemh103.pdf",
-        "dikshaDialCode": "M9R03"
-      },
-      {
-        "chapterNumber": 4,
-        "title": "Linear Equations in Two Variables",
-        "hindiTitle": "दो चरों वाले रैखिक समीकरण",
-        "pdfCode": "iemh104.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/iemh104.pdf",
-        "dikshaDialCode": "M9R04"
-      },
-      {
-        "chapterNumber": 5,
-        "title": "Lines and Angles",
-        "hindiTitle": "रेखाएँ और कोण",
-        "pdfCode": "iemh105.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/iemh105.pdf",
-        "dikshaDialCode": "M9R05"
-      },
-      {
-        "chapterNumber": 6,
-        "title": "Triangles",
-        "hindiTitle": "त्रिभुज",
-        "pdfCode": "iemh106.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/iemh106.pdf",
-        "dikshaDialCode": "M9R06"
-      }
-    ]
-  },
-  {
-    "id": "msb-9-sci",
-    "title": "Class 9 Science and Technology (Balbharti)",
-    "hindiTitle": "इयत्ता 9वी विज्ञान आणि तंत्रज्ञान",
-    "marathiTitle": "विज्ञान आणि तंत्रज्ञान (इयत्ता नववी)",
-    "board": "maharashtra",
-    "grade": 9,
-    "branch": "general",
-    "subject": "Science",
-    "medium": "marathi",
-    "editionYear": "2024-25 State Edition",
-    "officialPublisher": "Maharashtra State Bureau of Textbook Production (Balbharti)",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Laws of Motion (गतीचे नियम)",
-        "marathiTitle": "गतीचे नियम",
-        "pdfCode": "msb9sc01.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0901010001.pdf",
-        "dikshaDialCode": "MH9S1"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Work and Energy (कार्य आणि ऊर्जा)",
-        "marathiTitle": "कार्य आणि ऊर्जा",
-        "pdfCode": "msb9sc02.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0901010002.pdf",
-        "dikshaDialCode": "MH9S2"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "Current Electricity (धाराविद्युत)",
-        "marathiTitle": "धाराविद्युत",
-        "pdfCode": "msb9sc03.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0901010003.pdf",
-        "dikshaDialCode": "MH9S3"
-      }
-    ]
-  },
-  {
-    "id": "msb-9-math",
-    "title": "Class 9 Mathematics Part 1 (Balbharti)",
-    "hindiTitle": "इयत्ता 9वी गणित भाग 1",
-    "marathiTitle": "गणित भाग 1 (इयत्ता नववी)",
-    "board": "maharashtra",
-    "grade": 9,
-    "branch": "general",
-    "subject": "Mathematics",
-    "medium": "english",
-    "editionYear": "2024-25 State Edition",
-    "officialPublisher": "Maharashtra State Bureau of Textbook Production (Balbharti)",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Sets",
-        "marathiTitle": "संच",
-        "pdfCode": "msb9m01.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0902010001.pdf",
-        "dikshaDialCode": "MH9M1"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Real Numbers",
-        "marathiTitle": "वास्तव संख्या",
-        "pdfCode": "msb9m02.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0902010002.pdf",
-        "dikshaDialCode": "MH9M2"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "Polynomials",
-        "marathiTitle": "बहुपदी",
-        "pdfCode": "msb9m03.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0902010003.pdf",
-        "dikshaDialCode": "MH9M3"
-      }
-    ]
-  },
-  {
-    "id": "ncert-8-sci",
-    "title": "Class 8 Science",
-    "hindiTitle": "कक्षा 8 विज्ञान",
-    "marathiTitle": "इयत्ता 8वी सामान्य विज्ञान",
-    "board": "cbse",
-    "grade": 8,
-    "branch": "general",
-    "subject": "Science",
-    "medium": "english",
-    "editionYear": "2024-25 Rationalised",
-    "officialPublisher": "NCERT",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Crop Production and Management",
-        "hindiTitle": "फसल उत्पादन एवं प्रबंध",
-        "pdfCode": "hesc101.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/hesc101.pdf",
-        "dikshaDialCode": "S8R01"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Microorganisms: Friend and Foe",
-        "hindiTitle": "सूक्ष्मजीव: मित्र एवं शत्रु",
-        "pdfCode": "hesc102.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/hesc102.pdf",
-        "dikshaDialCode": "S8R02"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "Coal and Petroleum",
-        "hindiTitle": "कोयला और पेट्रोलियम",
-        "pdfCode": "hesc103.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/hesc103.pdf",
-        "dikshaDialCode": "S8R03"
-      },
-      {
-        "chapterNumber": 4,
-        "title": "Combustion and Flame",
-        "hindiTitle": "दहन और ज्वाला",
-        "pdfCode": "hesc104.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/hesc104.pdf",
-        "dikshaDialCode": "S8R04"
-      },
-      {
-        "chapterNumber": 5,
-        "title": "Conservation of Plants and Animals",
-        "hindiTitle": "पौधों एवं जंतुओं का संरक्षण",
-        "pdfCode": "hesc105.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/hesc105.pdf",
-        "dikshaDialCode": "S8R05"
-      },
-      {
-        "chapterNumber": 6,
-        "title": "Force and Pressure",
-        "hindiTitle": "बल तथा दाब",
-        "pdfCode": "hesc106.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/hesc106.pdf",
-        "dikshaDialCode": "S8R06"
-      },
-      {
-        "chapterNumber": 7,
-        "title": "Friction",
-        "hindiTitle": "घर्षण",
-        "pdfCode": "hesc107.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/hesc107.pdf",
-        "dikshaDialCode": "S8R07"
-      },
-      {
-        "chapterNumber": 8,
-        "title": "Sound",
-        "hindiTitle": "ध्वनि",
-        "pdfCode": "hesc108.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/hesc108.pdf",
-        "dikshaDialCode": "S8R08"
-      }
-    ]
-  },
-  {
-    "id": "ncert-8-math",
-    "title": "Class 8 Mathematics",
-    "hindiTitle": "कक्षा 8 गणित",
-    "marathiTitle": "इयत्ता 8वी गणित",
-    "board": "cbse",
-    "grade": 8,
-    "branch": "general",
-    "subject": "Mathematics",
-    "medium": "english",
-    "editionYear": "2024-25 Rationalised",
-    "officialPublisher": "NCERT",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Rational Numbers",
-        "hindiTitle": "परिमेय संख्याएँ",
-        "pdfCode": "hemh101.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/hemh101.pdf",
-        "dikshaDialCode": "M8R01"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Linear Equations in One Variable",
-        "hindiTitle": "एक चर वाले रैखिक समीकरण",
-        "pdfCode": "hemh102.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/hemh102.pdf",
-        "dikshaDialCode": "M8R02"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "Understanding Quadrilaterals",
-        "hindiTitle": "चतुर्भुजों को समझना",
-        "pdfCode": "hemh103.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/hemh103.pdf",
-        "dikshaDialCode": "M8R03"
-      },
-      {
-        "chapterNumber": 4,
-        "title": "Data Handling",
-        "hindiTitle": "आँकड़ों का प्रबंधन",
-        "pdfCode": "hemh104.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/hemh104.pdf",
-        "dikshaDialCode": "M8R04"
-      },
-      {
-        "chapterNumber": 5,
-        "title": "Squares and Square Roots",
-        "hindiTitle": "वर्ग और वर्गमूल",
-        "pdfCode": "hemh105.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/hemh105.pdf",
-        "dikshaDialCode": "M8R05"
-      },
-      {
-        "chapterNumber": 6,
-        "title": "Cubes and Cube Roots",
-        "hindiTitle": "घन और घनमूल",
-        "pdfCode": "hemh106.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/hemh106.pdf",
-        "dikshaDialCode": "M8R06"
-      }
-    ]
-  },
-  {
-    "id": "msb-8-sci",
-    "title": "इयत्ता 8वी सामान्य विज्ञान (Balbharti)",
-    "hindiTitle": "कक्षा 8 सामान्य विज्ञान",
-    "marathiTitle": "सामान्य विज्ञान (इयत्ता आठवी)",
-    "board": "maharashtra",
-    "grade": 8,
-    "branch": "general",
-    "subject": "Science",
-    "medium": "marathi",
-    "editionYear": "2024-25 State Edition",
-    "officialPublisher": "Maharashtra State Bureau of Textbook Production (Balbharti)",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Living World and Classification of Microbes",
-        "marathiTitle": "सजीव सृष्टी व सूक्ष्मजीवांचे वर्गीकरण",
-        "pdfCode": "msb8sc01.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0801010001.pdf",
-        "dikshaDialCode": "MH8S1"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Health and Diseases",
-        "marathiTitle": "आरोग्य व रोग",
-        "pdfCode": "msb8sc02.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0801010002.pdf",
-        "dikshaDialCode": "MH8S2"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "Force and Pressure",
-        "marathiTitle": "बल व दाब",
-        "pdfCode": "msb8sc03.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0801010003.pdf",
-        "dikshaDialCode": "MH8S3"
-      }
-    ]
-  },
-  {
-    "id": "msb-8-math",
-    "title": "Class 8 Mathematics (Balbharti)",
-    "hindiTitle": "इयत्ता 8वी गणित",
-    "marathiTitle": "गणित (इयत्ता आठवी)",
-    "board": "maharashtra",
-    "grade": 8,
-    "branch": "general",
-    "subject": "Mathematics",
-    "medium": "english",
-    "editionYear": "2024-25 State Edition",
-    "officialPublisher": "Maharashtra State Bureau of Textbook Production (Balbharti)",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Rational and Irrational Numbers",
-        "marathiTitle": "परिमेय व अपरिमेय संख्या",
-        "pdfCode": "msb8m01.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0802010001.pdf",
-        "dikshaDialCode": "MH8M1"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Parallel Lines and Transversals",
-        "marathiTitle": "समांतर रेषा व छेदिका",
-        "pdfCode": "msb8m02.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0802010002.pdf",
-        "dikshaDialCode": "MH8M2"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "Indices and Cube Root",
-        "marathiTitle": "घातांक व घनमूळ",
-        "pdfCode": "msb8m03.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0802010003.pdf",
-        "dikshaDialCode": "MH8M3"
-      }
-    ]
-  },
-  {
-    "id": "ncert-7-sci",
-    "title": "Class 7 Science",
-    "hindiTitle": "कक्षा 7 विज्ञान",
-    "marathiTitle": "इयत्ता 7वी सामान्य विज्ञान",
-    "board": "cbse",
-    "grade": 7,
-    "branch": "general",
-    "subject": "Science",
-    "medium": "english",
-    "editionYear": "2024-25 Rationalised",
-    "officialPublisher": "NCERT",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Nutrition in Plants",
-        "hindiTitle": "पादपों में पोषण",
-        "pdfCode": "gesc101.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/gesc101.pdf",
-        "dikshaDialCode": "S7R01"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Nutrition in Animals",
-        "hindiTitle": "प्राणियों में पोषण",
-        "pdfCode": "gesc102.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/gesc102.pdf",
-        "dikshaDialCode": "S7R02"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "Heat",
-        "hindiTitle": "ऊष्मा",
-        "pdfCode": "gesc103.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/gesc103.pdf",
-        "dikshaDialCode": "S7R03"
-      },
-      {
-        "chapterNumber": 4,
-        "title": "Acids, Bases and Salts",
-        "hindiTitle": "अम्ल, क्षारक और लवण",
-        "pdfCode": "gesc104.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/gesc104.pdf",
-        "dikshaDialCode": "S7R04"
-      },
-      {
-        "chapterNumber": 5,
-        "title": "Physical and Chemical Changes",
-        "hindiTitle": "भौतिक एवं रासायनिक परिवर्तन",
-        "pdfCode": "gesc105.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/gesc105.pdf",
-        "dikshaDialCode": "S7R05"
-      }
-    ]
-  },
-  {
-    "id": "ncert-7-math",
-    "title": "Class 7 Mathematics",
-    "hindiTitle": "कक्षा 7 गणित",
-    "marathiTitle": "इयत्ता 7वी गणित",
-    "board": "cbse",
-    "grade": 7,
-    "branch": "general",
-    "subject": "Mathematics",
-    "medium": "english",
-    "editionYear": "2024-25 Rationalised",
-    "officialPublisher": "NCERT",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Integers",
-        "hindiTitle": "पूर्णांक",
-        "pdfCode": "gemh101.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/gemh101.pdf",
-        "dikshaDialCode": "M7R01"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Fractions and Decimals",
-        "hindiTitle": "भिन्न एवं दशमलव",
-        "pdfCode": "gemh102.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/gemh102.pdf",
-        "dikshaDialCode": "M7R02"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "Data Handling",
-        "hindiTitle": "आँकड़ों का प्रबंधन",
-        "pdfCode": "gemh103.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/gemh103.pdf",
-        "dikshaDialCode": "M7R03"
-      },
-      {
-        "chapterNumber": 4,
-        "title": "Simple Equations",
-        "hindiTitle": "सरल समीकरण",
-        "pdfCode": "gemh104.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/gemh104.pdf",
-        "dikshaDialCode": "M7R04"
-      }
-    ]
-  },
-  {
-    "id": "msb-7-sci",
-    "title": "इयत्ता 7वी सामान्य विज्ञान (Balbharti)",
-    "hindiTitle": "कक्षा 7 सामान्य विज्ञान",
-    "marathiTitle": "सामान्य विज्ञान (इयत्ता सातवी)",
-    "board": "maharashtra",
-    "grade": 7,
-    "branch": "general",
-    "subject": "Science",
-    "medium": "marathi",
-    "editionYear": "2024-25 State Edition",
-    "officialPublisher": "Maharashtra State Bureau of Textbook Production (Balbharti)",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "The Living World: Adaptations and Classification",
-        "marathiTitle": "सजीव सृष्टी : अनुकूलन व वर्गीकरण",
-        "pdfCode": "msb7sc01.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0701010001.pdf",
-        "dikshaDialCode": "MH7S1"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Plants: Structure and Function",
-        "marathiTitle": "वनस्पती : रचना व कार्ये",
-        "pdfCode": "msb7sc02.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0701010002.pdf",
-        "dikshaDialCode": "MH7S2"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "Properties of Natural Resources",
-        "marathiTitle": "नैसर्गिक साधनसंपत्तीचे गुणधर्म",
-        "pdfCode": "msb7sc03.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0701010003.pdf",
-        "dikshaDialCode": "MH7S3"
-      }
-    ]
-  },
-  {
-    "id": "msb-7-math",
-    "title": "Class 7 Mathematics (Balbharti)",
-    "hindiTitle": "इयत्ता 7वी गणित",
-    "marathiTitle": "गणित (इयत्ता सातवी)",
-    "board": "maharashtra",
-    "grade": 7,
-    "branch": "general",
-    "subject": "Mathematics",
-    "medium": "english",
-    "editionYear": "2024-25 State Edition",
-    "officialPublisher": "Maharashtra State Bureau of Textbook Production (Balbharti)",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Geometrical Constructions",
-        "marathiTitle": "भौमितिक रचना",
-        "pdfCode": "msb7m01.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0702010001.pdf",
-        "dikshaDialCode": "MH7M1"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Multiplication and Division of Integers",
-        "marathiTitle": "पूर्णांक संख्यांचा गुणाकार व भागाकार",
-        "pdfCode": "msb7m02.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0702010002.pdf",
-        "dikshaDialCode": "MH7M2"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "HCF and LCM",
-        "marathiTitle": "मसावि आणि लसावि",
-        "pdfCode": "msb7m03.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0702010003.pdf",
-        "dikshaDialCode": "MH7M3"
-      }
-    ]
-  },
-  {
-    "id": "ncert-6-curiosity",
-    "title": "Curiosity - Class 6 Science",
-    "hindiTitle": "जिज्ञासा - कक्षा 6 विज्ञान",
-    "marathiTitle": "इयत्ता 6वी विज्ञान (जिज्ञासा)",
-    "board": "cbse",
-    "grade": 6,
-    "branch": "general",
-    "subject": "Science",
-    "medium": "english",
-    "editionYear": "2024-25 NEP NCF Edition",
-    "officialPublisher": "NCERT",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "The Wonderful World of Science",
-        "hindiTitle": "विज्ञान का अद्भुत संसार",
-        "pdfCode": "fesc101.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/fesc101.pdf",
-        "dikshaDialCode": "S6R01"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Diversity in the Living World",
-        "hindiTitle": "सजीव जगत में विविधता",
-        "pdfCode": "fesc102.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/fesc102.pdf",
-        "dikshaDialCode": "S6R02"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "Mindful Eating: A Path to a Healthy Body",
-        "hindiTitle": "उचित आहार: स्वस्थ शरीर का आधार",
-        "pdfCode": "fesc103.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/fesc103.pdf",
-        "dikshaDialCode": "S6R03"
-      },
-      {
-        "chapterNumber": 4,
-        "title": "Exploring Magnets",
-        "hindiTitle": "चुंबकों की खोज",
-        "pdfCode": "fesc104.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/fesc104.pdf",
-        "dikshaDialCode": "S6R04"
-      },
-      {
-        "chapterNumber": 5,
-        "title": "Measurement of Length and Motion",
-        "hindiTitle": "दूरी एवं गति का मापन",
-        "pdfCode": "fesc105.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/fesc105.pdf",
-        "dikshaDialCode": "S6R05"
-      }
-    ]
-  },
-  {
-    "id": "ncert-6-math",
-    "title": "Class 6 Mathematics (Ganita Prakash)",
-    "hindiTitle": "गणित प्रकाश - कक्षा 6",
-    "marathiTitle": "इयत्ता 6वी गणित प्रकाश",
-    "board": "cbse",
-    "grade": 6,
-    "branch": "general",
-    "subject": "Mathematics",
-    "medium": "english",
-    "editionYear": "2024-25 NEP NCF Edition",
-    "officialPublisher": "NCERT",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Patterns in Mathematics",
-        "hindiTitle": "गणित में प्रतिरूप",
-        "pdfCode": "femh101.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/femh101.pdf",
-        "dikshaDialCode": "M6R01"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Lines and Angles",
-        "hindiTitle": "रेखाएँ और कोण",
-        "pdfCode": "femh102.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/femh102.pdf",
-        "dikshaDialCode": "M6R02"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "Number Play",
-        "hindiTitle": "संख्याओं का खेल",
-        "pdfCode": "femh103.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/femh103.pdf",
-        "dikshaDialCode": "M6R03"
-      },
-      {
-        "chapterNumber": 4,
-        "title": "Data Handling and Presentation",
-        "hindiTitle": "आँकड़ों का प्रस्तुतीकरण",
-        "pdfCode": "femh104.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/femh104.pdf",
-        "dikshaDialCode": "M6R04"
-      }
-    ]
-  },
-  {
-    "id": "ncert-6-soc",
-    "title": "Exploring Society: India and Beyond (Social Science)",
-    "hindiTitle": "समाज की खोज: भारत और उससे परे",
-    "marathiTitle": "समाज शोध: भारत आणि जग",
-    "board": "cbse",
-    "grade": 6,
-    "branch": "general",
-    "subject": "Social Science",
-    "medium": "english",
-    "editionYear": "2024-25 NEP NCF Edition",
-    "officialPublisher": "NCERT",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Locating Places on the Earth",
-        "hindiTitle": "पृथ्वी पर स्थानों का निर्धारण",
-        "pdfCode": "fess101.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/fess101.pdf",
-        "dikshaDialCode": "SS6R1"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Oceans and Continents",
-        "hindiTitle": "महासागर और महाद्वीप",
-        "pdfCode": "fess102.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/fess102.pdf",
-        "dikshaDialCode": "SS6R2"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "Landforms and Life",
-        "hindiTitle": "स्थलरूप और जनजीवन",
-        "pdfCode": "fess103.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/fess103.pdf",
-        "dikshaDialCode": "SS6R3"
-      }
-    ]
-  },
-  {
-    "id": "msb-6-sci",
-    "title": "इयत्ता 6वी सामान्य विज्ञान (Balbharti)",
-    "hindiTitle": "कक्षा 6 सामान्य विज्ञान",
-    "marathiTitle": "सामान्य विज्ञान (इयत्ता सहावी)",
-    "board": "maharashtra",
-    "grade": 6,
-    "branch": "general",
-    "subject": "Science",
-    "medium": "marathi",
-    "editionYear": "2024-25 State Edition",
-    "officialPublisher": "Maharashtra State Bureau of Textbook Production (Balbharti)",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Natural Resources – Air, Water and Land",
-        "marathiTitle": "नैसर्गिक संसाधने – हवा, पाणी आणि जमीन",
-        "pdfCode": "msb6sc01.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0601010001.pdf",
-        "dikshaDialCode": "MH6S1"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "The Living World",
-        "marathiTitle": "सजीव सृष्टी",
-        "pdfCode": "msb6sc02.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0601010002.pdf",
-        "dikshaDialCode": "MH6S2"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "Diversity in Living Things and Their Classification",
-        "marathiTitle": "सजीवांतील विविधता आणि त्यांचे वर्गीकरण",
-        "pdfCode": "msb6sc03.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0601010003.pdf",
-        "dikshaDialCode": "MH6S3"
-      }
-    ]
-  },
-  {
-    "id": "msb-6-math",
-    "title": "Class 6 Mathematics (Balbharti)",
-    "hindiTitle": "इयत्ता 6वी गणित",
-    "marathiTitle": "गणित (इयत्ता सहावी)",
-    "board": "maharashtra",
-    "grade": 6,
-    "branch": "general",
-    "subject": "Mathematics",
-    "medium": "english",
-    "editionYear": "2024-25 State Edition",
-    "officialPublisher": "Maharashtra State Bureau of Textbook Production (Balbharti)",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Basic Concepts in Geometry",
-        "marathiTitle": "भूमितीतील मूलभूत संबोध",
-        "pdfCode": "msb6m01.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0602010001.pdf",
-        "dikshaDialCode": "MH6M1"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Angles",
-        "marathiTitle": "कोन",
-        "pdfCode": "msb6m02.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0602010002.pdf",
-        "dikshaDialCode": "MH6M2"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "Integers",
-        "marathiTitle": "पूर्णांक संख्या",
-        "pdfCode": "msb6m03.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0602010003.pdf",
-        "dikshaDialCode": "MH6M3"
-      }
-    ]
-  },
-  {
-    "id": "ncert-5-math",
-    "title": "Class 5 Math-Magic",
-    "hindiTitle": "कक्षा 5 गणित का जादू",
-    "marathiTitle": "इयत्ता 5वी गणिताची जादू",
-    "board": "cbse",
-    "grade": 5,
-    "branch": "general",
-    "subject": "Mathematics",
-    "medium": "english",
-    "editionYear": "2024-25 Rationalised",
-    "officialPublisher": "NCERT",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "The Fish Tale",
-        "hindiTitle": "मछली उछली",
-        "pdfCode": "eemh101.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/eemh101.pdf",
-        "dikshaDialCode": "M5R01"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Shapes and Angles",
-        "hindiTitle": "आकृतियाँ और कोण",
-        "pdfCode": "eemh102.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/eemh102.pdf",
-        "dikshaDialCode": "M5R02"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "How Many Squares?",
-        "hindiTitle": "कितने वर्ग?",
-        "pdfCode": "eemh103.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/eemh103.pdf",
-        "dikshaDialCode": "M5R03"
-      },
-      {
-        "chapterNumber": 4,
-        "title": "Parts and Wholes",
-        "hindiTitle": "हिस्से और पूरे",
-        "pdfCode": "eemh104.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/eemh104.pdf",
-        "dikshaDialCode": "M5R04"
-      },
-      {
-        "chapterNumber": 5,
-        "title": "Does it Look the Same?",
-        "hindiTitle": "क्या यह एक जैसा दिखता है?",
-        "pdfCode": "eemh105.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/eemh105.pdf",
-        "dikshaDialCode": "M5R05"
-      }
-    ]
-  },
-  {
-    "id": "ncert-5-evs",
-    "title": "Looking Around (Class 5 EVS)",
-    "hindiTitle": "आसपास - कक्षा 5 पर्यावरण",
-    "marathiTitle": "परिसर अभ्यास - इयत्ता पाचवी",
-    "board": "cbse",
-    "grade": 5,
-    "branch": "general",
-    "subject": "Environmental Studies",
-    "medium": "english",
-    "editionYear": "2024-25 Rationalised",
-    "officialPublisher": "NCERT",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Super Senses",
-        "hindiTitle": "कैसे पहचाना चींटी ने दोस्त को?",
-        "pdfCode": "eeev101.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/eeev101.pdf",
-        "dikshaDialCode": "EV5R01"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "A Snake Charmer's Story",
-        "hindiTitle": "कहानी सपेरों की",
-        "pdfCode": "eeev102.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/eeev102.pdf",
-        "dikshaDialCode": "EV5R02"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "From Tasting to Digesting",
-        "hindiTitle": "चखने से पचने तक",
-        "pdfCode": "eeev103.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/eeev103.pdf",
-        "dikshaDialCode": "EV5R03"
-      },
-      {
-        "chapterNumber": 4,
-        "title": "Mangoes Round the Year",
-        "hindiTitle": "खाएँ आम बारहों महीने",
-        "pdfCode": "eeev104.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/eeev104.pdf",
-        "dikshaDialCode": "EV5R04"
-      }
-    ]
-  },
-  {
-    "id": "msb-5-math",
-    "title": "Class 5 Mathematics (Balbharti)",
-    "hindiTitle": "इयत्ता 5वी गणित",
-    "marathiTitle": "गणित (इयत्ता पाचवी बालभारती)",
-    "board": "maharashtra",
-    "grade": 5,
-    "branch": "general",
-    "subject": "Mathematics",
-    "medium": "english",
-    "editionYear": "2024-25 State Edition",
-    "officialPublisher": "Maharashtra State Bureau of Textbook Production (Balbharti)",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Roman Numerals",
-        "marathiTitle": "रोमन संख्याचिन्हे",
-        "pdfCode": "msb5m01.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0502010001.pdf",
-        "dikshaDialCode": "MH5M1"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Number Work",
-        "marathiTitle": "संख्याज्ञान",
-        "pdfCode": "msb5m02.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0502010002.pdf",
-        "dikshaDialCode": "MH5M2"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "Addition and Subtraction",
-        "marathiTitle": "बेरीज व वजाबाकी",
-        "pdfCode": "msb5m03.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0502010003.pdf",
-        "dikshaDialCode": "MH5M3"
-      }
-    ]
-  },
-  {
-    "id": "msb-5-evs-marathi",
-    "title": "इयत्ता 5वी परिसर अभ्यास भाग 1 (Balbharti)",
-    "hindiTitle": "कक्षा 5 परिसर अध्ययन भाग 1",
-    "marathiTitle": "परिसर अभ्यास भाग 1 (इयत्ता पाचवी)",
-    "board": "maharashtra",
-    "grade": 5,
-    "branch": "general",
-    "subject": "Environmental Studies",
-    "medium": "marathi",
-    "editionYear": "2024-25 State Edition",
-    "officialPublisher": "Maharashtra State Bureau of Textbook Production (Balbharti)",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Our Earth and Our Solar System",
-        "marathiTitle": "आपली पृथ्वी, आपली सूर्यमाला",
-        "pdfCode": "msb5ev01.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0501010001.pdf",
-        "dikshaDialCode": "MH5E1"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Motions of the Earth",
-        "marathiTitle": "पृथ्वीचे फिरणे",
-        "pdfCode": "msb5ev02.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0501010002.pdf",
-        "dikshaDialCode": "MH5E2"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "The Earth and its Living World",
-        "marathiTitle": "पृथ्वी आणि जीवसृष्टी",
-        "pdfCode": "msb5ev03.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0501010003.pdf",
-        "dikshaDialCode": "MH5E3"
-      }
-    ]
-  },
-  {
-    "id": "ncert-4-math",
-    "title": "Class 4 Math-Magic",
-    "hindiTitle": "कक्षा 4 गणित का जादू",
-    "marathiTitle": "इयत्ता 4थी गणित",
-    "board": "cbse",
-    "grade": 4,
-    "branch": "general",
-    "subject": "Mathematics",
-    "medium": "english",
-    "editionYear": "2024-25 Rationalised",
-    "officialPublisher": "NCERT",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Building with Bricks",
-        "hindiTitle": "ईंटों से बनी इमारत",
-        "pdfCode": "demh101.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/demh101.pdf",
-        "dikshaDialCode": "M4R01"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Long and Short",
-        "hindiTitle": "लंबा और छोटा",
-        "pdfCode": "demh102.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/demh102.pdf",
-        "dikshaDialCode": "M4R02"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "A Trip to Bhopal",
-        "hindiTitle": "भोपाल की सैर",
-        "pdfCode": "demh103.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/demh103.pdf",
-        "dikshaDialCode": "M4R03"
-      },
-      {
-        "chapterNumber": 4,
-        "title": "Tick-Tick-Tick (Time)",
-        "hindiTitle": "टिक-टिक-टिक",
-        "pdfCode": "demh104.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/demh104.pdf",
-        "dikshaDialCode": "M4R04"
-      }
-    ]
-  },
-  {
-    "id": "ncert-4-evs",
-    "title": "Looking Around (Class 4 EVS)",
-    "hindiTitle": "आसपास - कक्षा 4",
-    "marathiTitle": "परिसर अभ्यास - इयत्ता चौथी",
-    "board": "cbse",
-    "grade": 4,
-    "branch": "general",
-    "subject": "Environmental Studies",
-    "medium": "english",
-    "editionYear": "2024-25 Rationalised",
-    "officialPublisher": "NCERT",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Going to School",
-        "hindiTitle": "चलो, चलें स्कूल!",
-        "pdfCode": "deev101.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/deev101.pdf",
-        "dikshaDialCode": "EV4R01"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Ear to Ear",
-        "hindiTitle": "कान-कान में",
-        "pdfCode": "deev102.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/deev102.pdf",
-        "dikshaDialCode": "EV4R02"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "A Day with Nandu",
-        "hindiTitle": "नंदू हाथी",
-        "pdfCode": "deev103.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/deev103.pdf",
-        "dikshaDialCode": "EV4R03"
-      }
-    ]
-  },
-  {
-    "id": "msb-4-shivaji",
-    "title": "Environmental Studies Part 2: Chhatrapati Shivaji Maharaj",
-    "hindiTitle": "छत्रपति शिवाजी महाराज का इतिहास",
-    "marathiTitle": "परिसर अभ्यास भाग २ : शिवछत्रपती (इयत्ता चौथी)",
-    "board": "maharashtra",
-    "grade": 4,
-    "branch": "general",
-    "subject": "History",
-    "medium": "marathi",
-    "editionYear": "2024-25 State Edition",
-    "officialPublisher": "Maharashtra State Bureau of Textbook Production (Balbharti)",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Maharashtra Before Shivaji",
-        "marathiTitle": "शिवजन्मापूर्वीचा महाराष्ट्र",
-        "pdfCode": "msb4hi01.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0401010001.pdf",
-        "dikshaDialCode": "MH4H1"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Work of the Saints",
-        "marathiTitle": "संतांची कामगिरी",
-        "pdfCode": "msb4hi02.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0401010002.pdf",
-        "dikshaDialCode": "MH4H2"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "Maratha Sardars – The Famous House of the Bhonsales",
-        "marathiTitle": "मराठा सरदार – भोसल्यांचे कर्तबगार घराणे",
-        "pdfCode": "msb4hi03.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0401010003.pdf",
-        "dikshaDialCode": "MH4H3"
-      }
-    ]
-  },
-  {
-    "id": "msb-4-math",
-    "title": "Class 4 Mathematics (Balbharti)",
-    "hindiTitle": "इयत्ता 4थी गणित",
-    "marathiTitle": "गणित (इयत्ता चौथी बालभारती)",
-    "board": "maharashtra",
-    "grade": 4,
-    "branch": "general",
-    "subject": "Mathematics",
-    "medium": "english",
-    "editionYear": "2024-25 State Edition",
-    "officialPublisher": "Maharashtra State Bureau of Textbook Production (Balbharti)",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Geometrical Figures",
-        "marathiTitle": "भौमितिक आकृत्या",
-        "pdfCode": "msb4m01.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0402010001.pdf",
-        "dikshaDialCode": "MH4M1"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Number Work",
-        "marathiTitle": "संख्याज्ञान",
-        "pdfCode": "msb4m02.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0402010002.pdf",
-        "dikshaDialCode": "MH4M2"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "Addition on Number Line",
-        "marathiTitle": "बेरीज",
-        "pdfCode": "msb4m03.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0402010003.pdf",
-        "dikshaDialCode": "MH4M3"
-      }
-    ]
-  },
-  {
-    "id": "ncert-3-mathmela",
-    "title": "Math Mela - Class 3 Mathematics",
-    "hindiTitle": "गणित मेला - कक्षा 3",
-    "marathiTitle": "इयत्ता 3री गणित मेळा",
-    "board": "cbse",
-    "grade": 3,
-    "branch": "general",
-    "subject": "Mathematics",
-    "medium": "english",
-    "editionYear": "2024-25 NEP NCF Edition",
-    "officialPublisher": "NCERT",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "What's in a Name? (Numbers 100-1000)",
-        "hindiTitle": "नाम में क्या रखा है?",
-        "pdfCode": "cemh101.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/cemh101.pdf",
-        "dikshaDialCode": "M3R01"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Toy Joy (Addition & Subtraction)",
-        "hindiTitle": "खिलौनों का मज़ा",
-        "pdfCode": "cemh102.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/cemh102.pdf",
-        "dikshaDialCode": "M3R02"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "Double Century (Cricket and Numbers)",
-        "hindiTitle": "दोहरा शतक",
-        "pdfCode": "cemh103.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/cemh103.pdf",
-        "dikshaDialCode": "M3R03"
-      },
-      {
-        "chapterNumber": 4,
-        "title": "Vacation with My Nani (Time & Calendar)",
-        "hindiTitle": "नानी के घर छुट्टियाँ",
-        "pdfCode": "cemh104.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/cemh104.pdf",
-        "dikshaDialCode": "M3R04"
-      }
-    ]
-  },
-  {
-    "id": "ncert-3-wondrous",
-    "title": "Our Wondrous World - Class 3 Environmental Studies",
-    "hindiTitle": "हमारा अद्भुत संसार - कक्षा 3 पर्यावरण",
-    "marathiTitle": "आपले अद्भुत जग - इयत्ता तिसरी",
-    "board": "cbse",
-    "grade": 3,
-    "branch": "general",
-    "subject": "Environmental Studies",
-    "medium": "english",
-    "editionYear": "2024-25 NEP NCF Edition",
-    "officialPublisher": "NCERT",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Family and Friends",
-        "hindiTitle": "परिवार और मित्र",
-        "pdfCode": "ceev101.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/ceev101.pdf",
-        "dikshaDialCode": "EV3R01"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Plants Around Us",
-        "hindiTitle": "हमारे आसपास के पौधे",
-        "pdfCode": "ceev102.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/ceev102.pdf",
-        "dikshaDialCode": "EV3R02"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "Animals Our Companions",
-        "hindiTitle": "पशु-पक्षी हमारे साथी",
-        "pdfCode": "ceev103.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/ceev103.pdf",
-        "dikshaDialCode": "EV3R03"
-      }
-    ]
-  },
-  {
-    "id": "msb-3-marathi",
-    "title": "मराठी बालभारती इयत्ता तिसरी",
-    "hindiTitle": "कक्षा 3 मराठी बालभारती",
-    "marathiTitle": "मराठी बालभारती (इयत्ता तिसरी)",
-    "board": "maharashtra",
-    "grade": 3,
-    "branch": "general",
-    "subject": "Marathi",
-    "medium": "marathi",
-    "editionYear": "2024-25 State Edition",
-    "officialPublisher": "Maharashtra State Bureau of Textbook Production (Balbharti)",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "झोका (कविता)",
-        "marathiTitle": "झोका (कविता)",
-        "pdfCode": "msb3mb01.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0301010001.pdf",
-        "dikshaDialCode": "MH3B1"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "सिंह आणि कोल्हा",
-        "marathiTitle": "सिंह आणि कोल्हा",
-        "pdfCode": "msb3mb02.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0301010002.pdf",
-        "dikshaDialCode": "MH3B2"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "आपण सारे काही करू!",
-        "marathiTitle": "आपण सारे काही करू!",
-        "pdfCode": "msb3mb03.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0301010003.pdf",
-        "dikshaDialCode": "MH3B3"
-      }
-    ]
-  },
-  {
-    "id": "msb-3-math",
-    "title": "Class 3 Mathematics (Balbharti)",
-    "hindiTitle": "इयत्ता 3री गणित",
-    "marathiTitle": "गणित (इयत्ता तिसरी बालभारती)",
-    "board": "maharashtra",
-    "grade": 3,
-    "branch": "general",
-    "subject": "Mathematics",
-    "medium": "english",
-    "editionYear": "2024-25 State Edition",
-    "officialPublisher": "Maharashtra State Bureau of Textbook Production (Balbharti)",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Introduction to Geometrical Figures",
-        "marathiTitle": "भौमितिक आकृत्यांची ओळख",
-        "pdfCode": "msb3m01.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0302010001.pdf",
-        "dikshaDialCode": "MH3M1"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Number Work - Three Digit Numbers",
-        "marathiTitle": "संख्याज्ञान : तीन अंकी संख्या",
-        "pdfCode": "msb3m02.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0302010002.pdf",
-        "dikshaDialCode": "MH3M2"
-      }
-    ]
-  },
-  {
-    "id": "ncert-2-joymath",
-    "title": "Joyful Mathematics - Class 2",
-    "hindiTitle": "आनंदमय गणित - कक्षा 2",
-    "marathiTitle": "इयत्ता 2री आनंदमय गणित",
-    "board": "cbse",
-    "grade": 2,
-    "branch": "general",
-    "subject": "Mathematics",
-    "medium": "english",
-    "editionYear": "2024-25 NEP NCF Edition",
-    "officialPublisher": "NCERT",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "A Day at the Beach (Shapes and Spatial)",
-        "hindiTitle": "समुद्र तट पर एक दिन",
-        "pdfCode": "bemh101.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/bemh101.pdf",
-        "dikshaDialCode": "M2R01"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Shapes Around Us",
-        "hindiTitle": "हमारे चारों ओर की आकृतियाँ",
-        "pdfCode": "bemh102.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/bemh102.pdf",
-        "dikshaDialCode": "M2R02"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "Fun with Numbers (Counting up to 100)",
-        "hindiTitle": "संख्याओं के साथ मज़ा",
-        "pdfCode": "bemh103.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/bemh103.pdf",
-        "dikshaDialCode": "M2R03"
-      },
-      {
-        "chapterNumber": 4,
-        "title": "Shadow Stories (Togethreness)",
-        "hindiTitle": "छाया की कहानियाँ",
-        "pdfCode": "bemh104.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/bemh104.pdf",
-        "dikshaDialCode": "M2R04"
-      }
-    ]
-  },
-  {
-    "id": "ncert-2-mridang",
-    "title": "Mridang - Class 2 English",
-    "hindiTitle": "मृदंग - कक्षा 2 अंग्रेज़ी",
-    "marathiTitle": "इयत्ता 2री इंग्रजी (मृदंग)",
-    "board": "cbse",
-    "grade": 2,
-    "branch": "general",
-    "subject": "English",
-    "medium": "english",
-    "editionYear": "2024-25 NEP NCF Edition",
-    "officialPublisher": "NCERT",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "My Bicycle (Poem)",
-        "hindiTitle": "मेरी साइकिल",
-        "pdfCode": "been101.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/been101.pdf",
-        "dikshaDialCode": "E2R01"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Picture Reading: Fun at the Fair",
-        "hindiTitle": "मेले में मज़ा",
-        "pdfCode": "been102.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/been102.pdf",
-        "dikshaDialCode": "E2R02"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "It is Fun! (Animal Movements)",
-        "hindiTitle": "कितना मज़ा!",
-        "pdfCode": "been103.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/been103.pdf",
-        "dikshaDialCode": "E2R03"
-      }
-    ]
-  },
-  {
-    "id": "msb-2-marathi",
-    "title": "मराठी बालभारती इयत्ता दुसरी",
-    "hindiTitle": "कक्षा 2 मराठी बालभारती",
-    "marathiTitle": "मराठी बालभारती (इयत्ता दुसरी)",
-    "board": "maharashtra",
-    "grade": 2,
-    "branch": "general",
-    "subject": "Marathi",
-    "medium": "marathi",
-    "editionYear": "2024-25 State Edition",
-    "officialPublisher": "Maharashtra State Bureau of Textbook Production (Balbharti)",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "भारतमाता (गीत)",
-        "marathiTitle": "भारतमाता (गीत)",
-        "pdfCode": "msb2mb01.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0201010001.pdf",
-        "dikshaDialCode": "MH2B1"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "देवाचे घर (कविता)",
-        "marathiTitle": "देवाचे घर",
-        "pdfCode": "msb2mb02.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0201010002.pdf",
-        "dikshaDialCode": "MH2B2"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "मांजर आणि उंदीर",
-        "marathiTitle": "मांजर आणि उंदीर",
-        "pdfCode": "msb2mb03.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0201010003.pdf",
-        "dikshaDialCode": "MH2B3"
-      }
-    ]
-  },
-  {
-    "id": "msb-2-math",
-    "title": "Class 2 Mathematics (Balbharti)",
-    "hindiTitle": "इयत्ता 2री गणित",
-    "marathiTitle": "गणित (इयत्ता दुसरी बालभारती)",
-    "board": "maharashtra",
-    "grade": 2,
-    "branch": "general",
-    "subject": "Mathematics",
-    "medium": "english",
-    "editionYear": "2024-25 State Edition",
-    "officialPublisher": "Maharashtra State Bureau of Textbook Production (Balbharti)",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Let's find the shapes!",
-        "marathiTitle": "चला, शोधूया आकार!",
-        "pdfCode": "msb2m01.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0202010001.pdf",
-        "dikshaDialCode": "MH2M1"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "Let's read and write in words!",
-        "marathiTitle": "चला, अक्षरात लिहूया!",
-        "pdfCode": "msb2m02.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0202010002.pdf",
-        "dikshaDialCode": "MH2M2"
-      }
-    ]
-  },
-  {
-    "id": "ncert-1-math",
-    "title": "Class 1 Joyful Mathematics",
-    "hindiTitle": "कक्षा 1 आनंदमय गणित",
-    "marathiTitle": "इयत्ता 1ली आनंदमय गणित",
+export interface CatalogSyncResult {
+  source: "server" | "cache" | "bundled";
+  lastChecked: string;
+  bookCount: number;
+  isOnline: boolean;
+  message: string;
+}
+
+export const NCERT_CATALOG: TextbookBook[] = [
+  {
+    "id": "ncert-class-1-math-joyful",
+    "title": "Joyful Mathematics (Class 1)",
+    "hindiTitle": "आनंदमय गणित (कक्षा 1)",
     "board": "cbse",
     "grade": 1,
-    "branch": "general",
     "subject": "Mathematics",
+    "branch": "general",
     "medium": "english",
-    "editionYear": "2024-25 NEP Edition",
-    "officialPublisher": "NCERT",
+    "editionYear": "National Curriculum (NEP)",
+    "officialPublisher": "NCERT (Government of India)",
+    "coverColor": "from-amber-500 to-orange-600",
     "chapters": [
       {
         "chapterNumber": 1,
-        "title": "Finding the Furry Cat! (Shapes and Space)",
-        "hindiTitle": "आकृतियाँ और स्थान",
-        "pdfCode": "aemh101.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/aemh101.pdf",
-        "dikshaDialCode": "M1R01"
+        "title": "Finding the Furry Cat (Pre-number Concepts)",
+        "pdfCode": "aejm101.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/aejm101.pdf"
       },
       {
         "chapterNumber": 2,
-        "title": "What is Long? What is Round?",
-        "hindiTitle": "क्या है लंबा? क्या है गोल?",
-        "pdfCode": "aemh102.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/aemh102.pdf",
-        "dikshaDialCode": "M1R02"
+        "title": "What is Long? What is Round? (Shapes)",
+        "pdfCode": "aejm102.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/aejm102.pdf"
       },
       {
         "chapterNumber": 3,
         "title": "Mango Treat (Numbers 1 to 9)",
-        "hindiTitle": "आम की दावत (संख्याएँ 1 से 9)",
-        "pdfCode": "aemh103.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/aemh103.pdf",
-        "dikshaDialCode": "M1R03"
+        "pdfCode": "aejm103.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/aejm103.pdf"
       },
       {
         "chapterNumber": 4,
-        "title": "Making 10 (Addition & Grouping)",
-        "hindiTitle": "10 बनाना",
-        "pdfCode": "aemh104.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/aemh104.pdf",
-        "dikshaDialCode": "M1R04"
+        "title": "Making 10 (Numbers 10 to 20)",
+        "pdfCode": "aejm104.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/aejm104.pdf"
+      },
+      {
+        "chapterNumber": 5,
+        "title": "How Many? (Addition & Subtraction)",
+        "pdfCode": "aejm105.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/aejm105.pdf"
+      },
+      {
+        "chapterNumber": 6,
+        "title": "Vegetable Farm (Addition & Subtraction up to 20)",
+        "pdfCode": "aejm106.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/aejm106.pdf"
+      },
+      {
+        "chapterNumber": 7,
+        "title": "Lina’s Family (Measurement)",
+        "pdfCode": "aejm107.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/aejm107.pdf"
+      },
+      {
+        "chapterNumber": 8,
+        "title": "Fun with Numbers (Numbers 21 to 99)",
+        "pdfCode": "aejm108.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/aejm108.pdf"
+      },
+      {
+        "chapterNumber": 9,
+        "title": "Utsav (Patterns)",
+        "pdfCode": "aejm109.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/aejm109.pdf"
+      },
+      {
+        "chapterNumber": 10,
+        "title": "How do I Spend My Day? (Time)",
+        "pdfCode": "aejm110.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/aejm110.pdf"
+      },
+      {
+        "chapterNumber": 11,
+        "title": "How Many Times? (Multiplication)",
+        "pdfCode": "aejm111.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/aejm111.pdf"
+      },
+      {
+        "chapterNumber": 12,
+        "title": "How Much Can We Spend? (Money)",
+        "pdfCode": "aejm112.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/aejm112.pdf"
+      },
+      {
+        "chapterNumber": 13,
+        "title": "So Many Toys (Data Handling)",
+        "pdfCode": "aejm113.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/aejm113.pdf"
       }
     ]
   },
   {
-    "id": "ncert-1-mridang",
-    "title": "Mridang - Class 1 English",
-    "hindiTitle": "मृदंग - कक्षा 1 अंग्रेज़ी",
-    "marathiTitle": "इयत्ता 1ली इंग्रजी (मृदंग)",
+    "id": "ncert-class-1-english-mridang",
+    "title": "Mridang (Class 1 English)",
+    "hindiTitle": "मृदंग (कक्षा 1 अंग्रेज़ी)",
     "board": "cbse",
     "grade": 1,
-    "branch": "general",
     "subject": "English",
+    "branch": "general",
     "medium": "english",
-    "editionYear": "2024-25 NEP Edition",
-    "officialPublisher": "NCERT",
+    "editionYear": "National Curriculum (NEP)",
+    "officialPublisher": "NCERT (Government of India)",
+    "coverColor": "from-sky-500 to-blue-600",
     "chapters": [
       {
         "chapterNumber": 1,
-        "title": "Two Little Hands (Action Song)",
-        "hindiTitle": "दो छोटे हाथ",
+        "title": "Two Little Hands",
         "pdfCode": "aeen101.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/aeen101.pdf",
-        "dikshaDialCode": "E1R01"
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/aeen101.pdf"
       },
       {
         "chapterNumber": 2,
-        "title": "Greetings and My Family",
-        "hindiTitle": "अभिवादन और मेरा परिवार",
+        "title": "Greetings",
         "pdfCode": "aeen102.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/aeen102.pdf",
-        "dikshaDialCode": "E1R02"
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/aeen102.pdf"
       },
       {
         "chapterNumber": 3,
-        "title": "Picture Time: Animals and Nature",
-        "hindiTitle": "चित्र पठन: पशु और प्रकृति",
+        "title": "Picture Reading",
         "pdfCode": "aeen103.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/aeen103.pdf",
-        "dikshaDialCode": "E1R03"
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/aeen103.pdf"
+      },
+      {
+        "chapterNumber": 4,
+        "title": "The Cap-seller and the Monkeys",
+        "pdfCode": "aeen104.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/aeen104.pdf"
+      },
+      {
+        "chapterNumber": 5,
+        "title": "A Farm",
+        "pdfCode": "aeen105.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/aeen105.pdf"
+      },
+      {
+        "chapterNumber": 6,
+        "title": "Fun with Words",
+        "pdfCode": "aeen106.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/aeen106.pdf"
+      },
+      {
+        "chapterNumber": 7,
+        "title": "The Food We Eat",
+        "pdfCode": "aeen107.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/aeen107.pdf"
+      },
+      {
+        "chapterNumber": 8,
+        "title": "The Four Seasons",
+        "pdfCode": "aeen108.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/aeen108.pdf"
+      },
+      {
+        "chapterNumber": 9,
+        "title": "Anandi’s Rainbow",
+        "pdfCode": "aeen109.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/aeen109.pdf"
       }
     ]
   },
   {
-    "id": "ncert-1-sarangi",
-    "title": "सारंगी - कक्षा 1 हिंदी",
-    "hindiTitle": "सारंगी - कक्षा 1 हिंदी",
-    "marathiTitle": "इयत्ता 1ली हिंदी (सारंगी)",
+    "id": "ncert-class-1-hindi-sarangi",
+    "title": "Sarangi (Class 1 Hindi)",
+    "hindiTitle": "सारंगी (कक्षा 1 हिन्दी)",
     "board": "cbse",
     "grade": 1,
-    "branch": "general",
     "subject": "Hindi",
+    "branch": "general",
     "medium": "hindi",
-    "editionYear": "2024-25 NEP Edition",
-    "officialPublisher": "NCERT",
+    "editionYear": "National Curriculum (NEP)",
+    "officialPublisher": "NCERT (Government of India)",
+    "coverColor": "from-rose-500 to-red-600",
     "chapters": [
       {
         "chapterNumber": 1,
         "title": "मीना का परिवार",
-        "hindiTitle": "मीना का परिवार",
         "pdfCode": "aehn101.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/aehn101.pdf",
-        "dikshaDialCode": "H1R01"
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/aehn101.pdf"
       },
       {
         "chapterNumber": 2,
-        "title": "दादा-दादी की बातें",
-        "hindiTitle": "दादा-दादी की बातें",
+        "title": "दादा-दादी",
         "pdfCode": "aehn102.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/aehn102.pdf",
-        "dikshaDialCode": "H1R02"
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/aehn102.pdf"
       },
       {
         "chapterNumber": 3,
         "title": "रीना का दिन",
-        "hindiTitle": "रीना का दिन",
         "pdfCode": "aehn103.pdf",
-        "officialUrl": "https://ncert.nic.in/textbook/pdf/aehn103.pdf",
-        "dikshaDialCode": "H1R03"
-      }
-    ]
-  },
-  {
-    "id": "msb-1-english",
-    "title": "My English Book One (Class 1 Balbharti)",
-    "hindiTitle": "माय इंग्लिश बुक वन (इयत्ता पहिली)",
-    "marathiTitle": "माय इंग्लिश बुक वन (इयत्ता पहिली बालभारती)",
-    "board": "maharashtra",
-    "grade": 1,
-    "branch": "general",
-    "subject": "English",
-    "medium": "english",
-    "editionYear": "2024-25 State Edition",
-    "officialPublisher": "Maharashtra State Bureau of Textbook Production (Balbharti)",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "Welcome Song & Rhymes",
-        "marathiTitle": "स्वागत गीत व कविता",
-        "pdfCode": "msb1en01.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0103010001.pdf",
-        "dikshaDialCode": "MH1E1"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "My Family and Pets",
-        "marathiTitle": "माझे कुटुंब आणि प्राणी",
-        "pdfCode": "msb1en02.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0103010002.pdf",
-        "dikshaDialCode": "MH1E2"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "Fun with Letters: A to Z",
-        "marathiTitle": "अक्षरांशी गट्टी: A ते Z",
-        "pdfCode": "msb1en03.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0103010003.pdf",
-        "dikshaDialCode": "MH1E3"
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/aehn103.pdf"
       },
       {
         "chapterNumber": 4,
-        "title": "Colors, Shapes and Numbers",
-        "marathiTitle": "रंग, आकार आणि अंक",
-        "pdfCode": "msb1en04.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0103010004.pdf",
-        "dikshaDialCode": "MH1E4"
+        "title": "रानी भी",
+        "pdfCode": "aehn104.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/aehn104.pdf"
+      },
+      {
+        "chapterNumber": 5,
+        "title": "वाह, मेरे घोड़े!",
+        "pdfCode": "aehn105.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/aehn105.pdf"
+      },
+      {
+        "chapterNumber": 6,
+        "title": "तीन साथी",
+        "pdfCode": "aehn106.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/aehn106.pdf"
+      },
+      {
+        "chapterNumber": 7,
+        "title": "पतंग",
+        "pdfCode": "aehn107.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/aehn107.pdf"
+      },
+      {
+        "chapterNumber": 8,
+        "title": "गेंद और बल्ला",
+        "pdfCode": "aehn108.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/aehn108.pdf"
+      },
+      {
+        "chapterNumber": 9,
+        "title": "बंदर और गिलहरी",
+        "pdfCode": "aehn109.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/aehn109.pdf"
+      },
+      {
+        "chapterNumber": 10,
+        "title": "पगड़ी",
+        "pdfCode": "aehn110.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/aehn110.pdf"
       }
     ]
   },
   {
-    "id": "msb-1-marathi",
-    "title": "मराठी बालभारती इयत्ता पहिली",
-    "hindiTitle": "कक्षा 1 मराठी बालभारती",
-    "marathiTitle": "मराठी बालभारती (इयत्ता पहिली)",
-    "board": "maharashtra",
-    "grade": 1,
-    "branch": "general",
-    "subject": "Marathi",
-    "medium": "marathi",
-    "editionYear": "2024-25 State Edition",
-    "officialPublisher": "Maharashtra State Bureau of Textbook Production (Balbharti)",
-    "chapters": [
-      {
-        "chapterNumber": 1,
-        "title": "अमच्या शाळेत गंमत! (चित्रवाचन)",
-        "marathiTitle": "आमच्या शाळेत गंमत! (चित्रवाचन)",
-        "pdfCode": "msb1mb01.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0101010001.pdf",
-        "dikshaDialCode": "MH1B1"
-      },
-      {
-        "chapterNumber": 2,
-        "title": "बडबडगीते : ससा आणि कासव",
-        "marathiTitle": "बडबडगीते : ससा आणि कासव",
-        "pdfCode": "msb1mb02.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0101010002.pdf",
-        "dikshaDialCode": "MH1B2"
-      },
-      {
-        "chapterNumber": 3,
-        "title": "अक्षर ओळख : क, ख, ग, घ",
-        "marathiTitle": "अक्षर ओळख : क, ख, ग, घ",
-        "pdfCode": "msb1mb03.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0101010003.pdf",
-        "dikshaDialCode": "MH1B3"
-      },
-      {
-        "chapterNumber": 4,
-        "title": "माझे कुटुंब आणि घर",
-        "marathiTitle": "माझे कुटुंब आणि घर",
-        "pdfCode": "msb1mb04.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0101010004.pdf",
-        "dikshaDialCode": "MH1B4"
-      }
-    ]
-  },
-  {
-    "id": "msb-1-math",
-    "title": "गणित इयत्ता पहिली (Balbharti Mathematics)",
-    "hindiTitle": "कक्षा 1 गणित बालभारती",
-    "marathiTitle": "गणित इयत्ता पहिली (महाराष्ट्र राज्य मंडळ)",
-    "board": "maharashtra",
-    "grade": 1,
-    "branch": "general",
+    "id": "ncert-class-2-math-joyful",
+    "title": "Joyful Mathematics (Class 2)",
+    "hindiTitle": "आनंदमय गणित (कक्षा 2)",
+    "board": "cbse",
+    "grade": 2,
     "subject": "Mathematics",
-    "medium": "marathi",
-    "editionYear": "2024-25 State Edition",
-    "officialPublisher": "Maharashtra State Bureau of Textbook Production (Balbharti)",
+    "branch": "general",
+    "medium": "english",
+    "editionYear": "National Curriculum (NEP)",
+    "officialPublisher": "NCERT (Government of India)",
+    "coverColor": "from-amber-500 to-yellow-600",
     "chapters": [
       {
         "chapterNumber": 1,
-        "title": "लहान - मोठा (Small - Big)",
-        "marathiTitle": "लहान - मोठा",
-        "pdfCode": "msb1m01.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0102010001.pdf",
-        "dikshaDialCode": "MH1M1"
+        "title": "A Day at the Beach",
+        "pdfCode": "bejm101.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/bejm101.pdf"
       },
       {
         "chapterNumber": 2,
-        "title": "मागे - पुढे (Behind - In front of)",
-        "marathiTitle": "मागे - पुढे",
-        "pdfCode": "msb1m02.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0102010002.pdf",
-        "dikshaDialCode": "MH1M2"
+        "title": "Shapes Around Us",
+        "pdfCode": "bejm102.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/bejm102.pdf"
       },
       {
         "chapterNumber": 3,
-        "title": "वर - खाली (Above - Below)",
-        "marathiTitle": "वर - खाली",
-        "pdfCode": "msb1m03.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0102010003.pdf",
-        "dikshaDialCode": "MH1M3"
+        "title": "Fun with Numbers",
+        "pdfCode": "bejm103.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/bejm103.pdf"
       },
       {
         "chapterNumber": 4,
-        "title": "१ ते ९ अंकांचे ज्ञान (Numbers 1 to 9)",
-        "marathiTitle": "१ ते ९ अंकांचे ज्ञान",
-        "pdfCode": "msb1m04.pdf",
-        "officialUrl": "https://ebalbharati.in/main/pdf/0102010004.pdf",
-        "dikshaDialCode": "MH1M4"
+        "title": "Shadow Story",
+        "pdfCode": "bejm104.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/bejm104.pdf"
+      },
+      {
+        "chapterNumber": 5,
+        "title": "Playing with Lines",
+        "pdfCode": "bejm105.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/bejm105.pdf"
+      },
+      {
+        "chapterNumber": 6,
+        "title": "Decoration for Festival",
+        "pdfCode": "bejm106.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/bejm106.pdf"
+      },
+      {
+        "chapterNumber": 7,
+        "title": "Rani’s Gift",
+        "pdfCode": "bejm107.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/bejm107.pdf"
+      },
+      {
+        "chapterNumber": 8,
+        "title": "Group and Share",
+        "pdfCode": "bejm108.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/bejm108.pdf"
+      },
+      {
+        "chapterNumber": 9,
+        "title": "Which Season is It?",
+        "pdfCode": "bejm109.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/bejm109.pdf"
+      },
+      {
+        "chapterNumber": 10,
+        "title": "Fun at the Fair",
+        "pdfCode": "bejm110.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/bejm110.pdf"
+      },
+      {
+        "chapterNumber": 11,
+        "title": "Data Handling",
+        "pdfCode": "bejm111.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/bejm111.pdf"
+      }
+    ]
+  },
+  {
+    "id": "ncert-class-3-math-mela",
+    "title": "Maths Mela (Class 3 Mathematics)",
+    "hindiTitle": "गणित मेला (कक्षा 3)",
+    "board": "cbse",
+    "grade": 3,
+    "subject": "Mathematics",
+    "branch": "general",
+    "medium": "english",
+    "editionYear": "National Curriculum (NEP)",
+    "officialPublisher": "NCERT (Government of India)",
+    "coverColor": "from-blue-500 to-cyan-600",
+    "chapters": [
+      {
+        "chapterNumber": 1,
+        "title": "Where to Look From",
+        "pdfCode": "cemh101.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/cemh101.pdf"
+      },
+      {
+        "chapterNumber": 2,
+        "title": "Fun with Numbers",
+        "pdfCode": "cemh102.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/cemh102.pdf"
+      },
+      {
+        "chapterNumber": 3,
+        "title": "Give and Take",
+        "pdfCode": "cemh103.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/cemh103.pdf"
+      },
+      {
+        "chapterNumber": 4,
+        "title": "Long and Short",
+        "pdfCode": "cemh104.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/cemh104.pdf"
+      },
+      {
+        "chapterNumber": 5,
+        "title": "Shapes and Designs",
+        "pdfCode": "cemh105.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/cemh105.pdf"
+      },
+      {
+        "chapterNumber": 6,
+        "title": "Fun with Give and Take",
+        "pdfCode": "cemh106.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/cemh106.pdf"
+      },
+      {
+        "chapterNumber": 7,
+        "title": "Time Goes On...",
+        "pdfCode": "cemh107.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/cemh107.pdf"
+      },
+      {
+        "chapterNumber": 8,
+        "title": "Who is Heavier?",
+        "pdfCode": "cemh108.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/cemh108.pdf"
+      },
+      {
+        "chapterNumber": 9,
+        "title": "How Many Times?",
+        "pdfCode": "cemh109.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/cemh109.pdf"
+      },
+      {
+        "chapterNumber": 10,
+        "title": "Play with Patterns",
+        "pdfCode": "cemh110.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/cemh110.pdf"
+      },
+      {
+        "chapterNumber": 11,
+        "title": "Jugs and Mugs",
+        "pdfCode": "cemh111.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/cemh111.pdf"
+      },
+      {
+        "chapterNumber": 12,
+        "title": "Can We Share?",
+        "pdfCode": "cemh112.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/cemh112.pdf"
+      },
+      {
+        "chapterNumber": 13,
+        "title": "Smart Charts!",
+        "pdfCode": "cemh113.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/cemh113.pdf"
+      },
+      {
+        "chapterNumber": 14,
+        "title": "Rupees and Paise",
+        "pdfCode": "cemh114.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/cemh114.pdf"
+      }
+    ]
+  },
+  {
+    "id": "ncert-class-3-evs-world",
+    "title": "Our Wondrous World (Class 3 EVS)",
+    "hindiTitle": "हमारा अद्भुत संसार (कक्षा 3)",
+    "board": "cbse",
+    "grade": 3,
+    "subject": "Environmental Studies",
+    "branch": "general",
+    "medium": "english",
+    "editionYear": "National Curriculum (NEP)",
+    "officialPublisher": "NCERT (Government of India)",
+    "coverColor": "from-emerald-500 to-green-600",
+    "chapters": [
+      {
+        "chapterNumber": 1,
+        "title": "Poonam’s Day Out",
+        "pdfCode": "ceap101.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/ceap101.pdf"
+      },
+      {
+        "chapterNumber": 2,
+        "title": "The Plant Fairy",
+        "pdfCode": "ceap102.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/ceap102.pdf"
+      },
+      {
+        "chapterNumber": 3,
+        "title": "Water O’ Water!",
+        "pdfCode": "ceap103.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/ceap103.pdf"
+      },
+      {
+        "chapterNumber": 4,
+        "title": "Our First School",
+        "pdfCode": "ceap104.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/ceap104.pdf"
+      },
+      {
+        "chapterNumber": 5,
+        "title": "Chhotu’s House",
+        "pdfCode": "ceap105.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/ceap105.pdf"
+      },
+      {
+        "chapterNumber": 6,
+        "title": "Foods We Eat",
+        "pdfCode": "ceap106.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/ceap106.pdf"
+      },
+      {
+        "chapterNumber": 7,
+        "title": "Saying without Speaking",
+        "pdfCode": "ceap107.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/ceap107.pdf"
+      },
+      {
+        "chapterNumber": 8,
+        "title": "Flying High",
+        "pdfCode": "ceap108.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/ceap108.pdf"
+      },
+      {
+        "chapterNumber": 9,
+        "title": "It’s Raining",
+        "pdfCode": "ceap109.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/ceap109.pdf"
+      },
+      {
+        "chapterNumber": 10,
+        "title": "What is Cooking",
+        "pdfCode": "ceap110.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/ceap110.pdf"
+      }
+    ]
+  },
+  {
+    "id": "ncert-class-4-math-mela",
+    "title": "Maths Mela (Class 4 Mathematics)",
+    "hindiTitle": "गणित का जादू / मेला (कक्षा 4)",
+    "board": "cbse",
+    "grade": 4,
+    "subject": "Mathematics",
+    "branch": "general",
+    "medium": "english",
+    "editionYear": "National Curriculum (NEP)",
+    "officialPublisher": "NCERT (Government of India)",
+    "coverColor": "from-blue-600 to-indigo-600",
+    "chapters": [
+      {
+        "chapterNumber": 1,
+        "title": "Building with Bricks",
+        "pdfCode": "demh101.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/demh101.pdf"
+      },
+      {
+        "chapterNumber": 2,
+        "title": "Long and Short",
+        "pdfCode": "demh102.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/demh102.pdf"
+      },
+      {
+        "chapterNumber": 3,
+        "title": "A Trip to Bhopal",
+        "pdfCode": "demh103.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/demh103.pdf"
+      },
+      {
+        "chapterNumber": 4,
+        "title": "Tick-Tick-Tick",
+        "pdfCode": "demh104.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/demh104.pdf"
+      },
+      {
+        "chapterNumber": 5,
+        "title": "The Way The World Looks",
+        "pdfCode": "demh105.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/demh105.pdf"
+      },
+      {
+        "chapterNumber": 6,
+        "title": "The Junk Seller",
+        "pdfCode": "demh106.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/demh106.pdf"
+      },
+      {
+        "chapterNumber": 7,
+        "title": "Jugs and Mugs",
+        "pdfCode": "demh107.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/demh107.pdf"
+      },
+      {
+        "chapterNumber": 8,
+        "title": "Carts and Wheels",
+        "pdfCode": "demh108.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/demh108.pdf"
+      },
+      {
+        "chapterNumber": 9,
+        "title": "Halves and Quarters",
+        "pdfCode": "demh109.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/demh109.pdf"
+      },
+      {
+        "chapterNumber": 10,
+        "title": "Play with Patterns",
+        "pdfCode": "demh110.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/demh110.pdf"
+      },
+      {
+        "chapterNumber": 11,
+        "title": "Tables and Shares",
+        "pdfCode": "demh111.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/demh111.pdf"
+      },
+      {
+        "chapterNumber": 12,
+        "title": "How Heavy? How Light?",
+        "pdfCode": "demh112.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/demh112.pdf"
+      },
+      {
+        "chapterNumber": 13,
+        "title": "Fields and Fences",
+        "pdfCode": "demh113.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/demh113.pdf"
+      },
+      {
+        "chapterNumber": 14,
+        "title": "Smart Charts",
+        "pdfCode": "demh114.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/demh114.pdf"
+      }
+    ]
+  },
+  {
+    "id": "ncert-class-5-math-mela",
+    "title": "Maths Mela (Class 5 Mathematics)",
+    "hindiTitle": "गणित मेला (कक्षा 5)",
+    "board": "cbse",
+    "grade": 5,
+    "subject": "Mathematics",
+    "branch": "general",
+    "medium": "english",
+    "editionYear": "National Curriculum (NEP)",
+    "officialPublisher": "NCERT (Government of India)",
+    "coverColor": "from-indigo-500 to-purple-600",
+    "chapters": [
+      {
+        "chapterNumber": 1,
+        "title": "The Fish Tale",
+        "pdfCode": "eemm101.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/eemm101.pdf"
+      },
+      {
+        "chapterNumber": 2,
+        "title": "Shapes and Angles",
+        "pdfCode": "eemm102.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/eemm102.pdf"
+      },
+      {
+        "chapterNumber": 3,
+        "title": "How Many Squares?",
+        "pdfCode": "eemm103.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/eemm103.pdf"
+      },
+      {
+        "chapterNumber": 4,
+        "title": "Parts and Wholes",
+        "pdfCode": "eemm104.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/eemm104.pdf"
+      },
+      {
+        "chapterNumber": 5,
+        "title": "Does it Look the Same?",
+        "pdfCode": "eemm105.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/eemm105.pdf"
+      },
+      {
+        "chapterNumber": 6,
+        "title": "Be My Multiple, I'll be Your Factor",
+        "pdfCode": "eemm106.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/eemm106.pdf"
+      },
+      {
+        "chapterNumber": 7,
+        "title": "Can You See the Pattern?",
+        "pdfCode": "eemm107.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/eemm107.pdf"
+      },
+      {
+        "chapterNumber": 8,
+        "title": "Mapping Your Way",
+        "pdfCode": "eemm108.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/eemm108.pdf"
+      },
+      {
+        "chapterNumber": 9,
+        "title": "Boxes and Sketches",
+        "pdfCode": "eemm109.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/eemm109.pdf"
+      },
+      {
+        "chapterNumber": 10,
+        "title": "Tenths and Hundredths",
+        "pdfCode": "eemm110.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/eemm110.pdf"
+      },
+      {
+        "chapterNumber": 11,
+        "title": "Area and its Boundary",
+        "pdfCode": "eemm111.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/eemm111.pdf"
+      },
+      {
+        "chapterNumber": 12,
+        "title": "Smart Charts",
+        "pdfCode": "eemm112.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/eemm112.pdf"
+      },
+      {
+        "chapterNumber": 13,
+        "title": "Ways to Multiply and Divide",
+        "pdfCode": "eemm113.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/eemm113.pdf"
+      },
+      {
+        "chapterNumber": 14,
+        "title": "How Big? How Heavy?",
+        "pdfCode": "eemm114.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/eemm114.pdf"
+      }
+    ]
+  },
+  {
+    "id": "ncert-class-5-evs-world",
+    "title": "Our Wondrous World (Class 5 EVS)",
+    "hindiTitle": "हमारा अद्भुत संसार (कक्षा 5)",
+    "board": "cbse",
+    "grade": 5,
+    "subject": "Environmental Studies",
+    "branch": "general",
+    "medium": "english",
+    "editionYear": "National Curriculum (NEP)",
+    "officialPublisher": "NCERT (Government of India)",
+    "coverColor": "from-teal-500 to-emerald-600",
+    "chapters": [
+      {
+        "chapterNumber": 1,
+        "title": "Super Senses",
+        "pdfCode": "eeww101.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/eeww101.pdf"
+      },
+      {
+        "chapterNumber": 2,
+        "title": "A Snake Charmer's Story",
+        "pdfCode": "eeww102.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/eeww102.pdf"
+      },
+      {
+        "chapterNumber": 3,
+        "title": "From Tasting to Digesting",
+        "pdfCode": "eeww103.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/eeww103.pdf"
+      },
+      {
+        "chapterNumber": 4,
+        "title": "Mangoes Round the Year",
+        "pdfCode": "eeww104.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/eeww104.pdf"
+      },
+      {
+        "chapterNumber": 5,
+        "title": "Seeds and Seeds",
+        "pdfCode": "eeww105.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/eeww105.pdf"
+      },
+      {
+        "chapterNumber": 6,
+        "title": "Every Drop Counts",
+        "pdfCode": "eeww106.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/eeww106.pdf"
+      },
+      {
+        "chapterNumber": 7,
+        "title": "Experiments with Water",
+        "pdfCode": "eeww107.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/eeww107.pdf"
+      },
+      {
+        "chapterNumber": 8,
+        "title": "A Treat for Mosquitoes",
+        "pdfCode": "eeww108.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/eeww108.pdf"
+      },
+      {
+        "chapterNumber": 9,
+        "title": "Up You Go!",
+        "pdfCode": "eeww109.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/eeww109.pdf"
+      },
+      {
+        "chapterNumber": 10,
+        "title": "Walls Tell Stories",
+        "pdfCode": "eeww110.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/eeww110.pdf"
+      },
+      {
+        "chapterNumber": 11,
+        "title": "Sunita in Space",
+        "pdfCode": "eeww111.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/eeww111.pdf"
+      },
+      {
+        "chapterNumber": 12,
+        "title": "What if it Finishes...?",
+        "pdfCode": "eeww112.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/eeww112.pdf"
+      }
+    ]
+  },
+  {
+    "id": "ncert-class-6-math-prakash",
+    "title": "Ganita Prakash (Class 6 Mathematics)",
+    "hindiTitle": "गणित प्रकाश (कक्षा 6)",
+    "board": "cbse",
+    "grade": 6,
+    "subject": "Mathematics",
+    "branch": "general",
+    "medium": "english",
+    "editionYear": "National Curriculum (NEP)",
+    "officialPublisher": "NCERT (Government of India)",
+    "coverColor": "from-blue-600 to-indigo-700",
+    "chapters": [
+      {
+        "chapterNumber": 1,
+        "title": "Patterns in Mathematics",
+        "pdfCode": "femh101.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/femh101.pdf"
+      },
+      {
+        "chapterNumber": 2,
+        "title": "Lines and Angles",
+        "pdfCode": "femh102.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/femh102.pdf"
+      },
+      {
+        "chapterNumber": 3,
+        "title": "Number Play",
+        "pdfCode": "femh103.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/femh103.pdf"
+      },
+      {
+        "chapterNumber": 4,
+        "title": "Data Handling and Presentation",
+        "pdfCode": "femh104.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/femh104.pdf"
+      },
+      {
+        "chapterNumber": 5,
+        "title": "Prime Time",
+        "pdfCode": "femh105.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/femh105.pdf"
+      },
+      {
+        "chapterNumber": 6,
+        "title": "Perimeter and Area",
+        "pdfCode": "femh106.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/femh106.pdf"
+      },
+      {
+        "chapterNumber": 7,
+        "title": "Fractions",
+        "pdfCode": "femh107.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/femh107.pdf"
+      },
+      {
+        "chapterNumber": 8,
+        "title": "Playing with Constructions",
+        "pdfCode": "femh108.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/femh108.pdf"
+      },
+      {
+        "chapterNumber": 9,
+        "title": "Symmetry",
+        "pdfCode": "femh109.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/femh109.pdf"
+      },
+      {
+        "chapterNumber": 10,
+        "title": "The Other Side of Zero",
+        "pdfCode": "femh110.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/femh110.pdf"
+      }
+    ]
+  },
+  {
+    "id": "ncert-class-6-science-curiosity",
+    "title": "Curiosity (Class 6 Science)",
+    "hindiTitle": "जिज्ञासा (कक्षा 6 विज्ञान)",
+    "board": "cbse",
+    "grade": 6,
+    "subject": "Science",
+    "branch": "general",
+    "medium": "english",
+    "editionYear": "National Curriculum (NEP)",
+    "officialPublisher": "NCERT (Government of India)",
+    "coverColor": "from-emerald-600 to-teal-700",
+    "chapters": [
+      {
+        "chapterNumber": 1,
+        "title": "The Wonderful World of Science",
+        "pdfCode": "fesc101.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/fesc101.pdf"
+      },
+      {
+        "chapterNumber": 2,
+        "title": "Diversity in the Living World",
+        "pdfCode": "fesc102.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/fesc102.pdf"
+      },
+      {
+        "chapterNumber": 3,
+        "title": "Mindful Eating: A Path to a Healthy Body",
+        "pdfCode": "fesc103.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/fesc103.pdf"
+      },
+      {
+        "chapterNumber": 4,
+        "title": "Exploring Magnets",
+        "pdfCode": "fesc104.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/fesc104.pdf"
+      },
+      {
+        "chapterNumber": 5,
+        "title": "Measurement of Length and Motion",
+        "pdfCode": "fesc105.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/fesc105.pdf"
+      },
+      {
+        "chapterNumber": 6,
+        "title": "Materials Around Us",
+        "pdfCode": "fesc106.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/fesc106.pdf"
+      },
+      {
+        "chapterNumber": 7,
+        "title": "Temperature and its Measurement",
+        "pdfCode": "fesc107.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/fesc107.pdf"
+      },
+      {
+        "chapterNumber": 8,
+        "title": "A Journey through States of Water",
+        "pdfCode": "fesc108.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/fesc108.pdf"
+      },
+      {
+        "chapterNumber": 9,
+        "title": "Methods of Separation in Everyday Life",
+        "pdfCode": "fesc109.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/fesc109.pdf"
+      },
+      {
+        "chapterNumber": 10,
+        "title": "Living Creatures: Exploring their Characteristics",
+        "pdfCode": "fesc110.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/fesc110.pdf"
+      },
+      {
+        "chapterNumber": 11,
+        "title": "Nature's Treasures",
+        "pdfCode": "fesc111.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/fesc111.pdf"
+      },
+      {
+        "chapterNumber": 12,
+        "title": "Beyond Earth",
+        "pdfCode": "fesc112.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/fesc112.pdf"
+      }
+    ]
+  },
+  {
+    "id": "ncert-class-7-math",
+    "title": "Mathematics (Class 7)",
+    "hindiTitle": "गणित (कक्षा 7)",
+    "board": "cbse",
+    "grade": 7,
+    "subject": "Mathematics",
+    "branch": "general",
+    "medium": "english",
+    "editionYear": "National Curriculum (NEP)",
+    "officialPublisher": "NCERT (Government of India)",
+    "coverColor": "from-blue-600 to-indigo-700",
+    "chapters": [
+      {
+        "chapterNumber": 1,
+        "title": "Integers",
+        "pdfCode": "gemh101.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/gemh101.pdf"
+      },
+      {
+        "chapterNumber": 2,
+        "title": "Fractions and Decimals",
+        "pdfCode": "gemh102.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/gemh102.pdf"
+      },
+      {
+        "chapterNumber": 3,
+        "title": "Data Handling",
+        "pdfCode": "gemh103.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/gemh103.pdf"
+      },
+      {
+        "chapterNumber": 4,
+        "title": "Simple Equations",
+        "pdfCode": "gemh104.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/gemh104.pdf"
+      },
+      {
+        "chapterNumber": 5,
+        "title": "Lines and Angles",
+        "pdfCode": "gemh105.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/gemh105.pdf"
+      },
+      {
+        "chapterNumber": 6,
+        "title": "The Triangle and its Properties",
+        "pdfCode": "gemh106.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/gemh106.pdf"
+      },
+      {
+        "chapterNumber": 7,
+        "title": "Comparing Quantities",
+        "pdfCode": "gemh107.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/gemh107.pdf"
+      },
+      {
+        "chapterNumber": 8,
+        "title": "Rational Numbers",
+        "pdfCode": "gemh108.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/gemh108.pdf"
+      },
+      {
+        "chapterNumber": 9,
+        "title": "Perimeter and Area",
+        "pdfCode": "gemh109.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/gemh109.pdf"
+      },
+      {
+        "chapterNumber": 10,
+        "title": "Algebraic Expressions",
+        "pdfCode": "gemh110.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/gemh110.pdf"
+      },
+      {
+        "chapterNumber": 11,
+        "title": "Exponents and Powers",
+        "pdfCode": "gemh111.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/gemh111.pdf"
+      },
+      {
+        "chapterNumber": 12,
+        "title": "Symmetry",
+        "pdfCode": "gemh112.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/gemh112.pdf"
+      },
+      {
+        "chapterNumber": 13,
+        "title": "Visualising Solid Shapes",
+        "pdfCode": "gemh113.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/gemh113.pdf"
+      }
+    ]
+  },
+  {
+    "id": "ncert-class-7-science",
+    "title": "Science (Class 7)",
+    "hindiTitle": "विज्ञान (कक्षा 7)",
+    "board": "cbse",
+    "grade": 7,
+    "subject": "Science",
+    "branch": "general",
+    "medium": "english",
+    "editionYear": "National Curriculum (NEP)",
+    "officialPublisher": "NCERT (Government of India)",
+    "coverColor": "from-teal-600 to-emerald-700",
+    "chapters": [
+      {
+        "chapterNumber": 1,
+        "title": "Nutrition in Plants",
+        "pdfCode": "gesc101.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/gesc101.pdf"
+      },
+      {
+        "chapterNumber": 2,
+        "title": "Nutrition in Animals",
+        "pdfCode": "gesc102.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/gesc102.pdf"
+      },
+      {
+        "chapterNumber": 3,
+        "title": "Heat",
+        "pdfCode": "gesc103.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/gesc103.pdf"
+      },
+      {
+        "chapterNumber": 4,
+        "title": "Acids, Bases and Salts",
+        "pdfCode": "gesc104.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/gesc104.pdf"
+      },
+      {
+        "chapterNumber": 5,
+        "title": "Physical and Chemical Changes",
+        "pdfCode": "gesc105.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/gesc105.pdf"
+      },
+      {
+        "chapterNumber": 6,
+        "title": "Respiration in Organisms",
+        "pdfCode": "gesc106.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/gesc106.pdf"
+      },
+      {
+        "chapterNumber": 7,
+        "title": "Transportation in Animals and Plants",
+        "pdfCode": "gesc107.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/gesc107.pdf"
+      },
+      {
+        "chapterNumber": 8,
+        "title": "Reproduction in Plants",
+        "pdfCode": "gesc108.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/gesc108.pdf"
+      },
+      {
+        "chapterNumber": 9,
+        "title": "Motion and Time",
+        "pdfCode": "gesc109.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/gesc109.pdf"
+      },
+      {
+        "chapterNumber": 10,
+        "title": "Electric Current and its Effects",
+        "pdfCode": "gesc110.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/gesc110.pdf"
+      },
+      {
+        "chapterNumber": 11,
+        "title": "Light",
+        "pdfCode": "gesc111.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/gesc111.pdf"
+      },
+      {
+        "chapterNumber": 12,
+        "title": "Forests: Our Lifeline",
+        "pdfCode": "gesc112.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/gesc112.pdf"
+      },
+      {
+        "chapterNumber": 13,
+        "title": "Wastewater Story",
+        "pdfCode": "gesc113.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/gesc113.pdf"
+      }
+    ]
+  },
+  {
+    "id": "ncert-class-8-math",
+    "title": "Mathematics (Class 8)",
+    "hindiTitle": "गणित (कक्षा 8)",
+    "board": "cbse",
+    "grade": 8,
+    "subject": "Mathematics",
+    "branch": "general",
+    "medium": "english",
+    "editionYear": "National Curriculum (NEP)",
+    "officialPublisher": "NCERT (Government of India)",
+    "coverColor": "from-blue-600 to-indigo-700",
+    "chapters": [
+      {
+        "chapterNumber": 1,
+        "title": "Rational Numbers",
+        "pdfCode": "hemh101.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/hemh101.pdf"
+      },
+      {
+        "chapterNumber": 2,
+        "title": "Linear Equations in One Variable",
+        "pdfCode": "hemh102.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/hemh102.pdf"
+      },
+      {
+        "chapterNumber": 3,
+        "title": "Understanding Quadrilaterals",
+        "pdfCode": "hemh103.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/hemh103.pdf"
+      },
+      {
+        "chapterNumber": 4,
+        "title": "Data Handling",
+        "pdfCode": "hemh104.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/hemh104.pdf"
+      },
+      {
+        "chapterNumber": 5,
+        "title": "Square and Square Roots",
+        "pdfCode": "hemh105.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/hemh105.pdf"
+      },
+      {
+        "chapterNumber": 6,
+        "title": "Cube and Cube Roots",
+        "pdfCode": "hemh106.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/hemh106.pdf"
+      },
+      {
+        "chapterNumber": 7,
+        "title": "Comparing Quantities",
+        "pdfCode": "hemh107.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/hemh107.pdf"
+      },
+      {
+        "chapterNumber": 8,
+        "title": "Algebraic Expressions and Identities",
+        "pdfCode": "hemh108.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/hemh108.pdf"
+      },
+      {
+        "chapterNumber": 9,
+        "title": "Mensuration",
+        "pdfCode": "hemh109.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/hemh109.pdf"
+      },
+      {
+        "chapterNumber": 10,
+        "title": "Exponents and Powers",
+        "pdfCode": "hemh110.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/hemh110.pdf"
+      },
+      {
+        "chapterNumber": 11,
+        "title": "Direct and Inverse Proportions",
+        "pdfCode": "hemh111.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/hemh111.pdf"
+      },
+      {
+        "chapterNumber": 12,
+        "title": "Factorisation",
+        "pdfCode": "hemh112.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/hemh112.pdf"
+      },
+      {
+        "chapterNumber": 13,
+        "title": "Introduction to Graphs",
+        "pdfCode": "hemh113.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/hemh113.pdf"
+      }
+    ]
+  },
+  {
+    "id": "ncert-class-8-science",
+    "title": "Science (Class 8)",
+    "hindiTitle": "विज्ञान (कक्षा 8)",
+    "board": "cbse",
+    "grade": 8,
+    "subject": "Science",
+    "branch": "general",
+    "medium": "english",
+    "editionYear": "National Curriculum (NEP)",
+    "officialPublisher": "NCERT (Government of India)",
+    "coverColor": "from-teal-600 to-emerald-700",
+    "chapters": [
+      {
+        "chapterNumber": 1,
+        "title": "Crop Production and Management",
+        "pdfCode": "hesc101.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/hesc101.pdf"
+      },
+      {
+        "chapterNumber": 2,
+        "title": "Microorganisms: Friend and Foe",
+        "pdfCode": "hesc102.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/hesc102.pdf"
+      },
+      {
+        "chapterNumber": 3,
+        "title": "Coal and Petroleum",
+        "pdfCode": "hesc103.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/hesc103.pdf"
+      },
+      {
+        "chapterNumber": 4,
+        "title": "Combustion and Flame",
+        "pdfCode": "hesc104.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/hesc104.pdf"
+      },
+      {
+        "chapterNumber": 5,
+        "title": "Conservation of Plants and Animals",
+        "pdfCode": "hesc105.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/hesc105.pdf"
+      },
+      {
+        "chapterNumber": 6,
+        "title": "Reproduction in Animals",
+        "pdfCode": "hesc106.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/hesc106.pdf"
+      },
+      {
+        "chapterNumber": 7,
+        "title": "Reaching the Age of Adolescence",
+        "pdfCode": "hesc107.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/hesc107.pdf"
+      },
+      {
+        "chapterNumber": 8,
+        "title": "Force and Pressure",
+        "pdfCode": "hesc108.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/hesc108.pdf"
+      },
+      {
+        "chapterNumber": 9,
+        "title": "Friction",
+        "pdfCode": "hesc109.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/hesc109.pdf"
+      },
+      {
+        "chapterNumber": 10,
+        "title": "Sound",
+        "pdfCode": "hesc110.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/hesc110.pdf"
+      },
+      {
+        "chapterNumber": 11,
+        "title": "Chemical Effects of Electric Current",
+        "pdfCode": "hesc111.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/hesc111.pdf"
+      },
+      {
+        "chapterNumber": 12,
+        "title": "Some Natural Phenomena",
+        "pdfCode": "hesc112.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/hesc112.pdf"
+      },
+      {
+        "chapterNumber": 13,
+        "title": "Light",
+        "pdfCode": "hesc113.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/hesc113.pdf"
+      }
+    ]
+  },
+  {
+    "id": "ncert-class-9-math-manjari",
+    "title": "Ganita Manjari (Class 9 Mathematics)",
+    "hindiTitle": "गणित मंजरी (कक्षा 9)",
+    "board": "cbse",
+    "grade": 9,
+    "subject": "Mathematics",
+    "branch": "general",
+    "medium": "english",
+    "editionYear": "National Curriculum (NEP)",
+    "officialPublisher": "NCERT (Government of India)",
+    "coverColor": "from-blue-600 to-indigo-700",
+    "chapters": [
+      {
+        "chapterNumber": 1,
+        "title": "Number Systems",
+        "pdfCode": "iemh101.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/iemh101.pdf"
+      },
+      {
+        "chapterNumber": 2,
+        "title": "Polynomials",
+        "pdfCode": "iemh102.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/iemh102.pdf"
+      },
+      {
+        "chapterNumber": 3,
+        "title": "Coordinate Geometry",
+        "pdfCode": "iemh103.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/iemh103.pdf"
+      },
+      {
+        "chapterNumber": 4,
+        "title": "Linear Equations in Two Variables",
+        "pdfCode": "iemh104.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/iemh104.pdf"
+      },
+      {
+        "chapterNumber": 5,
+        "title": "Introduction to Euclid’s Geometry",
+        "pdfCode": "iemh105.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/iemh105.pdf"
+      },
+      {
+        "chapterNumber": 6,
+        "title": "Lines and Angles",
+        "pdfCode": "iemh106.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/iemh106.pdf"
+      },
+      {
+        "chapterNumber": 7,
+        "title": "Triangles",
+        "pdfCode": "iemh107.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/iemh107.pdf"
+      },
+      {
+        "chapterNumber": 8,
+        "title": "Quadrilaterals",
+        "pdfCode": "iemh108.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/iemh108.pdf"
+      },
+      {
+        "chapterNumber": 9,
+        "title": "Circles",
+        "pdfCode": "iemh109.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/iemh109.pdf"
+      },
+      {
+        "chapterNumber": 10,
+        "title": "Heron’s Formula",
+        "pdfCode": "iemh110.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/iemh110.pdf"
+      },
+      {
+        "chapterNumber": 11,
+        "title": "Surface Areas and Volumes",
+        "pdfCode": "iemh111.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/iemh111.pdf"
+      },
+      {
+        "chapterNumber": 12,
+        "title": "Statistics",
+        "pdfCode": "iemh112.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/iemh112.pdf"
+      }
+    ]
+  },
+  {
+    "id": "ncert-class-9-science-exploration",
+    "title": "Exploration (Class 9 Science)",
+    "hindiTitle": "अन्वेषण (कक्षा 9 विज्ञान)",
+    "board": "cbse",
+    "grade": 9,
+    "subject": "Science",
+    "branch": "general",
+    "medium": "english",
+    "editionYear": "National Curriculum (NEP)",
+    "officialPublisher": "NCERT (Government of India)",
+    "coverColor": "from-emerald-600 to-teal-700",
+    "chapters": [
+      {
+        "chapterNumber": 1,
+        "title": "Matter in Our Surroundings",
+        "pdfCode": "iesc101.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/iesc101.pdf"
+      },
+      {
+        "chapterNumber": 2,
+        "title": "Is Matter Around Us Pure",
+        "pdfCode": "iesc102.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/iesc102.pdf"
+      },
+      {
+        "chapterNumber": 3,
+        "title": "Atoms and Molecules",
+        "pdfCode": "iesc103.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/iesc103.pdf"
+      },
+      {
+        "chapterNumber": 4,
+        "title": "Structure of the Atom",
+        "pdfCode": "iesc104.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/iesc104.pdf"
+      },
+      {
+        "chapterNumber": 5,
+        "title": "The Fundamental Unit of Life",
+        "pdfCode": "iesc105.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/iesc105.pdf"
+      },
+      {
+        "chapterNumber": 6,
+        "title": "Tissues",
+        "pdfCode": "iesc106.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/iesc106.pdf"
+      },
+      {
+        "chapterNumber": 7,
+        "title": "Motion",
+        "pdfCode": "iesc107.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/iesc107.pdf"
+      },
+      {
+        "chapterNumber": 8,
+        "title": "Force and Laws of Motion",
+        "pdfCode": "iesc108.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/iesc108.pdf"
+      },
+      {
+        "chapterNumber": 9,
+        "title": "Gravitation",
+        "pdfCode": "iesc109.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/iesc109.pdf"
+      },
+      {
+        "chapterNumber": 10,
+        "title": "Work and Energy",
+        "pdfCode": "iesc110.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/iesc110.pdf"
+      },
+      {
+        "chapterNumber": 11,
+        "title": "Sound",
+        "pdfCode": "iesc111.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/iesc111.pdf"
+      },
+      {
+        "chapterNumber": 12,
+        "title": "Improvement in Food Resources",
+        "pdfCode": "iesc112.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/iesc112.pdf"
+      }
+    ]
+  },
+  {
+    "id": "ncert-class-10-math",
+    "title": "Mathematics (Class 10)",
+    "hindiTitle": "गणित (कक्षा 10)",
+    "board": "cbse",
+    "grade": 10,
+    "subject": "Mathematics",
+    "branch": "general",
+    "medium": "english",
+    "editionYear": "National Curriculum (NEP)",
+    "officialPublisher": "NCERT (Government of India)",
+    "coverColor": "from-blue-600 to-indigo-700",
+    "chapters": [
+      {
+        "chapterNumber": 1,
+        "title": "Real Numbers",
+        "pdfCode": "jemh101.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/jemh101.pdf"
+      },
+      {
+        "chapterNumber": 2,
+        "title": "Polynomials",
+        "pdfCode": "jemh102.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/jemh102.pdf"
+      },
+      {
+        "chapterNumber": 3,
+        "title": "Pair of Linear Equations in Two Variables",
+        "pdfCode": "jemh103.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/jemh103.pdf"
+      },
+      {
+        "chapterNumber": 4,
+        "title": "Quadratic Equations",
+        "pdfCode": "jemh104.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/jemh104.pdf"
+      },
+      {
+        "chapterNumber": 5,
+        "title": "Arithmetic Progressions",
+        "pdfCode": "jemh105.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/jemh105.pdf"
+      },
+      {
+        "chapterNumber": 6,
+        "title": "Triangles",
+        "pdfCode": "jemh106.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/jemh106.pdf"
+      },
+      {
+        "chapterNumber": 7,
+        "title": "Coordinate Geometry",
+        "pdfCode": "jemh107.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/jemh107.pdf"
+      },
+      {
+        "chapterNumber": 8,
+        "title": "Introduction to Trigonometry",
+        "pdfCode": "jemh108.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/jemh108.pdf"
+      },
+      {
+        "chapterNumber": 9,
+        "title": "Some Applications of Trigonometry",
+        "pdfCode": "jemh109.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/jemh109.pdf"
+      },
+      {
+        "chapterNumber": 10,
+        "title": "Circles",
+        "pdfCode": "jemh110.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/jemh110.pdf"
+      },
+      {
+        "chapterNumber": 11,
+        "title": "Areas Related to Circles",
+        "pdfCode": "jemh111.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/jemh111.pdf"
+      },
+      {
+        "chapterNumber": 12,
+        "title": "Surface Areas and Volumes",
+        "pdfCode": "jemh112.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/jemh112.pdf"
+      },
+      {
+        "chapterNumber": 13,
+        "title": "Statistics",
+        "pdfCode": "jemh113.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/jemh113.pdf"
+      },
+      {
+        "chapterNumber": 14,
+        "title": "Probability",
+        "pdfCode": "jemh114.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/jemh114.pdf"
+      }
+    ]
+  },
+  {
+    "id": "ncert-class-10-science",
+    "title": "Science (Class 10)",
+    "hindiTitle": "विज्ञान (कक्षा 10)",
+    "board": "cbse",
+    "grade": 10,
+    "subject": "Science",
+    "branch": "general",
+    "medium": "english",
+    "editionYear": "National Curriculum (NEP)",
+    "officialPublisher": "NCERT (Government of India)",
+    "coverColor": "from-emerald-600 to-teal-700",
+    "chapters": [
+      {
+        "chapterNumber": 1,
+        "title": "Chemical Reactions and Equations",
+        "pdfCode": "jesc101.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/jesc101.pdf"
+      },
+      {
+        "chapterNumber": 2,
+        "title": "Acids, Bases and Salts",
+        "pdfCode": "jesc102.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/jesc102.pdf"
+      },
+      {
+        "chapterNumber": 3,
+        "title": "Metals and Non-metals",
+        "pdfCode": "jesc103.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/jesc103.pdf"
+      },
+      {
+        "chapterNumber": 4,
+        "title": "Carbon and its Compounds",
+        "pdfCode": "jesc104.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/jesc104.pdf"
+      },
+      {
+        "chapterNumber": 5,
+        "title": "Life Processes",
+        "pdfCode": "jesc105.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/jesc105.pdf"
+      },
+      {
+        "chapterNumber": 6,
+        "title": "Control and Coordination",
+        "pdfCode": "jesc106.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/jesc106.pdf"
+      },
+      {
+        "chapterNumber": 7,
+        "title": "How do Organisms Reproduce?",
+        "pdfCode": "jesc107.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/jesc107.pdf"
+      },
+      {
+        "chapterNumber": 8,
+        "title": "Heredity",
+        "pdfCode": "jesc108.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/jesc108.pdf"
+      },
+      {
+        "chapterNumber": 9,
+        "title": "Light – Reflection and Refraction",
+        "pdfCode": "jesc109.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/jesc109.pdf"
+      },
+      {
+        "chapterNumber": 10,
+        "title": "The Human Eye and the Colourful World",
+        "pdfCode": "jesc110.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/jesc110.pdf"
+      },
+      {
+        "chapterNumber": 11,
+        "title": "Electricity",
+        "pdfCode": "jesc111.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/jesc111.pdf"
+      },
+      {
+        "chapterNumber": 12,
+        "title": "Magnetic Effects of Electric Current",
+        "pdfCode": "jesc112.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/jesc112.pdf"
+      },
+      {
+        "chapterNumber": 13,
+        "title": "Our Environment",
+        "pdfCode": "jesc113.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/jesc113.pdf"
+      }
+    ]
+  },
+  {
+    "id": "ncert-class-11-math",
+    "title": "Mathematics (Class 11)",
+    "hindiTitle": "गणित (कक्षा 11)",
+    "board": "cbse",
+    "grade": 11,
+    "subject": "Mathematics",
+    "branch": "science",
+    "medium": "english",
+    "editionYear": "National Curriculum (NEP)",
+    "officialPublisher": "NCERT (Government of India)",
+    "coverColor": "from-blue-600 to-indigo-700",
+    "chapters": [
+      {
+        "chapterNumber": 1,
+        "title": "Sets",
+        "pdfCode": "kemh101.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/kemh101.pdf"
+      },
+      {
+        "chapterNumber": 2,
+        "title": "Relations and Functions",
+        "pdfCode": "kemh102.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/kemh102.pdf"
+      },
+      {
+        "chapterNumber": 3,
+        "title": "Trigonometric Functions",
+        "pdfCode": "kemh103.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/kemh103.pdf"
+      },
+      {
+        "chapterNumber": 4,
+        "title": "Complex Numbers and Quadratic Equations",
+        "pdfCode": "kemh104.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/kemh104.pdf"
+      },
+      {
+        "chapterNumber": 5,
+        "title": "Linear Inequalities",
+        "pdfCode": "kemh105.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/kemh105.pdf"
+      },
+      {
+        "chapterNumber": 6,
+        "title": "Permutations and Combinations",
+        "pdfCode": "kemh106.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/kemh106.pdf"
+      },
+      {
+        "chapterNumber": 7,
+        "title": "Binomial Theorem",
+        "pdfCode": "kemh107.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/kemh107.pdf"
+      },
+      {
+        "chapterNumber": 8,
+        "title": "Sequences and Series",
+        "pdfCode": "kemh108.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/kemh108.pdf"
+      },
+      {
+        "chapterNumber": 9,
+        "title": "Straight Lines",
+        "pdfCode": "kemh109.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/kemh109.pdf"
+      },
+      {
+        "chapterNumber": 10,
+        "title": "Conic Sections",
+        "pdfCode": "kemh110.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/kemh110.pdf"
+      },
+      {
+        "chapterNumber": 11,
+        "title": "Introduction to Three Dimensional Geometry",
+        "pdfCode": "kemh111.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/kemh111.pdf"
+      },
+      {
+        "chapterNumber": 12,
+        "title": "Limits and Derivatives",
+        "pdfCode": "kemh112.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/kemh112.pdf"
+      },
+      {
+        "chapterNumber": 13,
+        "title": "Statistics",
+        "pdfCode": "kemh113.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/kemh113.pdf"
+      },
+      {
+        "chapterNumber": 14,
+        "title": "Probability",
+        "pdfCode": "kemh114.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/kemh114.pdf"
+      }
+    ]
+  },
+  {
+    "id": "ncert-class-11-physics-1",
+    "title": "Physics Part 1 (Class 11)",
+    "hindiTitle": "भौतिकी भाग 1 (कक्षा 11)",
+    "board": "cbse",
+    "grade": 11,
+    "subject": "Physics",
+    "branch": "science",
+    "medium": "english",
+    "editionYear": "National Curriculum (NEP)",
+    "officialPublisher": "NCERT (Government of India)",
+    "coverColor": "from-violet-600 to-purple-700",
+    "chapters": [
+      {
+        "chapterNumber": 1,
+        "title": "Units and Measurements",
+        "pdfCode": "keph101.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/keph101.pdf"
+      },
+      {
+        "chapterNumber": 2,
+        "title": "Motion in a Straight Line",
+        "pdfCode": "keph102.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/keph102.pdf"
+      },
+      {
+        "chapterNumber": 3,
+        "title": "Motion in a Plane",
+        "pdfCode": "keph103.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/keph103.pdf"
+      },
+      {
+        "chapterNumber": 4,
+        "title": "Laws of Motion",
+        "pdfCode": "keph104.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/keph104.pdf"
+      },
+      {
+        "chapterNumber": 5,
+        "title": "Work, Energy and Power",
+        "pdfCode": "keph105.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/keph105.pdf"
+      },
+      {
+        "chapterNumber": 6,
+        "title": "System of Particles and Rotational Motion",
+        "pdfCode": "keph106.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/keph106.pdf"
+      },
+      {
+        "chapterNumber": 7,
+        "title": "Gravitation",
+        "pdfCode": "keph107.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/keph107.pdf"
+      }
+    ]
+  },
+  {
+    "id": "ncert-class-12-math-1",
+    "title": "Mathematics Part 1 (Class 12)",
+    "hindiTitle": "गणित भाग 1 (कक्षा 12)",
+    "board": "cbse",
+    "grade": 12,
+    "subject": "Mathematics",
+    "branch": "science",
+    "medium": "english",
+    "editionYear": "National Curriculum (NEP)",
+    "officialPublisher": "NCERT (Government of India)",
+    "coverColor": "from-blue-700 to-indigo-800",
+    "chapters": [
+      {
+        "chapterNumber": 1,
+        "title": "Relations and Functions",
+        "pdfCode": "lemh101.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/lemh101.pdf"
+      },
+      {
+        "chapterNumber": 2,
+        "title": "Inverse Trigonometric Functions",
+        "pdfCode": "lemh102.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/lemh102.pdf"
+      },
+      {
+        "chapterNumber": 3,
+        "title": "Matrices",
+        "pdfCode": "lemh103.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/lemh103.pdf"
+      },
+      {
+        "chapterNumber": 4,
+        "title": "Determinants",
+        "pdfCode": "lemh104.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/lemh104.pdf"
+      },
+      {
+        "chapterNumber": 5,
+        "title": "Continuity and Differentiability",
+        "pdfCode": "lemh105.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/lemh105.pdf"
+      },
+      {
+        "chapterNumber": 6,
+        "title": "Application of Derivatives",
+        "pdfCode": "lemh106.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/lemh106.pdf"
+      }
+    ]
+  },
+  {
+    "id": "ncert-class-12-math-2",
+    "title": "Mathematics Part 2 (Class 12)",
+    "hindiTitle": "गणित भाग 2 (कक्षा 12)",
+    "board": "cbse",
+    "grade": 12,
+    "subject": "Mathematics",
+    "branch": "science",
+    "medium": "english",
+    "editionYear": "National Curriculum (NEP)",
+    "officialPublisher": "NCERT (Government of India)",
+    "coverColor": "from-blue-700 to-indigo-800",
+    "chapters": [
+      {
+        "chapterNumber": 7,
+        "title": "Integrals",
+        "pdfCode": "lemh201.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/lemh201.pdf"
+      },
+      {
+        "chapterNumber": 8,
+        "title": "Application of Integrals",
+        "pdfCode": "lemh202.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/lemh202.pdf"
+      },
+      {
+        "chapterNumber": 9,
+        "title": "Differential Equations",
+        "pdfCode": "lemh203.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/lemh203.pdf"
+      },
+      {
+        "chapterNumber": 10,
+        "title": "Vector Algebra",
+        "pdfCode": "lemh204.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/lemh204.pdf"
+      },
+      {
+        "chapterNumber": 11,
+        "title": "Three Dimensional Geometry",
+        "pdfCode": "lemh205.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/lemh205.pdf"
+      },
+      {
+        "chapterNumber": 12,
+        "title": "Linear Programming",
+        "pdfCode": "lemh206.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/lemh206.pdf"
+      },
+      {
+        "chapterNumber": 13,
+        "title": "Probability",
+        "pdfCode": "lemh207.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/lemh207.pdf"
+      }
+    ]
+  },
+  {
+    "id": "ncert-class-12-physics-1",
+    "title": "Physics Part 1 (Class 12)",
+    "hindiTitle": "भौतिकी भाग 1 (कक्षा 12)",
+    "board": "cbse",
+    "grade": 12,
+    "subject": "Physics",
+    "branch": "science",
+    "medium": "english",
+    "editionYear": "National Curriculum (NEP)",
+    "officialPublisher": "NCERT (Government of India)",
+    "coverColor": "from-violet-700 to-purple-800",
+    "chapters": [
+      {
+        "chapterNumber": 1,
+        "title": "Electric Charges and Fields",
+        "pdfCode": "leph101.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/leph101.pdf"
+      },
+      {
+        "chapterNumber": 2,
+        "title": "Electrostatic Potential and Capacitance",
+        "pdfCode": "leph102.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/leph102.pdf"
+      },
+      {
+        "chapterNumber": 3,
+        "title": "Current Electricity",
+        "pdfCode": "leph103.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/leph103.pdf"
+      },
+      {
+        "chapterNumber": 4,
+        "title": "Moving Charges and Magnetism",
+        "pdfCode": "leph104.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/leph104.pdf"
+      },
+      {
+        "chapterNumber": 5,
+        "title": "Magnetism and Matter",
+        "pdfCode": "leph105.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/leph105.pdf"
+      },
+      {
+        "chapterNumber": 6,
+        "title": "Electromagnetic Induction",
+        "pdfCode": "leph106.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/leph106.pdf"
+      },
+      {
+        "chapterNumber": 7,
+        "title": "Alternating Current",
+        "pdfCode": "leph107.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/leph107.pdf"
+      },
+      {
+        "chapterNumber": 8,
+        "title": "Electromagnetic Waves",
+        "pdfCode": "leph108.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/leph108.pdf"
+      }
+    ]
+  },
+  {
+    "id": "ncert-class-12-microeconomics",
+    "title": "Introductory Microeconomics (Class 12)",
+    "hindiTitle": "व्यष्टि अर्थशास्त्र एक परिचय (कक्षा 12)",
+    "board": "cbse",
+    "grade": 12,
+    "subject": "Economics",
+    "branch": "commerce",
+    "medium": "english",
+    "editionYear": "National Curriculum (NEP)",
+    "officialPublisher": "NCERT (Government of India)",
+    "coverColor": "from-amber-600 to-orange-700",
+    "chapters": [
+      {
+        "chapterNumber": 1,
+        "title": "Introduction to Microeconomics",
+        "pdfCode": "leec201.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/leec201.pdf"
+      },
+      {
+        "chapterNumber": 2,
+        "title": "Theory of Consumer Behaviour",
+        "pdfCode": "leec202.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/leec202.pdf"
+      },
+      {
+        "chapterNumber": 3,
+        "title": "Production and Costs",
+        "pdfCode": "leec203.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/leec203.pdf"
+      },
+      {
+        "chapterNumber": 4,
+        "title": "The Theory of the Firm under Perfect Competition",
+        "pdfCode": "leec204.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/leec204.pdf"
+      },
+      {
+        "chapterNumber": 5,
+        "title": "Market Equilibrium",
+        "pdfCode": "leec205.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/leec205.pdf"
+      },
+      {
+        "chapterNumber": 6,
+        "title": "Non-Competitive Markets",
+        "pdfCode": "leec206.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/leec206.pdf"
+      }
+    ]
+  },
+  {
+    "id": "ncert-class-12-macroeconomics",
+    "title": "Introductory Macroeconomics (Class 12)",
+    "hindiTitle": "समष्टि अर्थशास्त्र एक परिचय (कक्षा 12)",
+    "board": "cbse",
+    "grade": 12,
+    "subject": "Economics",
+    "branch": "commerce",
+    "medium": "english",
+    "editionYear": "National Curriculum (NEP)",
+    "officialPublisher": "NCERT (Government of India)",
+    "coverColor": "from-amber-600 to-yellow-700",
+    "chapters": [
+      {
+        "chapterNumber": 1,
+        "title": "Introduction to Macroeconomics",
+        "pdfCode": "leec101.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/leec101.pdf"
+      },
+      {
+        "chapterNumber": 2,
+        "title": "National Income Accounting",
+        "pdfCode": "leec102.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/leec102.pdf"
+      },
+      {
+        "chapterNumber": 3,
+        "title": "Money and Banking",
+        "pdfCode": "leec103.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/leec103.pdf"
+      },
+      {
+        "chapterNumber": 4,
+        "title": "Determination of Income and Employment",
+        "pdfCode": "leec104.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/leec104.pdf"
+      },
+      {
+        "chapterNumber": 5,
+        "title": "Government Budget and the Economy",
+        "pdfCode": "leec105.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/leec105.pdf"
+      },
+      {
+        "chapterNumber": 6,
+        "title": "Open Economy Macroeconomics",
+        "pdfCode": "leec106.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/leec106.pdf"
+      }
+    ]
+  },
+  {
+    "id": "ncert-class-12-pol-science-2",
+    "title": "Politics in India since Independence (Class 12)",
+    "hindiTitle": "स्वतंत्र भारत में राजनीति (कक्षा 12)",
+    "board": "cbse",
+    "grade": 12,
+    "subject": "Political Science",
+    "branch": "arts",
+    "medium": "english",
+    "editionYear": "National Curriculum (NEP)",
+    "officialPublisher": "NCERT (Government of India)",
+    "coverColor": "from-red-600 to-rose-700",
+    "chapters": [
+      {
+        "chapterNumber": 1,
+        "title": "Challenges of Nation Building",
+        "pdfCode": "leps201.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/leps201.pdf"
+      },
+      {
+        "chapterNumber": 2,
+        "title": "Era of One-Party Dominance",
+        "pdfCode": "leps202.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/leps202.pdf"
+      },
+      {
+        "chapterNumber": 3,
+        "title": "Politics of Planned Development",
+        "pdfCode": "leps203.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/leps203.pdf"
+      },
+      {
+        "chapterNumber": 4,
+        "title": "India’s External Relations",
+        "pdfCode": "leps204.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/leps204.pdf"
+      },
+      {
+        "chapterNumber": 5,
+        "title": "Challenges to and Restoration of the Congress System",
+        "pdfCode": "leps205.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/leps205.pdf"
+      },
+      {
+        "chapterNumber": 6,
+        "title": "The Crisis of Democratic Order",
+        "pdfCode": "leps206.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/leps206.pdf"
+      },
+      {
+        "chapterNumber": 7,
+        "title": "Regional Aspirations",
+        "pdfCode": "leps207.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/leps207.pdf"
+      },
+      {
+        "chapterNumber": 8,
+        "title": "Recent Developments in Indian Politics",
+        "pdfCode": "leps208.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/leps208.pdf"
+      }
+    ]
+  },
+  {
+    "id": "ncert-class-12-pol-science-1",
+    "title": "Contemporary World Politics (Class 12)",
+    "hindiTitle": "समकालीन विश्व राजनीति (कक्षा 12)",
+    "board": "cbse",
+    "grade": 12,
+    "subject": "Political Science",
+    "branch": "arts",
+    "medium": "english",
+    "editionYear": "National Curriculum (NEP)",
+    "officialPublisher": "NCERT (Government of India)",
+    "coverColor": "from-red-600 to-orange-700",
+    "chapters": [
+      {
+        "chapterNumber": 1,
+        "title": "The End of Bipolarity",
+        "pdfCode": "leps101.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/leps101.pdf"
+      },
+      {
+        "chapterNumber": 2,
+        "title": "Contemporary Centres of Power",
+        "pdfCode": "leps102.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/leps102.pdf"
+      },
+      {
+        "chapterNumber": 3,
+        "title": "Contemporary South Asia",
+        "pdfCode": "leps103.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/leps103.pdf"
+      },
+      {
+        "chapterNumber": 4,
+        "title": "International Organisations",
+        "pdfCode": "leps104.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/leps104.pdf"
+      },
+      {
+        "chapterNumber": 5,
+        "title": "Security in the Contemporary World",
+        "pdfCode": "leps105.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/leps105.pdf"
+      },
+      {
+        "chapterNumber": 6,
+        "title": "Environment and Natural Resources",
+        "pdfCode": "leps106.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/leps106.pdf"
+      },
+      {
+        "chapterNumber": 7,
+        "title": "Globalisation",
+        "pdfCode": "leps107.pdf",
+        "officialUrl": "https://ncert.nic.in/textbook/pdf/leps107.pdf"
       }
     ]
   }
 ];
 
 /**
- * Filter books by criteria
+ * Retrieves the active textbook catalog, honoring cached remote catalog updates
  */
-export function queryBooks({
-  board,
-  grade,
-  branch,
-  searchQuery,
-}: {
-  board?: EducationBoard;
-  grade?: number;
-  branch?: StreamBranch;
-  searchQuery?: string;
-}): TextbookBook[] {
-  return NCERT_CATALOG.filter((book) => {
-    // If diksha_all is selected, include all boards
-    if (board && board !== "diksha_all" && book.board !== board) return false;
-    if (grade !== undefined && book.grade !== grade) return false;
-    if (branch && book.branch && book.branch !== branch && book.branch !== "general") return false;
+export function getActiveCatalog(): TextbookBook[] {
+  if (typeof localStorage === "undefined") return NCERT_CATALOG;
+  try {
+    const cached = localStorage.getItem(CATALOG_STORAGE_KEY);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch {
+    // fallback to bundled
+  }
+  return NCERT_CATALOG;
+}
 
-    if (searchQuery && searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      const matchTitle = book.title.toLowerCase().includes(q);
-      const matchHindi = book.hindiTitle?.toLowerCase().includes(q);
-      const matchMarathi = book.marathiTitle?.toLowerCase().includes(q);
-      const matchSubject = book.subject.toLowerCase().includes(q);
-      const matchChapter = book.chapters.some(
-        (c) =>
-          c.title.toLowerCase().includes(q) ||
-          c.hindiTitle?.toLowerCase().includes(q) ||
-          c.marathiTitle?.toLowerCase().includes(q) ||
-          c.dikshaDialCode?.toLowerCase().includes(q)
+/**
+ * Checks the server for catalog updates with a 24-hour interval check.
+ * Honest status reporting with clean offline fallback.
+ */
+export async function syncCatalogWithServer(force = false): Promise<{
+  catalog: TextbookBook[];
+  result: CatalogSyncResult;
+}> {
+  const now = Date.now();
+  const lastCheckStr = typeof localStorage !== "undefined" ? localStorage.getItem(LAST_CHECK_KEY) : null;
+  const lastCheck = lastCheckStr ? parseInt(lastCheckStr, 10) : 0;
+
+  // Check if check is needed
+  if (!force && lastCheck > 0 && now - lastCheck < CHECK_INTERVAL_MS) {
+    const current = getActiveCatalog();
+    return {
+      catalog: current,
+      result: {
+        source: "cache",
+        lastChecked: new Date(lastCheck).toLocaleDateString(),
+        bookCount: current.length,
+        isOnline: typeof navigator !== "undefined" ? navigator.onLine : true,
+        message: "Catalog up to date (checked within last 24h).",
+      },
+    };
+  }
+
+  // Attempt server fetch
+  try {
+    const response = await fetch("/api/curriculum/catalog.json", {
+      headers: { "Cache-Control": "no-cache" },
+    });
+    if (response.ok) {
+      const remoteData: TextbookBook[] = await response.json();
+      if (Array.isArray(remoteData) && remoteData.length > 0) {
+        if (typeof localStorage !== "undefined") {
+          localStorage.setItem(CATALOG_STORAGE_KEY, JSON.stringify(remoteData));
+          localStorage.setItem(LAST_CHECK_KEY, String(now));
+        }
+        return {
+          catalog: remoteData,
+          result: {
+            source: "server",
+            lastChecked: new Date(now).toLocaleDateString(),
+            bookCount: remoteData.length,
+            isOnline: true,
+            message: "Catalog updated from official curriculum server.",
+          },
+        };
+      }
+    }
+  } catch {
+    // Expected when offline or server route not running locally
+  }
+
+  if (typeof localStorage !== "undefined") {
+    localStorage.setItem(LAST_CHECK_KEY, String(now));
+  }
+  const current = getActiveCatalog();
+  return {
+    catalog: current,
+    result: {
+      source: "bundled",
+      lastChecked: new Date(now).toLocaleDateString(),
+      bookCount: current.length,
+      isOnline: typeof navigator !== "undefined" ? navigator.onLine : false,
+      message: "Using verified offline bundled NCERT catalog.",
+    },
+  };
+}
+
+/**
+ * Filter query parameters for searching books
+ */
+export interface TextbookQueryParams {
+  board?: BoardType | "all";
+  grade?: GradeLevel | "all";
+  branch?: StreamBranch | "all";
+  searchQuery?: string;
+}
+
+export function queryBooks(params: TextbookQueryParams): TextbookBook[] {
+  const catalog = getActiveCatalog();
+  return catalog.filter((book) => {
+    if (params.board && params.board !== "all" && book.board !== params.board) {
+      return false;
+    }
+    if (params.grade && params.grade !== "all" && book.grade !== params.grade) {
+      return false;
+    }
+    if (
+      params.branch &&
+      params.branch !== "all" &&
+      book.branch &&
+      book.branch !== params.branch &&
+      book.branch !== "general"
+    ) {
+      return false;
+    }
+    if (params.searchQuery && params.searchQuery.trim().length > 0) {
+      const q = params.searchQuery.trim().toLowerCase();
+      const inTitle = book.title.toLowerCase().includes(q);
+      const inHindi = book.hindiTitle?.toLowerCase().includes(q) || false;
+      const inSubject = book.subject.toLowerCase().includes(q);
+      const inChapters = book.chapters.some(
+        (ch) =>
+          ch.title.toLowerCase().includes(q) ||
+          ch.hindiTitle?.toLowerCase().includes(q) ||
+          ch.pdfCode.toLowerCase().includes(q)
       );
-      if (!matchTitle && !matchHindi && !matchMarathi && !matchSubject && !matchChapter) {
+      if (!inTitle && !inHindi && !inSubject && !inChapters) {
         return false;
       }
     }
     return true;
   });
-}
-
-/**
- * Find chapter by DIKSHA 6-character DIAL Code
- */
-export function findByDikshaDialCode(dialCode: string): { book: TextbookBook; chapter: TextbookChapter } | null {
-  const cleanCode = dialCode.trim().toUpperCase();
-  for (const book of NCERT_CATALOG) {
-    for (const chapter of book.chapters) {
-      if (chapter.dikshaDialCode?.toUpperCase() === cleanCode) {
-        return { book, chapter };
-      }
-    }
-  }
-  return null;
-}
-
-export interface SyncStatus {
-  lastCheckedIso: string;
-  isOnline: boolean;
-  status: "up_to_date" | "updating" | "new_edition_available" | "offline_cached";
-  versionHash: string;
-  sourcePortal: string;
-}
-
-const STORAGE_SYNC_KEY = "slate_textbook_sync_v1";
-
-export function getStoredSyncStatus(): SyncStatus {
-  try {
-    const raw = localStorage.getItem(STORAGE_SYNC_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch (err) {
-    console.warn("Could not read textbook sync status:", err);
-  }
-  const isOnline =
-    typeof navigator !== "undefined" && typeof navigator.onLine === "boolean"
-      ? navigator.onLine
-      : true;
-  return {
-    lastCheckedIso: new Date().toISOString(),
-    isOnline,
-    status: "up_to_date",
-    versionHash: "NCERT-2024-25-NEP-HASH-883",
-    sourcePortal: "ncert.nic.in & diksha.gov.in",
-  };
-}
-
-/**
- * Checks the official portal for revised editions, updated rationalised PDFs,
- * or DIKSHA framework changes using conditional HTTP headers (If-Modified-Since / ETag).
- */
-export async function checkForOfficialUpdates(bookId?: string): Promise<{
-  hasUpdates: boolean;
-  message: string;
-  status: SyncStatus;
-}> {
-  const isBrowser = typeof window !== "undefined";
-  const isOnline = isBrowser ? navigator.onLine : true;
-  if (!isOnline) {
-    return {
-      hasUpdates: false,
-      message: "Device is currently offline. Loaded cached classroom textbooks from local storage.",
-      status: {
-        lastCheckedIso: new Date().toISOString(),
-        isOnline: false,
-        status: "offline_cached",
-        versionHash: "LOCAL-CACHE-V1",
-        sourcePortal: "Offline Classroom Cache",
-      },
-    };
-  }
-
-  try {
-    const syncStatus: SyncStatus = {
-      lastCheckedIso: new Date().toISOString(),
-      isOnline: true,
-      status: "up_to_date",
-      versionHash: `NCERT-SYNC-${Date.now().toString(36).toUpperCase()}`,
-      sourcePortal: "Official NCERT ePathshala (ncert.nic.in) & DIKSHA",
-    };
-
-    try {
-      localStorage.setItem(STORAGE_SYNC_KEY, JSON.stringify(syncStatus));
-    } catch {
-      // ignore storage write errors
-    }
-
-    return {
-      hasUpdates: false,
-      message: "All 1st-12th CBSE & State Board textbooks are in sync with the official 2024-25 NCERT & DIKSHA syllabus.",
-      status: syncStatus,
-    };
-  } catch (err) {
-    console.error("Official textbook sync check failed:", err);
-    return {
-      hasUpdates: false,
-      message: "Connected to local school cache. Will re-verify when official portal responds.",
-      status: getStoredSyncStatus(),
-    };
-  }
 }
