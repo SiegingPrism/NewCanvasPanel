@@ -298,13 +298,12 @@ body,
   background-color: #0f172a;
 }
 
-/* Smart board drawer & sheet optimizations for Android WebView */
-[data-state][role="dialog"] {
+/* Smart board drawer & sheet optimizations for Android WebView (specifically side/sheet drawers) */
+[data-state][role="dialog"][class*="inset-"] {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   animation: none !important;
   will-change: auto !important;
-  background-color: #ffffff !important;
   isolation: isolate !important;
   transform: translateZ(0) !important;
   -webkit-transform: translateZ(0) !important;
@@ -312,24 +311,7 @@ body,
   -webkit-backface-visibility: hidden !important;
 }
 
-.dark [data-state][role="dialog"] {
-  background-color: #0f172a !important;
-}
-
-[data-state][role="dialog"] > div,
-[data-state][role="dialog"] .overflow-y-auto,
-[data-state][role="dialog"] section {
-  will-change: auto !important;
-  background-color: #ffffff !important;
-}
-
-.dark [data-state][role="dialog"] > div,
-.dark [data-state][role="dialog"] .overflow-y-auto,
-.dark [data-state][role="dialog"] section {
-  background-color: #0f172a !important;
-}
-
-[data-state][role="dialog"] .overflow-y-auto {
+[data-state][role="dialog"][class*="inset-"] .overflow-y-auto {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
 }
@@ -345,21 +327,13 @@ body,
   backdrop-filter: none !important;
 }
 
-[data-state][role="dialog"] .bg-card {
-  background-color: #ffffff !important;
-}
-
-.dark [data-state][role="dialog"] .bg-card {
-  background-color: #1e293b !important;
-}
-
-[data-state][role="dialog"] button,
-[data-state][role="dialog"] button * {
+[data-state][role="dialog"][class*="inset-"] button,
+[data-state][role="dialog"][class*="inset-"] button * {
   will-change: auto !important;
   transition-property: background-color, border-color, color, fill, stroke, opacity !important;
 }
 
-[data-state][role="dialog"] button:active {
+[data-state][role="dialog"][class*="inset-"] button:active {
   opacity: 0.75 !important;
 }
 

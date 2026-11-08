@@ -143,16 +143,16 @@ export function TeacherAccountDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl w-[94vw] p-0 overflow-hidden bg-slate-900 text-white border-slate-700 shadow-2xl rounded-3xl select-none max-h-[90vh] flex flex-col">
-        <DialogHeader className="p-6 border-b border-slate-800 bg-slate-950/80">
-          <div className="flex items-center gap-2 text-indigo-400 font-bold text-xs uppercase tracking-wider">
-            <Cloud className="w-4 h-4 text-sky-400" />
+      <DialogContent className="max-w-3xl w-[94vw] p-0 overflow-hidden bg-card text-card-foreground border border-border shadow-2xl rounded-3xl select-none max-h-[90vh] flex flex-col">
+        <DialogHeader className="p-6 border-b border-border bg-muted/40 shrink-0">
+          <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-bold text-xs uppercase tracking-wider">
+            <Cloud className="w-4 h-4 text-sky-500" />
             Teacher Cloud Account & School Sync
           </div>
-          <DialogTitle className="text-2xl font-black text-white mt-1">
+          <DialogTitle className="text-2xl font-black text-foreground mt-1 tracking-tight">
             Access Lessons on Any Smart Board
           </DialogTitle>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
             Sign in once so your prepared lessons, interactive activities, and notes open on any
             smart board in the school.
           </p>
@@ -165,19 +165,19 @@ export function TeacherAccountDialog({
             /* ============================================================= */
             <div className="space-y-6">
               {/* Teacher Profile Card */}
-              <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+              <div className="p-5 rounded-2xl bg-muted/40 border border-border flex items-center justify-between">
                 <div className="flex items-center gap-3.5">
-                  <div className="w-12 h-12 rounded-2xl bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center text-indigo-300 font-black text-xl">
+                  <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-black text-xl">
                     {user.email ? user.email.charAt(0).toUpperCase() : "T"}
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-white text-base">{user.email}</span>
-                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      <span className="font-bold text-foreground text-base">{user.email}</span>
+                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
                         CLOUD ACTIVE
                       </span>
                     </div>
-                    <span className="text-xs text-slate-400">
+                    <span className="text-xs text-muted-foreground">
                       Smart board ID: {activeBoardId ? activeBoardId.slice(0, 8) : "None"} · School
                       Cloud Connected
                     </span>
@@ -188,7 +188,7 @@ export function TeacherAccountDialog({
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-10 px-3.5 border-slate-700 bg-slate-800 text-slate-300 hover:text-white rounded-xl gap-2 font-semibold"
+                    className="h-10 px-3.5 border-border bg-background hover:bg-muted text-foreground rounded-xl gap-2 font-semibold transition-all cursor-pointer"
                     onClick={refreshCloudLessons}
                     disabled={isLoadingLessons}
                   >
@@ -198,7 +198,7 @@ export function TeacherAccountDialog({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-10 px-3.5 text-red-400 hover:text-red-300 hover:bg-red-950/40 rounded-xl gap-2 font-semibold"
+                    className="h-10 px-3.5 text-rose-600 dark:text-rose-400 hover:text-rose-700 hover:bg-rose-500/10 rounded-xl gap-2 font-semibold transition-all cursor-pointer"
                     onClick={handleSignOut}
                   >
                     <LogOut className="w-4 h-4" />
@@ -208,10 +208,10 @@ export function TeacherAccountDialog({
               </div>
 
               {/* Instant Sync Current Lesson Banner */}
-              <div className="p-5 rounded-2xl bg-gradient-to-r from-indigo-950/60 to-purple-950/60 border border-indigo-500/40 flex items-center justify-between">
+              <div className="p-5 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 flex items-center justify-between">
                 <div>
-                  <h4 className="font-black text-lg text-white">Save Current Lesson to Cloud</h4>
-                  <p className="text-xs text-indigo-200/80 mt-0.5">
+                  <h4 className="font-black text-lg text-foreground">Save Current Lesson to Cloud</h4>
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     "
                     {activeBoardId && boards[activeBoardId]
                       ? boards[activeBoardId].title
@@ -221,7 +221,7 @@ export function TeacherAccountDialog({
                 </div>
                 <Button
                   disabled={isSyncingCurrent}
-                  className="h-12 px-6 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl gap-2 shadow-lg shadow-indigo-500/25"
+                  className="h-12 px-6 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl gap-2 shadow-md shadow-indigo-600/20 active:scale-[0.99] transition-all cursor-pointer"
                   onClick={handleSyncCurrentBoard}
                 >
                   {isSyncingCurrent ? (
@@ -241,23 +241,23 @@ export function TeacherAccountDialog({
               {/* Cloud Lessons List */}
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-sm font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
-                    <FolderOpen className="w-4 h-4 text-amber-400" />
+                  <h4 className="text-sm font-bold uppercase tracking-wider text-foreground/80 flex items-center gap-2">
+                    <FolderOpen className="w-4 h-4 text-amber-500" />
                     My Saved Cloud Lessons ({cloudLessons.length})
                   </h4>
-                  <span className="text-xs text-slate-500">Tap to open on this smart board</span>
+                  <span className="text-xs text-muted-foreground">Tap to open on this smart board</span>
                 </div>
 
                 {isLoadingLessons ? (
-                  <div className="p-8 text-center text-slate-400 flex flex-col items-center gap-2">
-                    <RefreshCw className="w-6 h-6 animate-spin text-indigo-400" />
+                  <div className="p-8 text-center text-muted-foreground flex flex-col items-center gap-2">
+                    <RefreshCw className="w-6 h-6 animate-spin text-indigo-500" />
                     <span>Loading your cloud lessons...</span>
                   </div>
                 ) : cloudLessons.length === 0 ? (
-                  <div className="p-8 rounded-2xl bg-slate-950 border border-dashed border-slate-800 text-center text-slate-400">
-                    <Cloud className="w-8 h-8 text-slate-600 mx-auto mb-2" />
-                    <p className="text-sm font-bold text-slate-300">No lessons saved yet</p>
-                    <p className="text-xs text-slate-500 mt-1">
+                  <div className="p-8 rounded-2xl bg-muted/30 border border-dashed border-border text-center text-muted-foreground">
+                    <Cloud className="w-8 h-8 text-muted-foreground/50 mx-auto mb-2" />
+                    <p className="text-sm font-bold text-foreground">No lessons saved yet</p>
+                    <p className="text-xs text-muted-foreground mt-1">
                       Tap "Save to My Account" above to save your first lesson.
                     </p>
                   </div>
@@ -272,18 +272,18 @@ export function TeacherAccountDialog({
                             onOpenChange(false);
                           }
                         }}
-                        className="p-4 rounded-xl border border-slate-800 bg-slate-950/70 hover:border-indigo-500/50 hover:bg-slate-950 transition-all cursor-pointer flex flex-col justify-between"
+                        className="p-4 rounded-xl border border-border bg-card hover:border-indigo-500/50 hover:bg-muted/40 transition-all cursor-pointer flex flex-col justify-between shadow-xs"
                       >
                         <div>
                           <div className="flex items-center justify-between">
-                            <span className="font-bold text-white text-base truncate">
+                            <span className="font-bold text-foreground text-base truncate">
                               {record.title || "Untitled Lesson"}
                             </span>
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-950 text-indigo-300 border border-indigo-800 font-semibold">
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border font-semibold">
                               {record.pages?.length || 1} pages
                             </span>
                           </div>
-                          <span className="text-xs text-slate-500 mt-1 block">
+                          <span className="text-xs text-muted-foreground mt-1 block">
                             Last edited:{" "}
                             {record.updated_at
                               ? new Date(record.updated_at).toLocaleDateString()
@@ -291,7 +291,7 @@ export function TeacherAccountDialog({
                           </span>
                         </div>
 
-                        <div className="mt-3 pt-2 border-t border-slate-800/80 flex items-center justify-between text-xs text-indigo-400 font-semibold">
+                        <div className="mt-3 pt-2 border-t border-border/80 flex items-center justify-between text-xs text-indigo-600 dark:text-indigo-400 font-semibold">
                           <span>Open on this Board</span>
                           <span>→</span>
                         </div>
@@ -308,13 +308,13 @@ export function TeacherAccountDialog({
             <div className="max-w-md mx-auto space-y-5 py-4">
               <form onSubmit={handleSignIn} className="space-y-4">
                 <div>
-                  <label className="text-xs font-bold uppercase text-slate-400 mb-1 block">
+                  <label className="text-xs font-bold uppercase tracking-wider text-foreground/80 mb-1.5 block">
                     Teacher Email
                   </label>
                   <input
                     type="email"
                     required
-                    className="w-full h-12 px-4 rounded-xl bg-slate-950 border border-slate-700 text-white font-semibold text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full h-12 px-4 rounded-xl bg-background border border-input text-foreground font-semibold text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-xs transition-all"
                     placeholder="teacher@school.edu"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -322,13 +322,13 @@ export function TeacherAccountDialog({
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold uppercase text-slate-400 mb-1 block">
+                  <label className="text-xs font-bold uppercase tracking-wider text-foreground/80 mb-1.5 block">
                     Password
                   </label>
                   <input
                     type="password"
                     required
-                    className="w-full h-12 px-4 rounded-xl bg-slate-950 border border-slate-700 text-white font-semibold text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full h-12 px-4 rounded-xl bg-background border border-input text-foreground font-semibold text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-xs transition-all"
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -339,7 +339,7 @@ export function TeacherAccountDialog({
                   <Button
                     type="submit"
                     disabled={isSubmitting}
-                    className="h-12 w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl gap-2 shadow-lg"
+                    className="h-12 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl gap-2 shadow-md shadow-indigo-600/20 active:scale-[0.99] transition-all cursor-pointer"
                   >
                     <LogIn className="w-4 h-4" />
                     {isSubmitting ? "Connecting to School Cloud..." : "Sign In & Sync Lessons"}
@@ -348,21 +348,21 @@ export function TeacherAccountDialog({
                   <Button
                     type="button"
                     variant="outline"
-                    className="h-11 w-full border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white rounded-xl text-xs font-semibold gap-2"
+                    className="h-11 w-full border border-border bg-muted/60 text-foreground hover:bg-muted rounded-xl text-xs font-semibold gap-2 transition-all cursor-pointer"
                     onClick={handleDemoSignIn}
                   >
-                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                     Quick Teacher Demo Sign-in
                   </Button>
                 </div>
               </form>
 
-              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-400 space-y-1.5">
-                <div className="flex items-center gap-1.5 text-slate-300 font-semibold">
-                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              <div className="p-4 rounded-xl bg-muted/40 border border-border text-xs text-muted-foreground space-y-1.5">
+                <div className="flex items-center gap-1.5 text-foreground font-semibold">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                   Secure School Sign-In
                 </div>
-                <p>
+                <p className="leading-relaxed">
                   Lessons saved to your account are private and only accessible with your
                   credentials. You can safely sign out before leaving the classroom.
                 </p>

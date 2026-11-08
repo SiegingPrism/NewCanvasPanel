@@ -147,31 +147,31 @@ export function AILessonBuilderDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl w-[95vw] p-0 overflow-hidden bg-slate-900 text-white border-slate-700 shadow-2xl rounded-3xl select-none max-h-[92vh] flex flex-col">
-        <DialogHeader className="p-6 border-b border-slate-800 bg-slate-950/80 shrink-0">
+      <DialogContent className="max-w-3xl w-[95vw] p-0 overflow-hidden bg-card text-card-foreground border border-border shadow-2xl rounded-3xl select-none max-h-[92vh] flex flex-col">
+        <DialogHeader className="p-6 border-b border-border bg-muted/40 shrink-0">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-indigo-400 font-bold text-xs uppercase tracking-wider">
-              <Sparkles className="w-4 h-4 text-amber-400" />
+            <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-bold text-xs uppercase tracking-wider">
+              <Sparkles className="w-4 h-4 text-amber-500" />
               AI Lesson Builder · Smart Board Curriculum
             </div>
             {generatedCurriculum && (
               <span
                 className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
                   isTemplateFallback
-                    ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                    : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                    ? "bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/30"
+                    : "bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 border border-emerald-500/30"
                 }`}
               >
                 {isTemplateFallback ? "Lesson Template (Outline)" : "Gemini AI Generated"}
               </span>
             )}
           </div>
-          <DialogTitle className="text-2xl font-black text-white mt-1">
+          <DialogTitle className="text-2xl font-black text-foreground mt-1">
             {generatedCurriculum
               ? `Preview: ${generatedCurriculum.topic}`
               : "Build Ready-to-Teach Whiteboard Lesson"}
           </DialogTitle>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-muted-foreground">
             {generatedCurriculum
               ? "Review your structured pages below. You can tap on each slide to inspect the content before inserting onto the smart board."
               : "Type any topic to generate ready interactive pages with objectives, Cornell notes, visual schematics, drag-and-drop activities, quizzes, and flashcards."}
@@ -185,14 +185,14 @@ export function AILessonBuilderDialog({
             <>
               {/* TOPIC INPUT */}
               <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5 block">
+                <label className="text-xs font-bold uppercase tracking-wider text-foreground/80 mb-1.5 block">
                   What topic do you want to teach?
                 </label>
                 <div className="relative">
                   <input
                     type="text"
                     disabled={isGenerating}
-                    className="w-full h-14 pl-4 pr-12 rounded-2xl bg-slate-950 border-2 border-slate-700 text-white font-bold text-lg placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 transition-all"
+                    className="w-full h-14 pl-4 pr-12 rounded-2xl bg-background border-2 border-border text-foreground font-bold text-lg placeholder:text-muted-foreground/60 focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 transition-all"
                     placeholder="e.g. Photosynthesis, Pythagorean Theorem, Newton's Laws..."
                     value={topic}
                     onChange={(e) => setTopic(e.target.value)}
@@ -202,12 +202,12 @@ export function AILessonBuilderDialog({
                       }
                     }}
                   />
-                  <Wand2 className="absolute right-4 top-4 w-6 h-6 text-slate-500 pointer-events-none" />
+                  <Wand2 className="absolute right-4 top-4 w-6 h-6 text-muted-foreground pointer-events-none" />
                 </div>
 
                 {/* Quick Inspiration Chips */}
                 <div className="flex flex-wrap items-center gap-1.5 mt-3">
-                  <span className="text-xs text-slate-500 mr-1">Suggestions:</span>
+                  <span className="text-xs text-muted-foreground mr-1">Suggestions:</span>
                   {INSPIRATION_TOPICS.map((item) => (
                     <button
                       key={item.label}
@@ -217,7 +217,7 @@ export function AILessonBuilderDialog({
                         setTopic(item.topic);
                         setSubject(item.subject);
                       }}
-                      className="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-indigo-900/40 hover:text-indigo-200 border border-slate-700/80 transition active:scale-95 cursor-pointer"
+                      className="px-2.5 py-1 rounded-full text-xs font-semibold bg-muted text-foreground hover:bg-muted/80 border border-border transition active:scale-95 cursor-pointer"
                     >
                       {item.label}
                     </button>
@@ -228,15 +228,15 @@ export function AILessonBuilderDialog({
               {/* SUBJECT & GRADE LEVEL */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5 block">
-                    <BookOpen className="inline w-3.5 h-3.5 mr-1 text-indigo-400" />
+                  <label className="text-xs font-bold uppercase tracking-wider text-foreground/80 mb-1.5 block">
+                    <BookOpen className="inline w-3.5 h-3.5 mr-1 text-indigo-500" />
                     Subject Area
                   </label>
                   <select
                     disabled={isGenerating}
                     value={subject}
                     onChange={(e) => setSubject(e.target.value)}
-                    className="w-full h-12 px-3 rounded-xl bg-slate-950 border border-slate-700 text-slate-200 font-medium text-sm focus:outline-none focus:border-indigo-500"
+                    className="w-full h-12 px-3 rounded-xl bg-background border border-input text-foreground font-medium text-sm focus:outline-none focus:border-indigo-500"
                   >
                     <option value="Science">Science (General)</option>
                     <option value="Biology">Biology & Life Sciences</option>
@@ -250,15 +250,15 @@ export function AILessonBuilderDialog({
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5 block">
-                    <GraduationCap className="inline w-3.5 h-3.5 mr-1 text-emerald-400" />
+                  <label className="text-xs font-bold uppercase tracking-wider text-foreground/80 mb-1.5 block">
+                    <GraduationCap className="inline w-3.5 h-3.5 mr-1 text-emerald-500" />
                     Target Grade Level
                   </label>
                   <select
                     disabled={isGenerating}
                     value={gradeLevel}
                     onChange={(e) => setGradeLevel(e.target.value)}
-                    className="w-full h-12 px-3 rounded-xl bg-slate-950 border border-slate-700 text-slate-200 font-medium text-sm focus:outline-none focus:border-indigo-500"
+                    className="w-full h-12 px-3 rounded-xl bg-background border border-input text-foreground font-medium text-sm focus:outline-none focus:border-indigo-500"
                   >
                     <option value="Primary (Grades 1-5)">Primary / Elementary (Grades 1-5)</option>
                     <option value="Middle School (Grades 6-8)">Middle School (Grades 6-8)</option>
@@ -270,8 +270,8 @@ export function AILessonBuilderDialog({
 
               {/* PAGE COUNT */}
               <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5 block">
-                  <Layers className="inline w-3.5 h-3.5 mr-1 text-purple-400" />
+                <label className="text-xs font-bold uppercase tracking-wider text-foreground/80 mb-1.5 block">
+                  <Layers className="inline w-3.5 h-3.5 mr-1 text-purple-500" />
                   Lesson Length ({pageCount} Whiteboard Pages)
                 </label>
                 <div className="flex gap-2">
@@ -283,8 +283,8 @@ export function AILessonBuilderDialog({
                       onClick={() => setPageCount(count)}
                       className={`flex-1 h-11 rounded-xl text-xs font-bold transition active:scale-95 border ${
                         pageCount === count
-                          ? "bg-indigo-600 text-white border-indigo-400 shadow-md"
-                          : "bg-slate-950 text-slate-400 border-slate-800 hover:bg-slate-800 hover:text-slate-200"
+                          ? "bg-indigo-600 text-white border-indigo-500 shadow-sm"
+                          : "bg-muted text-muted-foreground border-border hover:bg-muted/80 hover:text-foreground"
                       }`}
                     >
                       {count} Pages {count === 6 && "★"}
@@ -295,14 +295,14 @@ export function AILessonBuilderDialog({
 
               {/* PROGRESS ANIMATION */}
               {isGenerating && (
-                <div className="p-4 rounded-2xl bg-indigo-950/40 border border-indigo-500/30 space-y-3 animate-in fade-in">
+                <div className="p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 space-y-3 animate-in fade-in">
                   <div className="flex items-center gap-3">
-                    <Loader2 className="w-5 h-5 text-indigo-400 animate-spin" />
-                    <span className="text-sm font-semibold text-indigo-200">
+                    <Loader2 className="w-5 h-5 text-indigo-500 animate-spin" />
+                    <span className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
                       {steps[generationStep]}
                     </span>
                   </div>
-                  <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
+                  <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
                     <div
                       className="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-400 transition-all duration-300 rounded-full"
                       style={{
@@ -325,11 +325,11 @@ export function AILessonBuilderDialog({
                     onClick={() => setActivePreviewSlide(idx)}
                     className={`flex-shrink-0 px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border ${
                       activePreviewSlide === idx
-                        ? "bg-indigo-600 text-white border-indigo-400 shadow-md"
-                        : "bg-slate-950 text-slate-400 border-slate-800 hover:bg-slate-800 hover:text-slate-200"
+                        ? "bg-indigo-600 text-white border-indigo-500 shadow-sm"
+                        : "bg-muted text-muted-foreground border-border hover:bg-muted/80 hover:text-foreground"
                     }`}
                   >
-                    <span className="h-5 w-5 rounded-full bg-black/30 flex items-center justify-center text-[10px]">
+                    <span className="h-5 w-5 rounded-full bg-black/20 flex items-center justify-center text-[10px]">
                       {idx + 1}
                     </span>
                     <span>
@@ -352,26 +352,26 @@ export function AILessonBuilderDialog({
               </div>
 
               {/* Active Slide Detailed Content Card */}
-              <div className="rounded-2xl border border-slate-800 bg-slate-950 p-5 space-y-4 min-h-[280px]">
+              <div className="rounded-2xl border border-border bg-card p-5 space-y-4 min-h-[280px]">
                 {activePreviewSlide === 0 && (
                   <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-indigo-400 text-sm font-bold">
+                    <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 text-sm font-bold">
                       <ListOrdered className="w-4 h-4" />
                       Slide 1: Title, Objectives & Bell-Ringer
                     </div>
                     <div className="grid grid-cols-2 gap-3 text-xs">
-                      <div className="p-3 rounded-xl bg-blue-950/30 border border-blue-500/20 space-y-1.5">
-                        <div className="font-bold text-blue-300">🎯 Learning Goals</div>
+                      <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 space-y-1.5">
+                        <div className="font-bold text-blue-600 dark:text-blue-400">🎯 Learning Goals</div>
                         {generatedCurriculum.objectives.map((obj, i) => (
-                          <div key={i} className="text-slate-300">
+                          <div key={i} className="text-foreground">
                             • {obj}
                           </div>
                         ))}
                       </div>
-                      <div className="p-3 rounded-xl bg-amber-950/30 border border-amber-500/20 space-y-1.5">
-                        <div className="font-bold text-amber-300">🔔 Bell-Ringer Prompts</div>
+                      <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 space-y-1.5">
+                        <div className="font-bold text-amber-600 dark:text-amber-400">🔔 Bell-Ringer Prompts</div>
                         {generatedCurriculum.bellRingerQuestions.map((q, i) => (
-                          <div key={i} className="text-slate-300">
+                          <div key={i} className="text-foreground">
                             • {q}
                           </div>
                         ))}
@@ -382,7 +382,7 @@ export function AILessonBuilderDialog({
 
                 {activePreviewSlide === 1 && (
                   <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-emerald-400 text-sm font-bold">
+                    <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 text-sm font-bold">
                       <BookOpen className="w-4 h-4" />
                       Slide 2: Core Principles & Structured Notes
                     </div>
@@ -390,11 +390,11 @@ export function AILessonBuilderDialog({
                       {generatedCurriculum.corePrinciples.map((p, i) => (
                         <div
                           key={i}
-                          className="p-3 rounded-xl bg-emerald-950/30 border border-emerald-500/20 space-y-1"
+                          className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 space-y-1"
                         >
-                          <div className="font-bold text-emerald-300">{p.heading}</div>
-                          <div className="text-slate-400 text-[11px]">{p.explanation}</div>
-                          <div className="mt-2 text-slate-300">
+                          <div className="font-bold text-emerald-600 dark:text-emerald-400">{p.heading}</div>
+                          <div className="text-muted-foreground text-[11px]">{p.explanation}</div>
+                          <div className="mt-2 text-foreground">
                             {p.bulletPoints.map((bp, bidx) => (
                               <div key={bidx}>• {bp}</div>
                             ))}
@@ -407,21 +407,21 @@ export function AILessonBuilderDialog({
 
                 {activePreviewSlide === 2 && (
                   <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-purple-400 text-sm font-bold">
+                    <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400 text-sm font-bold">
                       <Workflow className="w-4 h-4" />
                       Slide 3: Visual Concept Flowchart
                     </div>
-                    <div className="text-xs font-semibold text-slate-300">
+                    <div className="text-xs font-semibold text-foreground">
                       {generatedCurriculum.conceptFlowchart.title}
                     </div>
                     <div className="grid grid-cols-4 gap-2 text-xs">
                       {generatedCurriculum.conceptFlowchart.steps.map((st, i) => (
                         <div
                           key={i}
-                          className="p-2.5 rounded-xl bg-purple-950/30 border border-purple-500/20 text-center space-y-1"
+                          className="p-2.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-center space-y-1"
                         >
-                          <div className="font-bold text-purple-300">{st.label}</div>
-                          <div className="text-[11px] text-slate-400">{st.description}</div>
+                          <div className="font-bold text-purple-600 dark:text-purple-400">{st.label}</div>
+                          <div className="text-[11px] text-muted-foreground">{st.description}</div>
                         </div>
                       ))}
                     </div>
@@ -430,18 +430,18 @@ export function AILessonBuilderDialog({
 
                 {activePreviewSlide === 3 && (
                   <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-blue-400 text-sm font-bold">
+                    <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 text-sm font-bold">
                       <LayoutGrid className="w-4 h-4" />
                       Slide 4: Interactive Drag-and-Drop Classification
                     </div>
-                    <div className="text-xs text-slate-300">
+                    <div className="text-xs text-foreground">
                       {generatedCurriculum.sortingActivity.instruction}
                     </div>
                     <div className="flex flex-wrap gap-2 text-xs">
                       {generatedCurriculum.sortingActivity.categories.map((c) => (
                         <span
                           key={c.id}
-                          className="px-3 py-1 rounded-lg bg-blue-900/40 text-blue-200 border border-blue-500/30 font-bold"
+                          className="px-3 py-1 rounded-lg bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30 font-bold"
                         >
                           Category: {c.name}
                         </span>
@@ -451,7 +451,7 @@ export function AILessonBuilderDialog({
                       {generatedCurriculum.sortingActivity.items.map((it) => (
                         <div
                           key={it.id}
-                          className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 truncate"
+                          className="p-2 rounded-lg bg-muted border border-border text-foreground truncate"
                         >
                           📄 {it.text}
                         </div>
@@ -462,7 +462,7 @@ export function AILessonBuilderDialog({
 
                 {activePreviewSlide === 4 && (
                   <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-amber-400 text-sm font-bold">
+                    <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 text-sm font-bold">
                       <FileQuestion className="w-4 h-4" />
                       Slide 5: Classroom Check-for-Understanding Quiz
                     </div>
@@ -470,17 +470,17 @@ export function AILessonBuilderDialog({
                       {generatedCurriculum.quiz.map((q, idx) => (
                         <div
                           key={idx}
-                          className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1"
+                          className="p-2.5 rounded-xl bg-muted/60 border border-border space-y-1"
                         >
-                          <div className="font-bold text-slate-200">
+                          <div className="font-bold text-foreground">
                             {idx + 1}. {q.question}
                           </div>
-                          <div className="grid grid-cols-2 gap-1 text-[11px] text-slate-400">
+                          <div className="grid grid-cols-2 gap-1 text-[11px] text-muted-foreground">
                             {q.options.map((opt, oidx) => (
                               <div
                                 key={oidx}
                                 className={
-                                  oidx === q.correctIndex ? "text-emerald-400 font-semibold" : ""
+                                  oidx === q.correctIndex ? "text-emerald-600 dark:text-emerald-400 font-semibold" : ""
                                 }
                               >
                                 {String.fromCharCode(65 + oidx)}) {opt}{" "}
@@ -496,7 +496,7 @@ export function AILessonBuilderDialog({
 
                 {activePreviewSlide === 5 && (
                   <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-indigo-400 text-sm font-bold">
+                    <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 text-sm font-bold">
                       <Layers className="w-4 h-4" />
                       Slide 6: Vocabulary Flashcards (Tap to Flip)
                     </div>
@@ -504,10 +504,10 @@ export function AILessonBuilderDialog({
                       {generatedCurriculum.flashcards.map((fc, i) => (
                         <div
                           key={i}
-                          className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1"
+                          className="p-2.5 rounded-xl bg-muted/60 border border-border space-y-1"
                         >
-                          <div className="font-bold text-indigo-300">{fc.front}</div>
-                          <div className="text-[11px] text-slate-400">{fc.back}</div>
+                          <div className="font-bold text-indigo-600 dark:text-indigo-400">{fc.front}</div>
+                          <div className="text-[11px] text-muted-foreground">{fc.back}</div>
                         </div>
                       ))}
                     </div>
@@ -516,7 +516,7 @@ export function AILessonBuilderDialog({
 
                 {activePreviewSlide >= 6 && (
                   <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-teal-400 text-sm font-bold">
+                    <div className="flex items-center gap-2 text-teal-600 dark:text-teal-400 text-sm font-bold">
                       <CheckCircle2 className="w-4 h-4" />
                       Slide 7: Student Exit Ticket & Reflections
                     </div>
@@ -524,7 +524,7 @@ export function AILessonBuilderDialog({
                       {generatedCurriculum.exitTicket.prompts.map((pr, i) => (
                         <div
                           key={i}
-                          className="p-3 rounded-xl bg-teal-950/30 border border-teal-500/20 text-slate-300"
+                          className="p-3 rounded-xl bg-teal-500/10 border border-teal-500/20 text-foreground"
                         >
                           📌 Prompt {i + 1}: {pr}
                         </div>
@@ -538,14 +538,14 @@ export function AILessonBuilderDialog({
         </div>
 
         {/* FOOTER */}
-        <div className="p-5 border-t border-slate-800 bg-slate-950/80 flex items-center justify-between shrink-0">
+        <div className="p-5 border-t border-border bg-muted/40 flex items-center justify-between shrink-0">
           {!generatedCurriculum ? (
             <>
               <Button
                 variant="ghost"
                 disabled={isGenerating}
                 onClick={() => onOpenChange(false)}
-                className="text-slate-400 hover:text-white"
+                className="text-muted-foreground hover:text-foreground"
               >
                 Cancel
               </Button>
@@ -572,7 +572,7 @@ export function AILessonBuilderDialog({
               <Button
                 variant="outline"
                 onClick={handleResetToEdit}
-                className="min-h-[52px] rounded-xl border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800 gap-1.5"
+                className="min-h-[52px] rounded-xl border-border bg-background text-foreground hover:bg-muted gap-1.5"
               >
                 <ArrowLeft className="w-4 h-4" />
                 Back to Edit Topic
