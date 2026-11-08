@@ -8431,28 +8431,44 @@ export function WhiteboardCanvas({
                   icon={<Palette className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
                   label="Recolor"
                   description="Change stroke or fill color"
-                  className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-accent text-foreground transition shrink-0"
+                  className={cn(
+                    "flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-accent text-foreground transition shrink-0",
+                    recolorPickerOpen && "bg-accent text-primary ring-2 ring-primary/40",
+                  )}
                   placement={tooltipPlacement}
-                  disabledTooltip={recolorPickerOpen}
-                >
-                  {recolorPickerOpen && (
-                    <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 flex gap-1 p-2 rounded-xl bg-card shadow-xl ring-1 ring-border z-50">
-                      {PALETTE.slice(0, 7).map((c) => (
+                  isPopoverOpen={recolorPickerOpen}
+                  onClosePopover={() => setRecolorPickerOpen(false)}
+                  popover={
+                    <div className="flex items-center gap-1.5 p-2 rounded-2xl bg-card shadow-2xl ring-1 ring-border/80 backdrop-blur">
+                      {[
+                        "#000000",
+                        "#ffffff",
+                        "#ef4444",
+                        "#f97316",
+                        "#eab308",
+                        "#22c55e",
+                        "#06b6d4",
+                        "#3b82f6",
+                        "#8b5cf6",
+                        "#ec4899",
+                      ].map((c) => (
                         <button
                           key={c}
                           type="button"
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
                             recolorSelected(c);
                             pushHistory();
                             setRecolorPickerOpen(false);
                           }}
-                          className="h-6 w-6 rounded-full border border-border"
+                          className="h-7 w-7 rounded-full border-2 border-white/80 dark:border-slate-800 shadow-sm hover:scale-110 active:scale-95 transition-transform shrink-0"
                           style={{ backgroundColor: c }}
+                          aria-label={`Color ${c}`}
                         />
                       ))}
                     </div>
-                  )}
-                </SelectionToolBtn>
+                  }
+                />
 
               {/* 2. Duplicate */}
               <SelectionToolBtn
@@ -8574,37 +8590,54 @@ export function WhiteboardCanvas({
                     icon={<PaintBucket className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
                     label="Fill Color"
                     description="Fill shape with background color"
-                    className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-accent text-foreground transition shrink-0"
+                    className={cn(
+                      "flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-accent text-foreground transition shrink-0",
+                      fillPickerOpen && "bg-accent text-primary ring-2 ring-primary/40",
+                    )}
                     placement={tooltipPlacement}
-                    disabledTooltip={fillPickerOpen}
-                  >
-                    {fillPickerOpen && (
-                      <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 flex gap-1 p-2 rounded-xl bg-card shadow-xl ring-1 ring-border z-50">
+                    isPopoverOpen={fillPickerOpen}
+                    onClosePopover={() => setFillPickerOpen(false)}
+                    popover={
+                      <div className="flex items-center gap-1.5 p-2 rounded-2xl bg-card shadow-2xl ring-1 ring-border/80 backdrop-blur">
                         <button
                           type="button"
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
                             setFillColorSelected("");
                             setFillPickerOpen(false);
                           }}
-                          className="h-6 px-1.5 text-[10px] font-semibold rounded border border-border bg-muted text-muted-foreground"
+                          className="h-7 px-2 text-xs font-semibold rounded-lg border border-border bg-muted text-muted-foreground hover:bg-accent hover:text-foreground transition active:scale-95 shrink-0"
                         >
                           None
                         </button>
-                        {PALETTE.slice(0, 7).map((c) => (
+                        {[
+                          "#000000",
+                          "#ffffff",
+                          "#ef4444",
+                          "#f97316",
+                          "#eab308",
+                          "#22c55e",
+                          "#06b6d4",
+                          "#3b82f6",
+                          "#8b5cf6",
+                          "#ec4899",
+                        ].map((c) => (
                           <button
                             key={c}
                             type="button"
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
                               setFillColorSelected(c);
                               setFillPickerOpen(false);
                             }}
-                            className="h-6 w-6 rounded-full border border-border"
+                            className="h-7 w-7 rounded-full border-2 border-white/80 dark:border-slate-800 shadow-sm hover:scale-110 active:scale-95 transition-transform shrink-0"
                             style={{ backgroundColor: c }}
+                            aria-label={`Fill ${c}`}
                           />
                         ))}
                       </div>
-                    )}
-                  </SelectionToolBtn>
+                    }
+                  />
                 );
               })()}
 
@@ -9085,6 +9118,9 @@ function SelectionToolBtn({
   className,
   placement = "top",
   disabledTooltip = false,
+  popover,
+  isPopoverOpen = false,
+  onClosePopover,
   children,
 }: {
   onClick: (e: React.MouseEvent) => void;
@@ -9094,6 +9130,9 @@ function SelectionToolBtn({
   className: string;
   placement?: "top" | "bottom";
   disabledTooltip?: boolean;
+  popover?: React.ReactNode;
+  isPopoverOpen?: boolean;
+  onClosePopover?: () => void;
   children?: React.ReactNode;
 }) {
   const [showTooltip, setShowTooltip] = useState(false);
@@ -9106,17 +9145,44 @@ function SelectionToolBtn({
   const startPosRef = useRef<{ x: number; y: number } | null>(null);
   const longPressedRef = useRef(false);
   const btnRef = useRef<HTMLButtonElement | null>(null);
+  const popoverRef = useRef<HTMLDivElement | null>(null);
 
   const updatePosition = () => {
     if (!btnRef.current) return;
     const rect = btnRef.current.getBoundingClientRect();
     const screenW = typeof window !== "undefined" ? window.innerWidth : 1000;
-    // Keep tooltip centered on button, but clamp so it never clips off-screen
+    // Keep popover/tooltip centered on button, but clamp so it never clips off-screen
     const rawX = rect.left + rect.width / 2;
-    const clampedX = Math.max(130, Math.min(screenW - 130, rawX));
+    const clampedX = Math.max(160, Math.min(screenW - 160, rawX));
     const y = placement === "bottom" ? rect.bottom + 8 : rect.top - 8;
     setTooltipPos({ x: clampedX, y });
   };
+
+  // Recalculate position whenever popover opens
+  useEffect(() => {
+    if (isPopoverOpen) {
+      updatePosition();
+    }
+  }, [isPopoverOpen]);
+
+  // Click-outside listener for popover
+  useEffect(() => {
+    if (!isPopoverOpen) return;
+    const handleGlobalDown = (e: PointerEvent) => {
+      if (
+        popoverRef.current &&
+        !popoverRef.current.contains(e.target as Node) &&
+        btnRef.current &&
+        !btnRef.current.contains(e.target as Node)
+      ) {
+        onClosePopover?.();
+      }
+    };
+    window.addEventListener("pointerdown", handleGlobalDown, { capture: true });
+    return () => {
+      window.removeEventListener("pointerdown", handleGlobalDown, { capture: true });
+    };
+  }, [isPopoverOpen, onClosePopover]);
 
   const handlePointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -9238,7 +9304,7 @@ function SelectionToolBtn({
     };
   }, []);
 
-  const isVisible = !disabledTooltip && (showTooltip || isHovered);
+  const isTooltipVisible = !disabledTooltip && !isPopoverOpen && (showTooltip || isHovered);
 
   return (
     <div
@@ -9264,8 +9330,30 @@ function SelectionToolBtn({
 
       {children}
 
+      {/* Floating Popover (e.g. Recolor / Fill palette) rendered via Portal so it is never clipped by overflow-x-auto */}
+      {isPopoverOpen &&
+        popover &&
+        tooltipPos &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            ref={popoverRef}
+            className="fixed z-[9999] animate-in fade-in-0 zoom-in-95 duration-150 select-none"
+            style={{
+              left: tooltipPos.x,
+              top: tooltipPos.y,
+              transform: placement === "bottom" ? "translate(-50%, 0)" : "translate(-50%, -100%)",
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {popover}
+          </div>,
+          document.body,
+        )}
+
       {/* Floating Rich Tooltip rendered via Portal */}
-      {isVisible &&
+      {isTooltipVisible &&
         tooltipPos &&
         typeof document !== "undefined" &&
         createPortal(
