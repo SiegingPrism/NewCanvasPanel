@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useShallow } from "zustand/react/shallow";
 import { useWhiteboard } from "@/lib/whiteboard/store";
 import type {
@@ -7191,19 +7192,23 @@ export function WhiteboardCanvas({
   const clampedSelectionPos = useMemo(() => {
     if (!selectionScreenPos || !selectionBounds) return null;
     const screenW = typeof window !== "undefined" ? window.innerWidth : 400;
-    // On mobile devices / narrow viewports, center the floating bar to avoid clipping
+    // On narrow viewports (< 860px), center the floating bar in the viewport
+    // On wider screens (smartboard tablet, desktop), clamp so the ~750px toolbar stays comfortably within viewport
+    const halfBar = 410;
     const x =
-      screenW < 540 ? screenW / 2 : Math.max(220, Math.min(screenW - 220, selectionScreenPos.x));
+      screenW < 860
+        ? screenW / 2
+        : Math.max(halfBar + 16, Math.min(screenW - halfBar - 16, selectionScreenPos.x));
 
-    // If selection is near the top of the screen (underneath TopBar ~60px), flip bar below selection
+    // If selection is near the top of the screen (underneath TopBar ~64px), flip bar below selection
     let y = selectionScreenPos.y;
     let isBelow = false;
-    if (y < 120) {
+    if (y < 130) {
       const bottomPos = toScreen(
         selectionBounds.x + selectionBounds.w / 2,
         selectionBounds.y + selectionBounds.h + 16,
       );
-      y = Math.max(120, bottomPos.y);
+      y = Math.max(130, bottomPos.y);
       isBelow = true;
     }
     return { x, y, isBelow };
@@ -8405,71 +8410,49 @@ export function WhiteboardCanvas({
       {clampedSelectionPos &&
         (() => {
           const tooltipPlacement =
-            clampedSelectionPos.isBelow || clampedSelectionPos.y < 120 ? "bottom" : "top";
+            clampedSelectionPos.isBelow || clampedSelectionPos.y < 130 ? "bottom" : "top";
           return (
             <div
               className={cn(
-                "pointer-events-auto absolute flex -translate-x-1/2 items-center gap-1 sm:gap-1.5 rounded-2xl sm:rounded-full bg-card/95 p-1.5 sm:px-2.5 sm:py-1.5 shadow-xl ring-1 ring-border backdrop-blur z-20 max-w-[min(460px,calc(100vw-16px))] flex-wrap sm:flex-nowrap justify-center",
+                "pointer-events-auto absolute flex -translate-x-1/2 items-center rounded-full bg-card/95 p-1 sm:px-2 sm:py-1.5 shadow-2xl ring-1 ring-border/80 backdrop-blur z-20 max-w-[calc(100vw-24px)] select-none",
                 clampedSelectionPos.isBelow ? "translate-y-0" : "-translate-y-full",
               )}
               style={{ left: clampedSelectionPos.x, top: clampedSelectionPos.y }}
             >
-              <div className="flex items-center gap-1 text-[11px] sm:text-xs font-semibold text-primary px-1 sm:px-1.5 border-r border-border shrink-0 select-none">
-                <span>{targetSelectionIds.length}</span>{" "}
-                {targetSelectionIds.length === 1 ? "item" : "items"}
-              </div>
+              <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto no-scrollbar max-w-full px-1">
+                <div className="flex items-center gap-1 text-[11px] sm:text-xs font-semibold text-primary px-1.5 sm:px-2 border-r border-border shrink-0 select-none">
+                  <span>{targetSelectionIds.length}</span>{" "}
+                  {targetSelectionIds.length === 1 ? "item" : "items"}
+                </div>
 
-              {/* 1. Recolor */}
-              <div className="relative group/recolor flex items-center justify-center shrink-0">
-                <button
-                  type="button"
+                {/* 1. Recolor */}
+                <SelectionToolBtn
                   onClick={() => setRecolorPickerOpen(!recolorPickerOpen)}
-                  aria-label="Recolor"
+                  icon={<Palette className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+                  label="Recolor"
+                  description="Change stroke or fill color"
                   className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-accent text-foreground transition shrink-0"
+                  placement={tooltipPlacement}
+                  disabledTooltip={recolorPickerOpen}
                 >
-                  <Palette className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                </button>
-                {!recolorPickerOpen && (
-                  <div
-                    className={cn(
-                      "pointer-events-none absolute left-1/2 -translate-x-1/2 hidden group-hover/recolor:flex flex-col items-center z-50 animate-in fade-in-0 zoom-in-95 duration-100",
-                      tooltipPlacement === "bottom" ? "top-full mt-2" : "bottom-full mb-2",
-                    )}
-                  >
-                    {tooltipPlacement === "bottom" && (
-                      <div className="w-2 h-2 rotate-45 bg-slate-900 dark:bg-slate-100 -mb-1 shadow-xs" />
-                    )}
-                    <div className="flex flex-col items-center rounded-lg bg-slate-900/95 dark:bg-slate-100/95 text-white dark:text-slate-900 px-2.5 py-1.5 shadow-xl ring-1 ring-white/10 dark:ring-black/10 backdrop-blur whitespace-nowrap text-center">
-                      <span className="font-semibold text-xs leading-tight tracking-wide">
-                        Recolor
-                      </span>
-                      <span className="text-[10px] text-slate-300 dark:text-slate-600 font-normal leading-tight mt-0.5">
-                        Change stroke or fill color
-                      </span>
+                  {recolorPickerOpen && (
+                    <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 flex gap-1 p-2 rounded-xl bg-card shadow-xl ring-1 ring-border z-50">
+                      {PALETTE.slice(0, 7).map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => {
+                            recolorSelected(c);
+                            pushHistory();
+                            setRecolorPickerOpen(false);
+                          }}
+                          className="h-6 w-6 rounded-full border border-border"
+                          style={{ backgroundColor: c }}
+                        />
+                      ))}
                     </div>
-                    {tooltipPlacement === "top" && (
-                      <div className="w-2 h-2 rotate-45 bg-slate-900 dark:bg-slate-100 -mt-1 shadow-xs" />
-                    )}
-                  </div>
-                )}
-                {recolorPickerOpen && (
-                  <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 flex gap-1 p-2 rounded-xl bg-card shadow-xl ring-1 ring-border z-50">
-                    {PALETTE.slice(0, 7).map((c) => (
-                      <button
-                        key={c}
-                        type="button"
-                        onClick={() => {
-                          recolorSelected(c);
-                          pushHistory();
-                          setRecolorPickerOpen(false);
-                        }}
-                        className="h-6 w-6 rounded-full border border-border"
-                        style={{ backgroundColor: c }}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
+                  )}
+                </SelectionToolBtn>
 
               {/* 2. Duplicate */}
               <SelectionToolBtn
@@ -8586,15 +8569,15 @@ export function WhiteboardCanvas({
                 });
                 if (!hasShape) return null;
                 return (
-                  <div className="relative group/fill flex items-center justify-center shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => setFillPickerOpen(!fillPickerOpen)}
-                      aria-label="Fill Color"
-                      className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-accent text-foreground transition shrink-0"
-                    >
-                      <PaintBucket className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                    </button>
+                  <SelectionToolBtn
+                    onClick={() => setFillPickerOpen(!fillPickerOpen)}
+                    icon={<PaintBucket className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+                    label="Fill Color"
+                    description="Fill shape with background color"
+                    className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full hover:bg-accent text-foreground transition shrink-0"
+                    placement={tooltipPlacement}
+                    disabledTooltip={fillPickerOpen}
+                  >
                     {fillPickerOpen && (
                       <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 flex gap-1 p-2 rounded-xl bg-card shadow-xl ring-1 ring-border z-50">
                         <button
@@ -8621,7 +8604,7 @@ export function WhiteboardCanvas({
                         ))}
                       </div>
                     )}
-                  </div>
+                  </SelectionToolBtn>
                 );
               })()}
 
@@ -8957,7 +8940,8 @@ export function WhiteboardCanvas({
                 placement={tooltipPlacement}
               />
             </div>
-          );
+          </div>
+        );
         })()}
 
       {editing && (
@@ -9100,6 +9084,8 @@ function SelectionToolBtn({
   description,
   className,
   placement = "top",
+  disabledTooltip = false,
+  children,
 }: {
   onClick: (e: React.MouseEvent) => void;
   icon: React.ReactNode;
@@ -9107,33 +9093,209 @@ function SelectionToolBtn({
   description: string;
   className: string;
   placement?: "top" | "bottom";
+  disabledTooltip?: boolean;
+  children?: React.ReactNode;
 }) {
+  const [showTooltip, setShowTooltip] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const [isPressed, setIsPressed] = useState(false);
+  const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
+
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const dismissTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const startPosRef = useRef<{ x: number; y: number } | null>(null);
+  const longPressedRef = useRef(false);
+  const btnRef = useRef<HTMLButtonElement | null>(null);
+
+  const updatePosition = () => {
+    if (!btnRef.current) return;
+    const rect = btnRef.current.getBoundingClientRect();
+    const screenW = typeof window !== "undefined" ? window.innerWidth : 1000;
+    // Keep tooltip centered on button, but clamp so it never clips off-screen
+    const rawX = rect.left + rect.width / 2;
+    const clampedX = Math.max(130, Math.min(screenW - 130, rawX));
+    const y = placement === "bottom" ? rect.bottom + 8 : rect.top - 8;
+    setTooltipPos({ x: clampedX, y });
+  };
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
+    longPressedRef.current = false;
+    setIsPressed(true);
+    startPosRef.current = { x: e.clientX, y: e.clientY };
+    updatePosition();
+
+    // 2-second long press (2000 ms)
+    timerRef.current = setTimeout(() => {
+      longPressedRef.current = true;
+      updatePosition();
+      setShowTooltip(true);
+      if (typeof navigator !== "undefined" && navigator.vibrate) {
+        try {
+          navigator.vibrate(40);
+        } catch (_) {}
+      }
+    }, 2000);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!startPosRef.current) return;
+    const dist = Math.hypot(e.clientX - startPosRef.current.x, e.clientY - startPosRef.current.y);
+    if (dist > 8) {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+      setIsPressed(false);
+    }
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    setIsPressed(false);
+    startPosRef.current = null;
+
+    if (longPressedRef.current) {
+      // Prevent button action from executing on long press
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
+      dismissTimerRef.current = setTimeout(() => {
+        setShowTooltip(false);
+        longPressedRef.current = false;
+      }, 2500);
+    }
+  };
+
+  const handlePointerCancel = () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    setIsPressed(false);
+    startPosRef.current = null;
+    if (!longPressedRef.current) {
+      setShowTooltip(false);
+    }
+  };
+
+  const handleMouseEnter = () => {
+    updatePosition();
+    setIsHovered(true);
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+    setIsPressed(false);
+    if (!longPressedRef.current) {
+      setShowTooltip(false);
+    }
+  };
+
+  const handleClickCapture = (e: React.MouseEvent) => {
+    if (longPressedRef.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      setTimeout(() => {
+        longPressedRef.current = false;
+      }, 50);
+    }
+  };
+
+  const handleClick = (e: React.MouseEvent) => {
+    if (longPressedRef.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    onClick(e);
+  };
+
+  // Close tooltip when clicking/tapping elsewhere
+  useEffect(() => {
+    if (!showTooltip) return;
+    const handleGlobalDown = (e: PointerEvent) => {
+      if (btnRef.current && !btnRef.current.contains(e.target as Node)) {
+        setShowTooltip(false);
+        longPressedRef.current = false;
+      }
+    };
+    window.addEventListener("pointerdown", handleGlobalDown, { capture: true });
+    return () => {
+      window.removeEventListener("pointerdown", handleGlobalDown, { capture: true });
+    };
+  }, [showTooltip]);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
+    };
+  }, []);
+
+  const isVisible = !disabledTooltip && (showTooltip || isHovered);
+
   return (
-    <div className="relative group/btn flex items-center justify-center shrink-0">
-      <button type="button" onClick={onClick} aria-label={label} className={className}>
+    <div
+      className="relative flex items-center justify-center shrink-0"
+      onClickCapture={handleClickCapture}
+      onContextMenu={(e) => e.preventDefault()}
+    >
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={handleClick}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        aria-label={label}
+        className={cn(className, isPressed && "scale-95 transition-transform duration-100")}
+      >
         {icon}
       </button>
 
-      {/* Floating Rich Tooltip */}
-      <div
-        className={cn(
-          "pointer-events-none absolute left-1/2 -translate-x-1/2 hidden group-hover/btn:flex flex-col items-center z-50 animate-in fade-in-0 zoom-in-95 duration-100",
-          placement === "bottom" ? "top-full mt-2" : "bottom-full mb-2",
+      {children}
+
+      {/* Floating Rich Tooltip rendered via Portal */}
+      {isVisible &&
+        tooltipPos &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className={cn(
+              "pointer-events-none fixed z-[9999] flex flex-col items-center animate-in fade-in-0 zoom-in-95 duration-150 select-none",
+            )}
+            style={{
+              left: tooltipPos.x,
+              top: tooltipPos.y,
+              transform: placement === "bottom" ? "translate(-50%, 0)" : "translate(-50%, -100%)",
+            }}
+          >
+            {placement === "bottom" && (
+              <div className="w-2.5 h-2.5 rotate-45 bg-slate-900 dark:bg-slate-100 -mb-1.5 shadow-xs" />
+            )}
+            <div className="flex flex-col items-center rounded-xl bg-slate-900/95 dark:bg-slate-100/95 text-white dark:text-slate-900 px-3 py-1.5 shadow-2xl ring-1 ring-white/10 dark:ring-black/10 backdrop-blur whitespace-nowrap text-center max-w-[260px]">
+              <span className="font-bold text-xs leading-tight tracking-wide">{label}</span>
+              {description && (
+                <span className="text-[10px] text-slate-300 dark:text-slate-600 font-normal leading-tight mt-0.5 max-w-[230px]">
+                  {description}
+                </span>
+              )}
+            </div>
+            {placement === "top" && (
+              <div className="w-2.5 h-2.5 rotate-45 bg-slate-900 dark:bg-slate-100 -mt-1.5 shadow-xs" />
+            )}
+          </div>,
+          document.body,
         )}
-      >
-        {placement === "bottom" && (
-          <div className="w-2 h-2 rotate-45 bg-slate-900 dark:bg-slate-100 -mb-1 shadow-xs" />
-        )}
-        <div className="flex flex-col items-center rounded-lg bg-slate-900/95 dark:bg-slate-100/95 text-white dark:text-slate-900 px-2.5 py-1.5 shadow-xl ring-1 ring-white/10 dark:ring-black/10 backdrop-blur whitespace-nowrap text-center">
-          <span className="font-semibold text-xs leading-tight tracking-wide">{label}</span>
-          <span className="text-[10px] text-slate-300 dark:text-slate-600 font-normal leading-tight mt-0.5 max-w-[210px]">
-            {description}
-          </span>
-        </div>
-        {placement === "top" && (
-          <div className="w-2 h-2 rotate-45 bg-slate-900 dark:bg-slate-100 -mt-1 shadow-xs" />
-        )}
-      </div>
     </div>
   );
 }

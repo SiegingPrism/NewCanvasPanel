@@ -1620,6 +1620,7 @@ export const useWhiteboard = create<State & Actions>((set, get) => {
 });
 
 if (typeof window !== "undefined") {
+  (window as any).__whiteboardStore = useWhiteboard;
   // Register dynamic state getter for Multi-Room Live Broadcast
   broadcastService.registerStateGetter(() => {
     const s = useWhiteboard.getState();
