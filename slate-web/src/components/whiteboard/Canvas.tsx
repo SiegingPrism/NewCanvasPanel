@@ -8043,7 +8043,7 @@ export function WhiteboardCanvas({
     <div ref={wrapRef} className="relative h-full w-full overflow-hidden touch-none select-none">
       <canvas
         ref={canvasRef}
-        className="absolute inset-0"
+        className="absolute inset-0 touch-none select-none"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}

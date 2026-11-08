@@ -331,8 +331,18 @@ body,
 
 [data-state][role="dialog"] .overflow-y-auto {
   -webkit-overflow-scrolling: touch;
-  transform: translateZ(0) !important;
-  -webkit-transform: translateZ(0) !important;
+  overscroll-behavior-y: contain;
+}
+
+/* Eliminate expensive GPU backdrop-filter blur on WebView to avoid frame drops */
+.backdrop-blur,
+.backdrop-blur-xs,
+.backdrop-blur-sm,
+.backdrop-blur-md,
+.backdrop-blur-lg,
+.backdrop-blur-xl {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
 }
 
 [data-state][role="dialog"] .bg-card {

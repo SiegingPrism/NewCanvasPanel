@@ -1,6 +1,9 @@
 package com.slate.whiteboard;
 
 import android.os.Bundle;
+import android.view.View;
+import android.view.WindowManager;
+import android.webkit.WebSettings;
 import android.webkit.WebView;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
@@ -24,12 +27,28 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
+    private void optimizeWebView(WebView wv) {
+        if (wv == null) return;
+        wv.setLayerType(View.LAYER_TYPE_NONE, null);
+        wv.setBackgroundColor(android.graphics.Color.WHITE);
+        wv.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        wv.setVerticalScrollBarEnabled(false);
+        wv.setHorizontalScrollBarEnabled(false);
+
+        WebSettings settings = wv.getSettings();
+        if (settings != null) {
+            settings.setJavaScriptEnabled(true);
+            settings.setDomStorageEnabled(true);
+            settings.setDatabaseEnabled(true);
+            settings.setOffscreenPreRaster(true);
+            settings.setCacheMode(WebSettings.LOAD_DEFAULT);
+        }
+    }
+
     private void injectInsets() {
         if (getBridge() != null && getBridge().getWebView() != null) {
             WebView wv = getBridge().getWebView();
-            wv.setLayerType(android.view.View.LAYER_TYPE_NONE, null);
-            wv.setBackgroundColor(android.graphics.Color.WHITE);
-            wv.setOverScrollMode(android.view.View.OVER_SCROLL_NEVER);
+            optimizeWebView(wv);
             wv.post(() -> {
                 String js = "if (typeof document !== 'undefined' && document && document.documentElement) {" +
                             "  document.documentElement.style.setProperty('--sat', '" + mTopDp + "px');" +
@@ -45,16 +64,19 @@ public class MainActivity extends BridgeActivity {
         setTheme(R.style.AppTheme_NoActionBar);
         super.onCreate(savedInstanceState);
         WebView.setWebContentsDebuggingEnabled(true);
+
+        // Hardware accelerate window explicitly
+        getWindow().setFlags(
+            WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
+            WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
+        );
         getWindow().setFormat(android.graphics.PixelFormat.OPAQUE);
         getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.WHITE));
         if (getWindow().getDecorView() != null) {
             getWindow().getDecorView().setBackgroundColor(android.graphics.Color.WHITE);
         }
         if (getBridge() != null && getBridge().getWebView() != null) {
-            WebView wv = getBridge().getWebView();
-            wv.setLayerType(android.view.View.LAYER_TYPE_NONE, null);
-            wv.setBackgroundColor(android.graphics.Color.WHITE);
-            wv.setOverScrollMode(android.view.View.OVER_SCROLL_NEVER);
+            optimizeWebView(getBridge().getWebView());
         }
         hideSystemBars();
 
@@ -83,13 +105,13 @@ public class MainActivity extends BridgeActivity {
                 if (getBridge() != null && getBridge().getWebView() != null) {
                     getBridge().getWebView().post(() -> {
                         String js = "(function() {" +
-                                    "  if (typeof window.__handleAndroidBack === 'function') {" +
-                                    "    try {" +
-                                    "      return window.__handleAndroidBack() === true;" +
-                                    "    } catch (e) { console.error('Back button error:', e); }" +
-                                    "  }" +
-                                    "  return false;" +
-                                    "})();";
+                            "  if (typeof window.__handleAndroidBack === 'function') {" +
+                            "    try {" +
+                            "      return window.__handleAndroidBack() === true;" +
+                            "    } catch (e) { console.error('Back button error:', e); }" +
+                            "  }" +
+                            "  return false;" +
+                            "})();";
                         getBridge().getWebView().evaluateJavascript(js, result -> {
                             boolean handled = "true".equals(result);
                             if (!handled) {
@@ -116,9 +138,7 @@ public class MainActivity extends BridgeActivity {
         getWindow().setFormat(android.graphics.PixelFormat.OPAQUE);
         getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.WHITE));
         if (getBridge() != null && getBridge().getWebView() != null) {
-            WebView wv = getBridge().getWebView();
-            wv.setLayerType(android.view.View.LAYER_TYPE_NONE, null);
-            wv.setBackgroundColor(android.graphics.Color.WHITE);
+            optimizeWebView(getBridge().getWebView());
         }
         hideSystemBars();
         injectInsets();
