@@ -31,7 +31,7 @@ import {
   queryBooks,
   syncCatalogWithServer,
   isTextbookLibraryPermitted,
-  setTextbookLibraryPermitted,
+  fetchTextbookPermissionFromCloud,
   type TextbookBook,
   type TextbookChapter,
   type GradeLevel,
@@ -79,6 +79,9 @@ export function NCERTTextbookLibraryDialog({
   useEffect(() => {
     if (open) {
       setHasPermission(isTextbookLibraryPermitted());
+      fetchTextbookPermissionFromCloud().then((permitted) => {
+        setHasPermission(permitted);
+      });
     }
   }, [open]);
 
@@ -264,24 +267,16 @@ export function NCERTTextbookLibraryDialog({
                 <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
                   <Button
                     onClick={() => window.open("https://ncert.nic.in/textbook.php", "_blank")}
-                    className="w-full sm:w-auto h-10 px-5 text-xs font-bold gap-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white"
+                    className="w-full sm:w-auto h-10 px-5 text-xs font-bold gap-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white cursor-pointer"
                   >
                     <ExternalLink className="h-4 w-4" />
                     <span>Open ncert.nic.in Portal</span>
                   </Button>
 
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setTextbookLibraryPermitted(true);
-                      setHasPermission(true);
-                      toast.success("Institutional preview mode enabled.");
-                    }}
-                    className="w-full sm:w-auto h-10 px-5 text-xs font-semibold gap-2 rounded-xl border-border"
-                  >
-                    <Unlock className="h-4 w-4 text-primary" />
-                    <span>Enable Institutional Preview</span>
-                  </Button>
+                  <div className="w-full sm:w-auto h-10 px-4 flex items-center justify-center text-xs font-medium gap-2 rounded-xl border border-border bg-muted/60 text-muted-foreground select-none">
+                    <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span>Company Cloud Controlled (Awaiting NCERT Agreement)</span>
+                  </div>
                 </div>
               </div>
             </div>

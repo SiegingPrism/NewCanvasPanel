@@ -42,10 +42,6 @@ import { useStrokeRecorderStore } from "@/lib/whiteboard/strokeRecorderStore";
 import { useTranslationMetrics } from "@/lib/ink/translationMetrics";
 import { useTranslation } from "@/lib/i18n/useTranslation";
 import { cn } from "@/lib/utils";
-import {
-  isTextbookLibraryPermitted,
-  setTextbookLibraryPermitted,
-} from "@/lib/curriculum/ncertCatalog";
 
 export function AISettingsDialog({
   open,
@@ -73,13 +69,11 @@ export function AISettingsDialog({
   const [tempKey, setTempKey] = useState(geminiKey);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<ConnectionTestResult | null>(null);
-  const [textbookPermitted, setTextbookPermitted] = useState<boolean>(isTextbookLibraryPermitted());
 
   useEffect(() => {
     if (open) {
       setTempKey(geminiKey);
       setTestResult(null);
-      setTextbookPermitted(isTextbookLibraryPermitted());
     }
   }, [open, geminiKey]);
 

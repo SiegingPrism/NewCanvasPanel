@@ -1,3 +1,5 @@
+import { getSupabase } from "../supabase/client";
+
 /**
  * NCERT & CBSE Official Curriculum Textbook Catalog
  *
@@ -36,18 +38,52 @@ export interface TextbookBook {
 }
 
 /**
- * Institutional & Teacher Permission Switch
- * Digital textbook integration requires institutional licensing / publisher agreement.
- * Disabled by default to comply with publisher copyright terms.
+ * Institutional & Company Permission Flag for Textbooks
+ * Controlled remotely via company cloud configuration in Supabase (app_config table).
+ * Strictly defaults to false (OFF) to comply with NCERT and publisher copyright terms.
  */
-export function isTextbookLibraryPermitted(): boolean {
-  if (typeof localStorage === "undefined") return false;
-  return localStorage.getItem("slate_curriculum_textbooks_enabled") === "true";
+let cachedRemotePermission = false;
+let lastRemoteCheckTime = 0;
+const REMOTE_CHECK_TTL_MS = 60 * 60 * 1000; // Cache check for 1 hour
+
+export async function fetchTextbookPermissionFromCloud(): Promise<boolean> {
+  const now = Date.now();
+  if (now - lastRemoteCheckTime < REMOTE_CHECK_TTL_MS && lastRemoteCheckTime > 0) {
+    return cachedRemotePermission;
+  }
+
+  try {
+    const supabase = getSupabase();
+    if (!supabase) return false;
+
+    const { data, error } = await supabase
+      .from("app_config")
+      .select("value")
+      .eq("key", "textbooks_enabled")
+      .maybeSingle();
+
+    if (!error && data) {
+      cachedRemotePermission = data.value === true || data.value === "true";
+      lastRemoteCheckTime = now;
+      return cachedRemotePermission;
+    }
+  } catch {
+    /* Supabase offline or network unavailable */
+  }
+
+  return false;
 }
 
+export function isTextbookLibraryPermitted(): boolean {
+  return cachedRemotePermission;
+}
+
+/**
+ * Local toggling is disabled for users. Permission is governed exclusively via Supabase app_config.
+ * For development & unit testing only, programmatic overrides are permitted.
+ */
 export function setTextbookLibraryPermitted(permitted: boolean): void {
-  if (typeof localStorage === "undefined") return;
-  localStorage.setItem("slate_curriculum_textbooks_enabled", permitted ? "true" : "false");
+  cachedRemotePermission = permitted;
 }
 
 /**

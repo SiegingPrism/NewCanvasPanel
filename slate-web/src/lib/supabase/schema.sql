@@ -168,7 +168,7 @@ DROP POLICY IF EXISTS "Allow authenticated users to upload shared notes" ON stor
 DROP POLICY IF EXISTS "Allow Board Uploads to Shared Notes" ON storage.objects;
 CREATE POLICY "Signed-in users can upload shared notes"
 ON storage.objects FOR INSERT
-TO authenticated, anon
+TO authenticated
 WITH CHECK (bucket_id = 'shared-notes');
 
 -- 3. Rule allowing anyone to read shared notes
@@ -248,6 +248,36 @@ BEGIN
         DROP FUNCTION IF EXISTS public.clear_old_broadcast_images(INT);
     END IF;
 END $$;
+
+-- ==============================================================================
+-- 12. APP CONFIGURATION & REMOTE FEATURE FLAGS (Company-controlled feature gates)
+-- ==============================================================================
+
+CREATE TABLE IF NOT EXISTS public.app_config (
+    key TEXT PRIMARY KEY,
+    value JSONB NOT NULL,
+    description TEXT,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- RLS: Public read access for clients, but strictly NO client-side inserts/updates/deletes.
+-- Only company administrators with Supabase Service Role can toggle features.
+ALTER TABLE public.app_config ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public can read app config" ON public.app_config;
+CREATE POLICY "Public can read app config" ON public.app_config
+    FOR SELECT USING (true);
+
+-- Default configuration: NCERT digital textbooks switch is locked OFF (false)
+-- until official institutional licensing / publisher agreement is formalized.
+INSERT INTO public.app_config (key, value, description)
+VALUES (
+    'textbooks_enabled',
+    'false'::jsonb,
+    'Institutional & Publisher permission for NCERT textbook integration'
+)
+ON CONFLICT (key) DO NOTHING;
+
 
 
 

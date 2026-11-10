@@ -63,7 +63,9 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         setTheme(R.style.AppTheme_NoActionBar);
         super.onCreate(savedInstanceState);
-        WebView.setWebContentsDebuggingEnabled(true);
+        if (0 != (getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)) {
+            WebView.setWebContentsDebuggingEnabled(true);
+        }
 
         // Hardware accelerate window explicitly
         getWindow().setFlags(

@@ -6,6 +6,7 @@ import { useNotes } from "@/lib/notesStore";
 import { useAISettings } from "@/lib/ai/aiSettingsStore";
 import { AuthDialog } from "@/components/auth/AuthDialog";
 import { AISettingsDialog } from "@/components/ai/AISettingsDialog";
+import { PrivacyPolicyDialog } from "@/components/legal/PrivacyPolicyDialog";
 import { BottomNavBar } from "@/components/navigation/BottomNavBar";
 import { Button } from "@/components/ui/button";
 import {
@@ -63,6 +64,7 @@ function ProfilePage() {
 
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
   const [aiSettingsOpen, setAiSettingsOpen] = useState(false);
+  const [privacyPolicyOpen, setPrivacyPolicyOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
@@ -372,6 +374,26 @@ function ProfilePage() {
                 </div>
               </div>
             </div>
+
+            {/* Privacy Policy & Student Data Protection */}
+            <button
+              type="button"
+              onClick={() => setPrivacyPolicyOpen(true)}
+              className="flex w-full items-center justify-between p-3.5 hover:bg-accent/60 transition cursor-pointer text-left group border-t border-border/50"
+            >
+              <div className="flex items-center gap-3">
+                <div className="grid h-9 w-9 place-items-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shrink-0">
+                  <CheckCircle2 className="h-4 w-4" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-semibold text-foreground">Privacy Policy & Student Data</h4>
+                  <p className="text-[11px] text-muted-foreground">
+                    DPDP Act 2023 & Google Play Families Compliant
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground/70 group-hover:text-foreground transition-colors" />
+            </button>
           </div>
         </div>
 
@@ -409,6 +431,7 @@ function ProfilePage() {
       {/* Dialogs */}
       <AuthDialog open={authDialogOpen} onOpenChange={setAuthDialogOpen} />
       <AISettingsDialog open={aiSettingsOpen} onOpenChange={setAiSettingsOpen} />
+      <PrivacyPolicyDialog open={privacyPolicyOpen} onOpenChange={setPrivacyPolicyOpen} />
 
       {/* Delete Confirmation Alert Dialog */}
       <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
